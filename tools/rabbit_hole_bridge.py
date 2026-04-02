@@ -405,17 +405,18 @@ class RabbitHoleBridgeTool(Tool):
                 if not text:
                     return "Error: text is required for ingest_text"
                 focus = kwargs.get("focus_entity", "")
+                query = focus or "research findings"
                 # Use rabbit-hole's chat/ingest endpoint which does LLM extraction
+                # Endpoint expects: {query: str, text: str}
                 async with httpx.AsyncClient(timeout=60) as client:
                     resp = await client.post(
                         f"{_BASE_URL}/api/chat/ingest",
-                        json={"text": text, "focusEntity": focus},
+                        json={"query": query, "text": text},
                     )
                     resp.raise_for_status()
                     data = resp.json()
-                extracted = data.get("data", {})
-                entity_count = len(extracted.get("entities", []))
-                rel_count = len(extracted.get("relationships", []))
+                entity_count = data.get("entitiesExtracted", 0)
+                rel_count = data.get("relationshipsExtracted", 0)
                 return (
                     f"Extracted and ingested from text: {entity_count} entities, {rel_count} relationships. "
                     f"Focus: {focus or 'general'}"
