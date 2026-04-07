@@ -1142,6 +1142,110 @@ def _main():
             }],
         }
 
+    # ─── A2A protocol ────────────────────────────────────────────────────────
+    # JSON-RPC 2.0 endpoint consumed by protoWorkstacean's A2A plugin.
+    # Supports: message/send (synchronous — waits for full response)
+
+    _A2A_API_KEY = os.environ.get("RESEARCHER_API_KEY", "")
+
+    AGENT_CARD = {
+        "name": "researcher",
+        "description": (
+            "Autonomous AI/ML research assistant. Monitors HuggingFace, GitHub, "
+            "and Discord for the latest papers, model releases, and trends. "
+            "Maintains a hybrid vector+BM25 knowledge store."
+        ),
+        "url": f"http://researcher:7870",
+        "provider": {"organization": "protoLabsAI"},
+        "version": "1.0",
+        "capabilities": {"streaming": False, "pushNotifications": False},
+        "skills": [
+            {
+                "id": "deep_research",
+                "name": "Deep Research",
+                "description": (
+                    "Research a topic in depth: searches HuggingFace, GitHub, web, "
+                    "and internal knowledge store. Returns a structured findings report."
+                ),
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/markdown"],
+            },
+            {
+                "id": "summarize",
+                "name": "Summarize",
+                "description": (
+                    "Summarize recent findings, papers, or model releases from the "
+                    "knowledge store. Optionally scoped to a topic or time window."
+                ),
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/markdown"],
+            },
+        ],
+    }
+
+    @fastapi_app.get("/.well-known/agent.json", include_in_schema=False)
+    async def _agent_card():
+        return AGENT_CARD
+
+    from fastapi import Request as _FRequest
+
+    @fastapi_app.post("/a2a", include_in_schema=False)
+    async def _a2a(request: _FRequest, req: dict):
+        # Optional API key auth — workstacean sends X-API-Key header
+        if _A2A_API_KEY and request.headers.get("x-api-key") != _A2A_API_KEY:
+            from fastapi.responses import JSONResponse as _JSONResponse
+            return _JSONResponse({"detail": "Unauthorized"}, status_code=401)
+
+        rpc_id = req.get("id")
+        method = req.get("method", "")
+        params = req.get("params", {})
+
+        if method != "message/send":
+            return {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+            }
+
+        message = params.get("message", {})
+        context_id = params.get("contextId", f"a2a-{rpc_id}")
+
+        # Extract text from A2A message parts
+        parts = message.get("parts", [])
+        text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
+        if not text:
+            text = next((p.get("text", "") for p in parts), "")
+
+        if not text:
+            return {
+                "jsonrpc": "2.0",
+                "id": rpc_id,
+                "error": {"code": -32600, "message": "No text content in message"},
+            }
+
+        import uuid as _uuid
+        task_id = str(_uuid.uuid4())
+
+        result_messages = await chat(text, context_id)
+        assistant_parts = [
+            m["content"] for m in result_messages
+            if m.get("role") == "assistant" and m.get("content")
+        ]
+        response_text = "\n\n".join(assistant_parts)
+
+        return {
+            "jsonrpc": "2.0",
+            "id": rpc_id,
+            "result": {
+                "id": task_id,
+                "contextId": context_id,
+                "status": {"state": "completed"},
+                "artifacts": [{
+                    "parts": [{"kind": "text", "text": response_text}]
+                }],
+            },
+        }
+
     # Prometheus /metrics endpoint
     if metrics.is_enabled():
         try:

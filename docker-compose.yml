@@ -71,13 +71,17 @@ services:
       # Rabbit Hole integration
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}
       - RABBIT_HOLE_URL=${RABBIT_HOLE_URL:-http://host.docker.internal:3399}
+      # A2A authentication — workstacean sends this as X-API-Key
+      - RESEARCHER_API_KEY=${RESEARCHER_API_KEY:-}
 
     stdin_open: true
     tty: true
 
     networks:
-      - default
-      - gateway
+      default:
+      gateway:
+        aliases:
+          - researcher   # workstacean resolves http://researcher:7870/a2a via ai_default
 
     command: ["/opt/protoresearcher/entrypoint.sh"]
 
