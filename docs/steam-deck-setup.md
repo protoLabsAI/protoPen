@@ -20,8 +20,8 @@ passwd
 sudo systemctl enable sshd
 sudo systemctl start sshd
 
-# Grab the IP for SSH from your workstation
-ip addr show | grep 'inet ' | grep -v 127.0.0.1
+# Grab the IP
+hostname -I
 ```
 
 **From your workstation:**
@@ -33,31 +33,40 @@ ssh deck@<DECK_IP>
 
 > **Tip:** For key-based auth (no password prompt), run from your workstation:
 > ```bash
+> ssh-keygen -t ed25519  # if you don't already have a key
 > ssh-copy-id deck@<DECK_IP>
 > ```
 
 ---
 
-## 2. Disable Read-Only Filesystem
+## 2. Disable Read-Only Filesystem & Configure Sudo
 
-SteamOS mounts the root filesystem as read-only by default. BlackArch repo setup requires `pacman`, which needs a writable root.
+SteamOS mounts the root filesystem as read-only. We need to disable that first, then set up passwordless sudo for remote commands.
+
+**On the Steam Deck** (run these manually — sudo needs a password the first time):
 
 ```bash
 # Disable the read-only lock
 sudo steamos-readonly disable
 
-# Initialize pacman keyring (may already be done)
+# Set up passwordless sudo (must load AFTER the wheel group rule)
+echo 'deck ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/zz-deck
+sudo chmod 0440 /etc/sudoers.d/zz-deck
+
+# Initialize pacman keyring
 sudo pacman-key --init
 sudo pacman-key --populate archlinux
 ```
 
-> **Note:** SteamOS updates may re-enable the read-only lock. If `pacman` stops working after an update, run `sudo steamos-readonly disable` again.
+> **Why `zz-deck`?** SteamOS has `/etc/sudoers.d/wheel` which requires a password for the wheel group. Sudoers drop-in files are processed alphabetically — `zz-` ensures our NOPASSWD rule loads last and takes precedence.
+
+> **Note:** SteamOS updates may re-enable the read-only lock and wipe `/etc/sudoers.d/zz-deck`. If `pacman` or sudo stops working after an update, re-run the commands above.
 
 ---
 
 ## 3. Install BlackArch Repository
 
-Layer the BlackArch repo on top of SteamOS — this adds ~2800 pentest tools available through `pacman` without replacing the OS.
+Layer the BlackArch repo on top of SteamOS — this adds ~2800 pentest tools via `pacman` without replacing the OS.
 
 ```bash
 # Download and run the BlackArch strap script
@@ -78,8 +87,10 @@ sudo pacman -Sy --noconfirm \
     nmap \
     aircrack-ng \
     bettercap \
-    tshark
+    wireshark-cli
 ```
+
+> **Note:** `tshark` is part of the `wireshark-cli` package on Arch.
 
 Verify:
 
@@ -92,31 +103,19 @@ tshark --version | head -1
 
 ---
 
-## 4. Install Python 3.12 & Git
+## 4. Install Python & Git
 
-SteamOS may ship with an older Python. Ensure we have 3.12+ and git:
+SteamOS Holo ships with Python 3.13 and git pre-installed. Verify:
+
+```bash
+python --version  # Should be 3.12+
+git --version
+```
+
+If Python is missing or too old:
 
 ```bash
 sudo pacman -Sy --noconfirm python python-pip git base-devel
-python --version  # Should be 3.12+
-```
-
-If SteamOS's pacman ships Python < 3.12, use pyenv:
-
-```bash
-# Install pyenv
-curl https://pyenv.run | bash
-
-# Add to shell (append to ~/.bashrc)
-echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
-echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
-echo 'eval "$(pyenv init -)"' >> ~/.bashrc
-source ~/.bashrc
-
-# Install and set Python 3.12
-pyenv install 3.12
-pyenv global 3.12
-python --version
 ```
 
 ---
@@ -127,29 +126,22 @@ python --version
 sudo pacman -Sy --noconfirm github-cli
 ```
 
-If `github-cli` isn't available in the repos:
-
-```bash
-# Install from official tarball
-GH_VERSION=$(curl -s https://api.github.com/repos/cli/cli/releases/latest | grep tag_name | cut -d '"' -f 4 | sed 's/v//')
-curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
-    | sudo tar xz -C /usr/local --strip-components=1
-gh --version
-```
-
-Authenticate:
+Authenticate and set up git credential helper:
 
 ```bash
 gh auth login
+gh auth setup-git  # wires gh as git credential helper for HTTPS
 ```
+
+> **Important:** Run `gh auth setup-git` — without it, `git clone` over HTTPS will fail with "could not read Username" since there's no interactive TTY in remote SSH sessions.
 
 ---
 
 ## 6. Clone & Install protoPen
 
 ```bash
-# Clone with submodules
-gh repo clone protoLabsAI/protoPen ~/protoPen
+# Clone (uses HTTPS via gh credential helper)
+git clone https://github.com/protoLabsAI/protoPen.git ~/protoPen
 cd ~/protoPen
 git submodule update --init --recursive
 
@@ -180,12 +172,10 @@ python -m pytest tests/ -v
 **Expected output:**
 
 ```
-187 passed, 9 skipped
+196 passed
 ```
 
-The 9 skips are integration tests that require a running LLM gateway — expected on a fresh setup.
-
-If all 187 pass, protoPen is installed correctly and ready for hardware hookup.
+If all 196 pass, protoPen is installed correctly and ready for hardware hookup.
 
 ---
 
@@ -206,8 +196,10 @@ Once tests pass, you can:
 | Issue | Fix |
 |---|---|
 | `pacman` fails with read-only errors | `sudo steamos-readonly disable` |
+| `sudo` still asks for password | Check file is named `zz-deck` with `0440` perms: `ls -la /etc/sudoers.d/zz-deck` |
 | BlackArch strap fails GPG check | `sudo pacman-key --refresh-keys` |
-| `python` not found after pyenv install | `source ~/.bashrc` or restart shell |
+| `git clone` fails "could not read Username" | Run `gh auth setup-git` to wire credential helper |
+| `git clone` fails "Host key verification" | Run `gh config set git_protocol https` to use HTTPS instead of SSH |
 | Serial devices not showing up | Check USB connections, run `dmesg \| tail` for errors |
 | `pip install` fails on `sqlite-vec` | Install build deps: `sudo pacman -S gcc cmake` |
-| Tests import error on `pyudev` | Expected on non-Linux or if pyudev not installed — it's optional |
+| SteamOS update broke everything | Re-run steps 2-3 (read-only disable, sudoers, pacman keyring) |
