@@ -1,4 +1,4 @@
-# protoResearcher LangGraph agent configuration
+# protoPen LangGraph agent configuration
 # Used when AGENT_BACKEND=langgraph
 
 model:
@@ -11,17 +11,31 @@ model:
   max_iterations: 75
 
 subagents:
+  # Research
   explorer:
     enabled: true
-    tools: [discord_feed, huggingface, github_trending, browser]
+    tools: [discord_feed, huggingface, github_trending, browser, rabbit_hole_bridge]
     max_turns: 30
   analyst:
     enabled: true
-    tools: [paper_reader, research_memory, browser]
+    tools: [paper_reader, research_memory, browser, rabbit_hole_bridge]
     max_turns: 40
   writer:
     enabled: true
-    tools: [research_memory, discord_feed]
+    tools: [research_memory, discord_feed, rabbit_hole_bridge]
+    max_turns: 20
+  # Pentest
+  recon:
+    enabled: true
+    tools: [device_manager, portapack, flipper, marauder, blackarch, engagement]
+    max_turns: 30
+  exploit:
+    enabled: true
+    tools: [device_manager, portapack, flipper, marauder, blackarch, engagement]
+    max_turns: 25
+  reporter:
+    enabled: true
+    tools: [engagement, research_memory, discord_feed]
     max_turns: 20
 
 middleware:

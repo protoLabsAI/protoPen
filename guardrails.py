@@ -1,10 +1,10 @@
-"""Guardrails, query rewriting, caching, and document grading for protoResearcher.
+"""Guardrails for protoPen.
 
-Patterns adopted from production-agentic-rag-course:
 - Scope validation before tool calls (0-100 score, threshold 60)
 - Query rewriting on sparse results
 - SHA256 response caching with TTL
 - Binary document relevance grading
+- Engagement mode enforcement (pentest tool gating)
 """
 
 import hashlib
@@ -253,3 +253,55 @@ async def rewrite_query(query: str, llm_url: str = "http://127.0.0.1:8317/v1") -
                 result = result + " " + expanded
                 break
         return result
+
+
+# ---------------------------------------------------------------------------
+# Engagement mode enforcement — pentest tool gating
+# ---------------------------------------------------------------------------
+
+# Tools that require engagement mode checks (maps tool action → risk key
+# in engagement-config.json tool_risk table).
+_PENTEST_TOOL_PREFIXES = {
+    "portapack", "flipper", "marauder", "blackarch", "engagement",
+    "device_manager",
+}
+
+
+def check_engagement_mode(tool_name: str, engagement_manager: Any) -> dict:
+    """Pre-flight check: is the requested tool permitted under the current engagement mode?
+
+    Args:
+        tool_name: The tool action key (e.g. "wifi_deauth", "flip_subghz_tx").
+        engagement_manager: An EngagementManager instance (from tools.engagement).
+
+    Returns:
+        {"pass": bool, "mode": str, "reason": str}
+    """
+    if engagement_manager is None:
+        return {"pass": True, "mode": "unknown", "reason": "no engagement manager — skipping check"}
+
+    # Only gate pentest tools; research tools pass through unconditionally
+    tool_prefix = tool_name.split("_")[0] if "_" in tool_name else tool_name
+    if tool_prefix not in _PENTEST_TOOL_PREFIXES and tool_name not in _PENTEST_TOOL_PREFIXES:
+        return {"pass": True, "mode": engagement_manager.mode.name, "reason": "non-pentest tool"}
+
+    allowed = engagement_manager.is_allowed(tool_name)
+    mode = engagement_manager.mode
+    if allowed:
+        return {
+            "pass": True,
+            "mode": mode.name,
+            "reason": f"tool '{tool_name}' permitted at {mode.name} level",
+        }
+
+    risk = engagement_manager._tool_risk.get(tool_name, 0)
+    required_modes = {0: "PASSIVE", 1: "ACTIVE", 2: "REDTEAM"}
+    required = required_modes.get(risk, f"risk={risk}")
+    return {
+        "pass": False,
+        "mode": mode.name,
+        "reason": (
+            f"tool '{tool_name}' requires {required} mode "
+            f"(risk={risk}), current mode is {mode.name} (level={mode.value})"
+        ),
+    }
