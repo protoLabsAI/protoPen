@@ -2,10 +2,10 @@
 # Used when AGENT_BACKEND=langgraph
 
 model:
-  provider: vllm  # cliproxy (Claude via OAuth) or vllm (local)
+  provider: gateway  # LiteLLM gateway on ava (Tailscale)
   name: local
-  api_base: http://ava:4000/v1  # LiteLLM gateway on ava (Tailscale)
-  api_key: env  # read from OPENAI_API_KEY at runtime
+  api_base: http://ava:4000/v1
+  api_key: ""  # read from OPENAI_API_KEY env at runtime
   temperature: 0.3
   max_tokens: 4096
   max_iterations: 75
