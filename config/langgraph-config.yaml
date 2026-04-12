@@ -4,8 +4,8 @@
 model:
   provider: vllm  # cliproxy (Claude via OAuth) or vllm (local)
   name: local
-  api_base: http://host.docker.internal:8000/v1
-  api_key: none
+  api_base: http://ava:4000/v1  # LiteLLM gateway on ava (Tailscale)
+  api_key: env  # read from OPENAI_API_KEY at runtime
   temperature: 0.3
   max_tokens: 4096
   max_iterations: 75
