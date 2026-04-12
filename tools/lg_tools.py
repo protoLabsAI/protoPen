@@ -25,7 +25,7 @@ from tools.lab_monitor import LabMonitorTool
 # Pentest tool imports
 from tools.device_manager import DeviceManager
 from tools.portapack import PortaPackTool
-from tools.flipper import FlipperZeroTool
+from tools.flipper import FlipperTool
 from tools.marauder import MarauderTool
 from tools.blackarch import BlackArchTool
 from tools.engagement import EngagementManager
@@ -47,7 +47,7 @@ _lab_monitor = LabMonitorTool()
 # ─── Pentest singletons (lazy — created on first get_pentest_tools() call) ───
 _device_manager: DeviceManager | None = None
 _portapack: PortaPackTool | None = None
-_flipper: FlipperZeroTool | None = None
+_flipper: FlipperTool | None = None
 _marauder: MarauderTool | None = None
 _blackarch: BlackArchTool | None = None
 _engagement: EngagementManager | None = None
@@ -450,7 +450,7 @@ async def flipper(
         conn = _device_manager.connections.get("flipper")
         if conn is None:
             return "Error: Flipper not connected. Use device_manager connect first."
-        _flipper = FlipperZeroTool(conn)
+        _flipper = FlipperTool(conn)
 
     return await _flipper.execute(
         action=action, command=command, frequency=frequency,
