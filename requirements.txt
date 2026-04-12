@@ -12,3 +12,9 @@ websockets>=12.0
 langchain>=1.2.3
 langgraph>=1.1.0
 langchain-openai>=0.3.0
+
+# Hardware serial interfaces
+pyserial>=3.5
+
+# BlackArch tool output parsing
+xmltodict>=0.13

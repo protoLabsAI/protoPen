@@ -1,0 +1,61 @@
+{
+  "instance": {
+    "name": "protoPen",
+    "description": "Mobile pen testing agent — Steam Deck + PortaPack H4M + Flipper Zero + WiFi Marauder"
+  },
+  "devices": {
+    "portapack": {
+      "type": "serial",
+      "serial_number": "",
+      "fallback_port": "/dev/ttyACM0",
+      "prompt": "ch>",
+      "timeout": 3
+    },
+    "flipper": {
+      "type": "serial",
+      "serial_number": "",
+      "fallback_port": "/dev/ttyACM1",
+      "prompt": ">: ",
+      "timeout": 3
+    },
+    "marauder": {
+      "type": "serial",
+      "serial_number": "",
+      "fallback_port": "/dev/ttyUSB0",
+      "baud_rate": 115200,
+      "timeout": 3
+    },
+    "wifi_adapter": {
+      "type": "network",
+      "interface": "wlan1",
+      "monitor_interface": "wlan1mon"
+    }
+  },
+  "engagement": {
+    "default_mode": "passive",
+    "workspace_dir": "/home/deck/engagements",
+    "alert_webhook": "",
+    "alert_channel_id": ""
+  },
+  "risk_levels": {
+    "passive": 0,
+    "active": 1,
+    "redteam": 2
+  },
+  "tool_risk": {
+    "rf_scan": 0, "rf_read_screen": 0, "rf_radio_info": 0, "rf_screenshot": 0,
+    "rf_capture": 0, "rf_set_frequency": 0, "rf_app_start": 0,
+    "rf_replay": 1, "rf_send_pocsag": 1,
+    "flip_subghz_rx": 0, "flip_nfc_read": 0, "flip_rfid_read": 0, "flip_ir_rx": 0,
+    "flip_ble_scan": 0, "flip_storage_list": 0,
+    "flip_subghz_tx": 1, "flip_nfc_write": 1, "flip_rfid_write": 1, "flip_ir_tx": 1,
+    "flip_subghz_bruteforce": 2,
+    "wifi_scan_aps": 0, "wifi_scan_stations": 0,
+    "wifi_sniff_pmkid": 1, "wifi_deauth": 2, "wifi_beacon_spam": 2,
+    "wifi_evil_portal": 2, "wifi_karma": 2,
+    "nmap_scan": 0, "nmap_vuln_scan": 1,
+    "aircrack_monitor": 0, "aircrack_capture": 0, "aircrack_crack": 1,
+    "bettercap_recon": 0, "bettercap_mitm": 2,
+    "shell_exec": 1
+  }
+}
