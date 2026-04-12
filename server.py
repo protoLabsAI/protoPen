@@ -1146,20 +1146,55 @@ def _main():
     # JSON-RPC 2.0 endpoint consumed by protoWorkstacean's A2A plugin.
     # Supports: message/send (synchronous — waits for full response)
 
-    _A2A_API_KEY = os.environ.get("RESEARCHER_API_KEY", "")
+    _A2A_API_KEY = os.environ.get("PROTOPEN_API_KEY", os.environ.get("RESEARCHER_API_KEY", ""))
 
     AGENT_CARD = {
-        "name": "researcher",
+        "name": "protopen",
         "description": (
-            "Autonomous AI/ML research assistant. Monitors HuggingFace, GitHub, "
-            "and Discord for the latest papers, model releases, and trends. "
-            "Maintains a hybrid vector+BM25 knowledge store."
+            "Autonomous pen testing and AI research agent. Combines hardware-in-the-loop "
+            "security assessments (PortaPack H4M, Flipper Zero, WiFi Marauder, BlackArch) "
+            "with AI/ML research capabilities (HuggingFace, GitHub, Discord, knowledge store). "
+            "Runs on a Steam Deck with attached RF/WiFi/RFID peripherals."
         ),
-        "url": f"http://researcher:7870",
+        "url": "http://steamdeck:7870",
         "provider": {"organization": "protoLabsAI"},
-        "version": "1.0",
+        "version": "2.0",
         "capabilities": {"streaming": False, "pushNotifications": False},
         "skills": [
+            {
+                "id": "passive_recon",
+                "name": "Passive Reconnaissance",
+                "description": (
+                    "Perform passive reconnaissance on a target scope. Includes WiFi AP/station "
+                    "enumeration, RF spectrum survey, network host discovery, and service "
+                    "fingerprinting. No active probing or transmission — observation only."
+                ),
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/markdown"],
+            },
+            {
+                "id": "active_pentest",
+                "name": "Active Penetration Test",
+                "description": (
+                    "Execute controlled active exploitation against a defined scope. Includes "
+                    "PMKID capture, service vulnerability scanning, RF signal replay, RFID "
+                    "read/write. Requires active or redteam engagement mode. Returns findings "
+                    "with severity ratings and evidence."
+                ),
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/markdown"],
+            },
+            {
+                "id": "security_report",
+                "name": "Security Report",
+                "description": (
+                    "Generate a professional security assessment report from engagement "
+                    "findings. Triages by severity, correlates across RF/WiFi/network domains, "
+                    "identifies attack paths, and provides actionable remediation priorities."
+                ),
+                "inputModes": ["text/plain"],
+                "outputModes": ["text/markdown"],
+            },
             {
                 "id": "deep_research",
                 "name": "Deep Research",
