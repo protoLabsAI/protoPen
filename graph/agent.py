@@ -123,6 +123,7 @@ def create_researcher_graph(
     config: LangGraphConfig,
     knowledge_store=None,
     include_subagents: bool = True,
+    sitrep: str = "",
 ):
     """Create the main protoResearcher LangGraph agent.
 
@@ -145,6 +146,7 @@ def create_researcher_graph(
     # Build system prompt
     system_prompt = build_system_prompt(
         include_subagents=include_subagents,
+        hardware_status=sitrep,
     )
 
     # Create agent with middleware (DeerFlow pattern)

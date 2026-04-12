@@ -25,6 +25,7 @@ def build_system_prompt(
     workspace: str = "/sandbox",
     include_subagents: bool = True,
     research_context: str = "",
+    hardware_status: str = "",
 ) -> str:
     """Build the complete system prompt for the lead agent."""
     parts = []
@@ -40,7 +41,11 @@ def build_system_prompt(
             "You operate hardware-in-the-loop security assessments and conduct AI/ML research."
         )
 
-    # 2. Skills
+    # 2. Hardware / network / engagement status (injected at boot)
+    if hardware_status:
+        parts.append(hardware_status)
+
+    # 3. Skills
     skill = _read_file(f"{workspace}/skills/research/SKILL.md")
     if skill:
         parts.append(f"\n# Research Methodology\n\n{skill}")

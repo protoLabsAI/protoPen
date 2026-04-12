@@ -106,6 +106,7 @@ def _init_langgraph_agent():
     from graph.agent import create_researcher_graph
     from graph.config import LangGraphConfig
     from langgraph.checkpoint.memory import MemorySaver
+    from sitrep import run_sitrep
 
     config_path = Path(__file__).parent / "config" / "langgraph-config.yaml"
     _graph_config = LangGraphConfig.from_yaml(config_path)
@@ -113,10 +114,17 @@ def _init_langgraph_agent():
     store = _get_store()
     _checkpointer = MemorySaver()
 
+    # Run startup sitrep — hardware, network, engagement status
+    engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
+    status_block = run_sitrep(engagement_config)
+    if status_block:
+        print(f"[sitrep] Startup probe injected into system prompt")
+
     _graph = create_researcher_graph(
         config=_graph_config,
         knowledge_store=store,
         include_subagents=True,
+        sitrep=status_block,
     )
 
     print(f"[researcher] LangGraph agent initialized (model: {_graph_config.model_name})")
