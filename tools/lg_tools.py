@@ -1,13 +1,18 @@
-"""LangGraph tool adapters for protoResearcher.
+"""LangGraph tool adapters for protoPen.
 
-Wraps existing nanobot Tool classes as LangChain @tool functions.
+Wraps tool classes as LangChain @tool functions.
 All business logic stays in the original classes — these are thin adapters.
+
+Tools are grouped into two domains:
+  - Research: paper_reader, huggingface, github_trending, browser, lab_monitor, etc.
+  - Pentest:  portapack, flipper, marauder, blackarch, engagement, device_manager
 """
 
 from typing import Optional
 
 from langchain_core.tools import tool
 
+import json
 import os
 
 from tools.paper_reader import PaperReaderTool
@@ -16,6 +21,14 @@ from tools.github_trending import GitHubTrendingTool
 from tools.research_memory import ResearchMemoryTool
 from tools.browser import BrowserTool
 from tools.lab_monitor import LabMonitorTool
+
+# Pentest tool imports
+from tools.device_manager import DeviceManager
+from tools.portapack import PortaPackTool
+from tools.flipper import FlipperZeroTool
+from tools.marauder import MarauderTool
+from tools.blackarch import BlackArchTool
+from tools.engagement import EngagementManager
 
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
@@ -30,6 +43,14 @@ _huggingface = HuggingFaceTool()
 _github_trending = GitHubTrendingTool()
 _browser = BrowserTool()
 _lab_monitor = LabMonitorTool()
+
+# ─── Pentest singletons (lazy — created on first get_pentest_tools() call) ───
+_device_manager: DeviceManager | None = None
+_portapack: PortaPackTool | None = None
+_flipper: FlipperZeroTool | None = None
+_marauder: MarauderTool | None = None
+_blackarch: BlackArchTool | None = None
+_engagement: EngagementManager | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -279,8 +300,8 @@ if _rabbit_hole_bridge is not None:
         )
 
 
-def get_all_tools(knowledge_store=None):
-    """Get all research tools as LangChain tool objects."""
+def get_research_tools(knowledge_store=None):
+    """Get research-domain tools as LangChain tool objects."""
     tools = [
         paper_reader,
         huggingface,
@@ -294,3 +315,257 @@ def get_all_tools(knowledge_store=None):
     if _rabbit_hole_bridge is not None:
         tools.append(rabbit_hole_bridge)
     return tools
+
+
+# Backward-compat alias
+get_all_tools = get_research_tools
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pentest tool adapters
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _init_pentest_singletons():
+    """Lazy-init pentest singletons from engagement-config.json."""
+    global _device_manager, _portapack, _flipper, _marauder, _blackarch, _engagement
+
+    if _device_manager is not None:
+        return  # already initialised
+
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "engagement-config.json")
+    if os.path.exists(config_path):
+        with open(config_path) as f:
+            config = json.load(f)
+    else:
+        config = {"devices": {}, "engagement": {}}
+
+    _device_manager = DeviceManager(config.get("devices", {}))
+    _engagement = EngagementManager(config)
+    _blackarch = BlackArchTool(
+        wifi_interface=config.get("devices", {}).get("wifi_adapter", {}).get("interface", "wlan1"),
+        monitor_interface=config.get("devices", {}).get("wifi_adapter", {}).get("monitor_interface", "wlan1mon"),
+    )
+
+
+@tool
+def device_manager(
+    action: str,
+    device: str = "",
+) -> str:
+    """Manage USB device connections (PortaPack, Flipper, Marauder, WiFi adapter).
+
+    - list: List known devices and their config
+    - connect: Connect to a device by name
+    - disconnect: Disconnect a device
+    - status: Get connection status for all devices
+    - health: Run health check on a specific device
+    """
+    _init_pentest_singletons()
+
+    if action == "list":
+        return json.dumps(_device_manager.list_devices(), indent=2)
+    elif action == "connect":
+        conn = _device_manager.connect(device)
+        return f"Connected to {device} on {conn.port}" if conn else f"Failed to connect to {device}"
+    elif action == "disconnect":
+        _device_manager.disconnect(device)
+        return f"Disconnected {device}"
+    elif action == "status":
+        statuses = _device_manager.all_status()
+        return "\n".join(f"{s.name}: {'✓' if s.connected else '✗'} {s.port or ''}" for s in statuses)
+    elif action == "health":
+        s = _device_manager.health_check(device)
+        return f"{s.name}: connected={s.connected} port={s.port} error={s.error}"
+    return f"Unknown action: {action}"
+
+
+@tool
+async def portapack(
+    action: str,
+    app: str = "",
+    frequency: int = 0,
+    x: int = 0,
+    y: int = 0,
+    button: int = 0,
+    command: str = "",
+    path: str = "",
+    lat: float = 0,
+    lon: float = 0,
+    altitude: int = 0,
+    speed: int = 0,
+) -> str:
+    """Control PortaPack H4M via Mayhem serial shell (RF 1MHz–6GHz).
+
+    - list_apps: List available Mayhem apps
+    - start_app: Launch an app by name
+    - set_frequency: Tune to a frequency in Hz
+    - radio_info: Get current radio state
+    - read_screen: Get accessibility tree of current screen
+    - tap: Tap screen at x,y coordinates
+    - press_button: Press a hardware button (0-5)
+    - screenshot: Capture screen framebuffer
+    - system_info: Get heap/CPU stats
+    - file_list: List files on SD card at path
+    - inject_gps: Inject GPS coordinates (lat, lon, altitude, speed)
+    - send_command: Send raw serial command
+    """
+    _init_pentest_singletons()
+    global _portapack
+    if _portapack is None:
+        conn = _device_manager.connections.get("portapack")
+        if conn is None:
+            return "Error: PortaPack not connected. Use device_manager connect first."
+        _portapack = PortaPackTool(conn)
+
+    return await _portapack.execute(
+        action=action, app=app, frequency=frequency, x=x, y=y,
+        button=button, command=command, path=path,
+        lat=lat, lon=lon, altitude=altitude, speed=speed,
+    )
+
+
+@tool
+async def flipper(
+    action: str,
+    command: str = "",
+    frequency: int = 433920000,
+    modulation: str = "AM650",
+    path: str = "",
+    key_type: str = "",
+    data: str = "",
+    protocol: str = "RAW",
+    raw_data: str = "",
+) -> str:
+    """Control Flipper Zero via serial CLI.
+
+    RF: subghz_rx, subghz_tx, subghz_decode_raw, subghz_tx_from_file
+    RFID: rfid_read, rfid_emulate
+    IR: ir_rx, ir_tx_raw
+    Storage: storage_list, storage_read, storage_stat, storage_mkdir
+    System: device_info, power_info, send_command
+    """
+    _init_pentest_singletons()
+    global _flipper
+    if _flipper is None:
+        conn = _device_manager.connections.get("flipper")
+        if conn is None:
+            return "Error: Flipper not connected. Use device_manager connect first."
+        _flipper = FlipperZeroTool(conn)
+
+    return await _flipper.execute(
+        action=action, command=command, frequency=frequency,
+        modulation=modulation, path=path, key_type=key_type,
+        data=data, protocol=protocol, raw_data=raw_data,
+    )
+
+
+@tool
+async def marauder(
+    action: str,
+    scan_type: str = "ap",
+    indices: str = "",
+    channel: int = 0,
+    list_type: str = "ap",
+    sniff_type: str = "pmkid",
+    use_deauth: bool = False,
+    spam_type: str = "all",
+    ssid: str = "",
+    count: int = 20,
+    html_path: str = "",
+    command: str = "",
+) -> str:
+    """Control WiFi Marauder on Flipper Zero (ESP32 WiFi attacks).
+
+    Scanning: scan, stop, list_results, select, select_all, set_channel, clear_list
+    Attacks: deauth, beacon_spam, probe_flood, rickroll
+    Sniffing: sniff (pmkid, deauth, beacon, raw)
+    BLE: bt_spam_all, sour_apple, swift_pair, samsung_ble_spam
+    Advanced: evil_portal, karma, ssid_add, ssid_generate
+    System: info, send_command
+    """
+    _init_pentest_singletons()
+    global _marauder
+    if _marauder is None:
+        conn = _device_manager.connections.get("marauder")
+        if conn is None:
+            return "Error: Marauder not connected. Use device_manager connect first."
+        _marauder = MarauderTool(conn)
+
+    return await _marauder.execute(
+        action=action, scan_type=scan_type, indices=indices,
+        channel=channel, list_type=list_type, sniff_type=sniff_type,
+        use_deauth=use_deauth, spam_type=spam_type, ssid=ssid,
+        count=count, html_path=html_path, command=command,
+    )
+
+
+@tool
+async def blackarch(
+    action: str,
+    target: str = "",
+    ports: str = "",
+    scripts: str = "",
+    interface: str = "",
+    command: str = "",
+    timeout: int = 120,
+) -> str:
+    """Run BlackArch security tools (nmap, aircrack, bettercap, tshark, etc).
+
+    - nmap_scan: Network scan with optional port/script filters
+    - airmon_start: Enable monitor mode on WiFi adapter
+    - airmon_stop: Disable monitor mode
+    - bettercap_recon: Network recon via bettercap
+    - shell_exec: Run an allowed security tool command (destructive commands blocked)
+    """
+    _init_pentest_singletons()
+    return await _blackarch.execute(
+        action=action, target=target, ports=ports, scripts=scripts,
+        interface=interface, command=command, timeout=timeout,
+    )
+
+
+@tool
+async def engagement(
+    action: str,
+    name: str = "",
+    scope: str = "",
+    mode: str = "",
+    tool_name: str = "",
+    severity: str = "",
+    category: str = "",
+    title: str = "",
+    description: str = "",
+) -> str:
+    """Manage pentest engagements — mode enforcement, logging, reporting.
+
+    - start: Start a new engagement (name + scope required)
+    - end: End current engagement and save findings
+    - set_mode: Set mode (passive/active/redteam)
+    - check_permission: Check if a tool action is allowed in current mode
+    - log_finding: Log a finding (severity, category, title, description)
+    - report: Generate engagement report
+    - status: Show current engagement state
+    """
+    _init_pentest_singletons()
+    return await _engagement.execute(
+        action=action, name=name, scope=scope, mode=mode,
+        tool_name=tool_name, severity=severity, category=category,
+        title=title, description=description,
+    )
+
+
+def get_pentest_tools():
+    """Get pentest-domain tools as LangChain tool objects."""
+    return [
+        device_manager,
+        portapack,
+        flipper,
+        marauder,
+        blackarch,
+        engagement,
+    ]
+
+
+def get_combined_tools(knowledge_store=None):
+    """Get all tools (research + pentest) as LangChain tool objects."""
+    return get_research_tools(knowledge_store) + get_pentest_tools()

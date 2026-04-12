@@ -8,11 +8,12 @@ Composes the system prompt from:
 """
 
 from pathlib import Path
+from typing import Union
 
 from graph.subagents.config import SUBAGENT_REGISTRY
 
 
-def _read_file(path: str | Path) -> str:
+def _read_file(path: Union[str, Path]) -> str:
     """Read a file if it exists, return empty string otherwise."""
     p = Path(path)
     if p.exists():
@@ -34,15 +35,19 @@ def build_system_prompt(
         parts.append(soul)
     else:
         parts.append(
-            "# protoResearcher 🔬\n\n"
-            "You are protoResearcher, an autonomous AI research assistant built by protoLabs.\n"
-            "You track, analyze, and synthesize the latest developments in AI and machine learning."
+            "# protoPen 🔒\n\n"
+            "You are protoPen, an autonomous pen-testing and research agent built by protoLabs.\n"
+            "You operate hardware-in-the-loop security assessments and conduct AI/ML research."
         )
 
-    # 2. Research skills
+    # 2. Skills
     skill = _read_file(f"{workspace}/skills/research/SKILL.md")
     if skill:
         parts.append(f"\n# Research Methodology\n\n{skill}")
+
+    pentest_skill = _read_file(f"{workspace}/skills/pentest/SKILL.md")
+    if pentest_skill:
+        parts.append(f"\n{pentest_skill}")
 
     # 3. Subagent instructions
     if include_subagents:
@@ -57,10 +62,13 @@ def build_system_prompt(
 # Guidelines
 
 - Think before acting. Break down complex tasks.
-- For multi-source research, delegate to subagents: Explorer scans, Analyst reads, Writer synthesizes.
-- Rate significance of every finding: [breakthrough / significant / incremental / noise]
+- For pentest tasks, delegate to subagents: Recon maps, Exploit attacks, Reporter writes.
+- For research tasks, delegate to subagents: Explorer scans, Analyst reads, Writer synthesizes.
+- Always check engagement mode before executing actions on hardware.
+- Log every finding in real time via the engagement tool.
+- Rate research significance: [breakthrough / significant / incremental / noise]
+- Rate pentest severity: [critical / high / medium / low / info]
 - Always store important findings in research_memory.
-- When publishing to Discord, use discord_feed action=publish with content and title. NO channel_id needed.
 - Reply directly with text for conversations. Use the task tool to delegate parallel work.
 """)
 

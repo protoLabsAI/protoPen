@@ -18,7 +18,7 @@ from graph.middleware.knowledge import KnowledgeMiddleware
 from graph.middleware.memory import MemoryMiddleware
 from graph.middleware.message_capture import MessageCaptureMiddleware
 from graph.subagents.config import SUBAGENT_REGISTRY
-from tools.lg_tools import get_all_tools, create_lab_bench_tool
+from tools.lg_tools import get_all_tools, get_combined_tools, create_lab_bench_tool
 
 
 def _build_middleware(config: LangGraphConfig, knowledge_store=None):
@@ -131,8 +131,8 @@ def create_researcher_graph(
     """
     llm = create_llm(config)
 
-    # Build tools
-    all_tools = get_all_tools(knowledge_store)
+    # Build tools — combined research + pentest
+    all_tools = get_combined_tools(knowledge_store)
 
     # Add task tool if subagents enabled
     if include_subagents:
