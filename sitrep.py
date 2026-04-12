@@ -14,6 +14,12 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# USB vendor IDs to ignore when matching by fallback port.
+# These are built-in controllers that happen to sit on ttyACM* paths.
+_IGNORE_VIDS = {
+    0x28DE,  # Valve Software (Steam Deck controller)
+}
+
 
 def run_sitrep(
     engagement_config_path: str | Path = "config/engagement-config.json",
@@ -70,17 +76,25 @@ def _probe_hardware(devices: dict) -> str:
         sn = cfg.get("serial_number", "")
         fallback = cfg.get("fallback_port", "")
 
-        # Try match by serial number first, then by port path
+        # Match by serial number (authoritative) or fallback port (only if
+        # the port is a real USB device — exclude built-in controllers like
+        # the Steam Deck's ttyACM0).
         matched_port = None
         for port_info in usb_ports:
             if sn and port_info.get("serial_number") == sn:
                 matched_port = port_info["device"]
                 break
-        if matched_port is None:
+        if matched_port is None and fallback:
             for port_info in usb_ports:
-                if fallback and port_info["device"] == fallback:
-                    matched_port = port_info["device"]
-                    break
+                if port_info["device"] != fallback:
+                    continue
+                # Reject built-in / unrelated USB devices
+                if port_info.get("vid") in _IGNORE_VIDS:
+                    continue
+                if not port_info.get("vid"):
+                    continue  # no USB identity → not our device
+                matched_port = port_info["device"]
+                break
 
         if matched_port:
             rows.append(f"| {name} | ✅ detected | `{matched_port}` |")
