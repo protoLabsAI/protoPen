@@ -1,0 +1,60 @@
+name: defensive_assessment
+description: >
+  Defensive posture assessment — CIS benchmark audits for SSH, TLS, and firewall,
+  hardening checks for exposed services, patch level assessment, and open port
+  baseline comparison.
+tags: [blue-team, defensive, cis, hardening]
+variables:
+  target: ""
+  expected_ports: "[22,80,443]"
+
+steps:
+  - name: ssh_cis_audit
+    tool: cis_audit
+    action: ssh_audit
+    params:
+      target: "${target}"
+    timeout: 15
+    on_fail: continue
+
+  - name: tls_cis_audit
+    tool: cis_audit
+    action: tls_audit
+    params:
+      target: "${target}"
+      port: 443
+    timeout: 15
+    on_fail: continue
+
+  - name: firewall_audit
+    tool: cis_audit
+    action: firewall_audit
+    params:
+      target: "${target}"
+    timeout: 15
+    on_fail: continue
+
+  - name: ssh_hardening
+    tool: hardening_check
+    action: ssh_harden
+    params:
+      target: "${target}"
+    timeout: 15
+    on_fail: continue
+
+  - name: patch_assessment
+    tool: cis_audit
+    action: patch_check
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  - name: port_baseline
+    tool: cis_audit
+    action: port_baseline
+    params:
+      target: "${target}"
+      expected_ports: "${expected_ports}"
+    timeout: 300
+    on_fail: continue

@@ -15,6 +15,7 @@ from graph.prompts import build_system_prompt, build_subagent_prompt
 from graph.middleware.audit import AuditMiddleware
 from graph.middleware.enforcement import EnforcementMiddleware
 from graph.middleware.knowledge import KnowledgeMiddleware
+from graph.middleware.knowledge_ingest import KnowledgeIngestMiddleware
 from graph.middleware.memory import MemoryMiddleware
 from graph.middleware.message_capture import MessageCaptureMiddleware
 from graph.subagents.config import SUBAGENT_REGISTRY
@@ -45,6 +46,9 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None):
             top_k=config.knowledge_top_k,
             search_mode=config.knowledge_search_mode,
         ))
+
+    if config.knowledge_ingest_middleware and knowledge_store:
+        middleware.append(KnowledgeIngestMiddleware(knowledge_store))
 
     if config.audit_middleware:
         middleware.append(AuditMiddleware())

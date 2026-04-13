@@ -1,0 +1,57 @@
+name: incident_response
+description: >
+  Incident response playbook — search logs for indicators, scan for known IOCs,
+  analyze auth logs for brute force and compromise, build event timeline, and
+  generate containment recommendations.
+tags: [blue-team, ir, incident-response, forensics]
+variables:
+  log_path: "/var/log"
+  pattern: ""
+  keyword: ""
+  iocs: "[]"
+  attack_type: ""
+  compromised_hosts: "[]"
+
+steps:
+  - name: log_search
+    tool: ir_toolkit
+    action: log_search
+    params:
+      log_path: "${log_path}"
+      pattern: "${pattern}"
+    timeout: 30
+    on_fail: continue
+
+  - name: ioc_scan
+    tool: ir_toolkit
+    action: ioc_scan
+    params:
+      log_path: "${log_path}"
+      iocs: "${iocs}"
+    timeout: 60
+    on_fail: continue
+
+  - name: auth_log_analysis
+    tool: ir_toolkit
+    action: auth_log_analyze
+    params:
+      log_path: "${log_path}/auth.log"
+    timeout: 30
+    on_fail: continue
+
+  - name: timeline_build
+    tool: ir_toolkit
+    action: timeline_build
+    params:
+      log_path: "${log_path}"
+      keyword: "${keyword}"
+    timeout: 60
+    on_fail: continue
+
+  - name: containment
+    tool: ir_toolkit
+    action: containment_recommend
+    params:
+      attack_type: "${attack_type}"
+      compromised_hosts: "${compromised_hosts}"
+    timeout: 5

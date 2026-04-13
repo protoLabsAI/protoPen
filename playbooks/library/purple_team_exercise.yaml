@@ -1,0 +1,93 @@
+name: purple_team_exercise
+description: >
+  Purple team exercise — run pentest reconnaissance against a target, perform
+  defensive checks, then correlate red vs blue results through the MITRE ATT&CK
+  coverage matrix and generate a combined exercise report.
+tags: [purple-team, red-team, blue-team, mitre-attack]
+variables:
+  target: ""
+  exercise_name: "Purple Team Exercise"
+  expected_ports: "[22,80,443]"
+
+steps:
+  # ── Red Team Phase ──
+  - name: red_nmap_scan
+    tool: blackarch
+    action: nmap_scan
+    params:
+      target: "${target}"
+      flags: "-sV -sC -T4"
+    timeout: 300
+    on_fail: continue
+
+  - name: red_dns_enum
+    tool: dns_enum
+    action: dig_query
+    params:
+      target: "${target}"
+      record_type: ANY
+    timeout: 30
+    on_fail: continue
+
+  - name: red_web_vuln
+    tool: vuln_scan
+    action: nikto_scan
+    params:
+      target: "${target}"
+    timeout: 300
+    on_fail: continue
+
+  # ── Blue Team Phase ──
+  - name: blue_ssh_audit
+    tool: cis_audit
+    action: ssh_audit
+    params:
+      target: "${target}"
+    timeout: 15
+    on_fail: continue
+
+  - name: blue_tls_audit
+    tool: cis_audit
+    action: tls_audit
+    params:
+      target: "${target}"
+      port: 443
+    timeout: 15
+    on_fail: continue
+
+  - name: blue_port_baseline
+    tool: cis_audit
+    action: port_baseline
+    params:
+      target: "${target}"
+      expected_ports: "${expected_ports}"
+    timeout: 300
+    on_fail: continue
+
+  - name: blue_ssh_harden
+    tool: hardening_check
+    action: ssh_harden
+    params:
+      target: "${target}"
+    timeout: 15
+    on_fail: continue
+
+  # ── Correlation Phase ──
+  - name: coverage_matrix
+    tool: purple_team
+    action: coverage_matrix
+    params:
+      red_results: "[]"
+      blue_results: "[]"
+    timeout: 5
+    on_fail: continue
+
+  - name: exercise_report
+    tool: purple_team
+    action: exercise_report
+    params:
+      exercise_name: "${exercise_name}"
+      target_scope: "${target}"
+      red_results: "[]"
+      blue_results: "[]"
+    timeout: 5

@@ -62,3 +62,8 @@ from tools.parsers import jwt_tool          # noqa: E402,F401
 from tools.parsers import ssrf_detect       # noqa: E402,F401
 from tools.parsers import auth_test         # noqa: E402,F401
 from tools.parsers import graphql_test      # noqa: E402,F401
+# Blue-team parsers (Phase 5)
+from tools.parsers import cis_audit         # noqa: E402,F401
+from tools.parsers import net_monitor       # noqa: E402,F401
+from tools.parsers import hardening_check   # noqa: E402,F401
+from tools.parsers import ir_toolkit        # noqa: E402,F401

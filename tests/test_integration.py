@@ -79,9 +79,9 @@ class TestToolRegistration:
 # ─── Subagent Registry ────────────────────────────────────────────────────────
 
 class TestSubagentRegistry:
-    def test_registry_has_six_agents(self):
+    def test_registry_has_nine_agents(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
-        assert len(SUBAGENT_REGISTRY) == 6
+        assert len(SUBAGENT_REGISTRY) == 9
 
     def test_security_subagents_present(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
@@ -166,7 +166,9 @@ class TestPromptComposition:
             workspace=str(Path(__file__).parent.parent),
             include_subagents=False,
         )
-        assert "Subagent Delegation" not in prompt
+        # The H1 "# Subagent Delegation" section from _build_subagent_section
+        # should be absent. Skills may reference delegation in their own H2 headings.
+        assert "\n# Subagent Delegation\n" not in prompt
 
     def test_build_system_prompt_loads_soul(self):
         from graph.prompts import build_system_prompt

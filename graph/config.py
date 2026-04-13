@@ -41,6 +41,7 @@ class LangGraphConfig:
 
     # Middleware toggles
     knowledge_middleware: bool = True
+    knowledge_ingest_middleware: bool = True
     audit_middleware: bool = True
     memory_middleware: bool = True
     enforcement_middleware: bool = True
@@ -79,6 +80,7 @@ class LangGraphConfig:
             max_tokens=model.get("max_tokens", cls.max_tokens),
             max_iterations=model.get("max_iterations", cls.max_iterations),
             knowledge_middleware=middleware.get("knowledge", True),
+            knowledge_ingest_middleware=middleware.get("knowledge_ingest", True),
             audit_middleware=middleware.get("audit", True),
             memory_middleware=middleware.get("memory", True),
             knowledge_db_path=knowledge.get("db_path", cls.knowledge_db_path),
