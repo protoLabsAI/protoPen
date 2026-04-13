@@ -104,11 +104,24 @@ def _nmap_has_results(raw: str) -> bool:
 
 def _json_has_issues(raw: str) -> bool:
     """Check if JSON output contains issues or findings."""
+    # Strip stderr prefix lines to find embedded JSON
+    lines = raw.strip().splitlines()
+    json_str = raw
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("{") or (stripped.startswith("[") and not stripped.startswith("[stderr")):
+            json_str = "\n".join(lines[i:])
+            break
+
     try:
-        data = json.loads(raw)
+        data = json.loads(json_str)
         if isinstance(data, dict):
+            # If tool itself reported an error, treat as no detection
+            if data.get("error"):
+                return False
             return bool(data.get("issues") or data.get("findings")
-                        or data.get("fail_count", 0) > 0)
+                        or data.get("fail_count", 0) > 0
+                        or data.get("failed", 0) > 0)
         if isinstance(data, list):
             return len(data) > 0
     except (json.JSONDecodeError, TypeError):
@@ -118,7 +131,12 @@ def _json_has_issues(raw: str) -> bool:
 
 def _prose_has_results(raw: str) -> bool:
     """Heuristic: check if prose output indicates positive findings."""
+    if not raw or not raw.strip():
+        return False
     lower = raw.lower()
+    # If output is mostly stderr, treat as failure
+    if lower.startswith("[stderr]") or lower.startswith("traceback"):
+        return False
     # Positive indicators
     positive = any(kw in lower for kw in [
         "open", "found", "detected", "vulnerable", "issue",
@@ -128,7 +146,9 @@ def _prose_has_results(raw: str) -> bool:
     # Negative indicators (empty / no-results)
     negative = any(kw in lower for kw in [
         "no results", "no hosts", "no open", "timed out",
-        "unreachable", "0 hosts up", "error",
+        "unreachable", "0 hosts up",
+        "command not found", "no such file", "not found",
+        "filenotfounderror", "errno 2",
     ])
     return positive and not negative
 

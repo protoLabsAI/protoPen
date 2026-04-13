@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -91,11 +92,16 @@ class DnsEnumTool(Tool):
 
     async def _run(self, *args: str, timeout: int = 30) -> str:
         logger.info("Running: %s", " ".join(args))
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            binary = args[0] if args else "unknown"
+            logger.warning("dns_enum: binary '%s' not found", binary)
+            return json.dumps({"error": f"{binary} not found", "tool": "dns_enum"})
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:

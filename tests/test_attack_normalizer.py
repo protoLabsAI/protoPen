@@ -76,6 +76,21 @@ class TestJsonHeuristic:
     def test_empty_list(self):
         assert _json_has_issues("[]") is False
 
+    def test_dict_with_error_field(self):
+        """JSON with 'error' key indicates tool failure — treat as no detection."""
+        data = json.dumps({"target": "x", "error": "Connection refused", "issues": [{"severity": "info"}]})
+        assert _json_has_issues(data) is False
+
+    def test_dict_with_failed_count(self):
+        """Hardening tools use 'failed' key instead of 'fail_count'."""
+        data = json.dumps({"service": "ssh", "failed": 3, "passed": 5})
+        assert _json_has_issues(data) is True
+
+    def test_json_embedded_in_stderr(self):
+        """JSON preceded by stderr lines should still be found."""
+        raw = '[stderr] some warning\n{"issues": [{"check": "SSH"}], "fail_count": 1}'
+        assert _json_has_issues(raw) is True
+
     def test_invalid_json_falls_to_prose(self):
         # Contains "found" keyword
         assert _json_has_issues("Found some issues in config") is True
@@ -91,9 +106,23 @@ class TestProseHeuristic:
     def test_empty(self):
         assert _prose_has_results("") is False
 
-    def test_mixed_leans_negative(self):
-        # "error" is a negative indicator
-        assert _prose_has_results("error") is False
+    def test_whitespace_only(self):
+        assert _prose_has_results("   \n  ") is False
+
+    def test_stderr_prefix_is_failure(self):
+        assert _prose_has_results('[stderr] File "<string>", line 1') is False
+
+    def test_traceback_is_failure(self):
+        assert _prose_has_results("Traceback (most recent call last):\n  File ...") is False
+
+    def test_command_not_found(self):
+        assert _prose_has_results("bash: dig: command not found") is False
+
+    def test_no_such_file(self):
+        assert _prose_has_results("dns_enum error (dig_query): [Errno 2] No such file or directory: 'dig'") is False
+
+    def test_filenotfounderror(self):
+        assert _prose_has_results("FileNotFoundError: [Errno 2] No such file or directory") is False
 
 
 # ── normalize_red tests ──────────────────────────────────────────────
@@ -151,6 +180,70 @@ class TestNormalizeBlue:
 
     def test_unknown_tool(self):
         assert normalize_blue("unknown", "unknown", "anything") == []
+
+    def test_tls_audit_connection_error(self):
+        """TLS audit that returns JSON with 'error' → detected: false."""
+        data = json.dumps({
+            "target": "192.168.4.1", "port": 443,
+            "error": "[Errno 61] Connection refused",
+            "issues": [{"severity": "info", "check": "TLS Connection"}],
+        })
+        results = normalize_blue("cis_audit", "tls_audit", data)
+        assert len(results) == 1
+        assert results[0]["technique_id"] == "T1557"
+        assert results[0]["detected"] is False
+
+    def test_hardening_with_failures_detected(self):
+        """Hardening tool that finds misconfigurations → detected: true."""
+        data = json.dumps({
+            "service": "ssh", "target": "x",
+            "total_checks": 8, "passed": 2, "failed": 6,
+            "checks": [{"check": "PermitRootLogin", "passed": False}],
+        })
+        results = normalize_blue("hardening_check", "ssh_harden", data)
+        assert all(r["detected"] is True for r in results)
+
+    def test_port_baseline_empty(self):
+        """Port baseline with no output → detected: false."""
+        results = normalize_blue("cis_audit", "port_baseline", "")
+        assert all(r["detected"] is False for r in results)
+
+
+# ── normalize_red error handling ─────────────────────────────────────
+
+class TestNormalizeRedErrors:
+    def test_dig_not_found(self):
+        """dns_enum when dig is missing → success: false."""
+        results = normalize_red(
+            "dns_enum", "dig_query",
+            "dns_enum error (dig_query): [Errno 2] No such file or directory: 'dig'",
+        )
+        assert len(results) == 1
+        assert results[0]["technique_id"] == "T1018"
+        assert results[0]["success"] is False
+
+    def test_nikto_broken_json(self):
+        """nikto returning broken JSON → success: false."""
+        results = normalize_red("vuln_scan", "nikto_scan", "]}")
+        assert len(results) == 1
+        assert results[0]["success"] is False
+
+    def test_nikto_not_installed(self):
+        results = normalize_red(
+            "vuln_scan", "nikto_scan",
+            "[stderr] bash: nikto: command not found",
+        )
+        assert len(results) == 1
+        assert results[0]["success"] is False
+
+    def test_base_tool_not_found_json(self):
+        """BasePentestTool returns JSON error when binary missing."""
+        results = normalize_red(
+            "vuln_scan", "nikto_scan",
+            json.dumps({"error": "nikto not found", "tool": "vuln_scan", "action": "nikto_scan"}),
+        )
+        assert len(results) == 1
+        assert results[0]["success"] is False
 
 
 # ── normalize_step dispatch ──────────────────────────────────────────

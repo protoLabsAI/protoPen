@@ -6,6 +6,7 @@ for action-based tools that delegate to CLI binaries.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -45,11 +46,16 @@ class BasePentestTool:
             "[%s] %s → %s (timeout=%ds)",
             self.name, action, target_hint or "n/a", timeout,
         )
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            binary = cmd[0] if cmd else "unknown"
+            logger.warning("[%s] %s: binary '%s' not found", self.name, action, binary)
+            return json.dumps({"error": f"{binary} not found", "tool": self.name, "action": action})
         try:
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=timeout,

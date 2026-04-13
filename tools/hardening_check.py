@@ -1,13 +1,15 @@
 """Hardening validation — per-service checklists with remediation recommendations."""
 from __future__ import annotations
 
-import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from tools.base import BasePentestTool
 
 logger = logging.getLogger(__name__)
+
+_SCRIPTS_DIR = Path(__file__).parent / "scripts"
 
 
 class HardeningCheckTool(BasePentestTool):
@@ -21,30 +23,7 @@ class HardeningCheckTool(BasePentestTool):
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "ssh_harden": {
-            "cmd": [
-                "python3", "-c",
-                "import json,subprocess,re; "
-                "checks=[]; "
-                "r=subprocess.run(['ssh','-G','{target}'],capture_output=True,text=True,timeout=5); "
-                "cfg={{}}; "
-                "[cfg.__setitem__(p[0],p[1]) for line in r.stdout.splitlines() if (p:=line.split(None,1)) and len(p)==2]; "
-                "rules=["
-                "('PermitRootLogin','no','critical','PermitRootLogin no'),"
-                "('PasswordAuthentication','no','high','PasswordAuthentication no'),"
-                "('PermitEmptyPasswords','no','critical','PermitEmptyPasswords no'),"
-                "('X11Forwarding','no','medium','X11Forwarding no'),"
-                "('MaxAuthTries','3','medium','MaxAuthTries 3'),"
-                "('AllowAgentForwarding','no','low','AllowAgentForwarding no'),"
-                "('ClientAliveInterval','300','low','ClientAliveInterval 300'),"
-                "('LoginGraceTime','60','medium','LoginGraceTime 60'),"
-                "]; "
-                "for setting,expected,severity,fix in rules:\n"
-                "  actual=cfg.get(setting.lower(),'unset')\n"
-                "  passed=actual==expected\n"
-                "  checks.append({{'check':setting,'expected':expected,'actual':actual,'passed':passed,'severity':severity,'remediation':f'Set in /etc/ssh/sshd_config: {{fix}}'}})\n"
-                "passed=sum(1 for c in checks if c['passed']); "
-                "print(json.dumps({{'service':'ssh','target':'{target}','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}}))",
-            ],
+            "cmd": ["python3", str(_SCRIPTS_DIR / "ssh_harden.py"), "{target}"],
             "timeout": 15,
             "description": "Validate SSH hardening against security baseline",
         },
@@ -64,10 +43,11 @@ class HardeningCheckTool(BasePentestTool):
                 "('HSTS','strict-transport-security' in conf,'high','Add: add_header Strict-Transport-Security \"max-age=31536000\";'),"
                 "('CSP','content-security-policy' in conf,'medium','Add: add_header Content-Security-Policy \"default-src self\";'),"
                 "]; "
+                "result=[];\n"
                 "for name,passed,severity,fix in rules:\n"
-                "  checks.append({{'check':name,'passed':passed,'severity':severity,'remediation':fix}})\n"
-                "passed=sum(1 for c in checks if c['passed']); "
-                "print(json.dumps({{'service':'nginx','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}}))",
+                "  result.append({'check':name,'passed':passed,'severity':severity,'remediation':fix})\n"
+                "passed=sum(1 for c in result if c['passed']); "
+                "print(json.dumps({'service':'nginx','total_checks':len(result),'passed':passed,'failed':len(result)-passed,'checks':result}))",
             ],
             "timeout": 15,
             "description": "Validate Nginx hardening (headers, TLS, info leaks)",
@@ -76,7 +56,6 @@ class HardeningCheckTool(BasePentestTool):
             "cmd": [
                 "python3", "-c",
                 "import json,subprocess; "
-                "checks=[]; "
                 "r=subprocess.run(['apachectl','-t','-D','DUMP_CONFIG'],capture_output=True,text=True,timeout=5); "
                 "conf=r.stdout.lower()+r.stderr.lower(); "
                 "rules=["
@@ -85,10 +64,11 @@ class HardeningCheckTool(BasePentestTool):
                 "('TraceEnable','traceenable off' in conf,'high','Set: TraceEnable Off'),"
                 "('Directory Listing','options -indexes' in conf or 'options none' in conf,'medium','Set: Options -Indexes in directory blocks'),"
                 "]; "
+                "result=[];\n"
                 "for name,passed,severity,fix in rules:\n"
-                "  checks.append({{'check':name,'passed':passed,'severity':severity,'remediation':fix}})\n"
-                "passed=sum(1 for c in checks if c['passed']); "
-                "print(json.dumps({{'service':'apache','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}}))",
+                "  result.append({'check':name,'passed':passed,'severity':severity,'remediation':fix})\n"
+                "passed=sum(1 for c in result if c['passed']); "
+                "print(json.dumps({'service':'apache','total_checks':len(result),'passed':passed,'failed':len(result)-passed,'checks':result}))",
             ],
             "timeout": 15,
             "description": "Validate Apache hardening (info disclosure, directory listing, TRACE)",
@@ -98,24 +78,21 @@ class HardeningCheckTool(BasePentestTool):
                 "python3", "-c",
                 "import json,subprocess; "
                 "checks=[]; "
-                "r=subprocess.run(['docker','info','--format','{{json .}}'],capture_output=True,text=True,timeout=10); "
                 "try:\n"
+                "  r=subprocess.run(['docker','info','--format','{{json .}}'],capture_output=True,text=True,timeout=10)\n"
                 "  info=json.loads(r.stdout)\n"
-                "  checks.append({{'check':'User Namespaces','passed':info.get('SecurityOptions') and 'userns' in str(info['SecurityOptions']),'severity':'high','remediation':'Enable user namespaces in /etc/docker/daemon.json'}})\n"
-                "  checks.append({{'check':'Live Restore','passed':info.get('LiveRestoreEnabled',False),'severity':'medium','remediation':'Set live-restore:true in /etc/docker/daemon.json'}})\n"
-                "except: pass\n"
-                "r2=subprocess.run(['docker','ps','--format','{{json .}}'],capture_output=True,text=True,timeout=10); "
-                "containers=[]; "
-                "for line in r2.stdout.splitlines():\n"
-                "  try:\n"
+                "  checks.append({'check':'User Namespaces','passed':info.get('SecurityOptions') and 'userns' in str(info['SecurityOptions']),'severity':'high','remediation':'Enable user namespaces in /etc/docker/daemon.json'})\n"
+                "  checks.append({'check':'Live Restore','passed':info.get('LiveRestoreEnabled',False),'severity':'medium','remediation':'Set live-restore:true in /etc/docker/daemon.json'})\n"
+                "except Exception: pass\n"
+                "try:\n"
+                "  r2=subprocess.run(['docker','ps','--format','{{json .}}'],capture_output=True,text=True,timeout=10)\n"
+                "  for line in r2.stdout.splitlines():\n"
                 "    c=json.loads(line)\n"
-                "    privileged='--privileged' in c.get('Command','')\n"
-                "    root_user=c.get('User','') in ('','root','0')\n"
-                "    containers.append({{'name':c.get('Names',''),'privileged':privileged,'root_user':root_user}})\n"
-                "    if privileged: checks.append({{'check':f'Container {{c.get(\"Names\",\"\")}} privileged','passed':False,'severity':'critical','remediation':'Remove --privileged flag'}})\n"
-                "  except: pass\n"
-                "passed=sum(1 for c in checks if c['passed']); "
-                "print(json.dumps({{'service':'docker','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'containers':containers,'checks':checks}}))",
+                "    if '--privileged' in c.get('Command',''):\n"
+                "      checks.append({'check':'Container '+c.get('Names','')+' privileged','passed':False,'severity':'critical','remediation':'Remove --privileged flag'})\n"
+                "except Exception: pass\n"
+                "passed=sum(1 for c in checks if c.get('passed')); "
+                "print(json.dumps({'service':'docker','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}))",
             ],
             "timeout": 20,
             "description": "Validate Docker daemon and container hardening",
@@ -125,20 +102,23 @@ class HardeningCheckTool(BasePentestTool):
                 "python3", "-c",
                 "import json,subprocess; "
                 "checks=[]; "
-                "r=subprocess.run(['kubectl','get','pods','--all-namespaces','-o','json'],capture_output=True,text=True,timeout=15); "
                 "try:\n"
+                "  r=subprocess.run(['kubectl','get','pods','--all-namespaces','-o','json'],capture_output=True,text=True,timeout=15)\n"
                 "  data=json.loads(r.stdout)\n"
                 "  for pod in data.get('items',[]):\n"
                 "    name=pod['metadata']['name']; ns=pod['metadata']['namespace']\n"
                 "    for c in pod['spec'].get('containers',[]):\n"
-                "      sc=c.get('securityContext',{{}})\n"
-                "      if sc.get('privileged'): checks.append({{'check':f'{{ns}}/{{name}} privileged','passed':False,'severity':'critical','remediation':'Remove privileged:true'}})\n"
-                "      if sc.get('runAsUser',1)==0 or not sc.get('runAsNonRoot'): checks.append({{'check':f'{{ns}}/{{name}} runs as root','passed':False,'severity':'high','remediation':'Set runAsNonRoot:true'}})\n"
-                "      if not c.get('resources',{{}}).get('limits'): checks.append({{'check':f'{{ns}}/{{name}} no resource limits','passed':False,'severity':'medium','remediation':'Set CPU/memory limits'}})\n"
+                "      sc=c.get('securityContext',{})\n"
+                "      if sc.get('privileged'):\n"
+                "        checks.append({'check':ns+'/'+name+' privileged','passed':False,'severity':'critical','remediation':'Remove privileged:true'})\n"
+                "      if sc.get('runAsUser',1)==0 or not sc.get('runAsNonRoot'):\n"
+                "        checks.append({'check':ns+'/'+name+' runs as root','passed':False,'severity':'high','remediation':'Set runAsNonRoot:true'})\n"
+                "      if not c.get('resources',{}).get('limits'):\n"
+                "        checks.append({'check':ns+'/'+name+' no resource limits','passed':False,'severity':'medium','remediation':'Set CPU/memory limits'})\n"
                 "except Exception as e:\n"
-                "  checks.append({{'check':'K8s API access','passed':False,'severity':'info','remediation':str(e)}})\n"
-                "passed=sum(1 for c in checks if c['passed']); "
-                "print(json.dumps({{'service':'kubernetes','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}}))",
+                "  checks.append({'check':'K8s API access','passed':False,'severity':'info','remediation':str(e)})\n"
+                "passed=sum(1 for c in checks if c.get('passed')); "
+                "print(json.dumps({'service':'kubernetes','total_checks':len(checks),'passed':passed,'failed':len(checks)-passed,'checks':checks}))",
             ],
             "timeout": 30,
             "description": "Validate Kubernetes pod security (privileged, root, resource limits)",
