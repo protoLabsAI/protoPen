@@ -363,6 +363,26 @@ class TestPurpleTeamStepRefs:
         assert "${steps." in report_step.params["red_results"]
         assert "${steps." in report_step.params["blue_results"]
 
+    def test_red_steps_have_phase(self):
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        red_steps = [s for s in pb.steps if s.name.startswith("red_")]
+        assert len(red_steps) == 3
+        for step in red_steps:
+            assert step.phase == "red", f"{step.name} should have phase=red"
+
+    def test_blue_steps_have_phase(self):
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        blue_steps = [s for s in pb.steps if s.name.startswith("blue_")]
+        assert len(blue_steps) == 4
+        for step in blue_steps:
+            assert step.phase == "blue", f"{step.name} should have phase=blue"
+
+    def test_correlation_steps_have_no_phase(self):
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        for step in pb.steps:
+            if step.tool == "purple_team":
+                assert step.phase is None
+
     @pytest.mark.asyncio
     async def test_correlation_receives_real_data(self):
         """End-to-end: red/blue outputs flow into correlation steps."""
@@ -386,3 +406,204 @@ class TestPurpleTeamStepRefs:
 
         report_params = correlation_params.get("exercise_report", {})
         assert "T1046" in report_params.get("red_results", "")
+
+
+# ── ATT&CK Normalization in Runner ──────────────────────────────────────────
+
+
+NMAP_XML_SAMPLE = """\
+<?xml version="1.0"?>
+<nmaprun>
+  <host>
+    <address addr="10.0.0.1" addrtype="ipv4"/>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open"/>
+        <service name="ssh"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>
+"""
+
+SSH_AUDIT_SAMPLE = json.dumps({
+    "target": "10.0.0.1",
+    "checks_run": 5,
+    "issues": [
+        {"severity": "high", "check": "PasswordAuthentication",
+         "value": "yes", "recommendation": "Disable password auth"},
+    ],
+    "pass_count": 4,
+    "fail_count": 1,
+})
+
+
+class TestATTACKNormalization:
+    """Phase-tagged steps are auto-normalized to ATT&CK format."""
+
+    @pytest.mark.asyncio
+    async def test_single_red_step_normalized(self):
+        """A single phase=red step ref is normalized to ATT&CK JSON."""
+        pb = Playbook(
+            name="norm-test",
+            steps=[
+                PlaybookStep(
+                    name="nmap", tool="blackarch", action="nmap_scan",
+                    phase="red", on_fail="continue",
+                ),
+                PlaybookStep(
+                    name="consumer", tool="t", action="a",
+                    params={"red_results": "${steps.nmap.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+        received = {}
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "nmap_scan":
+                return NMAP_XML_SAMPLE
+            received.update(params)
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+        red = json.loads(received["red_results"])
+        assert isinstance(red, list)
+        assert red[0]["technique_id"] == "T1046"
+        assert red[0]["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_multi_ref_merge(self):
+        """Multiple phase-tagged refs in one param are merged into one array."""
+        pb = Playbook(
+            name="merge-test",
+            steps=[
+                PlaybookStep(
+                    name="nmap", tool="blackarch", action="nmap_scan",
+                    phase="red", on_fail="continue",
+                ),
+                PlaybookStep(
+                    name="nikto", tool="vuln_scan", action="nikto_scan",
+                    phase="red", on_fail="continue",
+                ),
+                PlaybookStep(
+                    name="correlate", tool="t", action="a",
+                    params={
+                        "red_results": "${steps.nmap.output},${steps.nikto.output}",
+                    },
+                    on_fail="continue",
+                ),
+            ],
+        )
+        received = {}
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "nmap_scan":
+                return NMAP_XML_SAMPLE
+            if action == "nikto_scan":
+                return "Found vulnerable endpoint /admin"
+            received.update(params)
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+        red = json.loads(received["red_results"])
+        assert isinstance(red, list)
+        technique_ids = {r["technique_id"] for r in red}
+        assert "T1046" in technique_ids  # from nmap
+        assert "T1190" in technique_ids  # from nikto
+
+    @pytest.mark.asyncio
+    async def test_blue_normalization(self):
+        """Phase=blue steps produce detected fields."""
+        pb = Playbook(
+            name="blue-norm",
+            steps=[
+                PlaybookStep(
+                    name="ssh", tool="cis_audit", action="ssh_audit",
+                    phase="blue", on_fail="continue",
+                ),
+                PlaybookStep(
+                    name="consumer", tool="t", action="a",
+                    params={"blue_results": "${steps.ssh.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+        received = {}
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "ssh_audit":
+                return SSH_AUDIT_SAMPLE
+            received.update(params)
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+        blue = json.loads(received["blue_results"])
+        assert isinstance(blue, list)
+        assert any(b["technique_id"] == "T1021" and b["detected"] for b in blue)
+
+    @pytest.mark.asyncio
+    async def test_no_phase_no_normalization(self):
+        """Steps without phase tag pass raw output through."""
+        pb = Playbook(
+            name="raw-test",
+            steps=[
+                PlaybookStep(
+                    name="producer", tool="t", action="a",
+                    on_fail="continue",
+                ),
+                PlaybookStep(
+                    name="consumer", tool="t", action="b",
+                    params={"data": "${steps.producer.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+        received = {}
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "a":
+                return "raw prose output"
+            received.update(params)
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+        assert received["data"] == "raw prose output"
+
+    @pytest.mark.asyncio
+    async def test_end_to_end_purple_exercise_normalization(self):
+        """Full purple_team_exercise with raw tool outputs → normalized correlation."""
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        correlation_params = {}
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if tool == "blackarch":
+                return NMAP_XML_SAMPLE
+            if tool == "dns_enum":
+                return "Found A record for host"
+            if tool == "vuln_scan":
+                return "Found vulnerable endpoint"
+            if tool == "cis_audit":
+                return SSH_AUDIT_SAMPLE
+            if tool == "hardening_check":
+                return json.dumps({"issues": [{"check": "weak"}], "fail_count": 1})
+            if tool == "purple_team":
+                correlation_params[action] = dict(params)
+                return json.dumps({"matrix": {}, "summary": {"detection_rate": 50.0}})
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+
+        # Verify correlation received valid JSON arrays
+        red = json.loads(correlation_params["coverage_matrix"]["red_results"])
+        blue = json.loads(correlation_params["coverage_matrix"]["blue_results"])
+        assert isinstance(red, list)
+        assert isinstance(blue, list)
+        assert len(red) > 0
+        assert len(blue) > 0
+
+        # Verify technique IDs present
+        red_tids = {r["technique_id"] for r in red}
+        blue_tids = {b["technique_id"] for b in blue}
+        assert "T1046" in red_tids  # from nmap
+        assert "T1021" in blue_tids  # from ssh_audit

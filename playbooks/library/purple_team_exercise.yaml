@@ -14,6 +14,7 @@ steps:
   - name: red_nmap_scan
     tool: blackarch
     action: nmap_scan
+    phase: red
     params:
       target: "${target}"
       flags: "-sV -sC -T4"
@@ -23,6 +24,7 @@ steps:
   - name: red_dns_enum
     tool: dns_enum
     action: dig_query
+    phase: red
     params:
       target: "${target}"
       record_type: ANY
@@ -32,6 +34,7 @@ steps:
   - name: red_web_vuln
     tool: vuln_scan
     action: nikto_scan
+    phase: red
     params:
       target: "${target}"
     timeout: 300
@@ -41,6 +44,7 @@ steps:
   - name: blue_ssh_audit
     tool: cis_audit
     action: ssh_audit
+    phase: blue
     params:
       target: "${target}"
     timeout: 15
@@ -49,6 +53,7 @@ steps:
   - name: blue_tls_audit
     tool: cis_audit
     action: tls_audit
+    phase: blue
     params:
       target: "${target}"
       port: 443
@@ -58,6 +63,7 @@ steps:
   - name: blue_port_baseline
     tool: cis_audit
     action: port_baseline
+    phase: blue
     params:
       target: "${target}"
       expected_ports: "${expected_ports}"
@@ -67,18 +73,20 @@ steps:
   - name: blue_ssh_harden
     tool: hardening_check
     action: ssh_harden
+    phase: blue
     params:
       target: "${target}"
     timeout: 15
     on_fail: continue
 
   # ── Correlation Phase ──
+  # Aggregate all red/blue outputs — the normalizer converts each to ATT&CK format
   - name: coverage_matrix
     tool: purple_team
     action: coverage_matrix
     params:
-      red_results: "${steps.red_nmap_scan.output}"
-      blue_results: "${steps.blue_ssh_audit.output}"
+      red_results: "${steps.red_nmap_scan.output},${steps.red_dns_enum.output},${steps.red_web_vuln.output}"
+      blue_results: "${steps.blue_ssh_audit.output},${steps.blue_ssh_harden.output},${steps.blue_tls_audit.output},${steps.blue_port_baseline.output}"
     timeout: 5
     on_fail: continue
 
@@ -88,6 +96,6 @@ steps:
     params:
       exercise_name: "${exercise_name}"
       target_scope: "${target}"
-      red_results: "${steps.red_nmap_scan.output}"
-      blue_results: "${steps.blue_ssh_audit.output}"
+      red_results: "${steps.red_nmap_scan.output},${steps.red_dns_enum.output},${steps.red_web_vuln.output}"
+      blue_results: "${steps.blue_ssh_audit.output},${steps.blue_ssh_harden.output},${steps.blue_tls_audit.output},${steps.blue_port_baseline.output}"
     timeout: 5

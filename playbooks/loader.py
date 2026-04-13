@@ -46,6 +46,7 @@ def load_playbook_file(path: Path, variables: dict[str, str] | None = None) -> P
             condition=step_data.get("condition"),
             on_fail=step_data.get("on_fail", "stop"),
             timeout=step_data.get("timeout", 300),
+            phase=step_data.get("phase"),
         ))
 
     return Playbook(

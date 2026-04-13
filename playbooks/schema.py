@@ -24,6 +24,7 @@ class PlaybookStep:
     condition: str | None = None  # Jinja2-like condition
     on_fail: str = "stop"         # stop | continue | skip_remaining
     timeout: int = 300
+    phase: str | None = None      # "red" or "blue" — enables ATT&CK normalization
     status: StepStatus = StepStatus.PENDING
     output: str = ""
     error: str = ""

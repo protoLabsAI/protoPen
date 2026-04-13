@@ -1,11 +1,13 @@
 """Playbook runner — execute playbook steps sequentially via tool dispatch."""
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any, Callable, Awaitable
 
 from playbooks.schema import Playbook, PlaybookStep, StepStatus
+from tools.parsers.attack_normalizer import normalize_step
 
 logger = logging.getLogger(__name__)
 
@@ -82,20 +84,57 @@ def _resolve_step_refs(
     Looks up the named step in the playbook and substitutes its output.
     If the step hasn't run or doesn't exist, the reference is left as-is.
     If the step failed (empty output), resolves to empty string.
+
+    When a referenced step has ``phase`` set ("red" or "blue"), the raw
+    output is normalized to ATT&CK-aligned JSON before substitution so
+    that purple_team.coverage_matrix / exercise_report can consume it.
+
+    When a single param contains multiple step refs that all resolve to
+    normalized arrays, the arrays are merged into one JSON array.
     Non-string param values are passed through unchanged.
     """
+    step_map = {s.name: s for s in playbook.steps}
     resolved = {}
+
     for key, value in params.items():
-        if isinstance(value, str) and "${steps." in value:
-            def _replace(match: re.Match) -> str:
-                step_name = match.group(1)
-                for step in playbook.steps:
-                    if step.name == step_name:
-                        return step.output  # "" if failed/not run
-                return match.group(0)  # leave unresolved
-            resolved[key] = _STEP_REF_RE.sub(_replace, value)
-        else:
+        if not isinstance(value, str) or "${steps." not in value:
             resolved[key] = value
+            continue
+
+        ref_names = _STEP_REF_RE.findall(value)
+
+        # Multi-ref merge: if there are 2+ refs and ALL resolve to
+        # phase-tagged steps, merge their normalized arrays.
+        if len(ref_names) >= 2:
+            all_phased = all(
+                ref in step_map and step_map[ref].phase
+                for ref in ref_names
+            )
+            if all_phased:
+                merged: list[dict] = []
+                for ref in ref_names:
+                    step = step_map[ref]
+                    if step.output:
+                        merged.extend(normalize_step(
+                            step.tool, step.action, step.output, step.phase,
+                        ))
+                resolved[key] = json.dumps(merged)
+                continue
+
+        # Single ref or mixed: standard per-ref substitution
+        def _replace(match: re.Match) -> str:
+            step_name = match.group(1)
+            step = step_map.get(step_name)
+            if step is None:
+                return match.group(0)  # leave unresolved
+            if step.phase and step.output:
+                return json.dumps(normalize_step(
+                    step.tool, step.action, step.output, step.phase,
+                ))
+            return step.output  # "" if failed/not run
+
+        resolved[key] = _STEP_REF_RE.sub(_replace, value)
+
     return resolved
 
 
