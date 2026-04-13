@@ -23,13 +23,13 @@ needs_langchain = pytest.mark.skipif(not HAS_LANGCHAIN, reason="langchain_core n
 @needs_langchain
 class TestToolRegistration:
     def test_get_research_tools_returns_list(self):
-        from tools.lg_tools import get_research_tools
-        tools = get_research_tools(knowledge_store=None)
+        from tools.lg_tools import get_security_tools
+        tools = get_security_tools(knowledge_store=None)
         assert isinstance(tools, list)
         assert len(tools) >= 5
         names = [t.name for t in tools]
-        assert "paper_reader" in names
-        assert "huggingface" in names
+        assert "cve_search" in names
+        assert "security_feeds" in names
         assert "github_trending" in names
         assert "browser" in names
         assert "lab_monitor" in names
@@ -51,8 +51,8 @@ class TestToolRegistration:
         from tools.lg_tools import get_combined_tools
         tools = get_combined_tools(knowledge_store=None)
         names = [t.name for t in tools]
-        assert "paper_reader" in names
-        assert "huggingface" in names
+        assert "cve_search" in names
+        assert "security_feeds" in names
         assert "device_manager" in names
         assert "portapack" in names
         assert "flipper" in names
@@ -60,8 +60,8 @@ class TestToolRegistration:
         assert "engagement" in names
 
     def test_backward_compat_get_all_tools(self):
-        from tools.lg_tools import get_all_tools, get_research_tools
-        assert get_all_tools is get_research_tools
+        from tools.lg_tools import get_all_tools, get_security_tools
+        assert get_all_tools is get_security_tools
 
     def test_all_tools_have_descriptions(self):
         from tools.lg_tools import get_combined_tools
@@ -83,11 +83,11 @@ class TestSubagentRegistry:
         from graph.subagents.config import SUBAGENT_REGISTRY
         assert len(SUBAGENT_REGISTRY) == 6
 
-    def test_research_subagents_present(self):
+    def test_security_subagents_present(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
-        assert "explorer" in SUBAGENT_REGISTRY
-        assert "analyst" in SUBAGENT_REGISTRY
-        assert "writer" in SUBAGENT_REGISTRY
+        assert "threat_scanner" in SUBAGENT_REGISTRY
+        assert "vuln_analyst" in SUBAGENT_REGISTRY
+        assert "intel_reporter" in SUBAGENT_REGISTRY
 
     def test_pentest_subagents_present(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
@@ -135,7 +135,7 @@ class TestSubagentRegistry:
         from tools.lg_tools import get_combined_tools
         valid_names = {t.name for t in get_combined_tools(knowledge_store=None)}
         # Also include tools that may only be available conditionally
-        valid_names.update({"discord_feed", "rabbit_hole_bridge", "research_memory"})
+        valid_names.update({"discord_feed", "rabbit_hole_bridge", "security_memory", "target_intel"})
         for name, config in SUBAGENT_REGISTRY.items():
             for tool_name in config.tools:
                 assert tool_name in valid_names, (
@@ -156,9 +156,9 @@ class TestPromptComposition:
         assert "recon" in prompt.lower()
         assert "exploit" in prompt.lower()
         assert "reporter" in prompt.lower()
-        assert "explorer" in prompt.lower()
-        assert "analyst" in prompt.lower()
-        assert "writer" in prompt.lower()
+        assert "threat_scanner" in prompt.lower()
+        assert "vuln_analyst" in prompt.lower()
+        assert "intel_reporter" in prompt.lower()
 
     def test_build_system_prompt_without_subagents(self):
         from graph.prompts import build_system_prompt
@@ -185,7 +185,7 @@ class TestPromptComposition:
     def test_build_subagent_prompt_unknown(self):
         from graph.prompts import build_subagent_prompt
         prompt = build_subagent_prompt("nonexistent")
-        assert "research subagent" in prompt.lower()
+        assert "security subagent" in prompt.lower()
 
     def test_pentest_skill_loaded_in_prompt(self):
         from graph.prompts import build_system_prompt
