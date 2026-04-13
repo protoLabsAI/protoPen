@@ -252,8 +252,8 @@ class EngagementManager(Tool):
     def transition_phase(self, new_phase: str):
         """Flush queued HIGH alerts for the completed phase, then advance."""
         old_phase = self.current_phase
-        if old_phase:
-            self._flush_phase_alerts(old_phase)
+        if self._alert_queue:
+            self._flush_phase_alerts(old_phase or "pre-phase")
         self.current_phase = new_phase
         logger.info("Engagement phase: %s -> %s", old_phase or "(start)", new_phase)
 
