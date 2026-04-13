@@ -1,4 +1,4 @@
-"""Langfuse tracing for protoResearcher.
+"""Langfuse tracing for protoPen.
 
 Provides trace/span context for LLM calls and tool executions.
 Compatible with Langfuse 4.x API (start_as_current_observation).
@@ -62,7 +62,7 @@ def start_trace(session_id: str, name: str = "researcher-chat", metadata: dict |
             metadata={
                 **(metadata or {}),
                 "session_id": session_id,
-                "tags": ["protoresearcher"],
+                "tags": ["protopen"],
             },
         )
         return span

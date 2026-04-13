@@ -1,4 +1,4 @@
-"""LangGraph configuration loader for protoResearcher."""
+"""LangGraph configuration loader for protoPen."""
 
 from dataclasses import dataclass, field
 from pathlib import Path

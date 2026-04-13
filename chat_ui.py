@@ -1,5 +1,5 @@
 """
-Reusable Gradio chat UI for protoResearcher.
+Reusable Gradio chat UI for protoPen.
 
 Provides a clean chat interface with a research-themed design.
 Includes settings sidebar with model/tools panels.
@@ -35,7 +35,7 @@ CLEAN_CSS = """
     }
 """
 
-# protoResearcher dark theme — emerald/teal accents, research-dark backgrounds
+# protoPen dark theme — emerald/teal accents, research-dark backgrounds
 RESEARCHER_DARK_CSS = """
     html { color-scheme: dark !important; }
 
@@ -142,17 +142,17 @@ RESEARCHER_PWA_HEAD = """
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="protoResearcher">
+<meta name="apple-mobile-web-app-title" content="protoPen">
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
         navigator.serviceWorker
             .register('/sw.js', { scope: '/' })
             .then(function (reg) {
-                console.log('[protoResearcher] SW registered:', reg.scope);
+                console.log('[protoPen] SW registered:', reg.scope);
             })
             .catch(function (err) {
-                console.warn('[protoResearcher] SW registration failed:', err);
+                console.warn('[protoPen] SW registration failed:', err);
             });
     });
 }

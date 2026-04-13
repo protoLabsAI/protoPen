@@ -1,7 +1,7 @@
 #!/bin/bash
-# protoResearcher — container entrypoint
+# protoPen — container entrypoint
 
-echo "[entrypoint] Starting protoResearcher"
+echo "[entrypoint] Starting protoPen"
 
 # Create dirs inside tmpfs home
 mkdir -p /home/sandbox/.nanobot /home/sandbox/.local
@@ -15,14 +15,14 @@ fi
 mkdir -p /sandbox/audit /sandbox/knowledge /sandbox/papers
 
 # Copy configs from read-only image, expanding env vars (e.g. MCP_AUTH_TOKEN)
-envsubst < /opt/protoresearcher/config/nanobot-config.json > /home/sandbox/.nanobot/config.json
+envsubst < /opt/protopen/config/nanobot-config.json > /home/sandbox/.nanobot/config.json
 
 # Copy persona into workspace (nanobot reads SOUL.md from workspace)
 mkdir -p /sandbox
-cp /opt/protoresearcher/config/SOUL.md /sandbox/SOUL.md
+cp /opt/protopen/config/SOUL.md /sandbox/SOUL.md
 
 # Copy skills into workspace
-cp -r /opt/protoresearcher/skills /sandbox/skills
+cp -r /opt/protopen/skills /sandbox/skills
 
 # --- Claude credentials ---
 mkdir -p /home/sandbox/.claude
@@ -39,7 +39,7 @@ fi
 
 # --- CLIProxyAPI — OpenAI-compatible proxy for Claude OAuth ---
 mkdir -p /opt/.cliproxy
-cp /opt/protoresearcher/config/cliproxy-config.yaml /opt/.cliproxy/config.yaml
+cp /opt/protopen/config/cliproxy-config.yaml /opt/.cliproxy/config.yaml
 
 # Function to inject token into CLIProxyAPI config
 # Always writes the config to trigger CLIProxyAPI's file watcher reload,
@@ -87,7 +87,7 @@ echo "[entrypoint] CLIProxyAPI started on port 8317"
 
 # Wait for CLIProxyAPI to be ready with models
 for i in $(seq 1 15); do
-    MODEL_COUNT=$(curl -sf http://127.0.0.1:8317/v1/models -H "Authorization: Bearer protoresearcher-internal" 2>/dev/null | python3 -c "import sys,json; print(len(json.loads(sys.stdin.read()).get('data',[])))" 2>/dev/null || echo "0")
+    MODEL_COUNT=$(curl -sf http://127.0.0.1:8317/v1/models -H "Authorization: Bearer protopen-internal" 2>/dev/null | python3 -c "import sys,json; print(len(json.loads(sys.stdin.read()).get('data',[])))" 2>/dev/null || echo "0")
     if [ "$MODEL_COUNT" -gt "0" ]; then
         echo "[entrypoint] CLIProxyAPI ready ($MODEL_COUNT models)"
         break
@@ -96,7 +96,7 @@ for i in $(seq 1 15); do
 done
 
 # Set env vars for litellm to route through CLIProxyAPI
-export OPENAI_API_KEY="protoresearcher-internal"
+export OPENAI_API_KEY="protopen-internal"
 export OPENAI_API_BASE="http://127.0.0.1:8317/v1"
 
 # --- Token refresh loop ---
@@ -135,5 +135,5 @@ if [ -n "${LAB_GPU}" ] || command -v nvidia-smi &>/dev/null; then
     fi
 fi
 
-# Start protoResearcher Gradio UI on port 7870
-exec python /opt/protoresearcher/server.py --config /home/sandbox/.nanobot/config.json
+# Start protoPen Gradio UI on port 7870
+exec python /opt/protopen/server.py --config /home/sandbox/.nanobot/config.json

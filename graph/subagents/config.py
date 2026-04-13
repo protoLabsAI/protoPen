@@ -23,7 +23,7 @@ class SubagentConfig:
 EXPLORER_CONFIG = SubagentConfig(
     name="explorer",
     description="Scans research sources — Discord channels, HuggingFace, GitHub, web — to discover papers, models, and trends.",
-    system_prompt="""You are an Explorer subagent for protoResearcher.
+    system_prompt="""You are an Explorer subagent for protoPen.
 
 Your job: scan sources broadly and extract research-relevant links and summaries.
 
@@ -49,7 +49,7 @@ Rules:
 ANALYST_CONFIG = SubagentConfig(
     name="analyst",
     description="Reads papers deeply, extracts findings, rates significance, stores to knowledge base.",
-    system_prompt="""You are an Analyst subagent for protoResearcher.
+    system_prompt="""You are an Analyst subagent for protoPen.
 
 Your job: deeply read and analyze research papers and technical content from any source — including academic papers, web pages, Discord channels, RSS feeds, and other live/social sources.
 
@@ -148,7 +148,7 @@ Always cite specific evidence (e.g., benchmark numbers, ablation results, method
 WRITER_CONFIG = SubagentConfig(
     name="writer",
     description="Synthesizes research findings into digests and publishes to Discord.",
-    system_prompt="""You are a Writer subagent for protoResearcher.
+    system_prompt="""You are a Writer subagent for protoPen.
 
 Your job: synthesize research findings into clear, actionable digests.
 

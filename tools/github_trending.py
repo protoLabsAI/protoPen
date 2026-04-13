@@ -1,4 +1,4 @@
-"""GitHub trending and search tool for protoResearcher.
+"""GitHub trending and search tool for protoPen.
 
 Uses the GitHub REST API (search endpoint) for repo discovery.
 Unauthenticated: 10 req/min. With GITHUB_TOKEN: 30 req/min.

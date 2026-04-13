@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluation runner for protoResearcher agent backends.
+"""Evaluation runner for protoPen agent backends.
 
 Loads tasks from tasks.json, runs each through the chat() interface,
 and records timing, tool usage, and response quality metrics.
@@ -31,7 +31,7 @@ _BASE_URL = os.environ.get("RESEARCHER_URL", "http://localhost:7870")
 
 
 async def _call_gradio_api(prompt: str, session_id: str) -> str:
-    """Call the running protoResearcher via /api/chat endpoint.
+    """Call the running protoPen via /api/chat endpoint.
 
     Requires the container to be running at RESEARCHER_URL.
     """
@@ -139,7 +139,7 @@ async def _run_single_task(
         print("SKIP (dry run)")
         return result
 
-    # Call the running protoResearcher via Gradio API
+    # Call the running protoPen via Gradio API
     t0 = time.monotonic()
     try:
         response_text = await _call_gradio_api(prompt, session_id)
@@ -201,7 +201,7 @@ async def run_eval(
         return {}
 
     print(f"\n{'='*60}")
-    print(f"protoResearcher Eval — backend: {backend}")
+    print(f"protoPen Eval — backend: {backend}")
     print(f"Tasks: {len(tasks)} | Dry run: {dry_run}")
     print(f"{'='*60}\n")
 
@@ -266,7 +266,7 @@ async def run_eval(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="protoResearcher eval runner")
+    parser = argparse.ArgumentParser(description="protoPen eval runner")
     parser.add_argument(
         "--backend",
         choices=["nanobot", "langgraph"],

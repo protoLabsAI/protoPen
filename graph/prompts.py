@@ -1,4 +1,4 @@
-"""System prompt composer for protoResearcher LangGraph agent.
+"""System prompt composer for protoPen LangGraph agent.
 
 Composes the system prompt from:
 1. SOUL.md content (identity, personality, values)

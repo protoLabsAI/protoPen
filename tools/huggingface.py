@@ -1,4 +1,4 @@
-"""HuggingFace Hub search tool for protoResearcher.
+"""HuggingFace Hub search tool for protoPen.
 
 Queries the HF Hub REST API for models, datasets, and papers.
 No API key required for public data.

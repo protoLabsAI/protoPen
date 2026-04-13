@@ -71,7 +71,7 @@ async def check_guardrail(query: str, llm_url: str = "http://127.0.0.1:8317/v1",
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(
                 f"{llm_url}/chat/completions",
-                headers={"Authorization": "Bearer protoresearcher-internal"},
+                headers={"Authorization": "Bearer protopen-internal"},
                 json={
                     "model": "claude-sonnet-4-6",
                     "messages": [{"role": "user", "content": _GUARDRAIL_PROMPT.format(query=query)}],
@@ -194,7 +194,7 @@ async def grade_document(query: str, content: str, llm_url: str = "http://127.0.
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 f"{llm_url}/chat/completions",
-                headers={"Authorization": "Bearer protoresearcher-internal"},
+                headers={"Authorization": "Bearer protopen-internal"},
                 json={
                     "model": "claude-sonnet-4-6",
                     "messages": [{"role": "user", "content": _GRADE_PROMPT.format(query=query, excerpt=excerpt)}],
@@ -227,7 +227,7 @@ async def rewrite_query(query: str, llm_url: str = "http://127.0.0.1:8317/v1") -
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
                 f"{llm_url}/chat/completions",
-                headers={"Authorization": "Bearer protoresearcher-internal"},
+                headers={"Authorization": "Bearer protopen-internal"},
                 json={
                     "model": "claude-sonnet-4-6",
                     "messages": [{"role": "user", "content": _REWRITE_PROMPT.format(query=query)}],

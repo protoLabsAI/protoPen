@@ -1,4 +1,4 @@
-"""Data models for the protoResearcher knowledge base."""
+"""Data models for the protoPen knowledge base."""
 
 from dataclasses import dataclass, field
 from datetime import datetime

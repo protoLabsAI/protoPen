@@ -1,4 +1,4 @@
-"""Main LangGraph agent for protoResearcher.
+"""Main LangGraph agent for protoPen.
 
 Builds the research agent graph with middleware, tools, and subagent support.
 Uses langchain's create_agent() with AgentMiddleware for the DeerFlow pattern.
@@ -124,7 +124,7 @@ def create_researcher_graph(
     include_subagents: bool = True,
     sitrep: str = "",
 ):
-    """Create the main protoResearcher LangGraph agent.
+    """Create the main protoPen LangGraph agent.
 
     Returns a compiled graph that can be invoked with:
         graph.ainvoke({"messages": [HumanMessage(content="...")]})

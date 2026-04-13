@@ -1,4 +1,4 @@
-"""Experiment runner for protoResearcher lab mode.
+"""Experiment runner for protoPen lab mode.
 
 Manages autonomous training experiments using LLaMA-Factory:
 - Git-based experiment tracking (commit per hypothesis, reset on discard)

@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: protoresearcher
+    container_name: protopen
     hostname: sandbox
     restart: unless-stopped
 
@@ -26,15 +26,15 @@ services:
 
     # Persistent volumes
     volumes:
-      - protoresearcher-knowledge:/sandbox/knowledge
-      - protoresearcher-audit:/sandbox/audit
-      - protoresearcher-papers:/sandbox/papers
-      - protoresearcher-cron:/opt/.cron
-      - protoresearcher-cliproxy:/opt/.cliproxy
+      - protopen-knowledge:/sandbox/knowledge
+      - protopen-audit:/sandbox/audit
+      - protopen-papers:/sandbox/papers
+      - protopen-cron:/opt/.cron
+      - protopen-cliproxy:/opt/.cliproxy
       # Claude OAuth credentials (read-only)
       - ${HOME}/.claude:/opt/claude-creds:ro
       # Config (bind-mount for APO prompt optimization)
-      - ./config:/opt/protoresearcher/config:rw
+      - ./config:/opt/protopen/config:rw
 
     ports:
       - "7872:7870"
@@ -83,7 +83,7 @@ services:
         aliases:
           - researcher   # workstacean resolves http://researcher:7870/a2a via ai_default
 
-    command: ["/opt/protoresearcher/entrypoint.sh"]
+    command: ["/opt/protopen/entrypoint.sh"]
 
   # Lab mode — GPU-enabled researcher with training capabilities
   # Usage: docker compose --profile lab up --build
@@ -92,7 +92,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: lab
-    container_name: protoresearcher-lab
+    container_name: protopen-lab
     hostname: sandbox
     restart: unless-stopped
     profiles:
@@ -113,11 +113,11 @@ services:
       - /home/sandbox:size=256M,uid=1001,gid=1001
 
     volumes:
-      - protoresearcher-knowledge:/sandbox/knowledge
-      - protoresearcher-audit:/sandbox/audit
-      - protoresearcher-papers:/sandbox/papers
-      - protoresearcher-lab:/sandbox/lab
-      - protoresearcher-cron:/opt/.cron
+      - protopen-knowledge:/sandbox/knowledge
+      - protopen-audit:/sandbox/audit
+      - protopen-papers:/sandbox/papers
+      - protopen-lab:/sandbox/lab
+      - protopen-cron:/opt/.cron
       # Host mounts for training
       - /mnt/models/huggingface:/mnt/models/huggingface:ro
       - /home/ava/dev/LLaMA-Factory:/opt/llama-factory:ro
@@ -161,7 +161,7 @@ services:
     stdin_open: true
     tty: true
 
-    command: ["/opt/protoresearcher/entrypoint.sh"]
+    command: ["/opt/protopen/entrypoint.sh"]
 
 networks:
   gateway:
@@ -169,9 +169,9 @@ networks:
     name: ai_default
 
 volumes:
-  protoresearcher-knowledge:
-  protoresearcher-audit:
-  protoresearcher-papers:
-  protoresearcher-cron:
-  protoresearcher-cliproxy:
-  protoresearcher-lab:
+  protopen-knowledge:
+  protopen-audit:
+  protopen-papers:
+  protopen-cron:
+  protopen-cliproxy:
+  protopen-lab:

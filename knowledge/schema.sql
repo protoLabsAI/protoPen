@@ -1,4 +1,4 @@
--- protoResearcher knowledge base schema
+-- protoPen knowledge base schema
 
 -- Papers: tracked arxiv papers and their summaries
 CREATE TABLE IF NOT EXISTS papers (

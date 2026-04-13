@@ -1,4 +1,4 @@
-"""PDF paper reader tool for protoResearcher.
+"""PDF paper reader tool for protoPen.
 
 Uses PyMuPDF (fitz) for text extraction from downloaded papers.
 """

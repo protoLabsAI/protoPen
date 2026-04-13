@@ -35,22 +35,22 @@ RUN pip install --no-cache-dir /opt/nanobot/ \
     gradio sqlite-vec httpx uvicorn langfuse prometheus-client PyMuPDF pyyaml \
     langchain langchain-openai langgraph websockets
 
-# Install protoResearcher
-COPY tools/ /opt/protoresearcher/tools/
-COPY knowledge/ /opt/protoresearcher/knowledge/
-COPY lab/ /opt/protoresearcher/lab/
-COPY graph/ /opt/protoresearcher/graph/
-COPY skills/ /opt/protoresearcher/skills/
-COPY audit.py /opt/protoresearcher/audit.py
-COPY tracing.py /opt/protoresearcher/tracing.py
-COPY metrics.py /opt/protoresearcher/metrics.py
-COPY chat_ui.py /opt/protoresearcher/chat_ui.py
-COPY server.py /opt/protoresearcher/server.py
-COPY discord_bot.py /opt/protoresearcher/discord_bot.py
-COPY guardrails.py /opt/protoresearcher/guardrails.py
-COPY entrypoint.sh /opt/protoresearcher/entrypoint.sh
-COPY config/ /opt/protoresearcher/config/
-COPY static/ /opt/protoresearcher/static/
+# Install protoPen
+COPY tools/ /opt/protopen/tools/
+COPY knowledge/ /opt/protopen/knowledge/
+COPY lab/ /opt/protopen/lab/
+COPY graph/ /opt/protopen/graph/
+COPY skills/ /opt/protopen/skills/
+COPY audit.py /opt/protopen/audit.py
+COPY tracing.py /opt/protopen/tracing.py
+COPY metrics.py /opt/protopen/metrics.py
+COPY chat_ui.py /opt/protopen/chat_ui.py
+COPY server.py /opt/protopen/server.py
+COPY discord_bot.py /opt/protopen/discord_bot.py
+COPY guardrails.py /opt/protopen/guardrails.py
+COPY entrypoint.sh /opt/protopen/entrypoint.sh
+COPY config/ /opt/protopen/config/
+COPY static/ /opt/protopen/static/
 
 # Sandbox workspace + knowledge/audit/papers dirs
 RUN mkdir -p /sandbox /tmp/sandbox /sandbox/audit /sandbox/knowledge /sandbox/papers \
@@ -69,7 +69,7 @@ USER sandbox
 WORKDIR /sandbox
 
 EXPOSE 7870
-CMD ["/opt/protoresearcher/entrypoint.sh"]
+CMD ["/opt/protopen/entrypoint.sh"]
 
 # ---------------------------------------------------------------------------
 # Lab stage — adds torch + LLaMA-Factory deps for GPU training
@@ -92,4 +92,4 @@ RUN mkdir -p /sandbox/lab /mnt/data/training/researcher \
 USER sandbox
 WORKDIR /sandbox
 EXPOSE 7870
-CMD ["/opt/protoresearcher/entrypoint.sh"]
+CMD ["/opt/protopen/entrypoint.sh"]

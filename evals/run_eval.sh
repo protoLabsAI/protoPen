@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# protoResearcher eval harness — runs tasks against the live instance
+# protoPen eval harness — runs tasks against the live instance
 #
 # Usage:
 #   ./evals/run_eval.sh                    # run all tasks against current backend
@@ -53,7 +53,7 @@ if echo "$EXTRA_ARGS" | grep -q "\-\-compare"; then
     fi
 else
     # Single backend run
-    BACKEND=$(docker exec protoresearcher printenv AGENT_BACKEND 2>/dev/null || echo "unknown")
+    BACKEND=$(docker exec protopen printenv AGENT_BACKEND 2>/dev/null || echo "unknown")
     echo "Running eval against live instance (backend: $BACKEND)"
     echo "URL: ${RESEARCHER_URL:-http://localhost:7870}"
     echo ""

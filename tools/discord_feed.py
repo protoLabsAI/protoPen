@@ -1,4 +1,4 @@
-"""Discord feed tool for protoResearcher.
+"""Discord feed tool for protoPen.
 
 Reads messages from Discord channels via the REST API, extracts URLs,
 and classifies them for the research pipeline (arxiv, HF, GitHub, blogs).
@@ -24,8 +24,8 @@ _URL_PATTERN = re.compile(r'https?://[^\s<>\[\]()\"\']+')
 def _webhook_username() -> str:
     """Build webhook display name, including instance name if set."""
     if _INSTANCE_NAME:
-        return f"protoResearcher [{_INSTANCE_NAME}]"
-    return "protoResearcher"
+        return f"protoPen [{_INSTANCE_NAME}]"
+    return "protoPen"
 
 
 # URL classification patterns
@@ -480,7 +480,7 @@ class DiscordFeedTool(Tool):
             "title": f"{title}{instance_tag}",
             "description": content[:4096],
             "color": 0x14b8a6,
-            "footer": {"text": f"via protoResearcher{instance_tag}"},
+            "footer": {"text": f"via protoPen{instance_tag}"},
         }
 
         try:
@@ -502,7 +502,7 @@ class DiscordFeedTool(Tool):
         """Load collaboration channel ID from research-config.json."""
         import json
         config_paths = [
-            "/opt/protoresearcher/config/research-config.json",  # Docker
+            "/opt/protopen/config/research-config.json",  # Docker
             os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "research-config.json"),  # local
         ]
         for path in config_paths:

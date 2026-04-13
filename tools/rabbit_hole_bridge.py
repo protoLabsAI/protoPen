@@ -1,6 +1,6 @@
 """Rabbit Hole Bridge — ships research findings to rabbit-hole.io's knowledge graph.
 
-Converts protoResearcher data (papers, model releases, free text) into
+Converts protoPen data (papers, model releases, free text) into
 rabbit-hole bundles and ingests them via direct HTTP calls to the
 rabbit-hole API at RABBIT_HOLE_URL (default: http://host.docker.internal:3399).
 
@@ -71,7 +71,7 @@ def paper_to_bundle(paper: dict) -> dict:
                 "arxiv_id": arxiv_id,
                 "source_url": source_url,
                 "published_at": published_at,
-                "sources": [f"auto-extract:protoresearcher:{arxiv_id}"],
+                "sources": [f"auto-extract:protopen:{arxiv_id}"],
             },
         }
     ]
@@ -91,7 +91,7 @@ def paper_to_bundle(paper: dict) -> dict:
             "aliases": [],
             "tags": ["researcher", "author"],
             "properties": {
-                "sources": [f"auto-extract:protoresearcher:{arxiv_id}"],
+                "sources": [f"auto-extract:protopen:{arxiv_id}"],
             },
         })
         relationships.append({
@@ -158,7 +158,7 @@ def model_to_bundle(model: dict) -> dict:
                 "source_platform": source,
                 "source_url": source_url,
                 "released_at": released_at,
-                "sources": [f"auto-extract:protoresearcher:{model_id}"],
+                "sources": [f"auto-extract:protopen:{model_id}"],
             },
         }
     ]
@@ -175,7 +175,7 @@ def model_to_bundle(model: dict) -> dict:
             "aliases": [],
             "tags": ["ai", "ml"],
             "properties": {
-                "sources": [f"auto-extract:protoresearcher:{model_id}"],
+                "sources": [f"auto-extract:protopen:{model_id}"],
             },
         })
         relationships.append({

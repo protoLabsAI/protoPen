@@ -1,4 +1,4 @@
-"""Knowledge store for protoResearcher — SQLite + sqlite-vec backed.
+"""Knowledge store for protoPen — SQLite + sqlite-vec backed.
 
 Stores papers, findings, digests, model releases with semantic search
 via embedding server (OpenAI-compatible) and sqlite-vec.

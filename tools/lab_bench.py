@@ -1,4 +1,4 @@
-"""Lab bench tool — autonomous experiment runner for protoResearcher.
+"""Lab bench tool — autonomous experiment runner for protoPen.
 
 Inspired by karpathy/autoresearch. Gives the agent access to GPU compute
 for running training experiments via LLaMA-Factory on tiny Qwen models.

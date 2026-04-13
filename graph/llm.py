@@ -1,4 +1,4 @@
-"""LLM factory for protoResearcher LangGraph agent.
+"""LLM factory for protoPen LangGraph agent.
 
 All models route through the LiteLLM gateway (OpenAI-compatible),
 so we use ChatOpenAI for everything.

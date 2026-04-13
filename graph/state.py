@@ -1,4 +1,4 @@
-"""ResearcherState — LangGraph state schema for protoResearcher.
+"""ResearcherState — LangGraph state schema for protoPen.
 
 Extends AgentState with research-specific fields and custom reducers.
 """
@@ -33,7 +33,7 @@ def merge_publish_queue(
 
 
 class ResearcherState(AgentState):
-    """State schema for the protoResearcher LangGraph agent.
+    """State schema for the protoPen LangGraph agent.
 
     Extends AgentState (which provides `messages` with add_messages reducer).
     Custom fields carry research context through the graph.

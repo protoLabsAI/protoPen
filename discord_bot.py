@@ -1,4 +1,4 @@
-"""Discord bot for protoResearcher — watches for 🔬 reactions and @mentions.
+"""Discord bot for protoPen — watches for 🔬 reactions and @mentions.
 
 Runs as a background task alongside the Gradio server. When a user reacts
 with 🔬 to a message or @mentions the bot in a reply, it queues the message
@@ -35,8 +35,8 @@ _MAX_RESPONSE_LENGTH = 1900  # Discord message limit is 2000
 def _display_name() -> str:
     """Bot display name including instance identifier."""
     if _INSTANCE_NAME:
-        return f"protoResearcher [{_INSTANCE_NAME}]"
-    return "protoResearcher"
+        return f"protoPen [{_INSTANCE_NAME}]"
+    return "protoPen"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 {
-  "name": "protoResearcher — protoLabs",
-  "short_name": "protoResearcher",
+  "name": "protoPen — protoLabs",
+  "short_name": "protoPen",
   "description": "AI research agent by protoLabs — tracks the latest in AI/ML",
   "start_url": "/",
   "display": "standalone",

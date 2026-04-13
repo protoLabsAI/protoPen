@@ -152,7 +152,7 @@ class TestPromptComposition:
             workspace=str(Path(__file__).parent.parent),
             include_subagents=True,
         )
-        assert "protoPen" in prompt or "protoResearcher" in prompt
+        assert "protoPen" in prompt
         assert "recon" in prompt.lower()
         assert "exploit" in prompt.lower()
         assert "reporter" in prompt.lower()
