@@ -31,7 +31,7 @@ class VulnScanTool(BasePentestTool):
             "cmd": [
                 "nuclei", "-u", "{target}",
                 "-severity", "medium,high,critical",
-                "-json", "-silent",
+                "-jsonl", "-silent",
             ],
             "timeout": 300,
             "description": "Nuclei vulnerability scan with default templates",
@@ -40,7 +40,7 @@ class VulnScanTool(BasePentestTool):
             "cmd": [
                 "nuclei", "-u", "{target}",
                 "-tags", "{tags}",
-                "-json", "-silent",
+                "-jsonl", "-silent",
             ],
             "timeout": 300,
             "description": "Nuclei scan with specific template tags",

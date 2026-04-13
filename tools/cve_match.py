@@ -38,7 +38,7 @@ class CveMatchTool(BasePentestTool):
                 "nuclei", "-u", "{target}",
                 "-t", "cves/",
                 "-severity", "medium,high,critical",
-                "-json", "-silent",
+                "-jsonl", "-silent",
             ],
             "timeout": 300,
             "description": "Nuclei CVE templates against target",
