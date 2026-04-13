@@ -197,7 +197,7 @@ python -m pytest tests/ -v
 
 All 196 tests should pass.
 
-## 7. Install Infisical CLI
+## 7. Install Infisical CLI and configure service token
 
 protoPen fetches secrets at runtime from Infisical — no `.env` files on disk. Install the CLI:
 
@@ -206,28 +206,40 @@ curl -1sLf 'https://artifacts.infisical.com/repos/infisical/setup.rpm.sh' | sudo
 sudo pacman -Sy --noconfirm infisical
 ```
 
-Authenticate:
+### Create a service token
+
+`start.sh` uses an `INFISICAL_TOKEN` service token for non-interactive auth (no `infisical login` required). Create a token in the Infisical dashboard for the **protoPen** project (`f7d3c43d-be5e-4a05-ac4c-c69d1e09d6c7`), scoped to the **prod** environment.
+
+### Inject the token via systemd override
+
+Store the token in a systemd drop-in so it is available at boot without touching disk in the repo:
 
 ```bash
-infisical login --domain https://secrets.proto-labs.ai/api
+mkdir -p ~/.config/systemd/user/protopen.service.d
+
+cat > ~/.config/systemd/user/protopen.service.d/infisical.conf << 'EOF'
+[Service]
+Environment=INFISICAL_TOKEN=<your-service-token>
+EOF
+
+systemctl --user daemon-reload
 ```
 
-Verify you can fetch the key protoPen needs:
+### Verify secrets fetch
 
 ```bash
-infisical export \
+INFISICAL_TOKEN=<your-service-token> infisical export \
     --domain https://secrets.proto-labs.ai/api \
-    --projectId f0e3382b-611c-4964-8b57-89d0db4976be \
-    --env staging \
+    --env prod \
     --format dotenv \
     --silent \
-  | grep LITELLM_MASTER_KEY
+    --token "$INFISICAL_TOKEN"
 ```
 
-You should see a line containing the key value. If this fails, check your Infisical project access.
+You should see all project secrets (including `LITELLM_MASTER_KEY`, `ANTHROPIC_API_KEY`, etc.). `start.sh` exports **all** Infisical secrets into the process environment automatically — no need to cherry-pick individual keys.
 
 ::: warning Zero env-on-disk policy
-protoPen never writes API keys or secrets to disk. The `start.sh` launcher fetches secrets from Infisical into environment variables at boot and they exist only in process memory.
+protoPen never writes API keys or secrets to disk. The `start.sh` launcher fetches secrets from Infisical into environment variables at boot and they exist only in process memory. The only exception is the `INFISICAL_TOKEN` in the systemd override, which lives outside the repo at `~/.config/systemd/user/protopen.service.d/infisical.conf`.
 :::
 
 ## 8. Create the /sandbox symlink
@@ -333,7 +345,7 @@ journalctl --user -u protopen.service -f
 | `git clone` fails "could not read Username" | Run `gh auth setup-git` to wire the credential helper |
 | `pip install` fails on `sqlite-vec` | Install build deps: `sudo pacman -S gcc cmake` |
 | SteamOS update broke everything | Re-run steps 2 and 3 (read-only disable, sudoers, pacman keyring) |
-| Infisical fetch returns empty | Re-run `infisical login`, check project access |
+| Infisical fetch returns empty | Verify `INFISICAL_TOKEN` is set in the systemd override and run `systemctl --user daemon-reload` |
 | Server not reachable over Tailscale | Verify `sudo tailscale up --ssh` and check `tailscale status` |
 
 ## What's next

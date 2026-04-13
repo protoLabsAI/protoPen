@@ -1,10 +1,6 @@
 ---
-name: ## Steam Deck SSH & protoPen
-description: "## Steam Deck SSH & protoPen Server Guide
-
-### Connection
-- **Host alias:** `steamdeck` (via Tailscale SSH)
-- **User:**..."
+name: Steam Deck SSH & protoPen
+description: "Steam Deck SSH connection, protoPen server details, Infisical service token auth (INFISICAL_TOKEN via systemd override), protoPen project f7d3c43d prod env, systemd user service management."
 type: reference
 ---
 
@@ -21,13 +17,12 @@ type: reference
 - **Data dir:** `/home/deck/protoPen/data` (knowledge, audit, papers, lab subdirs)
 
 ### Secrets
-- LiteLLM/OpenAI key pulled from Infisical at startup via `start.sh`:
-  ```
-  infisical export --domain https://secrets.proto-labs.ai/api \
-    --projectId f0e3382b-611c-4964-8b57-89d0db4976be \
-    --env staging --format dotenv --silent
-  ```
-- Key is extracted from `LITELLM_MASTER_KEY` field and exported as `OPENAI_API_KEY`
+- All secrets pulled from Infisical at startup via `start.sh` using `INFISICAL_TOKEN` service token auth
+- Infisical project: **protoPen** (`f7d3c43d-be5e-4a05-ac4c-c69d1e09d6c7`), **prod** environment
+- `start.sh` exports ALL Infisical secrets into the process environment (not just `LITELLM_MASTER_KEY`)
+- `LITELLM_MASTER_KEY` is also aliased to `OPENAI_API_KEY`
+- Service token is injected via systemd override:
+  `~/.config/systemd/user/protopen.service.d/infisical.conf` (`Environment=INFISICAL_TOKEN=...`)
 
 ### systemd User Service
 - **Service file:** `~/.config/systemd/user/protopen.service`

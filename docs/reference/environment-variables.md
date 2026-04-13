@@ -2,6 +2,16 @@
 
 All environment variables used by protoPen. Set these in your `docker-compose.yml`, `.env` file, or shell.
 
+## Secrets / Infisical
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `INFISICAL_TOKEN` | yes (prod) | -- | Infisical service token for non-interactive secret fetching. Set via systemd override at `~/.config/systemd/user/protopen.service.d/infisical.conf`. |
+
+::: tip All secrets auto-exported
+`start.sh` exports **every** secret from the Infisical protoPen project (prod env) into the process environment. You do not need to manually set individual API keys — they are all fetched at startup. The variables below document what the code expects to find, but they are populated automatically from Infisical.
+:::
+
 ## Core
 
 | Variable | Required | Default | Description |
