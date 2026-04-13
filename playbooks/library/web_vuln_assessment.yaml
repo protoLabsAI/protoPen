@@ -13,7 +13,7 @@ steps:
     action: nikto_scan
     params:
       target: "${url}"
-    timeout: 300
+      timeout: 300
     on_fail: continue
 
   - name: nuclei_web
@@ -21,7 +21,7 @@ steps:
     action: nuclei_scan
     params:
       target: "${url}"
-    timeout: 300
+      timeout: 300
     on_fail: continue
 
   - name: xss_check
@@ -29,7 +29,7 @@ steps:
     action: xss_scan
     params:
       url: "${url}"
-    timeout: 180
+      timeout: 180
     on_fail: continue
 
   - name: sqli_check
@@ -37,7 +37,7 @@ steps:
     action: sqli_detect
     params:
       url: "${url}"
-    timeout: 300
+      timeout: 300
     on_fail: continue
 
   - name: cors_check
@@ -52,5 +52,5 @@ steps:
     action: cve_nuclei
     params:
       target: "${target}"
-    timeout: 300
+      timeout: 300
     on_fail: continue
