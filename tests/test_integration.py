@@ -11,11 +11,15 @@ from pathlib import Path
 
 try:
     import langchain_core  # noqa: F401
+    import nanobot.agent  # noqa: F401
     HAS_LANGCHAIN = True
 except ImportError:
     HAS_LANGCHAIN = False
 
-needs_langchain = pytest.mark.skipif(not HAS_LANGCHAIN, reason="langchain_core not installed")
+needs_langchain = pytest.mark.skipif(
+    not HAS_LANGCHAIN,
+    reason="langchain_core or nanobot.agent not installed",
+)
 
 
 # ─── Tool Registration ────────────────────────────────────────────────────────
