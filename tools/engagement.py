@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from enum import IntEnum
 from pathlib import Path
@@ -39,6 +40,10 @@ class EngagementManager(Tool):
         self._webhook_url = config["engagement"].get("alert_webhook", "")
         self.active_engagement: Optional[dict] = None
         self.findings: list[dict] = []
+        self.target_store = None
+
+    _IP_RE = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
+    _MAC_RE = re.compile(r'\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b')
 
     @property
     def name(self) -> str:
@@ -151,6 +156,21 @@ class EngagementManager(Tool):
         logger.info("[%s] %s: %s", severity.upper(), category, title)
         if severity in ("critical", "high") and self._webhook_url:
             self._send_alert(finding)
+        self._auto_upsert_targets(detail)
+
+    def _auto_upsert_targets(self, detail: str):
+        """Extract IPs and MACs from finding detail and upsert into target store."""
+        if self.target_store is None:
+            return
+        try:
+            ips = self._IP_RE.findall(detail)
+            macs = self._MAC_RE.findall(detail)
+            for ip in ips:
+                self.target_store.upsert_host(ip=ip)
+            for mac in macs:
+                self.target_store.upsert_host(mac=mac)
+        except Exception as exc:
+            logger.warning("Auto-upsert failed: %s", exc)
 
     def _send_alert(self, finding: dict):
         emoji = {"critical": "\U0001f534", "high": "\U0001f7e0"}.get(finding["severity"], "\u26aa")
