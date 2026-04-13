@@ -85,7 +85,7 @@ class JwtTool(BasePentestTool):
             return await self._run(
                 action=action,
                 cmd=cmd,
-                timeout=min(timeout, spec["timeout"]),
+                timeout=spec["timeout"],
                 target_hint="jwt",
             )
 

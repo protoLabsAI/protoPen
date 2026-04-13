@@ -50,7 +50,7 @@ class PrivEscTool(BasePentestTool):
             return self._unknown_action(action)
 
         spec = self.ACTIONS[action]
-        effective_timeout = min(timeout, spec.get("timeout", 300))
+        effective_timeout = spec.get("timeout", 300)
 
         return await self._run(
             action=action,

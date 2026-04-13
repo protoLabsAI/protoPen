@@ -136,7 +136,7 @@ class HardeningCheckTool(BasePentestTool):
 
         spec = self.ACTIONS[action]
         cmd = [c.format(target=target) for c in spec["cmd"]]
-        effective_timeout = min(timeout, spec.get("timeout", 30))
+        effective_timeout = spec.get("timeout", 30)
 
         return await self._run(
             action=action,

@@ -61,7 +61,7 @@ class WebVulnTool(BasePentestTool):
 
         spec = self.ACTIONS[action]
         cmd = [c.format(url=url) for c in spec["cmd"]]
-        effective_timeout = min(timeout, spec.get("timeout", 180))
+        effective_timeout = spec.get("timeout", 180)
 
         return await self._run(
             action=action,

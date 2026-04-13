@@ -66,7 +66,7 @@ class CveMatchTool(BasePentestTool):
             c.format(target=target, query=query, ports=ports)
             for c in spec["cmd"]
         ]
-        effective_timeout = min(timeout, spec.get("timeout", 120))
+        effective_timeout = spec.get("timeout", 120)
 
         return await self._run(
             action=action,
