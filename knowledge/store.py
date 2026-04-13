@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 import httpx
 
-_EMBED_URL = os.environ.get("EMBED_URL", "http://localhost:8001")
+_EMBED_URL = os.environ.get("EMBED_URL", os.environ.get("API_BASE", "http://ava:4000"))
 _EMBED_MODEL = os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
 _EMBED_TIMEOUT = 20
 _EMBED_DIM = 1024
