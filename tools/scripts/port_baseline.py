@@ -15,9 +15,17 @@ def main() -> None:
     expected_ports = json.loads(sys.argv[2]) if len(sys.argv) > 2 else [22, 80, 443]
     timeout = int(sys.argv[3]) if len(sys.argv) > 3 else 60
 
+    # Build a port range covering expected ports + common ports (1-1024)
+    # instead of all 65535 which is too slow for baseline checks
+    if expected_ports:
+        extra = ",".join(str(p) for p in expected_ports if p > 1024)
+        port_spec = f"1-1024,{extra}" if extra else "1-1024"
+    else:
+        port_spec = "1-1024"
+
     try:
         r = subprocess.run(
-            ["nmap", "-sT", "-p-", "--min-rate=1000", "-T4", target, "-oX", "-"],
+            ["nmap", "-sT", f"-p{port_spec}", "--min-rate=1000", "-T4", target, "-oX", "-"],
             capture_output=True, text=True, timeout=timeout,
         )
     except FileNotFoundError:

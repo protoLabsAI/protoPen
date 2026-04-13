@@ -71,7 +71,7 @@ class CisAuditTool(BasePentestTool):
             )
             for c in spec["cmd"]
         ]
-        effective_timeout = min(timeout, spec.get("timeout", 60))
+        effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(
             action=action,
