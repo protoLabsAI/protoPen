@@ -207,13 +207,13 @@ _HELP_TEXT = """\
 | `/compact` | Force memory consolidation |
 | `/model` | Show current model |
 | `/tools` | List registered tools |
-| `/topics` | Show tracked research topics |
-| `/agenda` | Show research agenda with stats |
-| `/papers [query]` | Search stored papers |
+| `/topics` | Show tracked security topics |
+| `/agenda` | Show security intelligence agenda with stats |
+| `/cves [query]` | Search stored CVEs and advisories |
 | `/recent [n]` | Show recent findings |
 | `/audit [n]` | Show recent audit log entries |
 | `/lab on\\|off\\|status` | Toggle lab mode (GPU experiment runner) |
-| `/publish` | Generate weekly digest and publish to Discord |
+| `/intel` | Generate security intelligence digest and publish to Discord |
 | `/help` | Show this help |
 """
 
@@ -278,15 +278,15 @@ async def _handle_command(
             )
         return _msg(f"**Recent audit log ({len(entries)} entries):**\n" + "\n".join(lines))
 
-    # Research-specific commands
+    # Security-specific commands
     if cmd == "topics":
         return await _handle_topics_command()
 
     if cmd == "agenda":
         return await _handle_agenda_command()
 
-    if cmd == "papers":
-        return await _handle_papers_command(args)
+    if cmd == "cves":
+        return await _handle_cves_command(args)
 
     if cmd == "recent":
         return await _handle_recent_command(args)
@@ -294,14 +294,14 @@ async def _handle_command(
     if cmd == "lab":
         return await _handle_lab_command(args)
 
-    if cmd == "publish":
-        return await _handle_publish_command(session_id)
+    if cmd == "intel":
+        return await _handle_intel_command(session_id)
 
     return None
 
 
 # ---------------------------------------------------------------------------
-# Research commands
+# Security commands
 # ---------------------------------------------------------------------------
 
 _knowledge_store = None
@@ -321,7 +321,7 @@ async def _handle_topics_command() -> list[dict[str, Any]]:
     if not topics:
         return _msg("No security topics configured. Ask me to add topics or use the security_memory tool.")
 
-    lines = ["**Research Topics:**"]
+    lines = ["**Security Topics:**"]
     for t in topics:
         kw = json.loads(t.get("keywords", "[]"))
         kw_str = ", ".join(kw[:5]) if kw else ""
@@ -338,11 +338,11 @@ async def _handle_agenda_command() -> list[dict[str, Any]]:
     stats = store.get_stats()
     topics = store.get_topics()
 
-    lines = ["**Research Agenda:**", ""]
-    lines.append(f"Papers tracked: {stats.get('papers', 0)}")
+    lines = ["**Security Intelligence Agenda:**", ""]
+    lines.append(f"CVEs tracked: {stats.get('cves', stats.get('papers', 0))}")
     lines.append(f"Findings stored: {stats.get('findings', 0)}")
     lines.append(f"Digests generated: {stats.get('digests', 0)}")
-    lines.append(f"Model releases: {stats.get('model_releases', 0)}")
+    lines.append(f"Advisories: {stats.get('advisories', 0)}")
     lines.append(f"Active topics: {len(topics)}")
 
     if topics:
@@ -353,26 +353,27 @@ async def _handle_agenda_command() -> list[dict[str, Any]]:
     return _msg("\n".join(lines))
 
 
-async def _handle_papers_command(args: str) -> list[dict[str, Any]]:
+async def _handle_cves_command(args: str) -> list[dict[str, Any]]:
     store = _get_store()
     query = args.strip()
 
     if query:
-        results = store.hybrid_search(query, k=10, filter_table="papers")
+        results = store.hybrid_search(query, k=10, filter_table="cves")
         if not results:
-            return _msg(f"No papers found matching '{query}'.")
-        lines = [f"**Papers matching '{query}':**"]
+            return _msg(f"No CVEs found matching '{query}'.")
+        lines = [f"**CVEs matching '{query}':**"]
         for i, r in enumerate(results, 1):
             lines.append(f"{i}. [{r['source_id']}] {r['preview']}")
         return _msg("\n".join(lines))
     else:
-        papers = store.get_papers(limit=10)
-        if not papers:
-            return _msg("No papers in the knowledge base yet.")
-        lines = ["**Recent papers:**"]
-        for p in papers:
-            sig = p.get("significance", "?")
-            lines.append(f"- [{sig}] **{p['title']}** ({p['id']})")
+        # Try cves table first, fall back to papers for backward compat
+        cves = store.get_papers(limit=10)
+        if not cves:
+            return _msg("No CVEs in the knowledge base yet.")
+        lines = ["**Recent CVEs:**"]
+        for c in cves:
+            sev = c.get("significance", c.get("severity", "?"))
+            lines.append(f"- [{sev}] **{c['title']}** ({c['id']})")
         return _msg("\n".join(lines))
 
 
@@ -382,52 +383,52 @@ async def _handle_recent_command(args: str) -> list[dict[str, Any]]:
     if args.strip().isdigit():
         n = int(args.strip())
 
-    # Show recent papers + findings
-    papers = store.get_papers(limit=n)
+    # Show recent CVEs + findings
+    entries = store.get_papers(limit=n)
     lines = []
 
-    if papers:
-        lines.append("**Recent papers:**")
-        for p in papers[:n]:
-            sig = p.get("significance", "?")
-            lines.append(f"- [{sig}] {p['title']} ({p['id']}) — {p.get('discovered_at', '')[:10]}")
+    if entries:
+        lines.append("**Recent security findings:**")
+        for e in entries[:n]:
+            sev = e.get("significance", e.get("severity", "?"))
+            lines.append(f"- [{sev}] {e['title']} ({e['id']}) — {e.get('discovered_at', '')[:10]}")
 
     if not lines:
-        return _msg("No recent research activity.")
+        return _msg("No recent security activity.")
 
     return _msg("\n".join(lines))
 
 
-async def _handle_publish_command(session_id: str) -> list[dict[str, Any]]:
-    """Generate a digest and publish to Discord via webhook."""
+async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
+    """Generate a security intelligence digest and publish to Discord via webhook."""
     import os
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "")
     if not webhook_url:
         return _msg("**Error:** DISCORD_WEBHOOK_URL not set.")
 
-    # Gather research data for the digest
+    # Gather security data for the digest
     store = _get_store()
     stats = store.get_stats()
-    papers = store.get_papers(limit=15)
+    entries = store.get_papers(limit=15)
     topics = store.get_topics()
 
-    # Build the newsletter
+    # Build the security digest
     from datetime import datetime, timezone
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     instance_name = os.environ.get("INSTANCE_NAME", "")
     instance_tag = f" [{instance_name}]" if instance_name else ""
-    lines = [f"**🔬 protoPen{instance_tag} Weekly Digest — {date_str}**\n"]
+    lines = [f"**🔒 protoPen{instance_tag} Security Intelligence Digest — {date_str}**\n"]
 
     if stats:
-        lines.append(f"📊 **Knowledge Base:** {stats.get('papers', 0)} papers, "
-                     f"{stats.get('findings', 0)} findings, {stats.get('model_releases', 0)} model releases\n")
+        lines.append(f"📊 **Knowledge Base:** {stats.get('cves', stats.get('papers', 0))} CVEs, "
+                     f"{stats.get('findings', 0)} findings, {stats.get('advisories', 0)} advisories\n")
 
-    if papers:
-        lines.append("**📄 Recent Papers:**")
-        for p in papers[:10]:
-            sig = p.get("significance", "?")
-            lines.append(f"• [{sig}] {p['title']}")
+    if entries:
+        lines.append("**🛡️ Recent Threats:**")
+        for e in entries[:10]:
+            sev = e.get("significance", e.get("severity", "?"))
+            lines.append(f"• [{sev}] {e['title']}")
         lines.append("")
 
     if topics:
@@ -443,9 +444,9 @@ async def _handle_publish_command(session_id: str) -> list[dict[str, Any]]:
     payload = {
         "username": webhook_name,
         "embeds": [{
-            "title": f"🔬 Weekly Research Digest — {date_str}",
+            "title": f"🔒 Security Intelligence Digest — {date_str}",
             "description": digest_content[:4096],
-            "color": 0x14b8a6,
+            "color": 0xef4444,
         }],
     }
 
@@ -1104,7 +1105,7 @@ def _main():
         chat_fn=chat,
         title="🔬 protoPen",
         subtitle="",
-        placeholder="Ask me about the latest in AI research...",
+        placeholder="Ask me about the latest security threats...",
         settings=_build_settings_callbacks(),
         pwa=True,
     )
@@ -1218,9 +1219,9 @@ def _main():
     AGENT_CARD = {
         "name": "protopen",
         "description": (
-            "Autonomous pen testing and AI research agent. Combines hardware-in-the-loop "
+            "Autonomous pen testing and security intelligence agent. Combines hardware-in-the-loop "
             "security assessments (PortaPack H4M, Flipper Zero, WiFi Marauder, BlackArch) "
-            "with AI/ML research capabilities (HuggingFace, GitHub, Discord, knowledge store). "
+            "with threat intelligence capabilities (CVE feeds, security advisories, GitHub, knowledge store). "
             "Runs on a Steam Deck with attached RF/WiFi/RFID peripherals."
         ),
         "url": "http://steamdeck:7870",
@@ -1263,11 +1264,11 @@ def _main():
                 "outputModes": ["text/markdown"],
             },
             {
-                "id": "deep_research",
-                "name": "Deep Research",
+                "id": "threat_intel",
+                "name": "Threat Intelligence",
                 "description": (
-                    "Research a topic in depth: searches HuggingFace, GitHub, web, "
-                    "and internal knowledge store. Returns a structured findings report."
+                    "Research a security topic in depth: searches CVE feeds, security advisories, "
+                    "GitHub, web, and internal knowledge store. Returns a structured threat report."
                 ),
                 "inputModes": ["text/plain"],
                 "outputModes": ["text/markdown"],
@@ -1276,7 +1277,7 @@ def _main():
                 "id": "summarize",
                 "name": "Summarize",
                 "description": (
-                    "Summarize recent findings, papers, or model releases from the "
+                    "Summarize recent CVEs, advisories, exploits, or threat intel from the "
                     "knowledge store. Optionally scoped to a topic or time window."
                 ),
                 "inputModes": ["text/plain"],

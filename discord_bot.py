@@ -1,8 +1,8 @@
-"""Discord bot for protoPen — watches for 🔬 reactions and @mentions.
+"""Discord bot for protoPen — watches for 🔒 reactions and @mentions.
 
 Runs as a background task alongside the Gradio server. When a user reacts
-with 🔬 to a message or @mentions the bot in a reply, it queues the message
-for research and posts results back as a Discord reply.
+with 🔒 to a message or @mentions the bot in a reply, it queues the message
+for security analysis and posts results back as a Discord reply.
 
 Requires DISCORD_BOT_TOKEN env var.
 """
@@ -24,7 +24,7 @@ def _log(msg):
     """Print + log for visibility in Docker logs."""
     print(f"[discord-bot] {msg}", flush=True)
 
-TRIGGER_EMOJI = "🔬"
+TRIGGER_EMOJI = "🔒"
 _CHAT_URL = "http://127.0.0.1:7870/api/chat"
 _DISCORD_API = "https://discord.com/api/v10"
 _BOT_TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
@@ -187,30 +187,30 @@ async def _send_typing(channel_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Research handler
+# Security analysis handler
 # ---------------------------------------------------------------------------
 
-async def _do_research(channel_id: str, message_id: str, content: str, context: str = ""):
-    """React with 👀, do research via /api/chat, create thread with synthesis."""
+async def _do_analysis(channel_id: str, message_id: str, content: str, context: str = ""):
+    """React with 👀, do security analysis via /api/chat, create thread with synthesis."""
 
     # Step 1: Acknowledge with 👀
     await _react(channel_id, message_id, "👀")
 
-    # Build research prompt
+    # Build security analysis prompt
     prompt_parts = []
     if context:
         prompt_parts.append(f"Context from Discord user: {context}")
     prompt_parts.append(
-        f"Research the following and provide a structured synthesis. "
-        f"Rate significance. Note practical implications for the protoLabs stack.\n\n"
+        f"Analyze the following from a security perspective and provide a structured synthesis. "
+        f"Rate severity and exploitability. Note practical implications for the protoLabs stack.\n\n"
         f"IMPORTANT FORMATTING RULES (this will be posted to Discord):\n"
         f"- Do NOT use markdown tables (Discord doesn't render them)\n"
         f"- Use bullet lists instead of tables\n"
         f"- Bold with **text** is fine\n"
         f"- Use > for blockquotes\n"
         f"- Keep sections short — Discord truncates long messages\n"
-        f"- START your response with a **Reasoning Trace** section showing your research steps, like:\n"
-        f"  > 🔍 Scanned 3 sources → Found 5 relevant items → Graded 3 as significant → Synthesized below\n\n"
+        f"- START your response with a **Reasoning Trace** section showing your analysis steps, like:\n"
+        f"  > 🔍 Scanned 3 sources → Found 5 relevant threats → Graded 3 as critical/high → Synthesized below\n\n"
         f"{content}"
     )
     prompt = "\n\n".join(prompt_parts)
@@ -228,31 +228,31 @@ async def _do_research(channel_id: str, message_id: str, content: str, context: 
 
         if not result:
             await _reply(channel_id, message_id,
-                         "🔬 Couldn't produce a useful summary. "
+                         "🔒 Couldn't produce a useful analysis. "
                          "Try @mentioning me with a specific question.")
             return
 
-        # Step 2: React with 🔬 to confirm research is done
+        # Step 2: React with 🔒 to confirm analysis is done
         await _react(channel_id, message_id, TRIGGER_EMOJI)
 
         # Step 3: Create a thread on the original message
         # Thread name from first line of content or a truncated version
-        first_line = content.split("\n")[0][:80].strip() or "Research"
+        first_line = content.split("\n")[0][:80].strip() or "Security Analysis"
         tag = f" [{_INSTANCE_NAME}]" if _INSTANCE_NAME else ""
-        thread = await _create_thread(channel_id, message_id, f"🔬{tag} {first_line}")
+        thread = await _create_thread(channel_id, message_id, f"🔒{tag} {first_line}")
 
         if thread:
             thread_id = thread.get("id")
             # Post the synthesis in the thread
-            synthesis = f"🔬 **Research Synthesis**\n\n{result}"
+            synthesis = f"🔒 **Security Analysis**\n\n{result}"
             await _send_to_thread(thread_id, synthesis)
         else:
             # Fallback: reply directly if thread creation fails
-            await _reply(channel_id, message_id, f"🔬 **Research Synthesis**\n\n{result}")
+            await _reply(channel_id, message_id, f"🔒 **Security Analysis**\n\n{result}")
 
     except Exception as e:
-        log.error(f"Research failed: {e}")
-        await _reply(channel_id, message_id, f"🔬 Research failed: {str(e)[:200]}")
+        log.error(f"Security analysis failed: {e}")
+        await _reply(channel_id, message_id, f"🔒 Analysis failed: {str(e)[:200]}")
 
 
 async def _keep_typing(channel_id: str):
@@ -390,7 +390,7 @@ async def _handle_reaction(data: dict, bot_id: str):
     channel_id = data.get("channel_id", "")
     message_id = data.get("message_id", "")
 
-    _log(f"🔬 Reaction trigger: channel={channel_id} message={message_id}")
+    _log(f"🔒 Reaction trigger: channel={channel_id} message={message_id}")
 
     # Fetch the original message
     msg = await _get_message(channel_id, message_id)
@@ -408,11 +408,11 @@ async def _handle_reaction(data: dict, bot_id: str):
             content += f"\n{embed['description'][:500]}"
 
     if not content.strip():
-        await _reply(channel_id, message_id, "🔬 This message doesn't have content I can research. Try @mentioning me with a question instead.")
+        await _reply(channel_id, message_id, "🔒 This message doesn't have content I can analyze. Try @mentioning me with a question instead.")
         return
 
-    # Queue research in background
-    asyncio.create_task(_do_research(channel_id, message_id, content))
+    # Queue analysis in background
+    asyncio.create_task(_do_analysis(channel_id, message_id, content))
 
 
 async def _handle_message(data: dict, bot_id: str):
@@ -436,7 +436,7 @@ async def _handle_message(data: dict, bot_id: str):
     # Strip the @mention from the content
     clean_content = re.sub(r'<@!?' + bot_id + r'>', '', content).strip()
 
-    _log(f"🔬 Mention trigger: channel={channel_id} from={author.get('username')}")
+    _log(f"🔒 Mention trigger: channel={channel_id} from={author.get('username')}")
 
     # Gather context from multiple sources
     context_parts = []
@@ -478,22 +478,22 @@ async def _handle_message(data: dict, bot_id: str):
 
     if not clean_content and not context_content:
         await _reply(channel_id, message_id,
-                     "🔬 What would you like me to research? "
+                     "🔒 What would you like me to analyze? "
                      "You can:\n"
-                     "- React with 🔬 to any message with links\n"
+                     "- React with 🔒 to any message with links\n"
                      "- @mention me with a question\n"
                      "- Reply to a message and @mention me for context")
         return
 
-    # Build the research input with all available context
+    # Build the analysis input with all available context
     if context_content and clean_content:
-        research_content = f"{context_content}\n\n--- User's question ---\n{clean_content}"
+        analysis_content = f"{context_content}\n\n--- User's question ---\n{clean_content}"
     elif context_content:
-        research_content = context_content
+        analysis_content = context_content
     else:
-        research_content = clean_content
+        analysis_content = clean_content
 
-    asyncio.create_task(_do_research(channel_id, message_id, research_content, context=clean_content))
+    asyncio.create_task(_do_analysis(channel_id, message_id, analysis_content, context=clean_content))
 
 
 # ---------------------------------------------------------------------------
