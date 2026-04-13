@@ -166,7 +166,7 @@ class KnowledgeStore:
         db.execute(
             """INSERT OR REPLACE INTO cves
                (id, title, description, severity, cvss_score, cvss_vector,
-                affected_products, references, exploit_available, exploit_maturity,
+                affected_products, "references", exploit_available, exploit_maturity,
                 tags, published_at, discovered_at, analyzed_at, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS cves (
     cvss_score REAL,
     cvss_vector TEXT,
     affected_products TEXT,              -- JSON array
-    references TEXT,                     -- JSON array of URLs
+    "references" TEXT,                   -- JSON array of URLs
     exploit_available INTEGER DEFAULT 0,
     exploit_maturity TEXT,               -- poc/weaponized/active/none
     tags TEXT,                           -- JSON array of custom tags
