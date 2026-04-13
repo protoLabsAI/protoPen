@@ -2,31 +2,31 @@
   {
     "id": "simple_question",
     "name": "Simple factual question",
-    "prompt": "What is a transformer architecture in machine learning? Keep your answer to 2-3 sentences.",
+    "prompt": "What is a buffer overflow vulnerability? Keep your answer to 2-3 sentences.",
     "expected_tools": [],
     "category": "simple",
-    "expected_patterns": ["transformer", "attention", "model"]
+    "expected_patterns": ["buffer", "overflow", "vulnerability"]
   },
   {
     "id": "discord_scan",
     "name": "Discord channel scan",
-    "prompt": "Scan the AI research Discord channel for recent posts about new model releases.",
+    "prompt": "Scan the security Discord channel for recent posts about new CVE disclosures.",
     "expected_tools": ["discord_feed"],
     "category": "medium",
-    "expected_patterns": ["model", "release"]
+    "expected_patterns": ["CVE", "disclosure"]
   },
   {
-    "id": "hf_model_search",
-    "name": "HuggingFace model search",
-    "prompt": "Search HuggingFace for the latest text-to-image models released this week. Summarize the top 3.",
-    "expected_tools": ["huggingface"],
+    "id": "security_feed_search",
+    "name": "Security feed search",
+    "prompt": "Search security feeds for the latest critical vulnerabilities disclosed this week. Summarize the top 3.",
+    "expected_tools": ["security_feeds"],
     "category": "medium",
-    "expected_patterns": ["model", "image"]
+    "expected_patterns": ["vulnerability", "critical"]
   },
   {
     "id": "github_trending",
     "name": "GitHub trending search",
-    "prompt": "What are the trending AI/ML repositories on GitHub right now? Focus on inference and training frameworks.",
+    "prompt": "What are the trending security repositories on GitHub right now? Focus on exploitation frameworks and vulnerability scanners.",
     "expected_tools": ["github_trending"],
     "category": "medium",
     "expected_patterns": ["github", "repository"]
@@ -37,39 +37,39 @@
     "prompt": "/topics",
     "expected_tools": [],
     "category": "simple",
-    "expected_patterns": ["topic", "research"]
+    "expected_patterns": ["topic", "security"]
   },
   {
-    "id": "paper_analysis",
-    "name": "Paper analysis request",
-    "prompt": "Find and analyze the paper 'Attention Is All You Need'. Summarize its key contributions and impact.",
-    "expected_tools": ["paper_reader"],
+    "id": "cve_analysis",
+    "name": "CVE analysis request",
+    "prompt": "Find and analyze CVE-2024-3094 (xz backdoor). Summarize the attack vector, impact, and mitigations.",
+    "expected_tools": ["cve_search"],
     "category": "medium",
-    "expected_patterns": ["attention", "transformer", "paper"]
+    "expected_patterns": ["CVE", "xz", "backdoor"]
   },
   {
     "id": "multi_step_scan_analyze",
     "name": "Multi-step: scan then analyze",
-    "prompt": "Scan the Discord AI channel for any papers posted today, then analyze the most interesting one in detail. Provide a structured summary with significance rating.",
-    "expected_tools": ["discord_feed", "paper_reader"],
+    "prompt": "Scan the Discord security channel for any CVEs posted today, then analyze the most critical one in detail. Provide a structured summary with severity rating.",
+    "expected_tools": ["discord_feed", "cve_search"],
     "category": "complex",
-    "expected_patterns": ["paper", "summary"]
+    "expected_patterns": ["CVE", "severity"]
   },
   {
-    "id": "digest_generation",
-    "name": "Weekly digest generation",
-    "prompt": "Generate a research digest covering the latest findings in our knowledge base. Include papers, model releases, and key trends. Format it as a newsletter.",
-    "expected_tools": ["research_memory"],
+    "id": "intel_digest",
+    "name": "Threat intelligence digest",
+    "prompt": "Generate a threat intel digest covering the latest findings in our knowledge base. Include CVEs, exploits, and key advisories. Format it as a briefing.",
+    "expected_tools": ["security_memory"],
     "category": "complex",
-    "expected_patterns": ["digest", "research"]
+    "expected_patterns": ["digest", "threat"]
   },
   {
     "id": "complex_multi_tool",
     "name": "Complex multi-tool research",
-    "prompt": "Do a comprehensive survey of recent progress in mixture-of-experts LLMs: check HuggingFace for new MoE models, search GitHub for MoE training frameworks, and look for relevant papers. Compile everything into a structured research brief.",
-    "expected_tools": ["huggingface", "github_trending", "paper_reader"],
+    "prompt": "Do a comprehensive survey of recent RCE vulnerabilities in web frameworks: check security feeds for new CVEs, search GitHub for PoC exploits, and look for advisories. Compile everything into a structured threat brief.",
+    "expected_tools": ["security_feeds", "github_trending", "cve_search"],
     "category": "complex",
-    "expected_patterns": ["mixture", "expert", "MoE"]
+    "expected_patterns": ["RCE", "vulnerability", "exploit"]
   },
   {
     "id": "edge_empty_input",

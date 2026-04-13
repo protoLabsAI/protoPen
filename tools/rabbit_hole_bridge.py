@@ -374,7 +374,7 @@ class RabbitHoleBridgeTool(Tool):
                     return "Error: arxiv_id is required for ingest_paper"
                 paper = _get_paper(arxiv_id)
                 if not paper:
-                    return f"Paper '{arxiv_id}' not found in local knowledge store. Store it first with research_memory."
+                    return f"Paper '{arxiv_id}' not found in local knowledge store. Store it first with security_memory."
                 bundle = paper_to_bundle(paper)
                 result = await _post_bundle(bundle)
                 summary = result.get("data", {}).get("summary", {})
@@ -390,7 +390,7 @@ class RabbitHoleBridgeTool(Tool):
                     return "Error: model_id is required for ingest_model"
                 model = _get_model(model_id)
                 if not model:
-                    return f"Model '{model_id}' not found in local knowledge store. Store it first with research_memory."
+                    return f"Model '{model_id}' not found in local knowledge store. Store it first with security_memory."
                 bundle = model_to_bundle(model)
                 result = await _post_bundle(bundle)
                 summary = result.get("data", {}).get("summary", {})

@@ -11,18 +11,18 @@ model:
   max_iterations: 75
 
 subagents:
-  # Research
-  explorer:
+  # Security Research
+  threat_scanner:
     enabled: true
-    tools: [discord_feed, huggingface, github_trending, browser, rabbit_hole_bridge]
+    tools: [cve_search, security_feeds, github_trending, browser, security_memory]
     max_turns: 30
-  analyst:
+  vuln_analyst:
     enabled: true
-    tools: [paper_reader, research_memory, browser, rabbit_hole_bridge]
+    tools: [cve_search, browser, security_memory, target_intel]
     max_turns: 40
-  writer:
+  intel_reporter:
     enabled: true
-    tools: [research_memory, discord_feed, rabbit_hole_bridge]
+    tools: [security_memory, discord_feed]
     max_turns: 20
   # Pentest
   recon:
@@ -35,7 +35,7 @@ subagents:
     max_turns: 25
   reporter:
     enabled: true
-    tools: [engagement, research_memory, discord_feed]
+    tools: [engagement, security_memory, discord_feed]
     max_turns: 20
 
 middleware:
@@ -44,7 +44,7 @@ middleware:
   memory: true
 
 knowledge:
-  db_path: /sandbox/knowledge/research.db
+  db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b
   top_k: 10
   search_mode: hybrid  # hybrid (vector + keyword RRF), vector, keyword
