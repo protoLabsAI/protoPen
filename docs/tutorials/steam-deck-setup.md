@@ -235,7 +235,7 @@ protoPen never writes API keys or secrets to disk. The `start.sh` launcher fetch
 protoPen stores knowledge, audit logs, and papers under `/sandbox`. On bare metal (no Docker), this needs to be a symlink to a local data directory:
 
 ```bash
-mkdir -p ~/protoPen/data/knowledge ~/protoPen/data/audit ~/protoPen/data/papers ~/protoPen/data/lab
+mkdir -p ~/protoPen/data/knowledge ~/protoPen/data/audit ~/protoPen/data/intel ~/protoPen/data/lab
 sudo ln -sfn ~/protoPen/data /sandbox
 ```
 

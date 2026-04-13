@@ -55,9 +55,9 @@ OpenAI-compatible chat completions endpoint. Supports both streaming and non-str
 
 ```json
 {
-  "model": "protoresearcher",
+  "model": "protopen",
   "messages": [
-    {"role": "user", "content": "What are the latest MoE papers?"}
+    {"role": "user", "content": "What are the latest critical CVEs affecting Linux?"}
   ],
   "stream": false
 }
@@ -67,14 +67,14 @@ OpenAI-compatible chat completions endpoint. Supports both streaming and non-str
 
 ```json
 {
-  "id": "protoresearcher-openai-compat-1712956800",
+  "id": "protopen-openai-compat-1712956800",
   "object": "chat.completion",
   "created": 1712956800,
-  "model": "protoresearcher",
+  "model": "protopen",
   "choices": [
     {
       "index": 0,
-      "message": {"role": "assistant", "content": "Here are the recent MoE papers..."},
+      "message": {"role": "assistant", "content": "Here are the recent critical CVEs..."},
       "finish_reason": "stop"
     }
   ],
@@ -87,7 +87,7 @@ OpenAI-compatible chat completions endpoint. Supports both streaming and non-str
 Server-Sent Events:
 
 ```
-data: {"id":"...","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":"Here are..."},"finish_reason":null}]}
+data: {"id":"...","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":"Here are the..."},"finish_reason":null}]}
 
 data: {"id":"...","object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}]}
 
@@ -105,7 +105,7 @@ Lists available models.
   "object": "list",
   "data": [
     {
-      "id": "protoresearcher",
+      "id": "protopen",
       "object": "model",
       "created": 1774600000,
       "owned_by": "protolabs"
@@ -127,7 +127,7 @@ Returns the A2A agent card describing protoPen's capabilities and skills.
 ```json
 {
   "name": "protopen",
-  "description": "Autonomous pen testing and AI research agent...",
+  "description": "Autonomous pen testing and security research agent...",
   "url": "http://steamdeck:7870",
   "provider": {"organization": "protoLabsAI"},
   "version": "2.0",
@@ -136,7 +136,7 @@ Returns the A2A agent card describing protoPen's capabilities and skills.
     {"id": "passive_recon", "name": "Passive Reconnaissance", "...": "..."},
     {"id": "active_pentest", "name": "Active Penetration Test", "...": "..."},
     {"id": "security_report", "name": "Security Report", "...": "..."},
-    {"id": "deep_research", "name": "Deep Research", "...": "..."},
+    {"id": "threat_intel", "name": "Threat Intelligence", "...": "..."},
     {"id": "summarize", "name": "Summarize", "...": "..."}
   ]
 }
@@ -160,7 +160,7 @@ See the [A2A Integration guide](../guides/a2a-integration.md) for curl examples.
 | Header | Required | Description |
 |---|---|---|
 | `Content-Type` | yes | `application/json` |
-| `x-api-key` | conditional | Required when `PROTOPEN_API_KEY` / `RESEARCHER_API_KEY` is set |
+| `x-api-key` | conditional | Required when `PROTOPEN_API_KEY` is set |
 
 ---
 
@@ -174,9 +174,9 @@ Exposed metrics:
 
 | Metric | Type | Labels | Description |
 |---|---|---|---|
-| `protoresearcher_llm_calls_total` | Counter | `model`, `finish_reason` | Total LLM API calls |
-| `protoresearcher_llm_latency_seconds` | Histogram | `model` | LLM call latency |
-| `protoresearcher_llm_tokens_total` | Counter | `model`, `direction` | Tokens consumed (input/output) |
-| `protoresearcher_tool_calls_total` | Counter | `tool_name`, `success` | Total tool executions |
-| `protoresearcher_tool_latency_seconds` | Histogram | `tool_name` | Tool execution latency |
-| `protoresearcher_active_sessions` | Gauge | -- | Currently active chat sessions |
+| `protopen_llm_calls_total` | Counter | `model`, `finish_reason` | Total LLM API calls |
+| `protopen_llm_latency_seconds` | Histogram | `model` | LLM call latency |
+| `protopen_llm_tokens_total` | Counter | `model`, `direction` | Tokens consumed (input/output) |
+| `protopen_tool_calls_total` | Counter | `tool_name`, `success` | Total tool executions |
+| `protopen_tool_latency_seconds` | Histogram | `tool_name` | Tool execution latency |
+| `protopen_active_sessions` | Gauge | -- | Currently active chat sessions |

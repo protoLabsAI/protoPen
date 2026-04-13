@@ -65,11 +65,11 @@ The `guardrails.py` module provides three pre-flight checks:
 
 ### Scope Validation
 
-Queries are scored for relevance to the agent's domain (AI/ML research or pen testing) on a 0-100 scale. Queries below the threshold (default: 40) are rejected. A keyword heuristic provides fast bypass for obviously relevant queries; borderline cases are checked via LLM.
+Queries are scored for relevance to the agent's domain (security research or pen testing) on a 0-100 scale. Queries below the threshold (default: 40) are rejected. A keyword heuristic provides fast bypass for obviously relevant queries; borderline cases are checked via LLM.
 
 ### Query Rewriting
 
-When a search returns sparse or no results, the guardrails module rewrites the query using the LLM to improve recall. Common abbreviations are expanded (e.g., "MoE" becomes "mixture of experts MoE").
+When a search returns sparse or no results, the guardrails module rewrites the query using the LLM to improve recall. Common abbreviations are expanded (e.g., "RCE" becomes "remote code execution RCE").
 
 ### Document Grading
 

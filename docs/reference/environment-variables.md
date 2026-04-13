@@ -51,10 +51,9 @@ All environment variables used by protoPen. Set these in your `docker-compose.ym
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PROTOPEN_API_KEY` | no | -- | API key for authenticating A2A requests. Checked via `x-api-key` header. |
-| `RESEARCHER_API_KEY` | no | -- | Alias for `PROTOPEN_API_KEY` (legacy name, checked as fallback) |
 
 ::: tip
-When neither `PROTOPEN_API_KEY` nor `RESEARCHER_API_KEY` is set, the A2A endpoint accepts unauthenticated requests. This is appropriate for a private Tailnet but not for public exposure.
+When `PROTOPEN_API_KEY` is not set, the A2A endpoint accepts unauthenticated requests. This is appropriate for a private Tailnet but not for public exposure.
 :::
 
 ::: warning

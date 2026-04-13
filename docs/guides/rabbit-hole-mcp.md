@@ -1,6 +1,6 @@
 # Rabbit Hole MCP Integration
 
-protoPen ships research findings (papers, model releases, free-text analysis) to the [rabbit-hole.io](https://rabbit-hole.io) knowledge graph via a direct HTTP bridge.
+protoPen ships security intelligence (advisories, exploits, threat analysis) to the [rabbit-hole.io](https://rabbit-hole.io) knowledge graph via a direct HTTP bridge.
 
 ## Overview
 
@@ -48,9 +48,9 @@ The `rabbit_hole_bridge` tool supports the following actions:
 
 | Action | Description |
 |---|---|
-| `ingest_paper` | Convert a KnowledgeStore paper into a bundle and ingest |
-| `ingest_model` | Ingest a model release as entities + relationships |
-| `ingest_text` | Ingest free-form text (findings, digests, summaries) |
+| `ingest_advisory` | Convert a KnowledgeStore advisory into a bundle and ingest |
+| `ingest_exploit` | Ingest an exploit as entities + relationships |
+| `ingest_text` | Ingest free-form text (threat intel, digests, summaries) |
 | `search_graph` | Search the knowledge graph for existing entities |
 
 ## Verifying Connectivity
@@ -59,7 +59,7 @@ Check that protoPen can reach rabbit-hole:
 
 ```bash
 # From inside the container
-docker exec protoresearcher curl -s http://host.docker.internal:3399/health
+docker exec protopen curl -s http://host.docker.internal:3399/health
 ```
 
 Or ask the agent:
@@ -84,8 +84,8 @@ RABBIT_HOLE_URL=http://ava:3399
 
 ## Subagent Usage
 
-The Explorer, Analyst, and Writer subagents all have access to `rabbit_hole_bridge`:
+The Threat Scanner, Vuln Analyst, and Intel Reporter subagents all have access to `rabbit_hole_bridge`:
 
-- **Explorer** checks the graph before scanning to avoid duplicate work (`search_graph`)
-- **Analyst** ingests papers and findings after analysis (`ingest_paper`, `ingest_text`)
-- **Writer** ships digests to the graph after publishing (`ingest_text`)
+- **Threat Scanner** checks the graph before scanning to avoid duplicate work (`search_graph`)
+- **Vuln Analyst** ingests advisories and threat intel after analysis (`ingest_advisory`, `ingest_text`)
+- **Intel Reporter** ships digests to the graph after publishing (`ingest_text`)

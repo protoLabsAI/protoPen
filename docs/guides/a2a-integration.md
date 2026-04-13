@@ -1,6 +1,6 @@
 # A2A Integration
 
-protoPen exposes an [Agent-to-Agent (A2A)](https://google.github.io/A2A/) JSON-RPC 2.0 endpoint that other agents (e.g. protoWorkstacean) can call to request pen testing or research tasks.
+protoPen exposes an [Agent-to-Agent (A2A)](https://google.github.io/A2A/) JSON-RPC 2.0 endpoint that other agents (e.g. protoWorkstacean) can call to request pen testing or threat intelligence tasks.
 
 ## Agent Card
 
@@ -23,8 +23,8 @@ The card advertises the agent name (`protopen`), capabilities, and available ski
 | `passive_recon` | Passive Reconnaissance | WiFi AP/station enumeration, RF survey, host discovery, service fingerprinting. Observation only. |
 | `active_pentest` | Active Penetration Test | PMKID capture, vuln scanning, RF replay, RFID read/write. Requires active or redteam mode. |
 | `security_report` | Security Report | Generate a professional assessment report from engagement findings. |
-| `deep_research` | Deep Research | Search HuggingFace, GitHub, web, and internal knowledge store. Returns structured findings. |
-| `summarize` | Summarize | Summarize recent findings, papers, or model releases from the knowledge store. |
+| `threat_intel` | Threat Intelligence | Search CVE databases, security feeds, GitHub, web, and internal knowledge store. Returns structured findings. |
+| `summarize` | Summarize | Summarize recent advisories, threat intel, or exploits from the knowledge store. |
 
 ## Sending a Message
 
@@ -82,7 +82,7 @@ curl -N -X POST http://steamdeck:7870/a2a \
     "params": {
       "message": {
         "role": "user",
-        "parts": [{"kind": "text", "text": "Research the latest advances in mixture-of-experts architectures"}]
+        "parts": [{"kind": "text", "text": "Research the latest critical CVEs affecting network infrastructure"}]
       },
       "contextId": "research-session-42"
     }
@@ -119,7 +119,7 @@ curl -X POST http://steamdeck:7870/a2a \
 
 ## Authentication
 
-Authentication is optional. When `PROTOPEN_API_KEY` or `RESEARCHER_API_KEY` is set in the environment, all A2A requests must include the key:
+Authentication is optional. When `PROTOPEN_API_KEY` is set in the environment, all A2A requests must include the key:
 
 ```
 x-api-key: <your-key>

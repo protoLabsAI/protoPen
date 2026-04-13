@@ -2,7 +2,7 @@
 layout: home
 hero:
   name: protoPen
-  text: Autonomous Pen-Testing & AI Research Agent
+  text: Autonomous Security Research & Pen-Testing Agent
   tagline: Steam Deck + RF hardware + LangGraph agent — scan, exploit, report.
   actions:
     - theme: brand
@@ -23,8 +23,8 @@ features:
     title: Agent-to-Agent Protocol
     details: JSON-RPC A2A endpoint lets other agents delegate recon, pentesting, and research tasks programmatically.
   - icon: 🧠
-    title: AI Research
-    details: HuggingFace, GitHub, Discord scanning with hybrid knowledge search (vector + BM25) and autonomous GPU experiments via lab mode.
+    title: Threat Intelligence
+    details: CVE tracking, security feeds, Exploit-DB, GitHub security tools — with hybrid knowledge search (vector + BM25) and autonomous GPU experiments via lab mode.
 ---
 
 ## Documentation Structure

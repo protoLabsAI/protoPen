@@ -41,7 +41,7 @@ docker compose --profile lab up --build -d researcher-lab
 Check the container logs for a clean startup:
 
 ```bash
-docker logs protoresearcher --tail 30
+docker logs protopen --tail 30
 ```
 
 You should see:

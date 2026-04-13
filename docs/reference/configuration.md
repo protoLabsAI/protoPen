@@ -1,6 +1,6 @@
 # Configuration Files
 
-protoPen uses several configuration files located in the `config/` directory. This directory is bind-mounted into the container at `/opt/protoresearcher/config/`, so changes on the host take effect after a container restart.
+protoPen uses several configuration files located in the `config/` directory. This directory is bind-mounted into the container at `/opt/protopen/config/`, so changes on the host take effect after a container restart.
 
 ## engagement-config.json
 
@@ -89,15 +89,15 @@ model:
   max_iterations: 75
 
 subagents:
-  explorer:
+  threat_scanner:
     enabled: true
-    tools: [discord_feed, huggingface, github_trending, browser, rabbit_hole_bridge]
+    tools: [cve_search, security_feeds, github_trending, browser, security_memory, rabbit_hole_bridge]
     max_turns: 30
-  analyst:
+  vuln_analyst:
     enabled: true
-    tools: [paper_reader, research_memory, browser, rabbit_hole_bridge]
+    tools: [cve_search, security_feeds, security_memory, browser, rabbit_hole_bridge]
     max_turns: 40
-  # ... (writer, recon, exploit, reporter)
+  # ... (intel_reporter, recon, exploit, reporter)
 
 middleware:
   knowledge: true
@@ -105,7 +105,7 @@ middleware:
   memory: true
 
 knowledge:
-  db_path: /sandbox/knowledge/research.db
+  db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b
   top_k: 10
   search_mode: hybrid
@@ -133,13 +133,13 @@ This follows the standard nanobot configuration format. Refer to the nanobot doc
 
 ---
 
-## research-config.json
+## security-config.json
 
-Default research topics seeded on startup.
+Default security topics and feed configuration seeded on startup.
 
-**Path:** `config/research-config.json`
+**Path:** `config/security-config.json`
 
-Contains a `topics` array, each with `name`, `keywords`, and `priority`. Topics are seeded into the knowledge store on first launch.
+Contains a `topics` array (CVE tracking, wireless security, exploit techniques, etc.), each with `name`, `keywords`, and `priority`. Also includes `feeds` configuration for scan intervals and `tracked_repos` for security tool monitoring. Topics are seeded into the knowledge store on first launch.
 
 ---
 

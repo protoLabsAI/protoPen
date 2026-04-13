@@ -11,7 +11,7 @@ protoPen uses a hybrid search system that combines vector similarity with keywor
 | **FTS5** | Full-text search with BM25 ranking |
 | **nomic-embed-text / Qwen3-Embedding-0.6B** | Embedding model (served via OpenAI-compatible endpoint) |
 
-The knowledge store lives at `/sandbox/knowledge/research.db` and stores papers, findings, digests, model releases, and their vector embeddings in a single database file.
+The knowledge store lives at `/sandbox/knowledge/security.db` and stores advisories, threat intel, exploits, digests, and their vector embeddings in a single database file.
 
 ## How Hybrid Search Works
 
@@ -55,7 +55,7 @@ Configured via `knowledge.search_mode` in `langgraph-config.yaml`:
 
 When `knowledge.enrich_chunks` is enabled, each chunk is prepended with a contextual header before embedding. This is inspired by Anthropic's "contextual retrieval" technique.
 
-For a paper chunk, the enrichment step asks the LLM to produce 1-2 sentences that situate the chunk within its parent document:
+For an advisory chunk, the enrichment step asks the LLM to produce 1-2 sentences that situate the chunk within its parent document:
 
 ```
 Given a document and a chunk from it, write 1-2 sentences of context
@@ -66,19 +66,19 @@ The contextual header is prepended to the chunk text before it is sent to the em
 
 ## Why Hybrid Beats Vector-Only
 
-Vector search excels at semantic similarity ("find documents about model distillation") but struggles with:
+Vector search excels at semantic similarity ("find advisories about privilege escalation") but struggles with:
 
-- **Exact terms**: Searching for `"Qwen3-0.6B"` or `"arxiv:2401.12345"` fails when the embedding does not capture the literal string
-- **Acronyms and jargon**: BM25 catches `"DPO"`, `"RLHF"`, `"MoE"` literally, while vector search may conflate them with related but different concepts
+- **Exact terms**: Searching for `"CVE-2024-3094"` or `"CVSS 9.8"` fails when the embedding does not capture the literal string
+- **Acronyms and jargon**: BM25 catches `"RCE"`, `"SSRF"`, `"PMKID"` literally, while vector search may conflate them with related but different concepts
 - **Rare tokens**: Embedding models have diminishing returns on rare or novel tokens that appear infrequently in training data
 
 Keyword search excels at exact matching but struggles with:
 
-- **Synonyms**: "model compression" vs. "knowledge distillation" vs. "pruning"
-- **Paraphrases**: "how to make LLMs faster" vs. "inference optimization"
-- **Conceptual queries**: "latest advances in reasoning" has no single keyword to match
+- **Synonyms**: "privilege escalation" vs. "vertical access control bypass" vs. "root escalation"
+- **Paraphrases**: "how to exploit this service" vs. "vulnerability exploitation techniques"
+- **Conceptual queries**: "latest wireless attack techniques" has no single keyword to match
 
-RRF fusion captures the strengths of both. In practice, hybrid retrieval consistently outperforms either component alone on the mixed workloads protoPen handles -- from precise paper lookups to broad conceptual research queries.
+RRF fusion captures the strengths of both. In practice, hybrid retrieval consistently outperforms either component alone on the mixed workloads protoPen handles -- from precise CVE lookups to broad threat intelligence queries.
 
 ## Data Flow
 
@@ -92,4 +92,4 @@ User query
     └──► RRF fusion (list A, list B) ──► merged results ──► top-k returned
 ```
 
-The KnowledgeMiddleware in the LangGraph pipeline automatically searches on every turn and injects relevant results into the system prompt as "Research Context", giving the agent access to stored knowledge without explicit tool calls.
+The KnowledgeMiddleware in the LangGraph pipeline automatically searches on every turn and injects relevant results into the system prompt as "Security Context", giving the agent access to stored knowledge without explicit tool calls.

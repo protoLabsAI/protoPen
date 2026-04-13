@@ -1,6 +1,6 @@
 # Architecture
 
-protoPen is an autonomous pen-testing and AI research agent that runs on a Steam Deck with attached RF/WiFi/RFID peripherals. It combines hardware-in-the-loop security assessments with AI/ML research capabilities.
+protoPen is an autonomous pen-testing and security research agent that runs on a Steam Deck with attached RF/WiFi/RFID peripherals. It combines hardware-in-the-loop security assessments with threat intelligence capabilities.
 
 ## System Diagram
 
@@ -31,7 +31,8 @@ protoPen is an autonomous pen-testing and AI research agent that runs on a Steam
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                   Subagents (task tool)                  │    │
 │  │  ┌──────────┐ ┌─────────┐ ┌────────┐                    │    │
-│  │  │ Explorer │ │ Analyst │ │ Writer │  (Research)         │    │
+│  │  │ Threat   │ │  Vuln   │ │ Intel  │  (Security          │    │
+│  │  │ Scanner  │ │ Analyst │ │Reporter│   Research)         │    │
 │  │  ├──────────┤ ├─────────┤ ├────────┤                    │    │
 │  │  │  Recon   │ │ Exploit │ │Reporter│  (Pentest)         │    │
 │  │  └──────────┘ └─────────┘ └────────┘                    │    │
@@ -41,8 +42,8 @@ protoPen is an autonomous pen-testing and AI research agent that runs on a Steam
 │  │                     Tool Layer                           │    │
 │  │  portapack │ flipper │ marauder │ blackarch              │    │
 │  │  device_manager │ engagement │ target_intel              │    │
-│  │  paper_reader │ huggingface │ github_trending            │    │
-│  │  browser │ research_memory │ discord_feed                │    │
+│  │  cve_search │ security_feeds │ github_trending            │    │
+│  │  browser │ security_memory │ discord_feed                │    │
 │  │  rabbit_hole_bridge │ lab_bench                          │    │
 │  └─────────────────────┬───────────────────────────────────┘    │
 │                        ▼                                         │
@@ -84,13 +85,13 @@ Both backends share the same tool implementations, chat command handler, and HTT
 
 The lead agent delegates work to six specialized subagents via the `task` tool:
 
-### Research Domain
+### Security Research Domain
 
 | Subagent | Role | Tools |
 |---|---|---|
-| **Explorer** | Scans sources broadly -- Discord, HuggingFace, GitHub, web | discord_feed, huggingface, github_trending, browser, rabbit_hole_bridge |
-| **Analyst** | Reads papers deeply, extracts findings, rates significance | paper_reader, research_memory, browser, rabbit_hole_bridge |
-| **Writer** | Synthesizes findings into digests, publishes to Discord | research_memory, discord_feed, rabbit_hole_bridge |
+| **Threat Scanner** | Scans CVE feeds, Exploit-DB, security RSS, GitHub for new threats | cve_search, security_feeds, github_trending, browser, security_memory, rabbit_hole_bridge |
+| **Vuln Analyst** | Deep-reads advisories and PoCs, correlates with target intel, rates exploitability | cve_search, security_feeds, security_memory, browser, rabbit_hole_bridge |
+| **Intel Reporter** | Synthesizes threat intel reports, publishes security digests to Discord | security_memory, discord_feed, rabbit_hole_bridge |
 
 ### Pentest Domain
 
@@ -98,7 +99,7 @@ The lead agent delegates work to six specialized subagents via the `task` tool:
 |---|---|---|
 | **Recon** | Passive reconnaissance -- RF survey, WiFi scan, network enum | device_manager, portapack, flipper, marauder, blackarch, engagement |
 | **Exploit** | Active exploitation -- PMKID capture, signal replay, vuln scan | device_manager, portapack, flipper, marauder, blackarch, engagement |
-| **Reporter** | Finding synthesis -- triage, correlation, report generation | engagement, research_memory, discord_feed |
+| **Reporter** | Finding synthesis -- triage, correlation, report generation | engagement, security_memory, discord_feed |
 
 Each subagent gets a filtered tool set and a focused system prompt. The lead agent decides which subagent to invoke based on the task type.
 
@@ -120,7 +121,7 @@ The system prompt is assembled from multiple sources:
 2. **Hardware status** -- Boot-time sitrep (devices connected, network, engagement state)
 3. **Skills** -- Research methodology and pentest playbooks from `skills/` directory
 4. **Subagent instructions** -- Available subagent types and delegation rules
-5. **Research context** -- Dynamic injection via KnowledgeMiddleware (recent papers, topics)
+5. **Security context** -- Dynamic injection via KnowledgeMiddleware (recent advisories, threat intel)
 6. **Guidelines** -- Operational rules and output conventions
 
 ## Observability Stack

@@ -4,7 +4,7 @@ outline: deep
 
 # Tutorials
 
-protoPen is an autonomous pen-testing and AI research agent that runs natively on a Steam Deck. It combines BlackArch security tools (nmap, bettercap, aircrack-ng) with optional USB peripherals (PortaPack H4M, Flipper Zero, WiFi Marauder ESP32) and a LangGraph-powered AI agent that plans engagements, executes scans, auto-ingests results into a target intelligence database, and generates reports.
+protoPen is an autonomous pen-testing and security research agent that runs natively on a Steam Deck. It combines BlackArch security tools (nmap, bettercap, aircrack-ng) with optional USB peripherals (PortaPack H4M, Flipper Zero, WiFi Marauder ESP32) and a LangGraph-powered AI agent that plans engagements, executes scans, auto-ingests results into a target intelligence database, and generates reports.
 
 The server exposes a FastAPI/Gradio UI on port 7870, an A2A protocol endpoint for agent-to-agent communication, and an OpenAI-compatible chat completions API.
 
