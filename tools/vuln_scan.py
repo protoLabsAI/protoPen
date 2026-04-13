@@ -77,7 +77,7 @@ class VulnScanTool(BasePentestTool):
             c.format(target=target, ports=ports, tags=tags)
             for c in spec["cmd"]
         ]
-        effective_timeout = min(timeout, spec.get("timeout", 300))
+        effective_timeout = spec.get("timeout", 300)
 
         return await self._run(
             action=action,

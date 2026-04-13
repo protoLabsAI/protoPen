@@ -127,7 +127,7 @@ class PurpleTeamTool(BasePentestTool):
 
         for r in red_results:
             tid = r.get("technique_id") or r.get("technique", "")
-            if tid:
+            if tid and r.get("success"):
                 attacked_techniques.add(tid)
 
         for b in blue_results:
@@ -177,18 +177,28 @@ class PurpleTeamTool(BasePentestTool):
         gaps: list[dict] = []
         for r in red_results:
             tid = r.get("technique_id") or r.get("technique", "")
-            if tid and tid not in detected_set:
-                severity = "critical" if r.get("success") else "high"
-                gaps.append({
-                    "technique_id": tid,
-                    "technique_name": r.get("technique_name", ""),
-                    "attack_succeeded": r.get("success", False),
-                    "severity": severity,
-                    "recommendation": (
-                        f"Add detection for {tid}: deploy log rule / "
-                        "SIEM alert covering this technique"
-                    ),
-                })
+            if not tid or tid in detected_set:
+                continue
+            succeeded = r.get("success", False)
+            if succeeded:
+                severity = "critical"
+                recommendation = (
+                    f"Add detection for {tid}: attack succeeded and went "
+                    "undetected — deploy log rule / SIEM alert immediately"
+                )
+            else:
+                severity = "info"
+                recommendation = (
+                    f"Consider adding detection for {tid}: attack did not "
+                    "succeed against this target but capability gap exists"
+                )
+            gaps.append({
+                "technique_id": tid,
+                "technique_name": r.get("technique_name", ""),
+                "attack_succeeded": succeeded,
+                "severity": severity,
+                "recommendation": recommendation,
+            })
 
         return json.dumps({
             "total_attacks": len(red_results),
@@ -210,6 +220,7 @@ class PurpleTeamTool(BasePentestTool):
 
         critical_gaps = [g for g in gap_analysis["gaps"] if g["severity"] == "critical"]
         high_gaps = [g for g in gap_analysis["gaps"] if g["severity"] == "high"]
+        info_gaps = [g for g in gap_analysis["gaps"] if g["severity"] == "info"]
 
         overall_score = matrix["summary"]["detection_rate"]
         if overall_score >= 80:
@@ -232,6 +243,7 @@ class PurpleTeamTool(BasePentestTool):
             },
             "critical_findings": critical_gaps[:10],
             "high_findings": high_gaps[:10],
+            "info_findings": info_gaps[:10],
             "coverage_matrix": matrix["matrix"],
             "recommendations": [
                 g["recommendation"] for g in gap_analysis["gaps"][:15]
