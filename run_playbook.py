@@ -74,7 +74,8 @@ async def dispatch(tool_name: str, action: str, params: dict) -> str:
     tool = _get_tool(tool_name)
     if tool is None:
         return json.dumps({"error": f"Tool '{tool_name}' not found"})
-    return await tool.execute(action, **params)
+    # All tools accept action as a kwarg; some only accept **kwargs
+    return await tool.execute(action=action, **params)
 
 
 async def run(playbook_name: str, variables: dict[str, str]) -> None:
