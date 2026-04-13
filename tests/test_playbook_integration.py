@@ -343,3 +343,46 @@ class TestStepOutputReferences:
         result = json.loads(pb.steps[0].output)
         assert result["port"] == 443
         assert result["verbose"] is True
+
+
+# ── Purple Team Step Refs ────────────────────────────────────────────────────
+
+
+class TestPurpleTeamStepRefs:
+    """Verify purple_team_exercise uses step output refs for correlation."""
+
+    def test_coverage_matrix_refs_red_and_blue(self):
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        matrix_step = next(s for s in pb.steps if s.name == "coverage_matrix")
+        assert "${steps." in matrix_step.params["red_results"]
+        assert "${steps." in matrix_step.params["blue_results"]
+
+    def test_exercise_report_refs_red_and_blue(self):
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        report_step = next(s for s in pb.steps if s.name == "exercise_report")
+        assert "${steps." in report_step.params["red_results"]
+        assert "${steps." in report_step.params["blue_results"]
+
+    @pytest.mark.asyncio
+    async def test_correlation_receives_real_data(self):
+        """End-to-end: red/blue outputs flow into correlation steps."""
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+        correlation_params = {}
+
+        async def tracking_dispatch(tool: str, action: str, params: dict) -> str:
+            if tool == "blackarch" and action == "nmap_scan":
+                return '[{"technique_id":"T1046","technique_name":"Network Service Scanning","success":true}]'
+            if tool == "cis_audit":
+                return '[{"technique_id":"T1046","detected":true}]'
+            if tool == "purple_team":
+                correlation_params[action] = dict(params)
+                return json.dumps({"rating": "GOOD", "detection_rate": 1.0})
+            return "[]"
+
+        await run_playbook(pb, tracking_dispatch)
+
+        matrix_params = correlation_params.get("coverage_matrix", {})
+        assert "T1046" in matrix_params.get("red_results", "")
+
+        report_params = correlation_params.get("exercise_report", {})
+        assert "T1046" in report_params.get("red_results", "")

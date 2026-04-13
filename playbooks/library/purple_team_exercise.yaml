@@ -77,8 +77,8 @@ steps:
     tool: purple_team
     action: coverage_matrix
     params:
-      red_results: "[]"
-      blue_results: "[]"
+      red_results: "${steps.red_nmap_scan.output}"
+      blue_results: "${steps.blue_ssh_audit.output}"
     timeout: 5
     on_fail: continue
 
@@ -88,6 +88,6 @@ steps:
     params:
       exercise_name: "${exercise_name}"
       target_scope: "${target}"
-      red_results: "[]"
-      blue_results: "[]"
+      red_results: "${steps.red_nmap_scan.output}"
+      blue_results: "${steps.blue_ssh_audit.output}"
     timeout: 5
