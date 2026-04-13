@@ -29,6 +29,8 @@ from tools.flipper import FlipperTool
 from tools.marauder import MarauderTool
 from tools.blackarch import BlackArchTool
 from tools.engagement import EngagementManager
+from tools.target_intel import TargetIntelTool
+from knowledge.target_store import TargetStore
 
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
@@ -51,6 +53,8 @@ _flipper: FlipperTool | None = None
 _marauder: MarauderTool | None = None
 _blackarch: BlackArchTool | None = None
 _engagement: EngagementManager | None = None
+_target_store: TargetStore | None = None
+_target_intel: TargetIntelTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -328,6 +332,7 @@ get_all_tools = get_research_tools
 def _init_pentest_singletons():
     """Lazy-init pentest singletons from engagement-config.json."""
     global _device_manager, _portapack, _flipper, _marauder, _blackarch, _engagement
+    global _target_store, _target_intel
 
     if _device_manager is not None:
         return  # already initialised
@@ -340,7 +345,10 @@ def _init_pentest_singletons():
         config = {"devices": {}, "engagement": {}}
 
     _device_manager = DeviceManager(config.get("devices", {}))
+    _target_store = TargetStore()
     _engagement = EngagementManager(config)
+    _engagement.target_store = _target_store
+    _target_intel = TargetIntelTool(_target_store)
     _blackarch = BlackArchTool(
         wifi_interface=config.get("devices", {}).get("wifi_adapter", {}).get("interface", "wlan1"),
         monitor_interface=config.get("devices", {}).get("wifi_adapter", {}).get("monitor_interface", "wlan1mon"),
@@ -554,6 +562,82 @@ async def engagement(
     )
 
 
+@tool
+async def target_intel(
+    action: str,
+    ip: str = "",
+    mac: str = "",
+    hostname: str = "",
+    os_fingerprint: str = "",
+    vendor: str = "",
+    device_type: str = "",
+    host_id: int = 0,
+    port: int = 0,
+    protocol: str = "",
+    service: str = "",
+    banner: str = "",
+    bssid: str = "",
+    ssid: str = "",
+    channel: int = 0,
+    rssi: int = 0,
+    encryption: str = "",
+    frequency_hz: int = 0,
+    modulation: str = "",
+    data_hex: str = "",
+    source_device: str = "",
+    decoded_text: str = "",
+    name: str = "",
+    tag_type: str = "",
+    uid: str = "",
+    label: str = "",
+    username: str = "",
+    password: str = "",
+    hash_type: str = "",
+    source: str = "",
+    scan_tool: str = "",
+    scan_action: str = "",
+    scan_session_id: int = 0,
+    engagement_name: str = "",
+    ip_prefix: str = "",
+    since: str = "",
+) -> str:
+    """Query and manage the target intelligence database.
+
+    Tracks hosts, WiFi APs/stations, RF signals, BLE devices, RFID/NFC tags,
+    open ports, and credentials across all sensor platforms.
+
+    - upsert_host: Add or update a host (by IP and/or MAC)
+    - query_hosts: Search hosts by IP prefix, device type, or time
+    - get_host: Get full detail for a host by ID (including ports)
+    - upsert_port: Add or update a port on a host
+    - upsert_wifi_network: Add or update a WiFi AP (by BSSID)
+    - upsert_wifi_station: Add or update a WiFi client (by MAC)
+    - add_rf_signal: Record an RF signal capture
+    - upsert_ble_device: Add or update a BLE device (by MAC)
+    - upsert_rfid_nfc_tag: Add or update an RFID/NFC tag (by type+UID)
+    - add_credential: Record a harvested credential
+    - start_scan: Start a scan session (tool + action)
+    - end_scan: End a scan session
+    - stats: Get counts for all entity types
+    - diff: Show new entities since a timestamp
+    """
+    _init_pentest_singletons()
+    return await _target_intel.execute(
+        action=action, ip=ip, mac=mac, hostname=hostname,
+        os=os_fingerprint, vendor=vendor, device_type=device_type,
+        host_id=host_id, port=port, protocol=protocol,
+        service=service, banner=banner, bssid=bssid, ssid=ssid,
+        channel=channel, rssi=rssi, encryption=encryption,
+        frequency_hz=frequency_hz, modulation=modulation,
+        data_hex=data_hex, source_device=source_device,
+        decoded_text=decoded_text, name=name, tag_type=tag_type,
+        uid=uid, label=label, username=username, password=password,
+        hash_type=hash_type, source=source, tool=scan_tool,
+        scan_action=scan_action, scan_session_id=scan_session_id,
+        engagement=engagement_name, ip_prefix=ip_prefix, since=since,
+    )
+
+
 def get_pentest_tools():
     """Get pentest-domain tools as LangChain tool objects."""
     return [
@@ -563,6 +647,7 @@ def get_pentest_tools():
         marauder,
         blackarch,
         engagement,
+        target_intel,
     ]
 
 

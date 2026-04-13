@@ -105,14 +105,24 @@ def _init_langgraph_agent():
 
     from graph.agent import create_researcher_graph
     from graph.config import LangGraphConfig
-    from langgraph.checkpoint.memory import MemorySaver
     from sitrep import run_sitrep
 
     config_path = Path(__file__).parent / "config" / "langgraph-config.yaml"
     _graph_config = LangGraphConfig.from_yaml(config_path)
 
     store = _get_store()
-    _checkpointer = MemorySaver()
+
+    # Persistent session checkpointer — survives restarts
+    _sessions_db = Path("/sandbox/knowledge/sessions.db")
+    _sessions_db.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+        _checkpointer = AsyncSqliteSaver.from_conn_string(str(_sessions_db))
+        print(f"[sessions] Persistent checkpointer: {_sessions_db}")
+    except ImportError:
+        from langgraph.checkpoint.memory import MemorySaver
+        _checkpointer = MemorySaver()
+        print("[sessions] Falling back to in-memory checkpointer")
 
     # Run startup sitrep — hardware, network, engagement status
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
