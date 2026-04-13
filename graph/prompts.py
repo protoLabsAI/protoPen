@@ -2,7 +2,7 @@
 
 Composes the system prompt from:
 1. SOUL.md content (identity, personality, values)
-2. Research skills (from skills/research/SKILL.md)
+2. Security research skills (from skills/security-research/SKILL.md)
 3. Subagent instructions (available types + delegation rules)
 4. Dynamic research context (from KnowledgeMiddleware)
 """
@@ -46,7 +46,7 @@ def build_system_prompt(
         parts.append(hardware_status)
 
     # 3. Skills
-    skill = _read_file(f"{workspace}/skills/research/SKILL.md")
+    skill = _read_file(f"{workspace}/skills/security-research/SKILL.md")
     if skill:
         parts.append(f"\n# Security Research Methodology\n\n{skill}")
 

@@ -248,5 +248,5 @@ class TestConfigIntegrity:
         content = Path("skills/pentest/SKILL.md").read_text()
         assert "Passive Reconnaissance" in content
 
-    def test_research_skill_exists(self):
-        assert Path("skills/research/SKILL.md").exists()
+    def test_security_research_skill_exists(self):
+        assert Path("skills/security-research/SKILL.md").exists()
