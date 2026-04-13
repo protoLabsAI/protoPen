@@ -4,8 +4,8 @@ Wraps tool classes as LangChain @tool functions.
 All business logic stays in the original classes — these are thin adapters.
 
 Tools are grouped into two domains:
-  - Research: paper_reader, huggingface, github_trending, browser, lab_monitor, etc.
-  - Pentest:  portapack, flipper, marauder, blackarch, engagement, device_manager
+  - Security Intel: cve_search, security_feeds, github_trending, browser, security_memory, etc.
+  - Pentest:        portapack, flipper, marauder, blackarch, engagement, device_manager
 """
 
 from typing import Optional
@@ -15,10 +15,10 @@ from langchain_core.tools import tool
 import json
 import os
 
-from tools.paper_reader import PaperReaderTool
-from tools.huggingface import HuggingFaceTool
+from tools.cve_search import CVESearchTool
+from tools.security_feeds import SecurityFeedsTool
 from tools.github_trending import GitHubTrendingTool
-from tools.research_memory import ResearchMemoryTool
+from tools.security_memory import SecurityMemoryTool
 from tools.browser import BrowserTool
 from tools.lab_monitor import LabMonitorTool
 
@@ -40,8 +40,8 @@ if os.environ.get("RABBIT_HOLE_URL"):
     _rabbit_hole_bridge = RabbitHoleBridgeTool()
 
 # Instantiate underlying tool classes (stateless singletons)
-_paper_reader = PaperReaderTool()
-_huggingface = HuggingFaceTool()
+_cve_search = CVESearchTool()
+_security_feeds = SecurityFeedsTool()
 _github_trending = GitHubTrendingTool()
 _browser = BrowserTool()
 _lab_monitor = LabMonitorTool()
@@ -92,39 +92,42 @@ if os.environ.get("DISCORD_BOT_TOKEN"):
 
 
 @tool
-async def paper_reader(
+async def cve_search(
     action: str,
-    paper: str = "",
-    pages: str = "",
+    query: str = "",
+    cve_id: str = "",
+    severity: str = "",
+    product: str = "",
+    days: int = 7,
+    limit: int = 10,
 ) -> str:
-    """Read PDF papers that have been downloaded.
+    """Search the NVD CVE database for vulnerabilities.
 
-    - read: Extract text from a paper (by path or paper ID)
-    - list: List downloaded papers
-    Tip: Use the 'browser' tool or rabbit-hole MCP to fetch PDFs first.
+    - search: Search CVEs by keyword, product, or CVSS score
+    - get: Get detailed info for a specific CVE ID
+    - recent: Get recently published/modified CVEs
     """
-    return await _paper_reader.execute(action=action, paper=paper, pages=pages)
+    return await _cve_search.execute(
+        action=action, query=query, cve_id=cve_id,
+        severity=severity, product=product, days=days, limit=limit,
+    )
 
 
 @tool
-async def huggingface(
+async def security_feeds(
     action: str,
+    source: str = "",
     query: str = "",
-    model_id: str = "",
-    sort: str = "trending",
-    limit: int = 10,
-    filter_task: str = "",
+    limit: int = 20,
 ) -> str:
-    """Search HuggingFace Hub for models, datasets, and papers.
+    """Aggregate security advisory feeds from well-known sources.
 
-    - search_models: Find models by query, sorted by trending/downloads/created
-    - search_datasets: Find datasets by query
-    - model_card: Get the README/model card for a specific model
-    - search_papers: Search HF papers
+    - scan: Fetch and parse recent entries from security RSS/Atom feeds
+    - sources: List available feed sources
+    - search: Search feed entries by keyword
     """
-    return await _huggingface.execute(
-        action=action, query=query, model_id=model_id,
-        sort=sort, limit=limit, filter_task=filter_task,
+    return await _security_feeds.execute(
+        action=action, source=source, query=query, limit=limit,
     )
 
 
@@ -171,54 +174,73 @@ async def browser(
     )
 
 
-def create_research_memory_tool(store=None):
-    """Factory: creates research_memory tool with injected KnowledgeStore."""
+def create_security_memory_tool(store=None):
+    """Factory: creates security_memory tool with injected KnowledgeStore."""
     from knowledge.store import KnowledgeStore
-    _tool = ResearchMemoryTool(store or KnowledgeStore())
+    _tool = SecurityMemoryTool(store or KnowledgeStore())
 
     @tool
-    async def research_memory(
+    async def security_memory(
         action: str,
         query: str = "",
-        arxiv_id: str = "",
+        cve_id: str = "",
         title: str = "",
-        authors: str = "",
-        abstract: str = "",
-        summary: str = "",
-        significance: str = "",
+        description: str = "",
+        severity: str = "",
+        cvss_score: float = 0.0,
+        cvss_vector: str = "",
+        affected_products: str = "",
+        exploit_available: bool = False,
+        exploit_maturity: str = "",
         tags: str = "",
-        content: str = "",
         source: str = "",
+        source_url: str = "",
+        platform: str = "",
+        exploit_type: str = "",
+        verified: bool = False,
+        content: str = "",
         source_type: str = "",
         topic: str = "",
-        finding_type: str = "insight",
+        intel_type: str = "indicator",
+        target_relevance: str = "",
+        url: str = "",
+        cve_ids: str = "",
+        published_at: str = "",
+        notes: str = "",
         name: str = "",
-        description: str = "",
         keywords: str = "",
         priority: int = 2,
         filter_table: str = "",
         k: int = 10,
+        search_mode: str = "hybrid",
     ) -> str:
-        """Persistent research knowledge store with semantic search.
+        """Persistent security knowledge store with hybrid search.
 
-        - store_paper: Save a paper with metadata and summary
-        - store_finding: Save a research insight or result
-        - store_digest: Save a research digest/summary
-        - search: Semantic search across all stored knowledge
-        - get_topics: List tracked research topics
-        - add_topic: Add a new research topic to track
+        - store_cve: Save a CVE with metadata and analysis
+        - store_exploit: Save an exploit or PoC
+        - store_advisory: Save a vendor/CERT advisory
+        - store_threat_intel: Save a threat intelligence finding
+        - store_digest: Save a security intelligence digest
+        - search: Hybrid search (vector + keyword) across all stored knowledge
+        - get_topics: List tracked security topics
+        - add_topic: Add a new security topic to track
         - stats: Show knowledge base statistics
         """
         return await _tool.execute(
-            action=action, query=query, arxiv_id=arxiv_id, title=title,
-            authors=authors, abstract=abstract, summary=summary,
-            significance=significance, tags=tags, content=content,
-            source=source, source_type=source_type, topic=topic,
-            finding_type=finding_type, name=name, description=description,
-            keywords=keywords, priority=priority, filter_table=filter_table, k=k,
+            action=action, query=query, cve_id=cve_id, title=title,
+            description=description, severity=severity, cvss_score=cvss_score,
+            cvss_vector=cvss_vector, affected_products=affected_products,
+            exploit_available=exploit_available, exploit_maturity=exploit_maturity,
+            tags=tags, source=source, source_url=source_url, platform=platform,
+            exploit_type=exploit_type, verified=verified, content=content,
+            source_type=source_type, topic=topic, intel_type=intel_type,
+            target_relevance=target_relevance, url=url, cve_ids=cve_ids,
+            published_at=published_at, notes=notes, name=name,
+            keywords=keywords, priority=priority, filter_table=filter_table,
+            k=k, search_mode=search_mode,
         )
 
-    return research_memory
+    return security_memory
 
 
 def create_lab_bench_tool():
@@ -304,15 +326,15 @@ if _rabbit_hole_bridge is not None:
         )
 
 
-def get_research_tools(knowledge_store=None):
-    """Get research-domain tools as LangChain tool objects."""
+def get_security_tools(knowledge_store=None):
+    """Get security-domain tools as LangChain tool objects."""
     tools = [
-        paper_reader,
-        huggingface,
+        cve_search,
+        security_feeds,
         github_trending,
         browser,
         lab_monitor,
-        create_research_memory_tool(knowledge_store),
+        create_security_memory_tool(knowledge_store),
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)
@@ -321,8 +343,9 @@ def get_research_tools(knowledge_store=None):
     return tools
 
 
-# Backward-compat alias
-get_all_tools = get_research_tools
+# Backward-compat aliases
+get_research_tools = get_security_tools
+get_all_tools = get_security_tools
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -653,5 +676,5 @@ def get_pentest_tools():
 
 
 def get_combined_tools(knowledge_store=None):
-    """Get all tools (research + pentest) as LangChain tool objects."""
-    return get_research_tools(knowledge_store) + get_pentest_tools()
+    """Get all tools (security + pentest) as LangChain tool objects."""
+    return get_security_tools(knowledge_store) + get_pentest_tools()

@@ -1,7 +1,7 @@
 """
-protoPen — AI research agent powered by local LLMs.
+protoPen — AI security intelligence agent powered by local LLMs.
 
-Monitors Discord feeds, HuggingFace, GitHub for the latest in AI/ML research.
+Monitors CVE feeds, security advisories, GitHub for the latest in security threats.
 Supports two agent backends: nanobot (legacy) and LangGraph (new).
 
 Usage:
@@ -319,7 +319,7 @@ async def _handle_topics_command() -> list[dict[str, Any]]:
     store = _get_store()
     topics = store.get_topics()
     if not topics:
-        return _msg("No research topics configured. Ask me to add topics or use the research_memory tool.")
+        return _msg("No security topics configured. Ask me to add topics or use the security_memory tool.")
 
     lines = ["**Research Topics:**"]
     for t in topics:
@@ -536,17 +536,17 @@ def _install_audit_wrapper():
 
     original_execute = _agent.tools.execute
 
-    # Map tool names to research phase spans for Langfuse
+    # Map tool names to security phase spans for Langfuse
     _TOOL_PHASE_MAP = {
-        "discord_feed": "explorer",
-        "huggingface": "explorer",
-        "github_trending": "explorer",
-        "web_search": "explorer",
-        "web_fetch": "explorer",
-        "browser": "explorer",
-        "paper_reader": "analyst",
-        "research_memory": "analyst",
-        "message": "writer",
+        "discord_feed": "threat_scanner",
+        "cve_search": "threat_scanner",
+        "security_feeds": "threat_scanner",
+        "github_trending": "threat_scanner",
+        "web_search": "threat_scanner",
+        "web_fetch": "threat_scanner",
+        "browser": "vuln_analyst",
+        "security_memory": "vuln_analyst",
+        "message": "intel_reporter",
     }
 
     async def _audited_execute(name: str, params: dict[str, Any]) -> str:
@@ -1067,16 +1067,16 @@ def _main():
         _init_agent(args.config)
         _install_audit_wrapper()
 
-        from tools.paper_reader import PaperReaderTool
-        from tools.huggingface import HuggingFaceTool
+        from tools.cve_search import CVESearchTool
+        from tools.security_feeds import SecurityFeedsTool
         from tools.github_trending import GitHubTrendingTool
-        from tools.research_memory import ResearchMemoryTool
+        from tools.security_memory import SecurityMemoryTool
         from tools.browser import BrowserTool
         from tools.discord_feed import DiscordFeedTool
-        _agent.tools.register(PaperReaderTool())
-        _agent.tools.register(HuggingFaceTool())
+        _agent.tools.register(CVESearchTool())
+        _agent.tools.register(SecurityFeedsTool())
         _agent.tools.register(GitHubTrendingTool())
-        _agent.tools.register(ResearchMemoryTool(_get_store()))
+        _agent.tools.register(SecurityMemoryTool(_get_store()))
         _agent.tools.register(BrowserTool())
 
         if os.environ.get("RABBIT_HOLE_URL"):
