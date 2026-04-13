@@ -341,15 +341,8 @@ async def _handle_purple_command(
         progress_lines.append(f"{icon} **{step.name}** ({step.tool}.{step.action})")
 
     async def _dispatch(tool_name: str, action: str, params: dict) -> str:
-        if _BACKEND == "langgraph" and _graph is not None:
-            prompt = (
-                f"Run the {tool_name} tool with action={action} "
-                f"and parameters: {json.dumps(params)}. "
-                f"Return only the raw tool output."
-            )
-            results = await _chat_langgraph(prompt, session_id)
-            return results[-1].get("content", "") if results else ""
-        # Direct tool dispatch fallback
+        # Always dispatch directly — routing through the LLM adds latency
+        # and risks the model wrapping / summarising raw tool output.
         from tools.lg_tools import get_combined_tools
         for t in get_combined_tools():
             if t.name == tool_name:
@@ -382,15 +375,30 @@ async def _handle_purple_command(
                 raw = re.sub(r"^```(?:json)?\s*\n?", "", raw)
                 raw = re.sub(r"\n?```\s*$", "", raw)
             report = json.loads(raw)
-            rate = report.get("detection_rate", report.get("detection_rate_pct", 0))
+            rate_pct = report.get("detection_rate_pct",
+                                    report.get("detection_rate", 0) * 100)
             rating = report.get("rating", "UNKNOWN")
             progress_lines.append(f"\n### ATT&CK Coverage")
             progress_lines.append(
-                f"**Rating:** {rating} ({rate:.0%} detection rate)"
+                f"**Rating:** {rating} ({rate_pct:.0f}% detection rate)"
             )
-            if report.get("critical_findings"):
+            crit = report.get("critical_findings", [])
+            high = report.get("high_findings", [])
+            if crit:
                 progress_lines.append(
-                    f"**Critical gaps:** {len(report['critical_findings'])}"
+                    f"**Critical gaps:** {len(crit)}"
+                )
+            if high:
+                progress_lines.append(
+                    f"**High gaps:** {len(high)}"
+                )
+            for f in crit[:5]:
+                progress_lines.append(
+                    f"  - 🔴 {f['technique_id']} {f['technique_name']}"
+                )
+            for f in high[:5]:
+                progress_lines.append(
+                    f"  - 🟠 {f['technique_id']} {f['technique_name']}"
                 )
         except (json.JSONDecodeError, TypeError):
             progress_lines.append(
