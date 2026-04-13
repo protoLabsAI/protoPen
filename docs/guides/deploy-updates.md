@@ -4,9 +4,9 @@ Concise procedure for deploying code changes to the Steam Deck.
 
 ## Prerequisites
 
-- SSH access to the Steam Deck (`steamdeck` hostname or IP)
-- The protoPen repo cloned at `/home/deck/dev/protoPen`
-- Docker Compose running the `researcher` service
+- SSH or Tailscale access to the Steam Deck (`steamdeck` hostname)
+- The protoPen repo cloned at `/home/deck/protoPen`
+- The `protopen` systemd user service enabled
 
 ## Procedure
 
@@ -16,65 +16,53 @@ Concise procedure for deploying code changes to the Steam Deck.
 git push origin main
 ```
 
-### 2. SSH into the Deck and pull
+### 2. Deploy to the Deck
+
+**Option A — Remote (one-liner from your workstation):**
 
 ```bash
-ssh deck@steamdeck
-cd /home/deck/dev/protoPen
-git pull origin main
+ssh deck@steamdeck 'cd /home/deck/protoPen && git pull && systemctl --user restart protopen'
 ```
 
-### 3. Rebuild and restart
+**Option B — Direct A2A (no SSH needed if Tailscale is up):**
+
+After pushing, SSH in once to pull and restart, or use the A2A endpoint
+to verify the current version and trigger a pull via the agent.
+
+### 3. Verify
+
+Smoke-test the A2A endpoint over Tailscale (preferred) or SSH:
 
 ```bash
-docker compose up --build -d researcher
+curl -s http://steamdeck:7870/a2a \
+  -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":0,"method":"message/send","params":{"message":{"role":"user","parts":[{"kind":"text","text":"ping"}]},"contextId":"deploy-check"}}'
 ```
 
-For the lab profile (GPU-enabled):
+Check systemd logs if the service is unresponsive:
 
 ```bash
-docker compose --profile lab up --build -d researcher-lab
+ssh deck@steamdeck 'journalctl --user -u protopen.service --no-pager -n 30'
 ```
-
-### 4. Verify
-
-Check the container logs for a clean startup:
-
-```bash
-docker logs protopen --tail 30
-```
-
-You should see:
-
-```
-[researcher] Agent backend: langgraph
-[sessions] Persistent checkpointer: /sandbox/knowledge/sessions.db
-[sitrep] Startup probe injected into system prompt
-[researcher] LangGraph agent initialized (model: claude-sonnet-4-6)
-[metrics] Prometheus metrics initialized
-```
-
-Hit the health endpoint:
-
-```bash
-curl http://localhost:7872/
-```
-
-Confirm the chat UI loads at `http://steamdeck:7872`.
 
 ::: tip
-If only config files changed (under `config/`), you can restart without rebuilding since config is bind-mounted:
+Prefer `http://steamdeck:7870` over SSH tunneling for all A2A interactions.
+Tailscale provides a direct, encrypted path without SSH overhead.
+:::
+
+## Clearing corrupted sessions
+
+If the agent returns `tool_use ids were found without tool_result blocks`,
+the LangGraph session checkpointer has corrupted state. Fix:
 
 ```bash
-docker compose restart researcher
+ssh deck@steamdeck 'rm -f /sandbox/knowledge/sessions.db* && systemctl --user restart protopen'
 ```
-:::
 
 ## Rollback
 
 If something breaks, revert to the previous commit and restart:
 
 ```bash
-git revert HEAD
-docker compose up --build -d researcher
+ssh deck@steamdeck 'cd /home/deck/protoPen && git revert HEAD --no-edit && systemctl --user restart protopen'
 ```

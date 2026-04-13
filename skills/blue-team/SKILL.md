@@ -117,3 +117,30 @@ Blue results array: `[{"technique_id":"T1110","detected":true}, ...]`
 | `hardening_check` | ssh_harden, nginx_harden, apache_harden, docker_harden, k8s_harden |
 | `ir_toolkit` | log_search, ioc_scan, auth_log_analyze, timeline_build, containment_recommend |
 | `purple_team` | coverage_matrix, detection_gap, exercise_report |
+| `blackarch` | tshark_capture, bettercap_recon, nmap_scan, shell_exec (allowlisted) |
+
+---
+
+## Live Traffic Capture
+
+**Prerequisite:** The `deck` user must be in the `wireshark` group for tshark/dumpcap access.
+
+### Workflow
+1. Capture packets: `blackarch tshark_capture` on `wlan0` with `count=N`
+2. Baseline traffic: `net_monitor traffic_baseline` on the same interface
+3. Check DNS: `net_monitor dns_monitor` for exfiltration/tunneling
+4. Correlate with nmap host inventory from prior scans
+
+### Tips
+- On quiet networks, reduce packet count (50–100) to avoid long timeouts
+- tshark captures complement nmap scans — nmap finds hosts/services, tshark shows who is actively talking and what protocols are in use
+- Use `net_monitor protocol_anomaly` after capture to flag unexpected traffic patterns
+- Results auto-ingest to security_memory via KnowledgeIngestMiddleware
+
+---
+
+## Middleware Notes
+
+- **EnforcementMiddleware**: Blue-team tools are NOT pentest-gated — they work without an active engagement. Only red-team tools require engagement/mode/scope checks.
+- **KnowledgeIngestMiddleware**: All blue-team tool output is auto-ingested to security_memory. Uses LLM extraction with deterministic parser fallback.
+- **Blocked responses**: When enforcement blocks a tool, it returns a `ToolMessage` (not a raw string) to maintain the tool_use/tool_result pairing required by the LLM API.

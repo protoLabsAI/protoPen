@@ -14,7 +14,7 @@
 | **2. Pentest Toolkit** | ✅ Done | `059bd4f`→`ee27a08` | 22 tools: recon, enum, vuln scan, exploitation, post-exploit, cleanup |
 | **3. Web/API Testing** | ✅ Done | `ee27a08` | 6 tools: JWT, SSRF, auth/BOLA, rate limit, GraphQL, technique library |
 | **4. Blue Team** | ✅ Done | `ce1492f` | 5 tools: CIS audit, net monitor, hardening, IR toolkit, purple team |
-| **5. Integration** | ⬜ Next | — | Parsers, playbooks, tests, auto-ingest, `/purple` command |
+| **5. Integration** | 🔶 Partial | `612215b`→`0494e0b` | Parsers ✅, playbooks ✅, tests ✅, auto-ingest ✅, `/purple` command ⬜ |
 
 ## Tool Inventory
 
@@ -69,7 +69,14 @@ See `handoffs/001-phase5-integration.md` for full details.
 - **A2A Protocol** — Verified end-to-end: JSON-RPC `message/send` and `message/sendStream` working for agent-to-agent delegation. Used to orchestrate a full LAN red team engagement remotely.
 - **Engagement Reports** — `engagement generate_report` saves full markdown report to `<workspace_dir>/<engagement_name>/report.md` (default: `/home/deck/engagements/`).
 
+## Bugfixes (2026-04-13)
+
+- **EnforcementMiddleware ToolMessage fix** (`1635616`) — Blocked tool calls returned raw strings instead of `ToolMessage` objects, breaking the Anthropic API's `tool_use`/`tool_result` pairing. Fixed with `_blocked_response()` that wraps all blocked messages in `ToolMessage` with the correct `tool_call_id`.
+- **A2A context_id collision** (`1635616`) — Fallback context IDs used `rpc_id` (often `1`, `2`, `3`), causing session collisions. Changed to UUID4.
+- **Wireshark group** — `deck` user added to `wireshark` group for tshark/dumpcap packet capture access.
+
 ## Known Issues
 
-- None blocking. All code syntax-checked and tool interfaces verified.
-- Existing tests (`pytest tests/`) should be run to confirm no regressions (not run this session due to dependency availability on macOS host vs Docker target).
+- `/purple` chat command not yet implemented (last Phase 5 item)
+- Integration tests (`test_integration.py`) skip on macOS — they require the full LangChain/nanobot runtime on the Deck
+- Prefer `http://steamdeck:7870` (Tailscale) over SSH for A2A calls

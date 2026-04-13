@@ -130,3 +130,28 @@ Requests without a valid key receive a `401 Unauthorized` response.
 ::: warning
 If no API key is configured, the A2A endpoint is open to anyone who can reach the port. On the Steam Deck, this is typically fine on a private network but not suitable for public exposure.
 :::
+
+## Best Practices
+
+### Prefer Tailscale over SSH
+
+Use `http://steamdeck:7870/a2a` directly over the Tailscale network instead of SSH tunneling. Benefits:
+
+- Lower latency — no SSH connection overhead
+- Encrypted via WireGuard — same security as SSH
+- Simpler automation — just `curl`, no `ssh` wrapper
+- Works from any device on the tailnet
+
+### Context ID hygiene
+
+Always provide a meaningful `contextId` to maintain conversation state. If omitted, the server generates a random UUID — fine for one-shot calls, but you lose the ability to send follow-up messages in the same conversation.
+
+Avoid reusing generic context IDs across sessions. The LangGraph checkpointer persists conversation state in SQLite, so a corrupted session on one context ID will poison all future requests on that same ID.
+
+### Timeout guidance
+
+- Simple queries (ping, status): 15–30s
+- Tool execution (nmap, tshark, CIS audit): 2–5 min
+- Multi-tool workflows (purple team exercise): 5–10 min
+
+Set `curl --max-time` accordingly, or use `message/sendStream` for long-running tasks to get incremental progress.

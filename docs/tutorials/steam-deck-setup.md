@@ -347,6 +347,24 @@ journalctl --user -u protopen.service -f
 | SteamOS update broke everything | Re-run steps 2 and 3 (read-only disable, sudoers, pacman keyring) |
 | Infisical fetch returns empty | Verify `INFISICAL_TOKEN` is set in the systemd override and run `systemctl --user daemon-reload` |
 | Server not reachable over Tailscale | Verify `sudo tailscale up --ssh` and check `tailscale status` |
+| tshark/dumpcap "permission denied" | `sudo usermod -aG wireshark deck` then restart the protopen service |
+| `tool_use ids without tool_result` errors | Corrupted session DB — `rm -f /sandbox/knowledge/sessions.db*` and restart |
+
+## Post-install: enable packet capture
+
+tshark (Wireshark CLI) requires the `wireshark` group for raw packet capture:
+
+```bash
+sudo usermod -aG wireshark deck
+```
+
+Verify after re-login or service restart:
+
+```bash
+groups deck  # should include 'wireshark'
+```
+
+This enables the `blackarch tshark_capture` and `net_monitor traffic_baseline` tools for live LAN traffic analysis.
 
 ## What's next
 
