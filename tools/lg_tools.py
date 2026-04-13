@@ -662,6 +662,12 @@ async def target_intel(
     )
 
 
+def get_engagement_manager() -> EngagementManager:
+    """Return the EngagementManager singleton (lazy-inits if needed)."""
+    _init_pentest_singletons()
+    return _engagement
+
+
 def get_pentest_tools():
     """Get pentest-domain tools as LangChain tool objects."""
     return [

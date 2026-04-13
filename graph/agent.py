@@ -13,16 +13,31 @@ from graph.config import LangGraphConfig
 from graph.llm import create_llm
 from graph.prompts import build_system_prompt, build_subagent_prompt
 from graph.middleware.audit import AuditMiddleware
+from graph.middleware.enforcement import EnforcementMiddleware
 from graph.middleware.knowledge import KnowledgeMiddleware
 from graph.middleware.memory import MemoryMiddleware
 from graph.middleware.message_capture import MessageCaptureMiddleware
 from graph.subagents.config import SUBAGENT_REGISTRY
-from tools.lg_tools import get_all_tools, get_combined_tools, create_lab_bench_tool
+from tools.lg_tools import get_all_tools, get_combined_tools, get_engagement_manager, create_lab_bench_tool
 
 
 def _build_middleware(config: LangGraphConfig, knowledge_store=None):
-    """Build the ordered middleware chain."""
+    """Build the ordered middleware chain.
+
+    Enforcement runs first — blocks disallowed tool calls before any other
+    middleware (audit, knowledge enrichment, etc.) can process them.
+    """
     middleware = []
+
+    if config.enforcement_middleware:
+        from enforcement.scope import ScopeValidator
+        from enforcement.phases import KillChainPhase
+
+        mgr = get_engagement_manager()
+        max_phase = None
+        if config.enforcement_max_phase:
+            max_phase = KillChainPhase[config.enforcement_max_phase.upper()]
+        middleware.append(EnforcementMiddleware(mgr, max_phase=max_phase))
 
     if config.knowledge_middleware and knowledge_store:
         middleware.append(KnowledgeMiddleware(

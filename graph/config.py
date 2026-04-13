@@ -43,6 +43,10 @@ class LangGraphConfig:
     knowledge_middleware: bool = True
     audit_middleware: bool = True
     memory_middleware: bool = True
+    enforcement_middleware: bool = True
+
+    # Enforcement
+    enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
 
     # Knowledge store
     knowledge_db_path: str = "/sandbox/knowledge/research.db"
