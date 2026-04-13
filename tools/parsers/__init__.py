@@ -44,3 +44,6 @@ from tools.parsers import nmap_xml      # noqa: E402,F401
 from tools.parsers import bettercap     # noqa: E402,F401
 from tools.parsers import marauder_wifi # noqa: E402,F401
 from tools.parsers import flipper_rf    # noqa: E402,F401
+from tools.parsers import dns_enum      # noqa: E402,F401
+from tools.parsers import subdomain     # noqa: E402,F401
+from tools.parsers import osint         # noqa: E402,F401

@@ -54,8 +54,12 @@
     "wifi_sniff_pmkid": 1, "wifi_deauth": 2, "wifi_beacon_spam": 2,
     "wifi_evil_portal": 2, "wifi_karma": 2,
     "nmap_scan": 0, "nmap_vuln_scan": 1,
+    "nmap_os_detect": 0, "nmap_udp_scan": 1, "hashcat_rules": 1,
     "aircrack_monitor": 0, "aircrack_capture": 0, "aircrack_crack": 1,
     "bettercap_recon": 0, "bettercap_mitm": 2,
-    "shell_exec": 1
+    "shell_exec": 1,
+    "dig_query": 0, "nslookup": 0, "zone_transfer": 1, "reverse_lookup": 0, "dns_brute": 1,
+    "subfinder": 0, "amass_passive": 0,
+    "theharvester": 0, "whois_lookup": 0
   }
 }

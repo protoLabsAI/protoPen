@@ -73,6 +73,26 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "airodump_scan": KillChainPhase.RECON,
     "airmon_start": KillChainPhase.RECON,
     "airmon_stop": KillChainPhase.RECON,
+
+    # ── Enhanced BlackArch ──
+    "nmap_os_detect": KillChainPhase.RECON,
+    "nmap_udp_scan": KillChainPhase.ENUMERATION,
+    "hashcat_rules": KillChainPhase.EXPLOITATION,
+
+    # ── DNS Enum ──
+    "dig_query": KillChainPhase.RECON,
+    "nslookup": KillChainPhase.RECON,
+    "zone_transfer": KillChainPhase.ENUMERATION,
+    "reverse_lookup": KillChainPhase.RECON,
+    "dns_brute": KillChainPhase.ENUMERATION,
+
+    # ── Subdomain Discovery ──
+    "subfinder": KillChainPhase.RECON,
+    "amass_passive": KillChainPhase.RECON,
+
+    # ── OSINT ──
+    "theharvester": KillChainPhase.RECON,
+    "whois_lookup": KillChainPhase.RECON,
 }
 
 

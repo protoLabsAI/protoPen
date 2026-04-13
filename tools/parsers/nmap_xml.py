@@ -91,3 +91,5 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
 
 PARSER_MAP[("blackarch", "nmap_scan")] = parse
 PARSER_MAP[("blackarch", "nmap_vuln_scan")] = parse
+PARSER_MAP[("blackarch", "nmap_os_detect")] = parse
+PARSER_MAP[("blackarch", "nmap_udp_scan")] = parse

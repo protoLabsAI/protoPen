@@ -18,6 +18,21 @@ _TOOL_TARGET_ARG: dict[str, str] = {
     "nmap_vuln_scan": "target",
     "nikto_scan": "url",
     "gobuster_scan": "url",
+    # Enhanced BlackArch
+    "nmap_os_detect": "target",
+    "nmap_udp_scan": "target",
+    # DNS Enum
+    "dig_query": "target",
+    "nslookup": "target",
+    "zone_transfer": "target",
+    "reverse_lookup": "target",
+    "dns_brute": "target",
+    # Subdomain Discovery
+    "subfinder": "target",
+    "amass_passive": "target",
+    # OSINT
+    "theharvester": "target",
+    "whois_lookup": "target",
 }
 
 

@@ -31,6 +31,9 @@ from tools.blackarch import BlackArchTool
 from tools.engagement import EngagementManager
 from tools.target_intel import TargetIntelTool
 from knowledge.target_store import TargetStore
+from tools.dns_enum import DnsEnumTool
+from tools.subdomain_discovery import SubdomainDiscoveryTool
+from tools.osint_recon import OsintReconTool
 
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
@@ -55,6 +58,9 @@ _blackarch: BlackArchTool | None = None
 _engagement: EngagementManager | None = None
 _target_store: TargetStore | None = None
 _target_intel: TargetIntelTool | None = None
+_dns_enum: DnsEnumTool | None = None
+_subdomain_discovery: SubdomainDiscoveryTool | None = None
+_osint_recon: OsintReconTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -378,6 +384,14 @@ def _init_pentest_singletons():
     )
     _blackarch._target_store = _target_store
 
+    global _dns_enum, _subdomain_discovery, _osint_recon
+    _dns_enum = DnsEnumTool()
+    _dns_enum._target_store = _target_store
+    _subdomain_discovery = SubdomainDiscoveryTool()
+    _subdomain_discovery._target_store = _target_store
+    _osint_recon = OsintReconTool()
+    _osint_recon._target_store = _target_store
+
 
 @tool
 def device_manager(
@@ -662,6 +676,67 @@ async def target_intel(
     )
 
 
+@tool
+async def dns_enum(
+    action: str,
+    target: str = "",
+    record_type: str = "A",
+    nameserver: str = "",
+    wordlist: str = "",
+    timeout: int = 30,
+) -> str:
+    """DNS enumeration — dig, nslookup, zone transfers, reverse lookups, subdomain brute force.
+
+    - dig_query: Query DNS records (A, AAAA, MX, NS, TXT, SOA, ANY)
+    - nslookup: Standard nslookup query
+    - zone_transfer: Attempt AXFR zone transfer
+    - reverse_lookup: Reverse DNS lookup
+    - dns_brute: Subdomain brute force via dnsrecon
+    """
+    _init_pentest_singletons()
+    return await _dns_enum.execute(
+        action=action, target=target, record_type=record_type,
+        nameserver=nameserver, wordlist=wordlist, timeout=timeout,
+    )
+
+
+@tool
+async def subdomain_discovery(
+    action: str,
+    target: str = "",
+    timeout: int = 120,
+) -> str:
+    """Subdomain enumeration via subfinder and amass passive mode.
+
+    - subfinder: Fast passive subdomain discovery
+    - amass_passive: Comprehensive passive subdomain enumeration
+    """
+    _init_pentest_singletons()
+    return await _subdomain_discovery.execute(
+        action=action, target=target, timeout=timeout,
+    )
+
+
+@tool
+async def osint_recon(
+    action: str,
+    target: str = "",
+    source: str = "all",
+    limit: int = 500,
+    timeout: int = 120,
+) -> str:
+    """OSINT reconnaissance — theHarvester and whois lookups.
+
+    - theharvester: Harvest emails, subdomains, IPs from public sources
+    - whois_lookup: Domain registration lookup
+    """
+    _init_pentest_singletons()
+    return await _osint_recon.execute(
+        action=action, target=target, source=source,
+        limit=limit, timeout=timeout,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -678,6 +753,10 @@ def get_pentest_tools():
         blackarch,
         engagement,
         target_intel,
+        # Phase 2 — Recon
+        dns_enum,
+        subdomain_discovery,
+        osint_recon,
     ]
 
 
