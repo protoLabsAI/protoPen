@@ -33,6 +33,109 @@ _TOOL_TARGET_ARG: dict[str, str] = {
     # OSINT
     "theharvester": "target",
     "whois_lookup": "target",
+    # Web Enum
+    "gobuster_dir": "url",
+    "gobuster_vhost": "url",
+    "ffuf_fuzz": "url",
+    "ffuf_param": "url",
+    # Service Enum
+    "enum4linux_full": "target",
+    "smb_shares": "target",
+    "smb_list": "target",
+    "rpc_info": "target",
+    "rpc_users": "target",
+    # SSL Audit
+    "ssl_full_audit": "target",
+    "ssl_protocols": "target",
+    "ssl_ciphers": "target",
+    "ssl_vulnerabilities": "target",
+    "ssl_certificates": "target",
+    # API Enum
+    "swagger_scan": "url",
+    "endpoint_brute": "url",
+    "method_check": "url",
+    # Vuln Assessment
+    "nikto_scan": "url",
+    "nuclei_scan": "target",
+    "nuclei_tagged": "target",
+    "nse_vuln": "target",
+    # SQL Testing
+    "sqli_detect": "url",
+    "sqli_forms": "url",
+    "sqli_dbs": "url",
+    "sqli_tables": "url",
+    # Web Vuln
+    "xss_scan": "url",
+    "cors_check": "url",
+    "redirect_check": "url",
+    # CVE Match
+    "cve_search": "target",
+    "cve_nmap": "target",
+    "cve_nuclei": "target",
+    # Metasploit
+    "msf_search": None,
+    "msf_info": None,
+    "msf_run": "target",
+    "msf_payload": None,
+    # Credential Attack
+    "hydra_brute": "target",
+    "hydra_spray": "target",
+    "hydra_combo": "target",
+    # Hash Cracking
+    "hash_identify": None,
+    "hashcat_dict": None,
+    "hashcat_rules": None,
+    "john_crack": None,
+    "john_show": None,
+    # Priv Esc
+    "linpeas": None,
+    "sudo_check": None,
+    "suid_find": None,
+    "kernel_exploits": None,
+    # Lateral Movement
+    "psexec": "target",
+    "wmiexec": "target",
+    "evil_winrm": "target",
+    "pth_winrm": "target",
+    "ssh_pivot": "target",
+    # Data Exfil
+    "scp_download": "target",
+    "smb_download": "target",
+    "http_exfil": "url",
+    # Persistence
+    "add_ssh_key": None,
+    "add_cron": None,
+    "check_persistence": None,
+    # Cleanup
+    "remove_ssh_key": None,
+    "remove_cron": None,
+    "remove_files": None,
+    "cleanup_report": None,
+    # JWT Analysis
+    "jwt_decode": None,
+    "jwt_alg_none": None,
+    "jwt_crack": None,
+    "jwt_tamper": None,
+    # SSRF Detection
+    "ssrf_basic": "url",
+    "ssrf_cloud_meta": None,
+    "ssrf_callback": "url",
+    "ssrf_generate_payloads": None,
+    # Auth Testing
+    "idor_check": "url",
+    "privesc_horizontal": "url",
+    "privesc_vertical": "url",
+    "session_fixation": "url",
+    "token_replay": "url",
+    # Rate Limit
+    "rate_detect": "url",
+    "rate_bypass_headers": "url",
+    "rate_bypass_path": "url",
+    # GraphQL
+    "gql_introspect": "url",
+    "gql_depth_test": "url",
+    "gql_batch": "url",
+    "gql_field_suggest": "url",
 }
 
 

@@ -14,11 +14,13 @@ class KillChainPhase(IntEnum):
     """Simplified kill chain phases for engagement phase gating."""
     RECON = 0
     ENUMERATION = 1
-    EXPLOITATION = 2
-    POST_EXPLOITATION = 3
-    LATERAL_MOVEMENT = 4
-    PERSISTENCE = 5
-    EXFIL = 6
+    VULN_ASSESSMENT = 2
+    EXPLOITATION = 3
+    POST_EXPLOITATION = 4
+    LATERAL_MOVEMENT = 5
+    PERSISTENCE = 6
+    EXFILTRATION = 7
+    CLEANUP = 8
 
 
 TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
@@ -93,6 +95,130 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     # ── OSINT ──
     "theharvester": KillChainPhase.RECON,
     "whois_lookup": KillChainPhase.RECON,
+
+    # ── Web Enum ──
+    "gobuster_dir": KillChainPhase.ENUMERATION,
+    "gobuster_vhost": KillChainPhase.ENUMERATION,
+    "ffuf_fuzz": KillChainPhase.ENUMERATION,
+    "ffuf_param": KillChainPhase.ENUMERATION,
+
+    # ── Service Enum ──
+    "enum4linux_full": KillChainPhase.ENUMERATION,
+    "smb_shares": KillChainPhase.ENUMERATION,
+    "smb_list": KillChainPhase.ENUMERATION,
+    "rpc_info": KillChainPhase.ENUMERATION,
+    "rpc_users": KillChainPhase.ENUMERATION,
+
+    # ── SSL Audit ──
+    "ssl_full_audit": KillChainPhase.ENUMERATION,
+    "ssl_protocols": KillChainPhase.ENUMERATION,
+    "ssl_ciphers": KillChainPhase.ENUMERATION,
+    "ssl_vulnerabilities": KillChainPhase.ENUMERATION,
+    "ssl_certificates": KillChainPhase.ENUMERATION,
+
+    # ── API Enum ──
+    "swagger_scan": KillChainPhase.ENUMERATION,
+    "endpoint_brute": KillChainPhase.ENUMERATION,
+    "method_check": KillChainPhase.ENUMERATION,
+
+    # ── Vuln Assessment ──
+    "nikto_scan": KillChainPhase.VULN_ASSESSMENT,
+    "nuclei_scan": KillChainPhase.VULN_ASSESSMENT,
+    "nuclei_tagged": KillChainPhase.VULN_ASSESSMENT,
+    "nse_vuln": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── SQL Testing ──
+    "sqli_detect": KillChainPhase.VULN_ASSESSMENT,
+    "sqli_forms": KillChainPhase.VULN_ASSESSMENT,
+    "sqli_dbs": KillChainPhase.EXPLOITATION,
+    "sqli_tables": KillChainPhase.EXPLOITATION,
+
+    # ── Web Vuln ──
+    "xss_scan": KillChainPhase.VULN_ASSESSMENT,
+    "cors_check": KillChainPhase.VULN_ASSESSMENT,
+    "redirect_check": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── CVE Match ──
+    "cve_search": KillChainPhase.VULN_ASSESSMENT,
+    "cve_nmap": KillChainPhase.VULN_ASSESSMENT,
+    "cve_nuclei": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── Metasploit ──
+    "msf_search": KillChainPhase.VULN_ASSESSMENT,
+    "msf_info": KillChainPhase.VULN_ASSESSMENT,
+    "msf_run": KillChainPhase.EXPLOITATION,
+    "msf_payload": KillChainPhase.EXPLOITATION,
+
+    # ── Credential Attack ──
+    "hydra_brute": KillChainPhase.EXPLOITATION,
+    "hydra_spray": KillChainPhase.EXPLOITATION,
+    "hydra_combo": KillChainPhase.EXPLOITATION,
+
+    # ── Hash Cracking ──
+    "hash_identify": KillChainPhase.VULN_ASSESSMENT,
+    "hashcat_dict": KillChainPhase.EXPLOITATION,
+    "hashcat_rules": KillChainPhase.EXPLOITATION,
+    "john_crack": KillChainPhase.EXPLOITATION,
+    "john_show": KillChainPhase.EXPLOITATION,
+
+    # ── Priv Esc ──
+    "linpeas": KillChainPhase.POST_EXPLOITATION,
+    "sudo_check": KillChainPhase.POST_EXPLOITATION,
+    "suid_find": KillChainPhase.POST_EXPLOITATION,
+    "kernel_exploits": KillChainPhase.POST_EXPLOITATION,
+
+    # ── Lateral Movement ──
+    "psexec": KillChainPhase.LATERAL_MOVEMENT,
+    "wmiexec": KillChainPhase.LATERAL_MOVEMENT,
+    "evil_winrm": KillChainPhase.LATERAL_MOVEMENT,
+    "pth_winrm": KillChainPhase.LATERAL_MOVEMENT,
+    "ssh_pivot": KillChainPhase.LATERAL_MOVEMENT,
+
+    # ── Data Exfil ──
+    "scp_download": KillChainPhase.EXFILTRATION,
+    "smb_download": KillChainPhase.EXFILTRATION,
+    "http_exfil": KillChainPhase.EXFILTRATION,
+
+    # ── Persistence ──
+    "add_ssh_key": KillChainPhase.PERSISTENCE,
+    "add_cron": KillChainPhase.PERSISTENCE,
+    "check_persistence": KillChainPhase.POST_EXPLOITATION,
+
+    # ── Cleanup ──
+    "remove_ssh_key": KillChainPhase.CLEANUP,
+    "remove_cron": KillChainPhase.CLEANUP,
+    "remove_files": KillChainPhase.CLEANUP,
+    "cleanup_report": KillChainPhase.CLEANUP,
+
+    # ── JWT Analysis ──
+    "jwt_decode": KillChainPhase.VULN_ASSESSMENT,
+    "jwt_alg_none": KillChainPhase.VULN_ASSESSMENT,
+    "jwt_crack": KillChainPhase.EXPLOITATION,
+    "jwt_tamper": KillChainPhase.EXPLOITATION,
+
+    # ── SSRF Detection ──
+    "ssrf_basic": KillChainPhase.VULN_ASSESSMENT,
+    "ssrf_cloud_meta": KillChainPhase.VULN_ASSESSMENT,
+    "ssrf_callback": KillChainPhase.VULN_ASSESSMENT,
+    "ssrf_generate_payloads": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── Auth Testing ──
+    "idor_check": KillChainPhase.VULN_ASSESSMENT,
+    "privesc_horizontal": KillChainPhase.VULN_ASSESSMENT,
+    "privesc_vertical": KillChainPhase.VULN_ASSESSMENT,
+    "session_fixation": KillChainPhase.VULN_ASSESSMENT,
+    "token_replay": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── Rate Limit ──
+    "rate_detect": KillChainPhase.VULN_ASSESSMENT,
+    "rate_bypass_headers": KillChainPhase.VULN_ASSESSMENT,
+    "rate_bypass_path": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── GraphQL ──
+    "gql_introspect": KillChainPhase.ENUMERATION,
+    "gql_depth_test": KillChainPhase.VULN_ASSESSMENT,
+    "gql_batch": KillChainPhase.VULN_ASSESSMENT,
+    "gql_field_suggest": KillChainPhase.ENUMERATION,
 }
 
 

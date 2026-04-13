@@ -7,15 +7,17 @@ from enforcement.phases import KillChainPhase, TOOL_PHASE_MAP, get_tool_phase
 class TestKillChainPhase:
     def test_phase_ordering(self):
         assert KillChainPhase.RECON < KillChainPhase.ENUMERATION
-        assert KillChainPhase.ENUMERATION < KillChainPhase.EXPLOITATION
+        assert KillChainPhase.ENUMERATION < KillChainPhase.VULN_ASSESSMENT
+        assert KillChainPhase.VULN_ASSESSMENT < KillChainPhase.EXPLOITATION
         assert KillChainPhase.EXPLOITATION < KillChainPhase.POST_EXPLOITATION
         assert KillChainPhase.POST_EXPLOITATION < KillChainPhase.LATERAL_MOVEMENT
         assert KillChainPhase.LATERAL_MOVEMENT < KillChainPhase.PERSISTENCE
-        assert KillChainPhase.PERSISTENCE < KillChainPhase.EXFIL
+        assert KillChainPhase.PERSISTENCE < KillChainPhase.EXFILTRATION
+        assert KillChainPhase.EXFILTRATION < KillChainPhase.CLEANUP
 
     def test_phase_values(self):
         assert KillChainPhase.RECON.value == 0
-        assert KillChainPhase.EXFIL.value == 6
+        assert KillChainPhase.CLEANUP.value == 8
 
     def test_phase_from_name(self):
         assert KillChainPhase["EXPLOITATION"] == KillChainPhase.EXPLOITATION
@@ -28,8 +30,8 @@ class TestToolPhaseMap:
     def test_nmap_vuln_is_enumeration(self):
         assert TOOL_PHASE_MAP["nmap_vuln_scan"] == KillChainPhase.ENUMERATION
 
-    def test_nikto_is_enumeration(self):
-        assert TOOL_PHASE_MAP["nikto_scan"] == KillChainPhase.ENUMERATION
+    def test_nikto_is_vuln_assessment(self):
+        assert TOOL_PHASE_MAP["nikto_scan"] == KillChainPhase.VULN_ASSESSMENT
 
     def test_wifi_deauth_is_exploitation(self):
         assert TOOL_PHASE_MAP["wifi_deauth"] == KillChainPhase.EXPLOITATION

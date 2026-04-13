@@ -1,0 +1,56 @@
+name: web_vuln_assessment
+description: >
+  Web application vulnerability assessment — nikto, nuclei, XSS scanning,
+  SQL injection detection, and CORS checks.
+tags: [vuln, web, assessment]
+variables:
+  target: ""
+  url: ""
+
+steps:
+  - name: nikto_web
+    tool: vuln_scan
+    action: nikto_scan
+    params:
+      target: "${url}"
+    timeout: 300
+    on_fail: continue
+
+  - name: nuclei_web
+    tool: vuln_scan
+    action: nuclei_scan
+    params:
+      target: "${url}"
+    timeout: 300
+    on_fail: continue
+
+  - name: xss_check
+    tool: web_vuln
+    action: xss_scan
+    params:
+      url: "${url}"
+    timeout: 180
+    on_fail: continue
+
+  - name: sqli_check
+    tool: sql_test
+    action: sqli_detect
+    params:
+      url: "${url}"
+    timeout: 300
+    on_fail: continue
+
+  - name: cors_check
+    tool: web_vuln
+    action: cors_check
+    params:
+      url: "${url}"
+    on_fail: continue
+
+  - name: cve_scan
+    tool: cve_match
+    action: cve_nuclei
+    params:
+      target: "${target}"
+    timeout: 300
+    on_fail: continue

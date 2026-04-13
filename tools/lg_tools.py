@@ -34,6 +34,31 @@ from knowledge.target_store import TargetStore
 from tools.dns_enum import DnsEnumTool
 from tools.subdomain_discovery import SubdomainDiscoveryTool
 from tools.osint_recon import OsintReconTool
+from tools.web_enum import WebEnumTool
+from tools.service_enum import ServiceEnumTool
+from tools.ssl_audit import SslAuditTool
+from tools.api_enum import ApiEnumTool
+from tools.vuln_scan import VulnScanTool
+from tools.sql_test import SqlTestTool
+from tools.web_vuln import WebVulnTool
+from tools.cve_match import CveMatchTool
+from tools.msf_exploit import MsfExploitTool
+from tools.credential_attack import CredentialAttackTool
+from tools.hashcat_rules import HashcatRulesTool
+from knowledge.chain_planner import suggest_next_steps, format_suggestions
+from knowledge.target_profile import TargetProfile
+from playbooks.tool import execute_playbook_action
+from tools.priv_esc import PrivEscTool
+from tools.lateral_move import LateralMoveTool
+from tools.data_exfil import DataExfilTool
+from tools.persistence import PersistenceTool
+from tools.cleanup import CleanupTool
+from tools.jwt_tool import JwtTool
+from tools.ssrf_detect import SsrfDetectTool
+from tools.auth_test import AuthTestTool
+from tools.rate_limit import RateLimitTool
+from tools.graphql_test import GraphqlTestTool
+from knowledge.technique_library import TechniqueLibrary
 
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
@@ -61,6 +86,28 @@ _target_intel: TargetIntelTool | None = None
 _dns_enum: DnsEnumTool | None = None
 _subdomain_discovery: SubdomainDiscoveryTool | None = None
 _osint_recon: OsintReconTool | None = None
+_web_enum: WebEnumTool | None = None
+_service_enum: ServiceEnumTool | None = None
+_ssl_audit: SslAuditTool | None = None
+_api_enum: ApiEnumTool | None = None
+_vuln_scan: VulnScanTool | None = None
+_sql_test: SqlTestTool | None = None
+_web_vuln: WebVulnTool | None = None
+_cve_match: CveMatchTool | None = None
+_msf_exploit: MsfExploitTool | None = None
+_credential_attack: CredentialAttackTool | None = None
+_hashcat_rules: HashcatRulesTool | None = None
+_priv_esc: PrivEscTool | None = None
+_lateral_move: LateralMoveTool | None = None
+_data_exfil: DataExfilTool | None = None
+_persistence: PersistenceTool | None = None
+_cleanup: CleanupTool | None = None
+_jwt_tool: JwtTool | None = None
+_ssrf_detect: SsrfDetectTool | None = None
+_auth_test: AuthTestTool | None = None
+_rate_limit: RateLimitTool | None = None
+_graphql_test: GraphqlTestTool | None = None
+_technique_library: TechniqueLibrary | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -385,12 +432,64 @@ def _init_pentest_singletons():
     _blackarch._target_store = _target_store
 
     global _dns_enum, _subdomain_discovery, _osint_recon
+    global _web_enum, _service_enum, _ssl_audit, _api_enum
     _dns_enum = DnsEnumTool()
     _dns_enum._target_store = _target_store
     _subdomain_discovery = SubdomainDiscoveryTool()
     _subdomain_discovery._target_store = _target_store
     _osint_recon = OsintReconTool()
     _osint_recon._target_store = _target_store
+    _web_enum = WebEnumTool()
+    _web_enum._target_store = _target_store
+    _service_enum = ServiceEnumTool()
+    _service_enum._target_store = _target_store
+    _ssl_audit = SslAuditTool()
+    _ssl_audit._target_store = _target_store
+    _api_enum = ApiEnumTool()
+    _api_enum._target_store = _target_store
+
+    global _vuln_scan, _sql_test, _web_vuln, _cve_match
+    _vuln_scan = VulnScanTool()
+    _vuln_scan._target_store = _target_store
+    _sql_test = SqlTestTool()
+    _sql_test._target_store = _target_store
+    _web_vuln = WebVulnTool()
+    _web_vuln._target_store = _target_store
+    _cve_match = CveMatchTool()
+    _cve_match._target_store = _target_store
+
+    global _msf_exploit, _credential_attack, _hashcat_rules
+    _msf_exploit = MsfExploitTool()
+    _msf_exploit._target_store = _target_store
+    _credential_attack = CredentialAttackTool()
+    _credential_attack._target_store = _target_store
+    _hashcat_rules = HashcatRulesTool()
+    _hashcat_rules._target_store = _target_store
+
+    global _priv_esc, _lateral_move, _data_exfil, _persistence, _cleanup
+    _priv_esc = PrivEscTool()
+    _priv_esc._target_store = _target_store
+    _lateral_move = LateralMoveTool()
+    _lateral_move._target_store = _target_store
+    _data_exfil = DataExfilTool()
+    _data_exfil._target_store = _target_store
+    _persistence = PersistenceTool()
+    _persistence._target_store = _target_store
+    _cleanup = CleanupTool()
+    _cleanup._target_store = _target_store
+
+    global _jwt_tool, _ssrf_detect, _auth_test, _rate_limit, _graphql_test, _technique_library
+    _jwt_tool = JwtTool()
+    _jwt_tool._target_store = _target_store
+    _ssrf_detect = SsrfDetectTool()
+    _ssrf_detect._target_store = _target_store
+    _auth_test = AuthTestTool()
+    _auth_test._target_store = _target_store
+    _rate_limit = RateLimitTool()
+    _rate_limit._target_store = _target_store
+    _graphql_test = GraphqlTestTool()
+    _graphql_test._target_store = _target_store
+    _technique_library = TechniqueLibrary()
 
 
 @tool
@@ -737,6 +836,632 @@ async def osint_recon(
     )
 
 
+@tool
+async def web_enum(
+    action: str,
+    url: str = "",
+    wordlist: str = "",
+    extensions: str = "",
+    threads: int = 10,
+    recursive: bool = False,
+    depth: int = 2,
+    timeout: int = 120,
+) -> str:
+    """Web content enumeration — directory brute force, vhost discovery, parameter fuzzing.
+
+    - gobuster_dir: Directory enumeration with gobuster
+    - gobuster_vhost: Virtual host discovery
+    - ffuf_fuzz: Content discovery with ffuf (supports recursion)
+    - ffuf_param: Parameter fuzzing with ffuf
+    """
+    _init_pentest_singletons()
+    return await _web_enum.execute(
+        action=action, url=url, wordlist=wordlist, extensions=extensions,
+        threads=threads, recursive=recursive, depth=depth, timeout=timeout,
+    )
+
+
+@tool
+async def service_enum(
+    action: str,
+    target: str = "",
+    share: str = "",
+    username: str = "",
+    password: str = "",
+    timeout: int = 120,
+) -> str:
+    """Service enumeration — enum4linux, SMB share listing, RPC queries.
+
+    - enum4linux_full: Full Windows/Samba enumeration
+    - smb_shares: List SMB shares
+    - smb_list: List files in an SMB share
+    - rpc_info: Get RPC server info
+    - rpc_users: Enumerate domain users via RPC
+    """
+    _init_pentest_singletons()
+    return await _service_enum.execute(
+        action=action, target=target, share=share,
+        username=username, password=password, timeout=timeout,
+    )
+
+
+@tool
+async def ssl_audit(
+    action: str,
+    target: str = "",
+    timeout: int = 180,
+) -> str:
+    """SSL/TLS audit via testssl.sh — protocols, ciphers, vulnerabilities, certificates.
+
+    - ssl_full_audit: Complete SSL/TLS analysis
+    - ssl_protocols: Check supported protocols
+    - ssl_ciphers: Enumerate cipher suites
+    - ssl_vulnerabilities: Check for known SSL vulns (BEAST, POODLE, etc.)
+    - ssl_certificates: Certificate chain analysis
+    """
+    _init_pentest_singletons()
+    return await _ssl_audit.execute(
+        action=action, target=target, timeout=timeout,
+    )
+
+
+@tool
+async def api_enum(
+    action: str,
+    url: str = "",
+    wordlist: str = "",
+    methods: str = "GET,POST,PUT,DELETE,PATCH",
+    timeout: int = 60,
+) -> str:
+    """API enumeration — Swagger/OpenAPI discovery, endpoint brute force, method checking.
+
+    - swagger_scan: Check common Swagger/OpenAPI paths
+    - endpoint_brute: API endpoint brute force via ffuf
+    - method_check: Test which HTTP methods are allowed
+    """
+    _init_pentest_singletons()
+    return await _api_enum.execute(
+        action=action, url=url, wordlist=wordlist,
+        methods=methods, timeout=timeout,
+    )
+
+
+@tool
+async def priv_esc(
+    action: str,
+    timeout: int = 300,
+) -> str:
+    """Privilege escalation enumeration — linpeas, sudo checks, SUID discovery.
+
+    - linpeas: Run linpeas for Linux privesc enumeration
+    - sudo_check: List sudo privileges for current user
+    - suid_find: Find SUID binaries
+    - kernel_exploits: Suggest kernel exploits
+    """
+    _init_pentest_singletons()
+    return await _priv_esc.execute(action=action, timeout=timeout)
+
+
+@tool
+async def lateral_move(
+    action: str,
+    target: str = "",
+    username: str = "",
+    password: str = "",
+    domain: str = ".",
+    hash: str = "",
+    socks_port: str = "1080",
+    timeout: int = 60,
+) -> str:
+    """Lateral movement — psexec, wmiexec, evil-winrm, SSH pivoting.
+
+    - psexec: PsExec via impacket
+    - wmiexec: WMI execution via impacket
+    - evil_winrm: Evil-WinRM shell
+    - pth_winrm: Pass-the-hash via evil-winrm
+    - ssh_pivot: SSH SOCKS proxy for pivoting
+    """
+    _init_pentest_singletons()
+    return await _lateral_move.execute(
+        action=action, target=target, username=username,
+        password=password, domain=domain, hash=hash,
+        socks_port=socks_port, timeout=timeout,
+    )
+
+
+@tool
+async def data_exfil(
+    action: str,
+    target: str = "",
+    username: str = "",
+    password: str = "",
+    share: str = "",
+    remote_path: str = "",
+    local_path: str = "/tmp/exfil",
+    url: str = "",
+    timeout: int = 120,
+) -> str:
+    """Data exfiltration — controlled file extraction for evidence collection.
+
+    - scp_download: Download file via SCP
+    - smb_download: Download file from SMB share
+    - http_exfil: Download file via HTTP/HTTPS
+    """
+    _init_pentest_singletons()
+    return await _data_exfil.execute(
+        action=action, target=target, username=username,
+        password=password, share=share, remote_path=remote_path,
+        local_path=local_path, url=url, timeout=timeout,
+    )
+
+
+@tool
+async def persistence(
+    action: str,
+    pubkey: str = "",
+    schedule: str = "",
+    command: str = "",
+    timeout: int = 30,
+) -> str:
+    """Persistence — establish persistence for authorized engagement testing.
+
+    - add_ssh_key: Add SSH public key for persistence
+    - add_cron: Add cron job for persistence
+    - check_persistence: Check existing persistence mechanisms
+    """
+    _init_pentest_singletons()
+    return await _persistence.execute(
+        action=action, pubkey=pubkey, schedule=schedule,
+        command=command, timeout=timeout,
+    )
+
+
+@tool
+async def cleanup(
+    action: str,
+    key_fingerprint: str = "",
+    pattern: str = "",
+    file_paths: str = "",
+    timeout: int = 30,
+) -> str:
+    """Cleanup — remove engagement artifacts and persistence from targets.
+
+    - remove_ssh_key: Remove a planted SSH key
+    - remove_cron: Remove a planted cron job
+    - remove_files: Remove specified files
+    - cleanup_report: Generate cleanup status report
+    """
+    _init_pentest_singletons()
+    return await _cleanup.execute(
+        action=action, key_fingerprint=key_fingerprint,
+        pattern=pattern, file_paths=file_paths, timeout=timeout,
+    )
+
+
+@tool
+async def playbook(
+    action: str,
+    name: str = "",
+    variables: str = "",
+) -> str:
+    """Playbook system — run predefined tool sequences.
+
+    - list: List available playbooks
+    - run: Run a playbook by name (pass variables as JSON)
+    - status: Get active playbook status
+    """
+    _init_pentest_singletons()
+
+    async def _dispatch(tool_name: str, action_name: str, params: dict) -> str:
+        """Dispatch a tool call from the playbook runner."""
+        from tools.lg_tools import get_pentest_tools
+        for t in get_pentest_tools():
+            if t.name == tool_name:
+                return await t.ainvoke({"action": action_name, **params})
+        return f"Error: Tool '{tool_name}' not found"
+
+    return await execute_playbook_action(
+        action=action, name=name, variables=variables,
+        dispatch_fn=_dispatch,
+    )
+
+
+@tool
+def chain_planner(
+    target: str,
+) -> str:
+    """Recommend next tool actions based on accumulated target intelligence.
+
+    Analyzes the target's profile in the knowledge store and suggests
+    the most productive next steps based on discovered services, vulns, and data.
+    """
+    _init_pentest_singletons()
+
+    if not _target_store:
+        return "Error: Target store not initialized."
+
+    # Build profile from target store
+    profile = TargetProfile(ip=target)
+
+    # Populate from stored data
+    stored_ports = _target_store.get_ports(target)
+    if stored_ports:
+        for port_info in stored_ports:
+            if isinstance(port_info, dict):
+                profile.add_port(**port_info)
+            else:
+                profile.add_port(port=port_info)
+
+    entities = _target_store.get_entities(target)
+    for entity in entities:
+        etype = entity.get("type", "")
+        if etype == "subdomain":
+            profile.subdomains.append(entity.get("subdomain", ""))
+        elif etype == "web_path":
+            profile.web_paths.append(entity)
+        elif etype == "user":
+            profile.users.append(entity.get("username", ""))
+        elif etype == "share":
+            profile.shares.append(entity.get("name", ""))
+        elif etype == "credential":
+            profile.credentials.append(entity)
+        elif etype == "vulnerability":
+            profile.vulnerabilities.append(entity)
+        elif etype == "ssl_finding":
+            profile.ssl_findings.append(entity)
+
+    summary = profile.summary()
+    suggestions = suggest_next_steps(profile)
+    recommendation = format_suggestions(suggestions)
+
+    return f"{summary}\n\n{recommendation}"
+
+
+@tool
+async def msf_exploit(
+    action: str,
+    target: str = "",
+    query: str = "",
+    module: str = "",
+    port: str = "",
+    payload: str = "",
+    lhost: str = "",
+    lport: str = "4444",
+    format: str = "raw",
+    timeout: int = 300,
+) -> str:
+    """Metasploit Framework — module search, exploit execution, payload generation.
+
+    - msf_search: Search Metasploit modules
+    - msf_info: Get info on a Metasploit module
+    - msf_run: Run an exploit module against a target
+    - msf_payload: Generate a payload with msfvenom
+    """
+    _init_pentest_singletons()
+    return await _msf_exploit.execute(
+        action=action, target=target, query=query, module=module,
+        port=port, payload=payload, lhost=lhost, lport=lport,
+        format=format, timeout=timeout,
+    )
+
+
+@tool
+async def credential_attack(
+    action: str,
+    target: str = "",
+    service: str = "ssh",
+    username: str = "",
+    password: str = "",
+    wordlist: str = "",
+    userlist: str = "",
+    combolist: str = "",
+    threads: int = 4,
+    timeout: int = 600,
+) -> str:
+    """Credential attacks — hydra brute force, password spraying, combo lists.
+
+    - hydra_brute: Brute force a single user with a password list
+    - hydra_spray: Password spray a single password across user list
+    - hydra_combo: Combo list attack (user:pass format)
+    """
+    _init_pentest_singletons()
+    return await _credential_attack.execute(
+        action=action, target=target, service=service,
+        username=username, password=password, wordlist=wordlist,
+        userlist=userlist, combolist=combolist, threads=threads,
+        timeout=timeout,
+    )
+
+
+@tool
+async def hashcat_rules(
+    action: str,
+    hash: str = "",
+    hashfile: str = "",
+    wordlist: str = "",
+    rulefile: str = "/usr/share/hashcat/rules/best64.rule",
+    mode: str = "0",
+    format: str = "",
+    timeout: int = 600,
+) -> str:
+    """Hash cracking — hashcat, john the ripper, hash identification.
+
+    - hash_identify: Identify hash type
+    - hashcat_dict: Dictionary attack with hashcat
+    - hashcat_rules: Rule-based attack with hashcat
+    - john_crack: Crack hashes with john the ripper
+    - john_show: Show cracked passwords from john pot
+    """
+    _init_pentest_singletons()
+    return await _hashcat_rules.execute(
+        action=action, hash=hash, hashfile=hashfile,
+        wordlist=wordlist, rulefile=rulefile, mode=mode,
+        format=format, timeout=timeout,
+    )
+
+
+@tool
+async def vuln_scan(
+    action: str,
+    target: str = "",
+    ports: str = "",
+    tags: str = "",
+    timeout: int = 300,
+) -> str:
+    """Vulnerability scanning — nikto, nuclei templates, nmap NSE vuln scripts.
+
+    - nikto_scan: Nikto web server vulnerability scan
+    - nuclei_scan: Nuclei scan with default templates
+    - nuclei_tagged: Nuclei scan with specific template tags
+    - nse_vuln: Nmap NSE vuln category scripts
+    """
+    _init_pentest_singletons()
+    return await _vuln_scan.execute(
+        action=action, target=target, ports=ports,
+        tags=tags, timeout=timeout,
+    )
+
+
+@tool
+async def sql_test(
+    action: str,
+    url: str = "",
+    database: str = "",
+    timeout: int = 300,
+) -> str:
+    """SQL injection testing via sqlmap.
+
+    - sqli_detect: SQL injection detection scan
+    - sqli_forms: Scan form parameters for SQLi
+    - sqli_dbs: Enumerate databases via confirmed SQLi
+    - sqli_tables: Enumerate tables in a database
+    """
+    _init_pentest_singletons()
+    return await _sql_test.execute(
+        action=action, url=url, database=database, timeout=timeout,
+    )
+
+
+@tool
+async def web_vuln(
+    action: str,
+    url: str = "",
+    timeout: int = 180,
+) -> str:
+    """Web vulnerability testing — XSS (dalfox), CORS misconfiguration, open redirect.
+
+    - xss_scan: XSS vulnerability scan with dalfox
+    - cors_check: Check CORS misconfiguration
+    - redirect_check: Check for open redirect
+    """
+    _init_pentest_singletons()
+    return await _web_vuln.execute(
+        action=action, url=url, timeout=timeout,
+    )
+
+
+@tool
+async def cve_match(
+    action: str,
+    target: str = "",
+    query: str = "",
+    ports: str = "",
+    timeout: int = 120,
+) -> str:
+    """CVE matching — searchsploit, nmap vulners NSE, nuclei CVE templates.
+
+    - cve_search: Search exploitdb for known CVEs/exploits
+    - cve_nmap: NSE vulners script against discovered services
+    - cve_nuclei: Nuclei CVE templates against target
+    """
+    _init_pentest_singletons()
+    return await _cve_match.execute(
+        action=action, target=target, query=query,
+        ports=ports, timeout=timeout,
+    )
+
+
+@tool
+async def jwt_tool(
+    action: str,
+    token: str = "",
+    secret: str = "",
+    wordlist: str = "",
+    new_claims: str = "{}",
+    timeout: int = 60,
+) -> str:
+    """JWT analysis — decode, algorithm-none attack, crack weak secrets, tamper claims.
+
+    - jwt_decode: Decode a JWT and analyze header/payload
+    - jwt_alg_none: Test algorithm-none vulnerability
+    - jwt_crack: Brute force JWT secret with wordlist
+    - jwt_tamper: Modify JWT claims and re-sign
+    """
+    _init_pentest_singletons()
+    return await _jwt_tool.execute(
+        action=action, token=token, secret=secret,
+        wordlist=wordlist, new_claims=new_claims, timeout=timeout,
+    )
+
+
+@tool
+async def ssrf_detect(
+    action: str,
+    url: str = "",
+    inject_param: str = "FUZZ",
+    callback_host: str = "",
+    callback_port: int = 8888,
+    wait_seconds: int = 5,
+    timeout: int = 60,
+) -> str:
+    """SSRF detection — payload injection, callback server, cloud metadata checks.
+
+    - ssrf_basic: Test URL parameter for SSRF with common payloads
+    - ssrf_cloud_meta: Check if cloud metadata endpoints are accessible
+    - ssrf_callback: Blind SSRF detection via callback server
+    - ssrf_generate_payloads: Generate SSRF bypass payloads
+    """
+    _init_pentest_singletons()
+    return await _ssrf_detect.execute(
+        action=action, url=url, inject_param=inject_param,
+        callback_host=callback_host, callback_port=callback_port,
+        wait_seconds=wait_seconds, timeout=timeout,
+    )
+
+
+@tool
+async def auth_test(
+    action: str,
+    url: str = "",
+    admin_url: str = "",
+    login_url: str = "",
+    headers: str = "{}",
+    user_a_headers: str = "{}",
+    user_b_headers: str = "{}",
+    low_priv_headers: str = "{}",
+    login_data: str = "{}",
+    test_ids: str = "[1,2,3,100,999]",
+    id_param: str = "FUZZ",
+    delay: int = 5,
+    timeout: int = 60,
+) -> str:
+    """Authentication & authorization testing — BOLA/IDOR, privilege escalation, session testing.
+
+    - idor_check: Test for IDOR/BOLA by iterating object IDs
+    - privesc_horizontal: Test horizontal privilege escalation
+    - privesc_vertical: Test vertical privilege escalation
+    - session_fixation: Test for session fixation
+    - token_replay: Test token replay attacks
+    """
+    _init_pentest_singletons()
+    return await _auth_test.execute(
+        action=action, url=url, admin_url=admin_url,
+        login_url=login_url, headers=headers,
+        user_a_headers=user_a_headers, user_b_headers=user_b_headers,
+        low_priv_headers=low_priv_headers, login_data=login_data,
+        test_ids=test_ids, id_param=id_param, delay=delay, timeout=timeout,
+    )
+
+
+@tool
+async def rate_limit(
+    action: str,
+    url: str = "",
+    headers: str = "{}",
+    count: int = 50,
+    interval: float = 0.1,
+    spoof_ip: str = "1.2.3.4",
+    timeout: int = 120,
+) -> str:
+    """Rate limit testing — detect and test bypass techniques.
+
+    - rate_detect: Detect rate limiting by sending sequential requests
+    - rate_bypass_headers: Test rate limit bypass via IP spoofing headers
+    - rate_bypass_path: Test rate limit bypass via URL path manipulation
+    """
+    _init_pentest_singletons()
+    return await _rate_limit.execute(
+        action=action, url=url, headers=headers,
+        count=count, interval=interval, spoof_ip=spoof_ip, timeout=timeout,
+    )
+
+
+@tool
+async def graphql_test(
+    action: str,
+    url: str = "",
+    headers: str = "{}",
+    query: str = "{ __typename }",
+    field: str = "__typename",
+    type_name: str = "Query",
+    max_depth: int = 20,
+    batch_size: int = 10,
+    timeout: int = 60,
+) -> str:
+    """GraphQL security testing — introspection, depth/complexity fuzzing, batch query abuse.
+
+    - gql_introspect: Test if introspection is enabled and extract schema
+    - gql_depth_test: Test query depth limits
+    - gql_batch: Test batch query support (potential DoS vector)
+    - gql_field_suggest: Extract field names via suggestion mechanism
+    """
+    _init_pentest_singletons()
+    return await _graphql_test.execute(
+        action=action, url=url, headers=headers, query=query,
+        field=field, type_name=type_name, max_depth=max_depth,
+        batch_size=batch_size, timeout=timeout,
+    )
+
+
+@tool
+def technique_library(
+    action: str,
+    tool_name: str = "",
+    action_name: str = "",
+    target_type: str = "",
+    description: str = "",
+    payload: str = "",
+    waf_bypass: str = "",
+    success: bool = True,
+    tags: str = "",
+    tag: str = "",
+    waf_product: str = "",
+    limit: int = 20,
+) -> str:
+    """Store and retrieve successful attack techniques for reuse.
+
+    - add: Record a successful technique (tool_name, action_name, description, payload required)
+    - search: Search techniques by tool, target type, or tag
+    - waf_bypasses: Get WAF bypass techniques (optional waf_product filter)
+    - stats: Get technique library statistics
+    """
+    _init_pentest_singletons()
+    import json as _json
+    from knowledge.technique_library import Technique
+
+    if action == "add":
+        tech = Technique(
+            tool=tool_name, action=action_name, target_type=target_type,
+            description=description, payload=payload, waf_bypass=waf_bypass,
+            success=success,
+            tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else [],
+        )
+        tid = _technique_library.add(tech)
+        return _json.dumps({"id": tid, "status": "stored"})
+    elif action == "search":
+        results = _technique_library.search(
+            tool=tool_name, action=action_name, target_type=target_type,
+            tag=tag, success_only=success, limit=limit,
+        )
+        return _json.dumps([t.to_dict() for t in results], indent=2)
+    elif action == "waf_bypasses":
+        results = _technique_library.get_waf_bypasses(waf_product)
+        return _json.dumps([t.to_dict() for t in results], indent=2)
+    elif action == "stats":
+        return _json.dumps(_technique_library.stats(), indent=2)
+    return f"Unknown action: {action}"
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -757,6 +1482,38 @@ def get_pentest_tools():
         dns_enum,
         subdomain_discovery,
         osint_recon,
+        # Phase 2 — Enumeration
+        web_enum,
+        service_enum,
+        ssl_audit,
+        api_enum,
+        # Phase 2 — Vuln Assessment
+        vuln_scan,
+        sql_test,
+        web_vuln,
+        cve_match,
+        # Phase 2 — Exploitation
+        msf_exploit,
+        credential_attack,
+        hashcat_rules,
+        # Phase 2 — Post-Exploitation + Lateral Movement
+        priv_esc,
+        lateral_move,
+        data_exfil,
+        persistence,
+        cleanup,
+        # Phase 2 — Playbook system
+        playbook,
+        # Phase 2 — Intelligence
+        chain_planner,
+        # Phase 3 — Web App Testing
+        jwt_tool,
+        ssrf_detect,
+        auth_test,
+        rate_limit,
+        graphql_test,
+        # Phase 3 — Knowledge
+        technique_library,
     ]
 
 

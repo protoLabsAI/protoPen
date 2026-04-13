@@ -1,0 +1,39 @@
+name: smb_enum
+description: >
+  SMB/Windows enumeration playbook — enum4linux, share listing,
+  RPC user enumeration, and CVE check.
+tags: [enum, smb, windows]
+variables:
+  target: ""
+
+steps:
+  - name: enum4linux_full
+    tool: service_enum
+    action: enum4linux_full
+    params:
+      target: "${target}"
+    timeout: 120
+    on_fail: continue
+
+  - name: smb_shares
+    tool: service_enum
+    action: smb_shares
+    params:
+      target: "${target}"
+    on_fail: continue
+
+  - name: rpc_users
+    tool: service_enum
+    action: rpc_users
+    params:
+      target: "${target}"
+    on_fail: continue
+
+  - name: cve_check
+    tool: cve_match
+    action: cve_nmap
+    params:
+      target: "${target}"
+      ports: "139,445"
+    timeout: 120
+    on_fail: continue

@@ -1,0 +1,57 @@
+name: full_recon
+description: >
+  Full reconnaissance playbook — port scan, DNS enum, subdomain discovery,
+  OSINT, and web enumeration against a target.
+tags: [recon, enumeration, web]
+variables:
+  target: ""
+  wordlist: /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt
+
+steps:
+  - name: nmap_full
+    tool: blackarch
+    action: nmap_scan
+    params:
+      target: "${target}"
+      flags: "-sV -sC -O -T4"
+    timeout: 600
+
+  - name: dns_records
+    tool: dns_enum
+    action: dig_query
+    params:
+      target: "${target}"
+      record_type: ANY
+    on_fail: continue
+
+  - name: subdomains
+    tool: subdomain_discovery
+    action: subfinder
+    params:
+      target: "${target}"
+    on_fail: continue
+
+  - name: osint_harvest
+    tool: osint_recon
+    action: theharvester
+    params:
+      target: "${target}"
+      source: all
+      limit: 200
+    on_fail: continue
+
+  - name: web_dirs
+    tool: web_enum
+    action: gobuster_dir
+    params:
+      url: "http://${target}"
+      wordlist: "${wordlist}"
+      threads: 20
+    on_fail: continue
+
+  - name: ssl_check
+    tool: ssl_audit
+    action: ssl_full_audit
+    params:
+      target: "${target}"
+    on_fail: continue

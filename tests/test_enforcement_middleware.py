@@ -52,10 +52,11 @@ def _make_engagement_manager(active=True, mode_name="ACTIVE", mode_value=1):
 
 class TestNonPentestToolsPassThrough:
     @pytest.mark.asyncio
-    async def test_cve_search_passes(self):
+    async def test_generic_tool_passes(self):
+        """Non-pentest tools pass through without engagement."""
         mgr = _make_engagement_manager(active=False)
         mw = EnforcementMiddleware(mgr)
-        req = _make_request("cve_search", {"query": "log4j"})
+        req = _make_request("knowledge_search", {"query": "log4j"})
         handler = AsyncMock(return_value="results")
         result = await mw.awrap_tool_call(req, handler)
         handler.assert_awaited_once_with(req)
@@ -217,7 +218,7 @@ class TestSyncMirror:
     def test_sync_passthrough(self):
         mgr = _make_engagement_manager(active=False)
         mw = EnforcementMiddleware(mgr)
-        req = _make_request("cve_search", {"query": "test"})
+        req = _make_request("knowledge_search", {"query": "test"})
         handler = MagicMock(return_value="results")
         result = mw.wrap_tool_call(req, handler)
         handler.assert_called_once_with(req)

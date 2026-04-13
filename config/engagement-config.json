@@ -60,6 +60,22 @@
     "shell_exec": 1,
     "dig_query": 0, "nslookup": 0, "zone_transfer": 1, "reverse_lookup": 0, "dns_brute": 1,
     "subfinder": 0, "amass_passive": 0,
-    "theharvester": 0, "whois_lookup": 0
+    "theharvester": 0, "whois_lookup": 0,
+    "gobuster_dir": 1, "gobuster_vhost": 1, "ffuf_fuzz": 1, "ffuf_param": 1,
+    "enum4linux_full": 1, "smb_shares": 1, "smb_list": 1, "rpc_info": 1, "rpc_users": 1,
+    "ssl_full_audit": 1, "ssl_protocols": 1, "ssl_ciphers": 1, "ssl_vulnerabilities": 1, "ssl_certificates": 1,
+    "swagger_scan": 1, "endpoint_brute": 1, "method_check": 1,
+    "nikto_scan": 2, "nuclei_scan": 2, "nuclei_tagged": 2, "nse_vuln": 2,
+    "sqli_detect": 2, "sqli_forms": 2, "sqli_dbs": 3, "sqli_tables": 3,
+    "xss_scan": 2, "cors_check": 1, "redirect_check": 1,
+    "cve_search": 1, "cve_nmap": 2, "cve_nuclei": 2,
+    "msf_search": 1, "msf_info": 1, "msf_run": 3, "msf_payload": 3,
+    "hydra_brute": 3, "hydra_spray": 3, "hydra_combo": 3,
+    "hash_identify": 0, "hashcat_dict": 2, "hashcat_rules": 2, "john_crack": 2, "john_show": 0,
+    "linpeas": 2, "sudo_check": 1, "suid_find": 1, "kernel_exploits": 2,
+    "psexec": 3, "wmiexec": 3, "evil_winrm": 3, "pth_winrm": 3, "ssh_pivot": 2,
+    "scp_download": 2, "smb_download": 2, "http_exfil": 1,
+    "add_ssh_key": 3, "add_cron": 3, "check_persistence": 1,
+    "remove_ssh_key": 2, "remove_cron": 2, "remove_files": 2, "cleanup_report": 0
   }
 }

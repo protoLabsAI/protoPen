@@ -30,8 +30,16 @@ logger = logging.getLogger(__name__)
 _PENTEST_TOOL_PREFIXES = {
     "portapack", "flipper", "marauder", "blackarch", "engagement",
     "device_manager",
-    # Phase 2
+    # Phase 2 — Recon
     "dns_enum", "subdomain_discovery", "osint_recon",
+    # Phase 2 — Enumeration
+    "web_enum", "service_enum", "ssl_audit", "api_enum",
+    # Phase 2 — Vuln Assessment
+    "vuln_scan", "sql_test", "web_vuln", "cve_match",
+    # Phase 2 — Exploitation
+    "msf_exploit", "credential_attack", "hashcat_rules",
+    # Phase 2 — Post-Exploitation + Lateral Movement
+    "priv_esc", "lateral_move", "data_exfil", "persistence", "cleanup",
 }
 
 # The engagement tool itself must be exempt — otherwise you can't
