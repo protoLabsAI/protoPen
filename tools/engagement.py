@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from collections import Counter
@@ -76,7 +77,10 @@ class EngagementManager(Tool):
         self._mode = EngagementMode[config["engagement"].get("default_mode", "passive").upper()]
         self._tool_risk: dict[str, int] = config.get("tool_risk", {})
         self._workspace_root = Path(config["engagement"]["workspace_dir"])
-        self._webhook_url = config["engagement"].get("alert_webhook", "")
+        self._webhook_url = (
+            os.environ.get("DISCORD_WEBHOOK_URL", "")
+            or config["engagement"].get("alert_webhook", "")
+        )
         self.active_engagement: Optional[dict] = None
         self.findings: list[dict] = []
         self.target_store = None
