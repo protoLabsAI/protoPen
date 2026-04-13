@@ -14,7 +14,7 @@ steps:
     params:
       target: "${target}"
       flags: "-sV -sC -O -T4"
-    timeout: 600
+      timeout: 600
     on_fail: continue
 
   - name: dns_records
@@ -39,6 +39,7 @@ steps:
       target: "${target}"
       source: all
       limit: 200
+      timeout: 300
     on_fail: continue
 
   - name: web_dirs
@@ -48,6 +49,7 @@ steps:
       url: "https://${target}"
       wordlist: "${wordlist}"
       threads: 20
+      timeout: 300
     on_fail: continue
 
   - name: ssl_check
@@ -55,4 +57,5 @@ steps:
     action: ssl_full_audit
     params:
       target: "${target}"
+      timeout: 600
     on_fail: continue
