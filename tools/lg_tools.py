@@ -353,6 +353,7 @@ def _init_pentest_singletons():
         wifi_interface=config.get("devices", {}).get("wifi_adapter", {}).get("interface", "wlan1"),
         monitor_interface=config.get("devices", {}).get("wifi_adapter", {}).get("monitor_interface", "wlan1mon"),
     )
+    _blackarch._target_store = _target_store
 
 
 @tool

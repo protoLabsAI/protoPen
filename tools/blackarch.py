@@ -11,6 +11,8 @@ import shlex
 from pathlib import Path
 from typing import Any, Optional
 
+from tools.parsers import ingest_output
+
 try:
     from nanobot.agent.tools.base import Tool
 except ImportError:
@@ -146,7 +148,9 @@ class BlackArchTool(Tool):
         if fn is None:
             return f"Unknown action: {action}. Available: {list(dispatch.keys())}"
         try:
-            return await fn()
+            result = await fn()
+            ingest_output("blackarch", action, result, getattr(self, "_target_store", None))
+            return result
         except Exception as exc:
             return f"BlackArch error ({action}): {exc}"
 
