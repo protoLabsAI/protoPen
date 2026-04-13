@@ -61,19 +61,19 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     async def task(
         description: str,
         prompt: str,
-        subagent_type: str = "explorer",
+        subagent_type: str = "threat_scanner",
     ) -> str:
         """Delegate a task to a specialized subagent.
 
         Available subagents:
-        - explorer: Scans Discord, HF, GitHub for research links and trends
-        - analyst: Reads papers deeply, extracts findings, stores to knowledge base
-        - writer: Synthesizes findings into digests, publishes to Discord
+        - threat_scanner: Scans CVE feeds, security RSS, GitHub for new threats
+        - vuln_analyst: Deep-reads advisories and PoCs, correlates with target intel
+        - intel_reporter: Synthesizes threat intel reports, publishes to Discord
 
         Args:
             description: Short description of what this task will accomplish
             prompt: Detailed instructions for the subagent
-            subagent_type: Which subagent to use (explorer, analyst, writer)
+            subagent_type: Which subagent to use (threat_scanner, vuln_analyst, intel_reporter)
         """
         sub_config = SUBAGENT_REGISTRY.get(subagent_type)
         if not sub_config:
