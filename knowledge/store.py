@@ -1,6 +1,6 @@
 """Knowledge store for protoPen — SQLite + sqlite-vec backed.
 
-Stores papers, findings, digests, model releases with semantic search
+Stores CVEs, exploits, advisories, threat intel with semantic search
 via embedding server (OpenAI-compatible) and sqlite-vec.
 """
 
@@ -11,7 +11,7 @@ import struct
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -19,7 +19,7 @@ _EMBED_URL = os.environ.get("EMBED_URL", "http://localhost:8001")
 _EMBED_MODEL = os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
 _EMBED_TIMEOUT = 20
 _EMBED_DIM = 1024
-_DB_PATH = Path("/sandbox/knowledge/research.db")
+_DB_PATH = Path("/sandbox/knowledge/security.db")
 _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 _CONTENT_PREVIEW_LEN = 1000  # chars stored for search result display
 _RRF_K = 60  # RRF fusion constant
@@ -32,7 +32,7 @@ _CONTEXT_PROMPT = (
 
 
 class KnowledgeStore:
-    """Research knowledge store with semantic vector search."""
+    """Security knowledge store with semantic vector search."""
 
     def __init__(
         self,
@@ -40,16 +40,16 @@ class KnowledgeStore:
         embed_url: str = _EMBED_URL,
         model: str = _EMBED_MODEL,
         enrich_chunks: bool = False,
-        enrich_fn=None,
+        enrich_fn: Any = None,
     ):
         self.db_path = db_path
         self.embed_url = embed_url
         self.model = model
         self.enrich_chunks = enrich_chunks
         self._enrich_fn = enrich_fn  # fn(doc_context: str, chunk: str) -> str
-        self._db: sqlite3.Connection | None = None
+        self._db: Optional[sqlite3.Connection] = None
 
-    def _get_db(self) -> sqlite3.Connection | None:
+    def _get_db(self) -> Optional[sqlite3.Connection]:
         if self._db is not None:
             return self._db
         try:
@@ -85,7 +85,7 @@ class KnowledgeStore:
             print(f"[knowledge] DB init failed: {e}")
             return None
 
-    def _embed(self, text: str) -> list[float] | None:
+    def _embed(self, text: str) -> Optional[list[float]]:
         try:
             resp = httpx.post(
                 f"{self.embed_url}/v1/embeddings",
@@ -99,12 +99,7 @@ class KnowledgeStore:
             return None
 
     def _contextualize(self, doc_context: str, chunk: str) -> str:
-        """Prepend contextual prefix to chunk for better embeddings.
-
-        Uses the configured enrich_fn (typically an LLM call) to generate
-        a 1-2 sentence context situating the chunk within its document.
-        Falls back to a simple header if no enrich_fn is available.
-        """
+        """Prepend contextual prefix to chunk for better embeddings."""
         if self._enrich_fn:
             try:
                 prefix = self._enrich_fn(doc_context, chunk)
@@ -112,7 +107,6 @@ class KnowledgeStore:
                     return f"{prefix.strip()} {chunk}"
             except Exception:
                 pass
-        # Fallback: prepend truncated doc context as a simple header
         if doc_context and len(doc_context) > len(chunk):
             header = doc_context[:100].split("\n")[0].strip()
             if header:
@@ -123,7 +117,6 @@ class KnowledgeStore:
         self, db: sqlite3.Connection, text: str, table: str, source_id: str,
         doc_context: str = "",
     ) -> bool:
-        # Apply contextual enrichment before embedding
         embed_text = text
         if self.enrich_chunks and doc_context:
             embed_text = self._contextualize(doc_context, text)
@@ -138,7 +131,6 @@ class KnowledgeStore:
             "INSERT INTO knowledge_vec_map (rowid, source_table, source_id, content_preview) VALUES (?, ?, ?, ?)",
             (cursor.lastrowid, table, str(source_id), text[:_CONTENT_PREVIEW_LEN]),
         )
-        # Also populate FTS5 index for keyword search
         db.execute(
             "INSERT INTO knowledge_fts (content, source_table, source_id) VALUES (?, ?, ?)",
             (text[:_CONTENT_PREVIEW_LEN], table, str(source_id)),
@@ -148,20 +140,21 @@ class KnowledgeStore:
     def _now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
-    # --- Papers ---
+    # --- CVEs ---
 
-    def add_paper(
+    def add_cve(
         self,
-        arxiv_id: str,
-        title: str,
-        authors: list[str] | None = None,
-        abstract: str = "",
-        summary: str = "",
-        significance: str = "unknown",
-        categories: list[str] | None = None,
-        tags: list[str] | None = None,
-        pdf_path: str = "",
-        source_url: str = "",
+        cve_id: str,
+        title: str = "",
+        description: str = "",
+        severity: str = "",
+        cvss_score: float = 0.0,
+        cvss_vector: str = "",
+        affected_products: Optional[list[str]] = None,
+        references: Optional[list[str]] = None,
+        exploit_available: bool = False,
+        exploit_maturity: str = "none",
+        tags: Optional[list[str]] = None,
         published_at: str = "",
         notes: str = "",
     ) -> bool:
@@ -170,85 +163,144 @@ class KnowledgeStore:
             return False
 
         now = self._now_iso()
-        read_at = now if summary else ""
-
         db.execute(
-            """INSERT OR REPLACE INTO papers
-               (id, title, authors, abstract, summary, significance, categories, tags,
-                pdf_path, source_url, published_at, discovered_at, read_at, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT OR REPLACE INTO cves
+               (id, title, description, severity, cvss_score, cvss_vector,
+                affected_products, references, exploit_available, exploit_maturity,
+                tags, published_at, discovered_at, analyzed_at, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                arxiv_id, title, json.dumps(authors or []), abstract, summary,
-                significance, json.dumps(categories or []), json.dumps(tags or []),
-                pdf_path, source_url, published_at, now, read_at, notes,
+                cve_id, title, description, severity, cvss_score, cvss_vector,
+                json.dumps(affected_products or []), json.dumps(references or []),
+                int(exploit_available), exploit_maturity,
+                json.dumps(tags or []), published_at, now, "", notes,
             ),
         )
-        # Embed abstract + summary for search
-        embed_text = f"{title}\n{abstract}\n{summary}".strip()
-        # Full doc context for contextual enrichment
-        doc_context = f"Paper: {title}\nAuthors: {', '.join(authors or [])}\n{abstract}"
-        self._store_vector(db, embed_text, "papers", arxiv_id, doc_context=doc_context)
+        embed_text = f"{cve_id} {title}\n{description}".strip()
+        doc_context = f"CVE: {cve_id} ({severity}). {title}"
+        self._store_vector(db, embed_text, "cves", cve_id, doc_context=doc_context)
         db.commit()
         return True
 
-    def get_paper(self, arxiv_id: str) -> dict | None:
+    def get_cve(self, cve_id: str) -> Optional[dict]:
         db = self._get_db()
         if db is None:
             return None
-        row = db.execute("SELECT * FROM papers WHERE id = ?", (arxiv_id,)).fetchone()
+        row = db.execute("SELECT * FROM cves WHERE id = ?", (cve_id,)).fetchone()
         if not row:
             return None
-        cols = [d[0] for d in db.execute("SELECT * FROM papers LIMIT 0").description]
+        cols = [d[0] for d in db.execute("SELECT * FROM cves LIMIT 0").description]
         return dict(zip(cols, row))
 
-    def get_papers(
-        self, topic: str | None = None, since: str | None = None,
-        significance: str | None = None, limit: int = 20
+    def get_cves(
+        self, severity: Optional[str] = None, since: Optional[str] = None,
+        exploit_available: Optional[bool] = None, limit: int = 20,
     ) -> list[dict]:
         db = self._get_db()
         if db is None:
             return []
-        query = "SELECT * FROM papers WHERE 1=1"
+        query = "SELECT * FROM cves WHERE 1=1"
         params: list[Any] = []
-        if significance:
-            query += " AND significance = ?"
-            params.append(significance)
+        if severity:
+            query += " AND severity = ?"
+            params.append(severity)
         if since:
             query += " AND discovered_at >= ?"
             params.append(since)
-        if topic:
-            query += " AND (tags LIKE ? OR categories LIKE ?)"
-            params.extend([f'%"{topic}"%', f'%"{topic}"%'])
+        if exploit_available is not None:
+            query += " AND exploit_available = ?"
+            params.append(int(exploit_available))
         query += " ORDER BY discovered_at DESC LIMIT ?"
         params.append(limit)
         rows = db.execute(query, params).fetchall()
-        cols = [d[0] for d in db.execute("SELECT * FROM papers LIMIT 0").description]
+        cols = [d[0] for d in db.execute("SELECT * FROM cves LIMIT 0").description]
         return [dict(zip(cols, row)) for row in rows]
 
-    # --- Findings ---
+    # --- Exploits ---
 
-    def add_finding(
-        self, content: str, source: str = "", source_type: str = "",
-        topic: str = "", finding_type: str = "insight", significance: str = "",
+    def add_exploit(
+        self, title: str, cve_id: str = "", description: str = "",
+        source: str = "", source_url: str = "", platform: str = "",
+        exploit_type: str = "", verified: bool = False,
+        code_path: str = "", notes: str = "",
     ) -> bool:
         db = self._get_db()
         if db is None:
             return False
         now = self._now_iso()
         cursor = db.execute(
-            """INSERT INTO findings (content, source, source_type, topic, finding_type, significance, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (content, source, source_type, topic, finding_type, significance, now),
+            """INSERT INTO exploits
+               (cve_id, title, description, source, source_url, platform,
+                exploit_type, verified, code_path, discovered_at, tested_at, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                cve_id or None, title, description, source, source_url,
+                platform, exploit_type, int(verified), code_path, now, "", notes,
+            ),
         )
-        doc_context = f"Finding ({finding_type}) on topic: {topic or 'general'}. Source: {source or 'unknown'}"
-        self._store_vector(db, content, "findings", str(cursor.lastrowid), doc_context=doc_context)
+        embed_text = f"{title}\n{description}".strip()
+        doc_context = f"Exploit: {title}. CVE: {cve_id or 'N/A'}. Platform: {platform}"
+        self._store_vector(db, embed_text, "exploits", str(cursor.lastrowid), doc_context=doc_context)
+        db.commit()
+        return True
+
+    # --- Advisories ---
+
+    def add_advisory(
+        self, source: str, title: str, content: str = "",
+        severity: str = "", affected_products: Optional[list[str]] = None,
+        cve_ids: Optional[list[str]] = None, url: str = "",
+        published_at: str = "", notes: str = "",
+    ) -> bool:
+        db = self._get_db()
+        if db is None:
+            return False
+        now = self._now_iso()
+        cursor = db.execute(
+            """INSERT INTO advisories
+               (source, title, content, severity, affected_products, cve_ids,
+                url, published_at, discovered_at, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                source, title, content, severity,
+                json.dumps(affected_products or []), json.dumps(cve_ids or []),
+                url, published_at, now, notes,
+            ),
+        )
+        embed_text = f"{title}\n{content[:500]}".strip()
+        doc_context = f"Advisory from {source}: {title} ({severity})"
+        self._store_vector(db, embed_text, "advisories", str(cursor.lastrowid), doc_context=doc_context)
+        db.commit()
+        return True
+
+    # --- Threat Intel ---
+
+    def add_threat_intel(
+        self, content: str, source: str = "", source_type: str = "",
+        topic: str = "", intel_type: str = "indicator", severity: str = "",
+        target_relevance: str = "",
+    ) -> bool:
+        db = self._get_db()
+        if db is None:
+            return False
+        now = self._now_iso()
+        cursor = db.execute(
+            """INSERT INTO threat_intel
+               (content, source, source_type, topic, intel_type, severity,
+                target_relevance, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (content, source, source_type, topic, intel_type, severity,
+             target_relevance, now),
+        )
+        doc_context = f"Threat intel ({intel_type}) on topic: {topic or 'general'}. Source: {source or 'unknown'}"
+        self._store_vector(db, content, "threat_intel", str(cursor.lastrowid), doc_context=doc_context)
         db.commit()
         return True
 
     # --- Topics ---
 
     def add_topic(
-        self, name: str, description: str = "", keywords: list[str] | None = None,
+        self, name: str, description: str = "", keywords: Optional[list[str]] = None,
         priority: int = 2,
     ) -> bool:
         db = self._get_db()
@@ -279,23 +331,23 @@ class KnowledgeStore:
 
     def add_digest(
         self, title: str, content: str, digest_type: str = "weekly",
-        topic: str = "", papers_referenced: list[str] | None = None,
+        topic: str = "", cves_referenced: Optional[list[str]] = None,
     ) -> bool:
         db = self._get_db()
         if db is None:
             return False
         now = self._now_iso()
         cursor = db.execute(
-            """INSERT INTO digests (title, content, digest_type, topic, papers_referenced, created_at)
+            """INSERT INTO digests (title, content, digest_type, topic, cves_referenced, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (title, content, digest_type, topic, json.dumps(papers_referenced or []), now),
+            (title, content, digest_type, topic, json.dumps(cves_referenced or []), now),
         )
-        doc_context = f"Research digest ({digest_type}) on topic: {topic or 'general'}"
+        doc_context = f"Security digest ({digest_type}) on topic: {topic or 'general'}"
         self._store_vector(db, f"{title}\n{content[:500]}", "digests", str(cursor.lastrowid), doc_context=doc_context)
         db.commit()
         return True
 
-    def get_digests(self, topic: str | None = None, limit: int = 10) -> list[dict]:
+    def get_digests(self, topic: Optional[str] = None, limit: int = 10) -> list[dict]:
         db = self._get_db()
         if db is None:
             return []
@@ -310,44 +362,17 @@ class KnowledgeStore:
         cols = [d[0] for d in db.execute("SELECT * FROM digests LIMIT 0").description]
         return [dict(zip(cols, row)) for row in rows]
 
-    # --- Model Releases ---
-
-    def add_model_release(
-        self, model_id: str, name: str = "", organization: str = "",
-        description: str = "", parameters: str = "", architecture: str = "",
-        license_: str = "", downloads: int = 0, likes: int = 0,
-        source: str = "huggingface", released_at: str = "", notes: str = "",
-    ) -> bool:
-        db = self._get_db()
-        if db is None:
-            return False
-        now = self._now_iso()
-        cursor = db.execute(
-            """INSERT INTO model_releases
-               (model_id, name, organization, description, parameters, architecture,
-                license, downloads, likes, source, released_at, discovered_at, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (model_id, name, organization, description, parameters, architecture,
-             license_, downloads, likes, source, released_at, now, notes),
-        )
-        embed_text = f"{model_id} {name} {description}".strip()
-        doc_context = f"Model release: {name} by {organization}. {parameters} params, {architecture}"
-        self._store_vector(db, embed_text, "model_releases", str(cursor.lastrowid), doc_context=doc_context)
-        db.commit()
-        return True
-
     # --- Semantic Search ---
 
     def search(
         self, query: str, k: int = 10,
-        filter_table: str | None = None,
+        filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         db = self._get_db()
         if db is None:
             return []
         embedding = self._embed(query)
         if embedding is None:
-            # Fallback to keyword search when embedding service is unavailable
             print(f"[knowledge] Embedding unavailable, falling back to keyword search")
             return self.keyword_search(query, k=k, filter_table=filter_table)
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
@@ -376,7 +401,7 @@ class KnowledgeStore:
 
     def keyword_search(
         self, query: str, k: int = 10,
-        filter_table: str | None = None,
+        filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """BM25 keyword search via FTS5."""
         db = self._get_db()
@@ -389,7 +414,7 @@ class KnowledgeStore:
                    WHERE knowledge_fts MATCH ?
                    ORDER BY rank
                    LIMIT ?""",
-                (query, k * 2),  # fetch extra for filtering
+                (query, k * 2),
             ).fetchall()
         except Exception:
             return []
@@ -413,18 +438,12 @@ class KnowledgeStore:
 
     def hybrid_search(
         self, query: str, k: int = 10,
-        filter_table: str | None = None,
+        filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
-        """Hybrid search: reciprocal rank fusion of vector + BM25 results.
-
-        Combines semantic similarity (vector) with keyword matching (FTS5)
-        using RRF fusion. This finds both semantically similar and
-        keyword-relevant results that either method alone would miss.
-        """
+        """Hybrid search: reciprocal rank fusion of vector + BM25 results."""
         vec_results = self.search(query, k=k * 2, filter_table=filter_table)
         kw_results = self.keyword_search(query, k=k * 2, filter_table=filter_table)
 
-        # RRF scoring: score = sum(1 / (k + rank)) across both lists
         scores: dict[str, float] = {}
         result_map: dict[str, dict] = {}
 
@@ -439,18 +458,13 @@ class KnowledgeStore:
             if key not in result_map:
                 result_map[key] = r
 
-        # Sort by RRF score descending, return top k
         ranked = sorted(scores.items(), key=lambda x: -x[1])
         return [result_map[key] for key, _ in ranked[:k]]
 
     # --- Migration ---
 
     def backfill_fts(self) -> int:
-        """Backfill FTS5 index from existing knowledge_vec_map data.
-
-        Run once after upgrading to populate FTS5 for existing entries.
-        Safe to call multiple times — clears and rebuilds.
-        """
+        """Backfill FTS5 index from existing knowledge_vec_map data."""
         db = self._get_db()
         if db is None:
             return 0
@@ -477,7 +491,7 @@ class KnowledgeStore:
         if db is None:
             return {}
         stats = {}
-        for table in ("papers", "findings", "topics", "digests", "model_releases"):
+        for table in ("cves", "exploits", "advisories", "threat_intel", "topics", "digests"):
             count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             stats[table] = count
         return stats
