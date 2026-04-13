@@ -26,16 +26,16 @@ class LangGraphConfig:
     max_iterations: int = 75
 
     # Subagents
-    explorer: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["discord_feed", "huggingface", "github_trending", "browser"],
+    threat_scanner: SubagentDef = field(default_factory=lambda: SubagentDef(
+        tools=["cve_search", "security_feeds", "github_trending", "browser", "security_memory"],
         max_turns=30,
     ))
-    analyst: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["paper_reader", "research_memory", "browser"],
+    vuln_analyst: SubagentDef = field(default_factory=lambda: SubagentDef(
+        tools=["cve_search", "browser", "security_memory", "target_intel"],
         max_turns=40,
     ))
-    writer: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["research_memory", "discord_feed"],
+    intel_reporter: SubagentDef = field(default_factory=lambda: SubagentDef(
+        tools=["security_memory", "discord_feed"],
         max_turns=20,
     ))
 
@@ -84,7 +84,7 @@ class LangGraphConfig:
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
         )
 
-        for name in ("explorer", "analyst", "writer"):
+        for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):
             if name in subagents:
                 sub = subagents[name]
                 setattr(config, name, SubagentDef(
