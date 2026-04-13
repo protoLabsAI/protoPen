@@ -408,12 +408,17 @@ class DiscordFeedTool(Tool):
 
     async def _publish(self, kwargs: dict) -> str:
         """Publish a message to Discord via webhook. Always uses embeds, chunks if needed."""
+        # During engagements, Discord delivery should go through the engagement tool.
+        # This is a soft warning — the tool still works for non-engagement contexts.
+        if not kwargs.get("_engagement_override"):
+            logger.warning("discord_feed.publish called outside engagement delivery pipeline")
+
         webhook_url = _WEBHOOK_URL
         if not webhook_url:
             return "Error: DISCORD_WEBHOOK_URL not set. Add it to your environment."
 
         content = kwargs.get("content", "")
-        title = kwargs.get("title", "🔬 Research Update")
+        title = kwargs.get("title", "Research Update")
 
         if not content:
             return "Error: 'content' is required for publish."

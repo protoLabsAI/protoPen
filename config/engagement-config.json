@@ -34,8 +34,7 @@
   "engagement": {
     "default_mode": "passive",
     "workspace_dir": "/home/deck/engagements",
-    "alert_webhook": "",
-    "alert_channel_id": ""
+    "alert_webhook": ""
   },
   "risk_levels": {
     "passive": 0,

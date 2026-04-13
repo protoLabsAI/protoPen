@@ -4,9 +4,8 @@ Extends AgentState with research-specific fields and custom reducers.
 """
 
 import operator
-from typing import Annotated, Any, NotRequired, TypedDict
+from typing import Annotated, NotRequired
 
-from langchain_core.messages import BaseMessage
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
 
@@ -14,17 +13,6 @@ def merge_findings(
     existing: list[dict] | None, new: list[dict] | None
 ) -> list[dict]:
     """Reducer: append new findings, no deduplication needed."""
-    if existing is None:
-        return new or []
-    if new is None:
-        return existing
-    return existing + new
-
-
-def merge_publish_queue(
-    existing: list[str] | None, new: list[str] | None
-) -> list[str]:
-    """Reducer: accumulate content to publish."""
     if existing is None:
         return new or []
     if new is None:
@@ -47,9 +35,6 @@ class ResearcherState(AgentState):
 
     # Accumulated research findings (append-only via reducer)
     findings: Annotated[list[dict], merge_findings]
-
-    # Content queued for Discord publishing
-    publish_queue: Annotated[list[str], merge_publish_queue]
 
     # Current research topic (set by user message analysis)
     current_topic: NotRequired[str | None]

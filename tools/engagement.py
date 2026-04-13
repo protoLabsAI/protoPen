@@ -2,12 +2,19 @@
 
 Handles engagement lifecycle (start/end), mode enforcement (passive/active/redteam),
 finding logging, markdown report generation, and Discord alerts.
+
+Report delivery model (see docs/superpowers/specs/2026-04-13-report-delivery-system-design.md):
+  CRITICAL  → immediate webhook (60s dedup)
+  HIGH      → batched per phase transition
+  MED/LOW/INFO → final report only
 """
 from __future__ import annotations
 
 import json
 import logging
 import re
+import time
+from collections import Counter
 from datetime import datetime, timezone
 from enum import IntEnum
 from pathlib import Path
@@ -21,6 +28,38 @@ except ImportError:
     from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
+
+# ── Discord message templates (consistent across all engagements) ────────────
+# These are format-string constants — never LLM-generated.
+
+_CRITICAL_ALERT_TEMPLATE = (
+    "[CRITICAL] {title}\n"
+    "Category: {category}\n"
+    "{detail}\n"
+    "— {engagement_name}"
+)
+
+_PHASE_BATCH_TEMPLATE = (
+    "{count} findings\n\n"
+    "{finding_lines}"
+)
+
+_REPORT_SUMMARY_TEMPLATE = (
+    "Scope: {scope}\n"
+    "Mode: {mode}\n\n"
+    "Severity Breakdown:\n"
+    "- Critical: {critical}\n"
+    "- High: {high}\n"
+    "- Medium: {medium}\n"
+    "- Low: {low}\n"
+    "- Info: {info}\n\n"
+    "Top Findings:\n"
+    "{top_findings}\n\n"
+    "Priority Remediation:\n"
+    "{remediation}"
+)
+
+_DEDUP_WINDOW_SECS = 60
 
 
 class EngagementMode(IntEnum):
@@ -41,6 +80,11 @@ class EngagementManager(Tool):
         self.active_engagement: Optional[dict] = None
         self.findings: list[dict] = []
         self.target_store = None
+
+        # Report delivery state
+        self._alert_queue: list[dict] = []       # HIGH findings waiting for phase flush
+        self._alert_dedup: dict[str, float] = {}  # title → last-alert timestamp
+        self.current_phase: str = ""               # current engagement phase
 
     _IP_RE = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
     _MAC_RE = re.compile(r'\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b')
@@ -70,6 +114,7 @@ class EngagementManager(Tool):
                         "start", "end", "set_mode", "status",
                         "log_finding", "check_permission",
                         "generate_report", "list_findings",
+                        "transition_phase",
                     ],
                 },
                 "name": {"type": "string", "description": "Engagement name"},
@@ -80,6 +125,7 @@ class EngagementManager(Tool):
                 "title": {"type": "string", "description": "Finding title"},
                 "detail": {"type": "string", "description": "Finding detail"},
                 "tool_name": {"type": "string", "description": "Tool name for permission check"},
+                "phase": {"type": "string", "description": "Engagement phase (recon, scan, exploit, report)"},
             },
             "required": ["action"],
         }
@@ -95,6 +141,7 @@ class EngagementManager(Tool):
             "check_permission": lambda: self._exec_check_permission(kwargs),
             "generate_report": lambda: self._exec_generate_report(),
             "list_findings": lambda: self._exec_list_findings(),
+            "transition_phase": lambda: self._exec_transition_phase(kwargs),
         }
         fn = dispatch.get(action)
         if fn is None:
@@ -129,6 +176,9 @@ class EngagementManager(Tool):
             "workspace": str(ws),
         }
         self.findings = []
+        self._alert_queue = []
+        self._alert_dedup = {}
+        self.current_phase = ""
         (ws / "engagement.json").write_text(json.dumps(self.active_engagement, indent=2))
         logger.info("Engagement '%s' started — scope: %s, mode: %s", name, scope, self._mode.name)
 
@@ -154,8 +204,13 @@ class EngagementManager(Tool):
         }
         self.findings.append(finding)
         logger.info("[%s] %s: %s", severity.upper(), category, title)
-        if severity in ("critical", "high") and self._webhook_url:
-            self._send_alert(finding)
+
+        if self._webhook_url:
+            if severity == "critical":
+                self._send_alert(finding)
+            elif severity == "high":
+                self._alert_queue.append(finding)
+
         self._auto_upsert_targets(detail)
 
     def _auto_upsert_targets(self, detail: str):
@@ -173,21 +228,137 @@ class EngagementManager(Tool):
             logger.warning("Auto-upsert failed: %s", exc)
 
     def _send_alert(self, finding: dict):
-        emoji = {"critical": "\U0001f534", "high": "\U0001f7e0"}.get(finding["severity"], "\u26aa")
-        content = (
-            f"{emoji} **{finding['severity'].upper()}** — {finding['title']}\n"
-            f"Category: {finding['category']}\n"
-            f"```\n{finding['detail']}\n```"
+        """Immediate alert for CRITICAL findings only, with 60s title-based dedup."""
+        now = time.monotonic()
+        title = finding["title"]
+        last_sent = self._alert_dedup.get(title, 0.0)
+        if now - last_sent < _DEDUP_WINDOW_SECS:
+            logger.debug("Dedup: skipping duplicate alert for '%s'", title)
+            return
+        self._alert_dedup[title] = now
+
+        eng_name = self.active_engagement["name"] if self.active_engagement else "unknown"
+        content = _CRITICAL_ALERT_TEMPLATE.format(
+            title=title,
+            category=finding["category"],
+            detail=finding["detail"],
+            engagement_name=eng_name,
         )
         try:
             httpx.post(self._webhook_url, json={"content": content}, timeout=5)
         except Exception as exc:
             logger.warning("Failed to send Discord alert: %s", exc)
 
+    def transition_phase(self, new_phase: str):
+        """Flush queued HIGH alerts for the completed phase, then advance."""
+        old_phase = self.current_phase
+        if old_phase:
+            self._flush_phase_alerts(old_phase)
+        self.current_phase = new_phase
+        logger.info("Engagement phase: %s -> %s", old_phase or "(start)", new_phase)
+
+    def _flush_phase_alerts(self, phase_name: str):
+        """Post one batched embed for all queued HIGH findings, then clear the queue."""
+        if not self._alert_queue or not self._webhook_url:
+            return
+
+        finding_lines = "\n".join(
+            f"- [HIGH] {f['title']} ({f['category']})"
+            for f in self._alert_queue
+        )
+        eng_name = self.active_engagement["name"] if self.active_engagement else "unknown"
+        description = _PHASE_BATCH_TEMPLATE.format(
+            count=len(self._alert_queue),
+            finding_lines=finding_lines,
+        )
+        embed = {
+            "title": f"Phase Complete: {phase_name}",
+            "description": description,
+            "color": 0xF97316,
+            "footer": {"text": f"protoPen — {eng_name}"},
+        }
+        try:
+            httpx.post(self._webhook_url, json={"embeds": [embed]}, timeout=5)
+        except Exception as exc:
+            logger.warning("Failed to send phase batch alert: %s", exc)
+
+        self._alert_queue = []
+
+    def _send_report_to_discord(self, report: str, eng: dict):
+        """Post summary embed + full report file attachment to Discord."""
+        if not self._webhook_url:
+            return
+
+        severity_counts = Counter(f["severity"] for f in self.findings)
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+        top = sorted(
+            (f for f in self.findings if f["severity"] in ("critical", "high")),
+            key=lambda f: severity_order.get(f["severity"], 5),
+        )[:5]
+        top_lines = "\n".join(
+            f"{i}. [{f['severity'].upper()}] {f['title']}"
+            for i, f in enumerate(top, 1)
+        ) or "None"
+
+        remediation_items = []
+        for f in top[:3]:
+            remediation_items.append(f"{len(remediation_items) + 1}. {f['title']}")
+        remediation = "\n".join(remediation_items) or "None"
+
+        description = _REPORT_SUMMARY_TEMPLATE.format(
+            scope=eng.get("scope", "N/A"),
+            mode=eng.get("mode", "N/A"),
+            critical=severity_counts.get("critical", 0),
+            high=severity_counts.get("high", 0),
+            medium=severity_counts.get("medium", 0),
+            low=severity_counts.get("low", 0),
+            info=severity_counts.get("info", 0),
+            top_findings=top_lines,
+            remediation=remediation,
+        )
+
+        if severity_counts.get("critical", 0):
+            color = 0xEF4444
+            risk = "CRITICAL"
+        elif severity_counts.get("high", 0):
+            color = 0xF97316
+            risk = "HIGH"
+        else:
+            color = 0xEAB308
+            risk = "MEDIUM"
+
+        embed = {
+            "title": f"Pen Test Report — {eng['name']}",
+            "description": description,
+            "color": color,
+            "footer": {
+                "text": f"Assessment: {eng.get('started_at', 'N/A')[:10]} | Overall Risk: {risk} | protoPen",
+            },
+        }
+        payload_json = json.dumps({"embeds": [embed]})
+        report_bytes = report.encode("utf-8")
+        filename = f"{eng['name']}-report.md"
+
+        try:
+            httpx.post(
+                self._webhook_url,
+                data={"payload_json": payload_json},
+                files={"file": (filename, report_bytes, "text/markdown")},
+                timeout=10,
+            )
+        except Exception as exc:
+            logger.warning("Failed to send report to Discord: %s", exc)
+
     def generate_report(self) -> str:
         if not self.active_engagement:
             return "No active engagement"
         eng = self.active_engagement
+
+        # Flush any remaining queued HIGH alerts before the final report
+        if self._alert_queue:
+            phase_label = self.current_phase or "pre-report"
+            self._flush_phase_alerts(phase_label)
+
         lines = [
             f"# Pen Test Report: {eng['name']}",
             "",
@@ -201,15 +372,16 @@ class EngagementManager(Tool):
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         sorted_findings = sorted(self.findings, key=lambda f: severity_order.get(f["severity"], 5))
         for f in sorted_findings:
-            emoji = {"critical": "\U0001f534", "high": "\U0001f7e0", "medium": "\U0001f7e1",
-                     "low": "\U0001f535", "info": "\u26aa"}.get(f["severity"], "\u26aa")
-            lines.append(f"### {emoji} [{f['severity'].upper()}] {f['title']}")
+            lines.append(f"### [{f['severity'].upper()}] {f['title']}")
             lines.append(f"**Category:** {f['category']}  ")
             lines.append(f"**Time:** {f['timestamp']}  ")
             lines.append(f"\n{f['detail']}\n")
         report = "\n".join(lines)
         ws = Path(eng["workspace"])
         (ws / "report.md").write_text(report)
+
+        self._send_report_to_discord(report, eng)
+
         return report
 
     def _exec_start(self, kwargs) -> str:
@@ -255,6 +427,17 @@ class EngagementManager(Tool):
             f"{'Allowed' if allowed else 'Denied'}: {tool_name} "
             f"(risk={risk}, mode={self._mode.name}={self._mode.value})"
         )
+
+    def _exec_transition_phase(self, kwargs) -> str:
+        phase = kwargs.get("phase", "")
+        if not phase:
+            return "Error: 'phase' is required for transition_phase"
+        if not self.active_engagement:
+            return "No active engagement"
+        old = self.current_phase or "(start)"
+        self.transition_phase(phase)
+        queued = len(self._alert_queue)
+        return f"Phase transition: {old} -> {phase} (queued alerts: {queued})"
 
     def _exec_generate_report(self) -> str:
         return self.generate_report()
