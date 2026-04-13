@@ -1,0 +1,80 @@
+{
+  "instance": {
+    "name": "protopen",
+    "description": "Steam Deck pen-testing node — security research instance"
+  },
+  "topics": [
+    {
+      "name": "cve-critical",
+      "description": "Critical and high-severity CVEs from NVD/MITRE",
+      "keywords": ["CVE", "critical vulnerability", "RCE", "zero-day", "CVSS 9", "CVSS 10"],
+      "priority": 1
+    },
+    {
+      "name": "wireless-security",
+      "description": "WiFi, Bluetooth, RF, Sub-GHz, and RFID attack techniques",
+      "keywords": ["PMKID", "deauth", "evil twin", "karma attack", "BLE exploit", "replay attack", "Sub-GHz", "RFID clone", "NFC relay"],
+      "priority": 1
+    },
+    {
+      "name": "iot-embedded",
+      "description": "IoT device vulnerabilities, firmware analysis, embedded security",
+      "keywords": ["IoT", "firmware", "JTAG", "UART", "SPI flash", "embedded", "smart home", "router exploit"],
+      "priority": 2
+    },
+    {
+      "name": "network-attacks",
+      "description": "Network-level attacks, lateral movement, protocol exploits",
+      "keywords": ["ARP spoof", "DNS poisoning", "MITM", "lateral movement", "privilege escalation", "SMB", "LLMNR", "NTLM relay"],
+      "priority": 2
+    },
+    {
+      "name": "exploit-techniques",
+      "description": "New exploit techniques, PoCs, and offensive tool releases",
+      "keywords": ["exploit", "PoC", "proof of concept", "buffer overflow", "ROP chain", "shellcode", "metasploit", "cobalt strike"],
+      "priority": 2
+    },
+    {
+      "name": "defensive-evasion",
+      "description": "EDR bypass, AV evasion, red team tradecraft",
+      "keywords": ["EDR bypass", "AV evasion", "AMSI bypass", "obfuscation", "living off the land", "LOLBins", "red team"],
+      "priority": 3
+    },
+    {
+      "name": "osint",
+      "description": "Open-source intelligence gathering techniques and tools",
+      "keywords": ["OSINT", "reconnaissance", "Shodan", "Censys", "subdomain", "credential leak", "data breach", "social engineering"],
+      "priority": 3
+    },
+    {
+      "name": "security-tools",
+      "description": "New and updated security tools, frameworks, and methodologies",
+      "keywords": ["nmap", "burp suite", "nuclei", "ffuf", "hashcat", "john", "impacket", "responder", "bloodhound", "crackmapexec"],
+      "priority": 3
+    }
+  ],
+  "feeds": {
+    "nvd_scan_interval_hours": 6,
+    "exploit_db_scan_interval_hours": 24,
+    "github_scan_interval_hours": 24
+  },
+  "tracked_repos": [
+    "projectdiscovery/nuclei",
+    "projectdiscovery/httpx",
+    "swisskyrepo/PayloadsAllTheThings",
+    "carlospolop/PEASS-ng",
+    "fortra/impacket",
+    "BloodHoundAD/BloodHound",
+    "rapid7/metasploit-framework",
+    "hashcat/hashcat"
+  ],
+  "discord": {
+    "scan_channels": [],
+    "publish_webhook_env": "DISCORD_WEBHOOK_URL"
+  },
+  "digest": {
+    "schedule": "weekly",
+    "include_daily_brief": true
+  },
+  "significance_threshold": "incremental"
+}

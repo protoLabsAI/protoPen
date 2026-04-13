@@ -1023,9 +1023,9 @@ def _build_settings_callbacks() -> dict:
 def _seed_topics():
     """Seed default research topics from config."""
     try:
-        config_path = Path(__file__).parent / "config" / "research-config.json"
+        config_path = Path(__file__).parent / "config" / "security-config.json"
         if not config_path.exists():
-            config_path = Path("/opt/protopen/config/research-config.json")
+            config_path = Path("/opt/protopen/config/security-config.json")
         if not config_path.exists():
             return
 

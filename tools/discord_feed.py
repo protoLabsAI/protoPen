@@ -3,7 +3,7 @@
 Reads messages from Discord channels via the REST API, extracts URLs,
 and classifies them for the research pipeline (arxiv, HF, GitHub, blogs).
 
-Requires DISCORD_BOT_TOKEN env var. Channel IDs configured in research-config.json.
+Requires DISCORD_BOT_TOKEN env var. Channel IDs configured in security-config.json.
 """
 
 import os
@@ -87,7 +87,7 @@ class DiscordFeedTool(Tool):
             "COLLABORATION (multi-instance sharing):\n"
             "- share: Post a finding or link to the collaboration channel for other "
             "researcher instances to see. Provide 'content' and optionally 'title'. "
-            "Uses the collaboration channel from research-config.json.\n\n"
+            "Uses the collaboration channel from security-config.json.\n\n"
             "URLs are classified as: arxiv, huggingface, github, paper, blog, or link."
         )
 
@@ -463,10 +463,10 @@ class DiscordFeedTool(Tool):
         if not token:
             return "Error: DISCORD_BOT_TOKEN not set. Add it to your environment."
 
-        # Load collaboration channel from research-config.json
+        # Load collaboration channel from security-config.json
         collab_channel = self._get_collab_channel()
         if not collab_channel:
-            return "Error: No collaboration channel configured. Set collaboration.channel_id in research-config.json."
+            return "Error: No collaboration channel configured. Set collaboration.channel_id in security-config.json."
 
         content = kwargs.get("content", "")
         title = kwargs.get("title", "🔬 Shared Finding")
@@ -499,11 +499,11 @@ class DiscordFeedTool(Tool):
 
     @staticmethod
     def _get_collab_channel() -> str | None:
-        """Load collaboration channel ID from research-config.json."""
+        """Load collaboration channel ID from security-config.json."""
         import json
         config_paths = [
-            "/opt/protopen/config/research-config.json",  # Docker
-            os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "research-config.json"),  # local
+            "/opt/protopen/config/security-config.json",  # Docker
+            os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "security-config.json"),  # local
         ]
         for path in config_paths:
             try:
