@@ -54,6 +54,10 @@ def build_system_prompt(
     if pentest_skill:
         parts.append(f"\n{pentest_skill}")
 
+    blue_team_skill = _read_file(f"{workspace}/skills/blue-team/SKILL.md")
+    if blue_team_skill:
+        parts.append(f"\n{blue_team_skill}")
+
     # 3. Subagent instructions
     if include_subagents:
         parts.append(_build_subagent_section())
@@ -69,6 +73,7 @@ def build_system_prompt(
 - Think before acting. Break down complex tasks.
 - For pentest tasks, delegate to subagents: Recon maps, Exploit attacks, Reporter writes.
 - For threat intel tasks, delegate to subagents: Threat Scanner scans, Vuln Analyst reads, Intel Reporter synthesizes.
+- For defensive tasks, delegate to subagents: Defender audits, Incident Responder investigates, Purple Team correlates.
 - Always check engagement mode before executing actions on hardware.
 - Log every finding in real time via the engagement tool.
 - Rate threat severity: [critical / high / medium / low / info]

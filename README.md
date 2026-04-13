@@ -11,6 +11,8 @@ A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID p
 - **Knowledge Store** — Hybrid search across advisories, exploits, and threat intel using vector similarity + BM25 keyword matching with Reciprocal Rank Fusion
 - **Security Subagents** — Threat Scanner (feed monitoring), Vuln Analyst (deep advisory analysis + target correlation), Intel Reporter (digest generation + Discord publishing)
 - **Pen-Test Subagents** — Recon (passive enumeration), Exploit (active testing), Reporter (finding synthesis + report generation)
+- **Blue Team** — CIS benchmarks, service hardening audits, network anomaly detection, DNS exfiltration monitoring, incident response (log correlation, IOC matching, timeline reconstruction, containment)
+- **Purple Team** — MITRE ATT&CK coverage matrix, red↔blue detection gap analysis, exercise reporting
 - **Target Intelligence** — Unified SQLite database tracks hosts, ports, WiFi networks, RF signals, BLE devices, RFID tags, and credentials across all sensors
 - **Engagement Modes** — Risk-gated tool access: PASSIVE (observe only), ACTIVE (directed probing), REDTEAM (full offensive)
 - **Discord Integration** — Real-time alerts on critical/high findings, automated threat intel digests
@@ -115,6 +117,16 @@ python server.py --port 7870
 | `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
 | `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
 
+### Blue Team / Defensive
+
+| Tool | Description |
+|---|---|
+| `cis_audit` | CIS benchmark scanning — SSH, TLS, firewall config audits, patch assessment, port baseline |
+| `net_monitor` | Network monitoring — passive traffic baselines, host anomaly detection, DNS exfiltration/tunneling detection |
+| `hardening_check` | Service hardening validation — SSH, Nginx, Apache, Docker, Kubernetes with specific remediation steps |
+| `ir_toolkit` | Incident response — log correlation, IOC matching, auth log analysis, timeline reconstruction, containment |
+| `purple_team` | Purple team mode — MITRE ATT&CK coverage matrix, detection gap analysis, exercise reports |
+
 ## Engagement Modes
 
 | Mode | Level | Allows |
@@ -145,7 +157,12 @@ protoPen
 │   ├── engagement.py     # Engagement lifecycle + findings
 │   ├── target_intel.py   # Target intelligence database
 │   ├── rabbit_hole_bridge.py # Knowledge graph integration
-│   └── lab_bench.py      # GPU experiment runner (lab mode)
+│   ├── lab_bench.py      # GPU experiment runner (lab mode)
+│   ├── cis_audit.py      # CIS benchmark + config audits
+│   ├── net_monitor.py    # Network monitoring + anomaly detection
+│   ├── hardening_check.py# Service hardening validation
+│   ├── ir_toolkit.py     # Incident response toolkit
+│   └── purple_team.py    # Purple team correlation engine
 ├── graph/                # LangGraph agent + subagents + middleware
 ├── knowledge/            # SQLite + sqlite-vec + FTS5 hybrid search
 ├── lab/                  # Experiment runner + templates
@@ -157,7 +174,7 @@ protoPen
 
 ### Subagents
 
-The lead agent delegates to six specialized subagents via the `task` tool:
+The lead agent delegates to nine specialized subagents via the `task` tool:
 
 | Domain | Subagent | Role |
 |---|---|---|
@@ -167,6 +184,9 @@ The lead agent delegates to six specialized subagents via the `task` tool:
 | Pen Testing | **Recon** | Passive reconnaissance — RF survey, WiFi scan, network enumeration |
 | Pen Testing | **Exploit** | Active exploitation — PMKID capture, signal replay, vuln scanning |
 | Pen Testing | **Reporter** | Finding synthesis — triage, correlation, report generation |
+| Blue Team | **Defender** | CIS audits, hardening checks, patch assessment, port baselines |
+| Blue Team | **Incident Responder** | Log analysis, IOC matching, timeline reconstruction, containment |
+| Blue Team | **Purple Team** | Red↔blue correlation, MITRE ATT&CK coverage, detection gap analysis |
 
 ## Chat Commands
 

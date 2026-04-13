@@ -3,9 +3,10 @@
 Wraps tool classes as LangChain @tool functions.
 All business logic stays in the original classes — these are thin adapters.
 
-Tools are grouped into two domains:
+Tools are grouped into three domains:
   - Security Intel: cve_search, security_feeds, github_trending, browser, security_memory, etc.
-  - Pentest:        portapack, flipper, marauder, blackarch, engagement, device_manager
+  - Pentest:        portapack, flipper, marauder, blackarch, engagement, device_manager, ...
+  - Blue Team:      cis_audit, net_monitor, hardening_check, ir_toolkit, purple_team
 """
 
 from typing import Optional
@@ -60,6 +61,13 @@ from tools.rate_limit import RateLimitTool
 from tools.graphql_test import GraphqlTestTool
 from knowledge.technique_library import TechniqueLibrary
 
+# Phase 4 — Blue Team / Defensive
+from tools.cis_audit import CisAuditTool
+from tools.net_monitor import NetMonitorTool
+from tools.hardening_check import HardeningCheckTool
+from tools.ir_toolkit import IrToolkitTool
+from tools.purple_team import PurpleTeamTool
+
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
 _rabbit_hole_bridge = None
@@ -108,6 +116,13 @@ _auth_test: AuthTestTool | None = None
 _rate_limit: RateLimitTool | None = None
 _graphql_test: GraphqlTestTool | None = None
 _technique_library: TechniqueLibrary | None = None
+
+# Phase 4 — Blue Team / Defensive singletons
+_cis_audit: CisAuditTool | None = None
+_net_monitor: NetMonitorTool | None = None
+_hardening_check: HardeningCheckTool | None = None
+_ir_toolkit: IrToolkitTool | None = None
+_purple_team: PurpleTeamTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -490,6 +505,13 @@ def _init_pentest_singletons():
     _graphql_test = GraphqlTestTool()
     _graphql_test._target_store = _target_store
     _technique_library = TechniqueLibrary()
+
+    global _cis_audit, _net_monitor, _hardening_check, _ir_toolkit, _purple_team
+    _cis_audit = CisAuditTool()
+    _net_monitor = NetMonitorTool()
+    _hardening_check = HardeningCheckTool()
+    _ir_toolkit = IrToolkitTool()
+    _purple_team = PurpleTeamTool()
 
 
 @tool
@@ -1462,6 +1484,132 @@ def technique_library(
     return f"Unknown action: {action}"
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — Blue Team / Defensive tools
+# ─────────────────────────────────────────────────────────────────────────────
+
+@tool
+async def cis_audit(
+    action: str,
+    target: str = "localhost",
+    port: int = 443,
+    expected_ports: str = "[22,80,443]",
+    timeout: int = 60,
+) -> str:
+    """Defensive CIS benchmark scanning and configuration auditing.
+
+    - ssh_audit: Audit SSH configuration against CIS benchmarks
+    - tls_audit: Audit TLS/SSL (protocol version, cipher strength, cert expiry)
+    - firewall_audit: Audit firewall rules and default policies
+    - patch_check: Check for pending security patches and updates
+    - port_baseline: Compare open ports against expected baseline
+    """
+    _init_pentest_singletons()
+    return await _cis_audit.execute(
+        action=action, target=target, port=port,
+        expected_ports=expected_ports, timeout=timeout,
+    )
+
+
+@tool
+async def net_monitor(
+    action: str,
+    target: str = "",
+    network: str = "192.168.1.0/24",
+    interface: str = "eth0",
+    duration: int = 30,
+    known_hosts: str = "[]",
+    baseline_services: str = "[]",
+    expected_ports: str = "[22,80,443]",
+    allowed_protocols: str = '["eth","ip","tcp","udp","dns","http","tls"]',
+    timeout: int = 120,
+) -> str:
+    """Network monitoring — traffic baselines, host anomaly detection, DNS monitoring.
+
+    - traffic_baseline: Capture passive traffic baseline (hosts, protocols, ports)
+    - host_discovery: Discover hosts and flag unknown ones against baseline
+    - service_diff: Compare current services against baseline, flag changes
+    - dns_monitor: Monitor DNS traffic for exfiltration, tunneling, suspicious queries
+    - protocol_anomaly: Detect unexpected protocols on the network
+    """
+    _init_pentest_singletons()
+    return await _net_monitor.execute(
+        action=action, target=target, network=network,
+        interface=interface, duration=duration,
+        known_hosts=known_hosts, baseline_services=baseline_services,
+        expected_ports=expected_ports, allowed_protocols=allowed_protocols,
+        timeout=timeout,
+    )
+
+
+@tool
+async def hardening_check(
+    action: str,
+    target: str = "localhost",
+    timeout: int = 30,
+) -> str:
+    """Per-service hardening validation with specific remediation steps.
+
+    - ssh_harden: Validate SSH hardening against security baseline
+    - nginx_harden: Validate Nginx hardening (headers, TLS, info leaks)
+    - apache_harden: Validate Apache hardening (info disclosure, directory listing)
+    - docker_harden: Validate Docker daemon and container hardening
+    - k8s_harden: Validate Kubernetes pod security (privileged, root, limits)
+    """
+    _init_pentest_singletons()
+    return await _hardening_check.execute(
+        action=action, target=target, timeout=timeout,
+    )
+
+
+@tool
+async def ir_toolkit(
+    action: str,
+    log_path: str = "/var/log",
+    pattern: str = "",
+    keyword: str = "",
+    iocs: str = "[]",
+    attack_type: str = "",
+    compromised_hosts: str = "[]",
+    timeout: int = 60,
+) -> str:
+    """Incident response — log correlation, IOC matching, timeline reconstruction.
+
+    - log_search: Search logs for a pattern across multiple log files
+    - ioc_scan: Scan logs for known IOCs (IPs, domains, hashes, user agents)
+    - auth_log_analyze: Analyze auth logs for brute force and compromise indicators
+    - timeline_build: Build chronological timeline of events from multiple log sources
+    - containment_recommend: Generate containment recommendations for an attack type
+    """
+    _init_pentest_singletons()
+    return await _ir_toolkit.execute(
+        action=action, log_path=log_path, pattern=pattern,
+        keyword=keyword, iocs=iocs, attack_type=attack_type,
+        compromised_hosts=compromised_hosts, timeout=timeout,
+    )
+
+
+@tool
+async def purple_team(
+    action: str,
+    red_results: str = "[]",
+    blue_results: str = "[]",
+    exercise_name: str = "Purple Team Exercise",
+    target_scope: str = "",
+) -> str:
+    """Purple team mode — correlate red-team attacks with blue-team detections.
+
+    - coverage_matrix: Generate MITRE ATT&CK coverage matrix from red/blue results
+    - detection_gap: Identify attacks that succeeded without corresponding alerts
+    - exercise_report: Generate combined purple team exercise report with rating
+    """
+    _init_pentest_singletons()
+    return await _purple_team.execute(
+        action=action, red_results=red_results, blue_results=blue_results,
+        exercise_name=exercise_name, target_scope=target_scope,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -1514,6 +1662,12 @@ def get_pentest_tools():
         graphql_test,
         # Phase 3 — Knowledge
         technique_library,
+        # Phase 4 — Blue Team / Defensive
+        cis_audit,
+        net_monitor,
+        hardening_check,
+        ir_toolkit,
+        purple_team,
     ]
 
 
