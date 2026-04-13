@@ -21,6 +21,9 @@ _IGNORE_VIDS = {
 }
 
 
+_BATTERY_LOW_THRESHOLD = 20  # percent — agent should warn user
+
+
 def run_sitrep(
     engagement_config_path: str | Path = "config/engagement-config.json",
 ) -> str:
@@ -33,6 +36,7 @@ def run_sitrep(
     hostname = socket.gethostname()
 
     sections = [f"# System Status — {hostname} ({ts})"]
+    sections.append(_probe_battery())
     sections.append(_probe_hardware(config.get("devices", {})))
     sections.append(_probe_network(config.get("devices", {}).get("wifi_adapter", {})))
     sections.append(_probe_engagement(config.get("engagement", {})))
@@ -56,6 +60,62 @@ def _load_config(path: str | Path) -> Optional[dict]:
     except Exception as exc:
         logger.warning("[sitrep] Failed to read config: %s", exc)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Battery probe
+# ---------------------------------------------------------------------------
+
+def _probe_battery() -> str:
+    """Read battery level and charging status from sysfs."""
+    bat_path = Path("/sys/class/power_supply")
+    if not bat_path.exists():
+        return ""
+
+    # Find the first BAT* entry (Steam Deck uses BAT1)
+    bat_dir = None
+    for candidate in sorted(bat_path.iterdir()):
+        if candidate.name.startswith("BAT"):
+            bat_dir = candidate
+            break
+
+    if bat_dir is None:
+        return ""
+
+    try:
+        capacity = int((bat_dir / "capacity").read_text().strip())
+    except Exception:
+        return ""
+
+    try:
+        status = (bat_dir / "status").read_text().strip()  # Charging, Discharging, Full, Not charging
+    except Exception:
+        status = "Unknown"
+
+    if status == "Charging":
+        icon = "🔌"
+    elif status == "Full":
+        icon = "🔋"
+    elif capacity <= _BATTERY_LOW_THRESHOLD:
+        icon = "🪫"
+    else:
+        icon = "🔋"
+
+    warning = ""
+    if status != "Charging" and capacity <= _BATTERY_LOW_THRESHOLD:
+        warning = (
+            f"\n\n> ⚠️ **LOW BATTERY** — {capacity}% remaining. "
+            "Alert the user and consider conserving resources. "
+            "Avoid long-running scans until the device is plugged in."
+        )
+
+    return (
+        f"## Battery\n"
+        f"| {icon} Level | Status |\n"
+        f"|--------|--------|\n"
+        f"| **{capacity}%** | {status} |"
+        f"{warning}"
+    )
 
 
 # ---------------------------------------------------------------------------
