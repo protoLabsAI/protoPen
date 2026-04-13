@@ -156,8 +156,8 @@ class TestDetectionGap:
         # Successful attack → critical severity
         assert gap_map["T1190"]["severity"] == "critical"
         assert gap_map["T1190"]["attack_succeeded"] is True
-        # Failed attack → high severity
-        assert gap_map["T1046"]["severity"] == "high"
+        # Failed attack → info severity (attack didn't succeed, just a capability gap)
+        assert gap_map["T1046"]["severity"] == "info"
         assert gap_map["T1046"]["attack_succeeded"] is False
 
     def test_recommendation_text(self, purple):
@@ -203,7 +203,7 @@ class TestExerciseReport:
         blue = []
         data = json.loads(purple._exercise_report("Ex", "", red, blue))
         assert data["summary"]["critical_gaps"] == 1  # T1190 success=True → critical
-        assert data["summary"]["high_gaps"] == 1  # T1046 success=False → high
+        assert data["summary"]["high_gaps"] == 0  # T1046 success=False → info (not high)
         assert len(data["critical_findings"]) == 1
         assert data["critical_findings"][0]["technique_id"] == "T1190"
 
