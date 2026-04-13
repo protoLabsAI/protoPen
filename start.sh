@@ -25,18 +25,20 @@ if [ ! -e /sandbox ]; then
     fi
 fi
 
-# Fetch LiteLLM key from Infisical (in-memory only)
-export OPENAI_API_KEY="$(infisical export \
-    --domain https://secrets.proto-labs.ai/api \
-    --projectId f0e3382b-611c-4964-8b57-89d0db4976be \
-    --env staging \
-    --format dotenv \
-    --silent \
-    | grep LITELLM_MASTER_KEY | cut -d"'" -f2)"
+# Fetch secrets from Infisical (in-memory only)
+# Supports both service token (INFISICAL_TOKEN) and interactive login session.
+INFISICAL_ARGS="--domain https://secrets.proto-labs.ai/api --env prod --format dotenv --silent"
+if [ -n "${INFISICAL_TOKEN:-}" ]; then
+    INFISICAL_ARGS="$INFISICAL_ARGS --token $INFISICAL_TOKEN"
+fi
+
+SECRETS="$(infisical export $INFISICAL_ARGS 2>/dev/null)" || true
+
+export OPENAI_API_KEY="$(echo "$SECRETS" | grep LITELLM_MASTER_KEY | cut -d"'" -f2)"
 
 if [ -z "$OPENAI_API_KEY" ]; then
     echo "ERROR: Failed to fetch LITELLM_MASTER_KEY from Infisical."
-    echo "Run: infisical login --domain https://secrets.proto-labs.ai/api"
+    echo "Set INFISICAL_TOKEN or run: infisical login --domain https://secrets.proto-labs.ai/api"
     exit 1
 fi
 
