@@ -10,17 +10,20 @@
 
 protoPen has 6 independent Discord notification paths, none with rate limiting, batching, or deduplication. During the mush.bike engagement, 9 critical/high findings each fired an individual webhook POST, plus the reporter subagent attempted additional publishes. Result: Discord spam.
 
+## Design Principles
+
+- **Consistent template**: every engagement uses the same message structure — no LLM improvisation
+- **Emoji-lite**: minimal emoji, functional only (severity indicators), not decorative
+- **No markdown tables**: Discord doesn't render them — use plain-text lists
+- **One source of truth**: the engagement tool owns all Discord delivery — subagents never post directly
+
 ## Design
 
 ### Alert Tier Model
 
-| Severity | Delivery | When |
-|----------|----------|------|
-| CRITICAL | Immediate webhook | Real-time, as finding is logged |
-| HIGH | Batched per phase | On engagement phase transition |
-| MEDIUM | Report only | Final report delivery |
-| LOW | Report only | Final report delivery |
-| INFO | Report only | Final report delivery |
+- **CRITICAL** — immediate webhook, real-time as finding is logged
+- **HIGH** — batched, delivered once per phase transition
+- **MEDIUM / LOW / INFO** — report only, delivered with the final report
 
 ### 1. Immediate Critical Alerts
 
@@ -28,28 +31,39 @@ protoPen has 6 independent Discord notification paths, none with rate limiting, 
 
 - Only `severity == "critical"` fires an immediate Discord webhook POST.
 - **Deduplication:** 60-second cooldown window keyed by finding title. If the same title is logged within 60s, it is silently dropped (still stored in findings list, just not re-alerted).
-- **Format:** Same as current (plain content with emoji + severity + title + category + detail).
+- **Template** (plain content, not embed):
+  ```
+  [CRITICAL] {title}
+  Category: {category}
+  {detail}
+  — {engagement_name}
+  ```
 
 ### 2. Phase-Gated Batching for HIGH Findings
 
 **File:** `tools/engagement.py` — new `_alert_queue` and `_flush_phase_alerts()`
 
 - HIGH findings are appended to `self._alert_queue: list[dict]` instead of firing immediately.
-- When the engagement transitions phases (recon → scan → exploit → report), `_flush_phase_alerts()` is called.
+- When the engagement transitions phases (recon > scan > exploit > report), `_flush_phase_alerts()` is called.
 - `_flush_phase_alerts()` posts a single embed:
   ```
   Title: "Phase Complete: {phase_name}"
-  Description: "{n} findings"
-  Fields: one field per HIGH finding (title + category, truncated to 256 chars)
   Color: orange (0xf97316)
   Footer: "protoPen — {engagement_name}"
+
+  Description (plain-text list):
+  {n} findings
+
+  - [HIGH] {title} ({category})
+  - [HIGH] {title} ({category})
+  ...
   ```
 - If the queue is empty for a phase, no message is posted.
 - The queue is cleared after flush.
 
 **Phase transition detection:**
 - The engagement tool tracks `self.current_phase` (string).
-- A new method `transition_phase(new_phase: str)` handles: flush alerts for old phase → set new phase.
+- A new method `transition_phase(new_phase: str)` handles: flush alerts for old phase, then set new phase.
 - The LangGraph orchestrator (or playbook runner) calls `transition_phase()` when moving between phases.
 - If phase transitions are not explicitly called (e.g., manual/ad-hoc engagement), `_flush_phase_alerts()` is called during `generate_report()` as a catch-all to flush any remaining queued alerts.
 
@@ -61,24 +75,53 @@ When `generate_report` action is called:
 
 1. Generate the full markdown report to disk (existing behavior, unchanged).
 2. Flush any remaining phase alerts via `_flush_phase_alerts()`.
-3. Post a **summary embed** to Discord:
-   ```
-   Title: "Pen Test Report — {engagement_name}"
-   Description: "Scope: {targets}\nMode: {mode}"
-   Fields:
-     - Severity Breakdown: "🔴 {n} Critical · 🟠 {n} High · 🟡 {n} Medium · 🔵 {n} Low · ⚪ {n} Info"
-     - Top Findings: numbered list of up to 5 critical/high findings
-     - Priority Remediation: numbered list of top 3 remediation actions
-   Footer: "Assessment: {date} | Overall Risk: {risk_level}"
-   Color: severity-based (red if any critical, orange if high, yellow otherwise)
-   ```
-4. **Attach the full report** as a file upload (multipart/form-data with `file` parameter to the webhook URL).
+3. Post a **summary embed** to Discord with the standard template (below).
+4. **Attach the full report** as a file upload (multipart/form-data with `file` parameter).
 5. Return the report string as before (existing behavior preserved).
 
-**Webhook file upload format:**
+**Summary embed template:**
+
+```
+Title: "Pen Test Report — {engagement_name}"
+Color: red (0xef4444) if any critical, orange (0xf97316) if high, yellow (0xeab308) otherwise
+
+Description:
+Scope: {targets}
+Mode: {mode}
+
+Severity Breakdown:
+- Critical: {n}
+- High: {n}
+- Medium: {n}
+- Low: {n}
+- Info: {n}
+
+Top Findings:
+1. [{severity}] {title}
+2. [{severity}] {title}
+3. [{severity}] {title}
+4. [{severity}] {title}
+5. [{severity}] {title}
+
+Priority Remediation:
+1. {action}
+2. {action}
+3. {action}
+
+Footer: "Assessment: {date} | Overall Risk: {risk_level} | protoPen"
+```
+
+- Top findings: up to 5, sorted by severity (critical first), then by order logged.
+- Priority remediation: up to 3, derived from the critical/high findings.
+- The template is a constant string with format placeholders — not generated by the LLM.
+
+**Webhook file upload:**
 ```python
-httpx.post(webhook_url, data={"payload_json": json.dumps(embed_payload)},
-           files={"file": (f"{engagement_name}-report.md", report_bytes, "text/markdown")})
+httpx.post(
+    webhook_url,
+    data={"payload_json": json.dumps(embed_payload)},
+    files={"file": (f"{engagement_name}-report.md", report_bytes, "text/markdown")},
+)
 ```
 
 ### 4. Subagent Instruction Changes
@@ -95,43 +138,41 @@ httpx.post(webhook_url, data={"payload_json": json.dumps(embed_payload)},
 Add engagement context check at the top of `_publish()`:
 ```python
 if not self._override_flag:
-    # During engagements, publishing should go through the engagement tool
     logger.warning("discord_feed.publish called outside engagement delivery pipeline")
 ```
 This is a **soft warning** (not a hard block) to catch accidental direct publishes during development. The tool remains usable for non-engagement contexts (research, intel digests).
 
 ### 6. Dead Code Cleanup
 
-- **`graph/state.py`**: Remove `publish_queue` field from `ResearcherState` (line 52). It's never written to or consumed.
-- **`config/engagement-config.json`**: Remove `alert_channel_id` field. It's never referenced in code.
+- **`graph/state.py`**: Remove `publish_queue` field from `ResearcherState` (line 52). Never written to or consumed.
+- **`config/engagement-config.json`**: Remove `alert_channel_id` field. Never referenced in code.
 
 ### 7. Unchanged Paths
 
-These paths remain as-is (they are user-triggered, not automated):
+These remain as-is (user-triggered, not automated):
 
-- **Discord bot** lock-emoji reaction and @mention analysis — user-initiated
-- **`/intel` command** — user-initiated from chat UI
-- **`discord_feed(action="share")`** — multi-instance collaboration (currently unconfigured, separate concern)
+- Discord bot lock-emoji reaction and @mention analysis
+- `/intel` command in chat UI
+- `discord_feed(action="share")` for multi-instance collaboration (currently unconfigured, separate concern)
 
 ---
 
 ## File Change Summary
 
-| File | Changes |
-|------|---------|
-| `tools/engagement.py` | Add `_alert_queue`, `_flush_phase_alerts()`, `transition_phase()`, `_send_report_to_discord()`. Modify `_send_alert()` for critical-only + dedup. Modify `generate_report()` to call report delivery. |
-| `graph/subagents/config.py` | Remove Discord publish instructions from `intel_reporter` and `reporter`. |
-| `tools/discord_feed.py` | Add soft warning in `_publish()` for engagement context. |
-| `graph/state.py` | Remove `publish_queue` from `ResearcherState`. |
-| `config/engagement-config.json` | Remove `alert_channel_id`. |
+- **`tools/engagement.py`** — Add `_alert_queue`, `_flush_phase_alerts()`, `transition_phase()`, `_send_report_to_discord()`. Modify `_send_alert()` for critical-only + dedup. Modify `generate_report()` to call report delivery. Add template constants.
+- **`graph/subagents/config.py`** — Remove Discord publish instructions from `intel_reporter` and `reporter`.
+- **`tools/discord_feed.py`** — Add soft warning in `_publish()` for engagement context.
+- **`graph/state.py`** — Remove `publish_queue` from `ResearcherState`.
+- **`config/engagement-config.json`** — Remove `alert_channel_id`.
 
 ## Acceptance Criteria
 
-1. During an engagement, only CRITICAL findings produce immediate Discord alerts.
-2. HIGH findings are batched and delivered once per phase transition.
-3. `generate_report()` posts a summary embed + attached .md file to Discord.
-4. Duplicate critical findings within 60s are deduplicated (logged but not re-alerted).
-5. Subagents no longer call `discord_feed(publish)` during engagements.
-6. Dead code (`publish_queue`, `alert_channel_id`) is removed.
-7. Existing user-triggered paths (bot reactions, /intel) are unaffected.
-8. All existing tests continue to pass.
+1. All Discord messages from engagements use the fixed templates defined above — no LLM-generated formatting.
+2. During an engagement, only CRITICAL findings produce immediate Discord alerts.
+3. HIGH findings are batched and delivered once per phase transition.
+4. `generate_report()` posts a summary embed + attached .md file to Discord.
+5. Duplicate critical findings within 60s are deduplicated (logged but not re-alerted).
+6. Subagents no longer call `discord_feed(publish)` during engagements.
+7. Dead code (`publish_queue`, `alert_channel_id`) is removed.
+8. Existing user-triggered paths (bot reactions, /intel) are unaffected.
+9. All existing tests continue to pass.
