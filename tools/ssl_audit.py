@@ -89,16 +89,26 @@ class SslAuditTool(Tool):
         return output.strip()
 
     async def full_audit(self, target: str, timeout: int = 180) -> str:
-        return await self._run("testssl.sh", "--jsonfile", "-", target, timeout=timeout)
+        return await self._run(
+            "testssl.sh", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+        )
 
     async def protocols(self, target: str, timeout: int = 60) -> str:
-        return await self._run("testssl.sh", "-p", "--jsonfile", "-", target, timeout=timeout)
+        return await self._run(
+            "testssl.sh", "-p", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+        )
 
     async def ciphers(self, target: str, timeout: int = 60) -> str:
-        return await self._run("testssl.sh", "-E", "--jsonfile", "-", target, timeout=timeout)
+        return await self._run(
+            "testssl.sh", "-E", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+        )
 
     async def vulnerabilities(self, target: str, timeout: int = 120) -> str:
-        return await self._run("testssl.sh", "-U", "--jsonfile", "-", target, timeout=timeout)
+        return await self._run(
+            "testssl.sh", "-U", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+        )
 
     async def certificates(self, target: str, timeout: int = 60) -> str:
-        return await self._run("testssl.sh", "-S", "--jsonfile", "-", target, timeout=timeout)
+        return await self._run(
+            "testssl.sh", "-S", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+        )

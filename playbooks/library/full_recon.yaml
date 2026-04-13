@@ -15,6 +15,7 @@ steps:
       target: "${target}"
       flags: "-sV -sC -O -T4"
     timeout: 600
+    on_fail: continue
 
   - name: dns_records
     tool: dns_enum
@@ -44,7 +45,7 @@ steps:
     tool: web_enum
     action: gobuster_dir
     params:
-      url: "http://${target}"
+      url: "https://${target}"
       wordlist: "${wordlist}"
       threads: 20
     on_fail: continue

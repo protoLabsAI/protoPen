@@ -99,7 +99,12 @@ class WebEnumTool(Tool):
 
     async def gobuster_dir(self, url: str, wordlist: str, extensions: str = "",
                            threads: int = 10, timeout: int = 120) -> str:
-        args = ["gobuster", "dir", "-u", url, "-w", wordlist, "-t", str(threads), "-q"]
+        args = [
+            "gobuster", "dir", "-u", url, "-w", wordlist,
+            "-t", str(threads), "-q",
+            "--follow-redirect", "--no-error",
+            "-b", "301,302,404",
+        ]
         if extensions:
             args.extend(["-x", extensions])
         return await self._run(*args, timeout=timeout)
