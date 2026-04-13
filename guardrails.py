@@ -17,22 +17,22 @@ from typing import Any
 import httpx
 
 # ---------------------------------------------------------------------------
-# Guardrails — validate query is within AI/ML research scope
+# Guardrails — validate query is within security research scope
 # ---------------------------------------------------------------------------
 
-_GUARDRAIL_PROMPT = """Score this query's relevance to AI/ML research on a scale of 0-100.
+_GUARDRAIL_PROMPT = """Score this query's relevance to cybersecurity research on a scale of 0-100.
 
 Categories that score HIGH (70-100):
-- LLM architectures, training, inference optimization
-- Model releases, benchmarks, evaluations
-- Machine learning methods (RL, DPO, fine-tuning, etc.)
-- AI tools, frameworks, libraries
-- Research papers, arxiv discussions
-- AI agents, tool use, MCP
-- Video/image generation models
-- Questions about the researcher's own capabilities, cron jobs, settings, status
-- Meta-questions about research workflow, tools, topics being tracked
-- Software engineering, DevOps, infrastructure related to AI systems
+- CVE analysis, vulnerability research, exploit tracking
+- Penetration testing, red teaming, offensive security
+- Network security, wireless attacks, RF security
+- IoT/embedded security, firmware analysis
+- Security tools (nmap, nuclei, metasploit, hashcat, etc.)
+- Threat intelligence, OSINT, reconnaissance
+- Security advisories, CERT alerts, vendor patches
+- Questions about the agent's own capabilities, cron jobs, settings, status
+- Meta-questions about security workflow, tools, topics being tracked
+- Infrastructure security, DevSecOps, hardening
 
 Categories that score LOW (0-30):
 - Cooking, sports, entertainment, politics
@@ -45,25 +45,26 @@ Query: {query}"""
 
 
 async def check_guardrail(query: str, llm_url: str = "http://127.0.0.1:8317/v1", threshold: int = 40) -> dict:
-    """Check if a query is within AI/ML research scope.
+    """Check if a query is within security research scope.
 
     Returns: {"pass": bool, "score": int, "reason": str}
     """
     if not query.strip():
         return {"pass": True, "score": 100, "reason": "empty query"}
 
-    # Quick heuristic bypass for obvious research queries
-    research_keywords = [
-        "paper", "arxiv", "model", "llm", "training", "inference", "gpu",
-        "transformer", "attention", "lora", "dpo", "rlhf", "benchmark",
-        "huggingface", "github", "discord", "scan", "research", "digest",
-        "moe", "quantiz", "vllm", "agent", "rag", "embedding",
+    # Quick heuristic bypass for obvious security queries
+    security_keywords = [
+        "cve", "exploit", "vulnerability", "advisory", "threat", "intel",
+        "pentest", "recon", "scan", "nmap", "nuclei", "burp", "metasploit",
+        "wifi", "bluetooth", "rfid", "flipper", "portapack", "marauder",
+        "github", "discord", "digest", "osint", "shodan", "censys",
+        "target", "engagement", "finding", "severity", "cvss",
         "cron", "schedule", "job", "topic", "status", "tool", "help",
         "setting", "config", "what do you", "what can you", "your",
-        "publish", "newsletter", "weekly", "lab", "experiment",
+        "publish", "report", "weekly", "lab", "experiment",
     ]
     query_lower = query.lower()
-    if any(kw in query_lower for kw in research_keywords):
+    if any(kw in query_lower for kw in security_keywords):
         return {"pass": True, "score": 90, "reason": "keyword match"}
 
     # LLM-based check
@@ -175,9 +176,9 @@ def cache_set(query: str, response: str):
 # Document grading — quick binary relevance check
 # ---------------------------------------------------------------------------
 
-_GRADE_PROMPT = """Is this document relevant to the research query? Answer with ONLY "yes" or "no".
+_GRADE_PROMPT = """Is this document relevant to the security query? Answer with ONLY "yes" or "no".
 
-Research query: {query}
+Security query: {query}
 
 Document excerpt (first 500 chars):
 {excerpt}"""
@@ -214,7 +215,7 @@ async def grade_document(query: str, content: str, llm_url: str = "http://127.0.
 # Query rewriting — improve sparse queries
 # ---------------------------------------------------------------------------
 
-_REWRITE_PROMPT = """The following research query returned sparse or no results. Rewrite it to be more effective for searching AI/ML research papers, models, and repositories.
+_REWRITE_PROMPT = """The following security query returned sparse or no results. Rewrite it to be more effective for searching CVEs, exploits, advisories, and security tools.
 
 Original query: {query}
 
@@ -280,7 +281,7 @@ def check_engagement_mode(tool_name: str, engagement_manager: Any) -> dict:
     if engagement_manager is None:
         return {"pass": True, "mode": "unknown", "reason": "no engagement manager — skipping check"}
 
-    # Only gate pentest tools; research tools pass through unconditionally
+    # Only gate pentest tools; security research tools pass through unconditionally
     tool_prefix = tool_name.split("_")[0] if "_" in tool_name else tool_name
     if tool_prefix not in _PENTEST_TOOL_PREFIXES and tool_name not in _PENTEST_TOOL_PREFIXES:
         return {"pass": True, "mode": engagement_manager.mode.name, "reason": "non-pentest tool"}
