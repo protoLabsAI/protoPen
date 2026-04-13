@@ -1,6 +1,6 @@
 # protoPen — Project Status
 
-**Last updated**: 2026-04-13
+**Last updated**: 2026-04-13 (evening)
 **Branch**: `main`
 **All changes pushed**: ✅
 
@@ -18,18 +18,19 @@
 
 ## Test Suite
 
-**511 tests passing** (2026-04-13)
+**571 tests passing** (2026-04-13)
 
 | Area | Tests | File |
 |------|-------|------|
 | Enforcement | 38 | scope_validator, rate_limiter, kill_chain, engagement_store |
 | Pentest tools | 187 | blackarch, dns_enum, subdomain, osint, flipper, marauder, portapack |
 | Phase 3 web/api | 68 | phase3_tools |
-| Blue team | 80 | blue_team, blue_team_parsers |
+| Blue team | 85 | blue_team, blue_team_parsers |
+| Attack normalizer | 38 | attack_normalizer |
 | Parsers | 82 | parser_nmap, parser_bettercap, parser_wiring, parser_e2e, parsers_dispatch |
 | Knowledge | 12 | knowledge_ingest, enforcement_middleware |
-| Playbook integration | 17 | playbook_integration |
-| `/purple` command | 8 | purple_command |
+| Playbook integration | 30 | playbook_integration (step refs, ATT&CK normalization, end-to-end) |
+| `/purple` command | 14 | purple_command (code fence stripping, scope substitution, callbacks) |
 | Target store | 19 | target_store, target_intel, engagement_autoupsert |
 
 ## Tool Inventory
@@ -110,9 +111,26 @@ technique_library, playbook, chain_planner
 - **EnforcementMiddleware ToolMessage fix** (`1635616`) — Blocked tool calls returned raw strings instead of `ToolMessage` objects, breaking the Anthropic API's `tool_use`/`tool_result` pairing. Fixed with `_blocked_response()` that wraps all blocked messages in `ToolMessage` with the correct `tool_call_id`.
 - **A2A context_id collision** (`1635616`) — Fallback context IDs used `rpc_id` (often `1`, `2`, `3`), causing session collisions. Changed to UUID4.
 - **Wireshark group** — `deck` user added to `wireshark` group for tshark/dumpcap packet capture access.
+- **CIS audit inline scripts** — Extracted `python3 -c` inline scripts to standalone files in `tools/scripts/` (ssh_audit.py, tls_audit.py, port_baseline.py, ssh_harden.py). Inline scripts broke on Python 3.12 with f-string/escape changes. Standalone scripts are testable and maintainable.
+- **Port baseline scan range** — Was scanning all 65535 ports (timeout guaranteed). Now scans 1–1024 + expected high ports. Uses spec timeout (300s) instead of `min(caller, spec)`.
+- **Timeout bug across all 19+ tools** — Every `BasePentestTool` subclass used `min(timeout, spec_timeout)` which let callers (playbook YAML `timeout: 30`) clamp the spec-defined timeout. Fixed to use spec timeout directly.
+- **Direct tool dispatch for playbooks** — `/purple` was routing each playbook step through the LLM agent, which wrapped/summarized raw tool output. Now dispatches directly to tools, preserving structured JSON.
+- **Detection rate formatting** — `detection_rate_pct` (50.0) was formatted with `:.0%` producing "5000%". Fixed to `:.0f%`.
+- **Coverage matrix false gaps** — Only successful attacks now count in the detection rate denominator. Failed attacks (e.g. nikto on a non-web target) downgraded from "high" to "info" severity.
+
+## Live Validation (Steam Deck, 2026-04-13)
+
+| Playbook | Steps | Result |
+|----------|-------|--------|
+| `purple_team_exercise` | 9/9 ✅ | 100% detection rate, GOOD rating |
+| `defensive_assessment` | 6/6 ✅ | All tools produce valid JSON |
+| `incident_response` | 5/5 ✅ | Log search, IOC, auth, timeline, containment |
+| `full_recon` | 6/6 ✅ | nmap + DNS working, others graceful fallback |
+
+**A2A endpoint verified**: `/purple 192.168.4.1` → 9/9 steps, GOOD rating, clean Markdown response.
 
 ## Known Issues
 
 - Integration tests (`test_integration.py`) skip on macOS — they require the full LangChain/nanobot runtime on the Deck
-- `/purple` correlation step passes empty `red_results`/`blue_results` to the matrix — needs result piping between steps (future enhancement)
 - Prefer `http://steamdeck:7870` (Tailscale) over SSH for A2A calls
+- `full_recon` steps 3–6 (subfinder, theharvester, gobuster, ssl_audit) need their binaries installed on the Deck

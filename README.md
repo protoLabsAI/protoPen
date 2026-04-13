@@ -143,6 +143,7 @@ The agent does not auto-escalate modes. If it needs a higher mode, it reports th
 protoPen
 ├── nanobot/              # Agent framework (submodule)
 ├── tools/
+│   ├── base.py           # BasePentestTool — async subprocess runner
 │   ├── cve_search.py     # NVD/MITRE CVE database search
 │   ├── security_feeds.py # RSS/Atom security feed aggregator
 │   ├── security_memory.py# Security knowledge store tool
@@ -162,7 +163,14 @@ protoPen
 │   ├── net_monitor.py    # Network monitoring + anomaly detection
 │   ├── hardening_check.py# Service hardening validation
 │   ├── ir_toolkit.py     # Incident response toolkit
-│   └── purple_team.py    # Purple team correlation engine
+│   ├── purple_team.py    # Purple team correlation engine
+│   ├── parsers/          # Output normalizers (nmap XML, ATT&CK alignment)
+│   └── scripts/          # Standalone audit scripts (ssh_audit, tls_audit, etc.)
+├── playbooks/
+│   ├── library/          # YAML playbook definitions
+│   ├── loader.py         # Load + variable substitution
+│   ├── runner.py         # Sequential executor + step output refs + ATT&CK normalization
+│   └── schema.py         # Playbook/Step data models
 ├── graph/                # LangGraph agent + subagents + middleware
 ├── knowledge/            # SQLite + sqlite-vec + FTS5 hybrid search
 ├── lab/                  # Experiment runner + templates
@@ -192,6 +200,7 @@ The lead agent delegates to nine specialized subagents via the `task` tool:
 
 | Command | Description |
 |---|---|
+| `/purple <scope>` | Run purple team exercise — red recon → blue defense → ATT&CK coverage report |
 | `/topics` | Show tracked security topics |
 | `/agenda` | Security agenda with stats |
 | `/cves [query]` | Search stored advisories |
@@ -202,6 +211,29 @@ The lead agent delegates to nine specialized subagents via the `task` tool:
 | `/tools` | List registered tools |
 | `/audit [n]` | Show recent audit log entries |
 | `/help` | Show all commands |
+
+## Playbooks
+
+protoPen ships with six pre-built playbooks that chain tools into multi-step workflows. All steps produce structured JSON output and handle tool failures gracefully (`on_fail: continue`).
+
+| Playbook | Steps | Description |
+|---|---|---|
+| `purple_team_exercise` | 9 | Red recon → blue defense → MITRE ATT&CK coverage matrix + exercise report |
+| `defensive_assessment` | 6 | CIS SSH/TLS/firewall audits, SSH hardening, patch check, port baseline |
+| `incident_response` | 5 | Log search, IOC scan, auth log analysis, timeline, containment |
+| `full_recon` | 6 | nmap, DNS enum, subdomain discovery, OSINT, web dirs, SSL check |
+| `web_vuln_assessment` | 6 | nikto, nuclei, XSS, SQLi, CORS, CVE scan |
+| `smb_enum` | 4 | enum4linux, SMB shares, RPC users, CVE check |
+
+Run via the `/purple` command (for purple team exercises) or programmatically:
+
+```python
+from playbooks.loader import load_playbook
+from playbooks.runner import run_playbook
+
+pb = load_playbook("defensive_assessment", {"target": "192.168.4.1"})
+result = await run_playbook(pb, dispatch)
+```
 
 ## Rabbit Hole Integration
 
