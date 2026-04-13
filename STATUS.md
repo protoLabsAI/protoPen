@@ -14,7 +14,23 @@
 | **2. Pentest Toolkit** | ✅ Done | `059bd4f`→`ee27a08` | 22 tools: recon, enum, vuln scan, exploitation, post-exploit, cleanup |
 | **3. Web/API Testing** | ✅ Done | `ee27a08` | 6 tools: JWT, SSRF, auth/BOLA, rate limit, GraphQL, technique library |
 | **4. Blue Team** | ✅ Done | `ce1492f` | 5 tools: CIS audit, net monitor, hardening, IR toolkit, purple team |
-| **5. Integration** | 🔶 Partial | `612215b`→`0494e0b` | Parsers ✅, playbooks ✅, tests ✅, auto-ingest ✅, `/purple` command ⬜ |
+| **5. Integration** | ✅ Done | `612215b`→`72bfea9` | Parsers, playbooks, tests, auto-ingest, `/purple` command |
+
+## Test Suite
+
+**511 tests passing** (2026-04-13)
+
+| Area | Tests | File |
+|------|-------|------|
+| Enforcement | 38 | scope_validator, rate_limiter, kill_chain, engagement_store |
+| Pentest tools | 187 | blackarch, dns_enum, subdomain, osint, flipper, marauder, portapack |
+| Phase 3 web/api | 68 | phase3_tools |
+| Blue team | 80 | blue_team, blue_team_parsers |
+| Parsers | 82 | parser_nmap, parser_bettercap, parser_wiring, parser_e2e, parsers_dispatch |
+| Knowledge | 12 | knowledge_ingest, enforcement_middleware |
+| Playbook integration | 17 | playbook_integration |
+| `/purple` command | 8 | purple_command |
+| Target store | 19 | target_store, target_intel, engagement_autoupsert |
 
 ## Tool Inventory
 
@@ -52,15 +68,35 @@ technique_library, playbook, chain_planner
 | Blue | incident_responder | ir_toolkit, net_monitor, engagement, security_memory |
 | Blue | purple_team | purple_team, cis_audit, net_monitor, ir_toolkit, engagement, security_memory |
 
-## What's Next — Phase 5
+## Playbooks (6)
 
-See `handoffs/001-phase5-integration.md` for full details.
+| Playbook | Steps | Tags |
+|----------|-------|------|
+| `full_recon` | 6 | recon, nmap, dns, web |
+| `web_vuln_assessment` | 5 | web, vuln, nikto, gobuster |
+| `smb_enum` | 3 | smb, enum, shares |
+| `defensive_assessment` | 6 | blue-team, defensive, cis, hardening |
+| `incident_response` | 5 | blue-team, ir, forensics |
+| `purple_team_exercise` | 9 | purple-team, red-team, blue-team, mitre-attack |
 
-1. **Tests** — unit tests for purple_team computation, IR containment, technique library, chain planner
-2. **Parsers** — blue-team output parsers in `tools/parsers/` (cis_audit, net_monitor, hardening_check, ir_toolkit)
-3. **Playbooks** — defensive assessment, incident response, purple team exercise YAMLs
-4. **Auto-ingest** — KnowledgeIngestMiddleware to pipe findings into security_memory
-5. **`/purple` command** — end-to-end chat command for purple team exercises
+## Chat Commands
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Clear chat history + session |
+| `/clear` | Clear chat display |
+| `/think <level>` | Set reasoning effort (low/medium/high/off) |
+| `/compact` | Force memory consolidation |
+| `/model` | Show current model |
+| `/tools` | List registered tools |
+| `/topics` | Show tracked security topics |
+| `/agenda` | Show security intelligence agenda with stats |
+| `/cves [query]` | Search stored CVEs and advisories |
+| `/recent [n]` | Show recent findings |
+| `/audit [n]` | Show recent audit log entries |
+| `/lab on\|off\|status` | Toggle lab mode (GPU experiment runner) |
+| `/intel` | Generate security intelligence digest and publish to Discord |
+| `/purple <scope>` | Run purple team exercise (red+blue+ATT&CK report) |
 
 ## Infrastructure Updates (2026-04-13)
 
@@ -77,6 +113,6 @@ See `handoffs/001-phase5-integration.md` for full details.
 
 ## Known Issues
 
-- `/purple` chat command not yet implemented (last Phase 5 item)
 - Integration tests (`test_integration.py`) skip on macOS — they require the full LangChain/nanobot runtime on the Deck
+- `/purple` correlation step passes empty `red_results`/`blue_results` to the matrix — needs result piping between steps (future enhancement)
 - Prefer `http://steamdeck:7870` (Tailscale) over SSH for A2A calls
