@@ -48,7 +48,7 @@ def build_system_prompt(
     # 3. Skills
     skill = _read_file(f"{workspace}/skills/research/SKILL.md")
     if skill:
-        parts.append(f"\n# Research Methodology\n\n{skill}")
+        parts.append(f"\n# Security Research Methodology\n\n{skill}")
 
     pentest_skill = _read_file(f"{workspace}/skills/pentest/SKILL.md")
     if pentest_skill:
@@ -58,9 +58,9 @@ def build_system_prompt(
     if include_subagents:
         parts.append(_build_subagent_section())
 
-    # 4. Dynamic research context (injected by KnowledgeMiddleware)
+    # 4. Dynamic security context (injected by KnowledgeMiddleware)
     if research_context:
-        parts.append(f"\n# Research Context\n\n{research_context}")
+        parts.append(f"\n# Security Context\n\n{research_context}")
 
     # 5. Guidelines
     parts.append("""
@@ -68,12 +68,12 @@ def build_system_prompt(
 
 - Think before acting. Break down complex tasks.
 - For pentest tasks, delegate to subagents: Recon maps, Exploit attacks, Reporter writes.
-- For research tasks, delegate to subagents: Explorer scans, Analyst reads, Writer synthesizes.
+- For threat intel tasks, delegate to subagents: Threat Scanner scans, Vuln Analyst reads, Intel Reporter synthesizes.
 - Always check engagement mode before executing actions on hardware.
 - Log every finding in real time via the engagement tool.
-- Rate research significance: [breakthrough / significant / incremental / noise]
-- Rate pentest severity: [critical / high / medium / low / info]
-- Always store important findings in research_memory.
+- Rate threat severity: [critical / high / medium / low / info]
+- Rate exploitability: [critical / high / medium / low]
+- Always store important findings in security_memory.
 - Reply directly with text for conversations. Use the task tool to delegate parallel work.
 """)
 
@@ -97,9 +97,9 @@ def _build_subagent_section() -> str:
 
     lines.extend([
         "**Rules:**",
-        "- Delegate scanning/discovery to Explorer",
-        "- Delegate deep reading/analysis to Analyst",
-        "- Delegate writing/publishing to Writer",
+        "- Delegate threat scanning/discovery to Threat Scanner",
+        "- Delegate deep vulnerability analysis to Vuln Analyst",
+        "- Delegate report writing/publishing to Intel Reporter",
         "- For simple questions, answer directly without delegation",
         "- Max 3 concurrent subagent tasks",
         "- Subagents cannot spawn further subagents",
@@ -112,5 +112,5 @@ def build_subagent_prompt(agent_name: str, workspace: str = "/sandbox") -> str:
     """Build system prompt for a specific subagent."""
     config = SUBAGENT_REGISTRY.get(agent_name)
     if not config:
-        return f"You are a research subagent. Complete the delegated task efficiently."
+        return f"You are a security subagent. Complete the delegated task efficiently."
     return config.system_prompt
