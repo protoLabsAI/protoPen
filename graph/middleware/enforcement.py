@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 from langchain.agents.middleware import AgentMiddleware
+from langchain_core.messages import ToolMessage
 
 from enforcement.phases import KillChainPhase, get_tool_phase
 from enforcement.rate_limiter import RateLimiter
@@ -70,18 +71,23 @@ class EnforcementMiddleware(AgentMiddleware):
         self._rate_limiter = rate_limiter
         self._max_phase = max_phase
 
+    def _blocked_response(self, request, message: str) -> ToolMessage:
+        """Return a ToolMessage so the tool_use/tool_result pairing stays valid."""
+        tool_call_id = request.tool_call.get("id", "")
+        return ToolMessage(content=message, tool_call_id=tool_call_id)
+
     def wrap_tool_call(self, request, handler):
         """Sync enforcement gate."""
         blocked = self._enforce(request)
         if blocked:
-            return blocked
+            return self._blocked_response(request, blocked)
         return handler(request)
 
     async def awrap_tool_call(self, request, handler):
         """Async enforcement gate."""
         blocked = self._enforce(request)
         if blocked:
-            return blocked
+            return self._blocked_response(request, blocked)
         return await handler(request)
 
     def _enforce(self, request) -> Optional[str]:

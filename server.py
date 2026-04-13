@@ -1325,7 +1325,7 @@ def _main():
             from starlette.responses import StreamingResponse
 
             task_id = str(_uuid.uuid4())
-            context_id = context_id or f"a2a-{rpc_id}"
+            context_id = context_id or f"a2a-{_uuid.uuid4()}"
 
             async def _sse_generator():
                 # Streaming only available with LangGraph backend
@@ -1409,7 +1409,7 @@ def _main():
 
             import uuid as _uuid
             task_id = str(_uuid.uuid4())
-            context_id = context_id or f"a2a-{rpc_id}"
+            context_id = context_id or f"a2a-{_uuid.uuid4()}"
 
             result_messages = await chat(text, context_id)
             assistant_parts = [
