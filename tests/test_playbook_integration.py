@@ -205,3 +205,141 @@ class TestPlaybookRunner:
             assert step.output
             parsed = json.loads(step.output)
             assert parsed["passed"] is True
+
+
+# ── Step Output References ───────────────────────────────────────────────────
+
+
+class TestStepOutputReferences:
+    """Test ${steps.<name>.output} param resolution at runtime."""
+
+    @pytest.mark.asyncio
+    async def test_step_ref_resolved_from_prior_output(self):
+        """A step can reference a prior step's output in its params."""
+        pb = Playbook(
+            name="ref-test",
+            steps=[
+                PlaybookStep(name="producer", tool="t", action="produce", on_fail="continue"),
+                PlaybookStep(
+                    name="consumer",
+                    tool="t",
+                    action="consume",
+                    params={"data": "${steps.producer.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+        call_log = []
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            call_log.append((action, params))
+            if action == "produce":
+                return '{"findings": ["CVE-2024-1234"]}'
+            return json.dumps({"received": params.get("data", "")})
+
+        await run_playbook(pb, dispatch)
+        assert call_log[1][1]["data"] == '{"findings": ["CVE-2024-1234"]}'
+
+    @pytest.mark.asyncio
+    async def test_unresolved_ref_left_as_is(self):
+        """If the referenced step doesn't exist, leave the ref as literal."""
+        pb = Playbook(
+            name="ref-test",
+            steps=[
+                PlaybookStep(
+                    name="lonely",
+                    tool="t",
+                    action="a",
+                    params={"data": "${steps.nonexistent.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            return json.dumps({"got": params.get("data", "")})
+
+        await run_playbook(pb, dispatch)
+        assert pb.steps[0].status == StepStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_failed_step_ref_resolves_to_empty(self):
+        """If referenced step failed (no output), resolve to empty string."""
+        pb = Playbook(
+            name="ref-test",
+            steps=[
+                PlaybookStep(name="broken", tool="t", action="fail", on_fail="continue"),
+                PlaybookStep(
+                    name="consumer",
+                    tool="t",
+                    action="consume",
+                    params={"data": "${steps.broken.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "fail":
+                raise RuntimeError("boom")
+            return json.dumps({"got": params.get("data", "")})
+
+        await run_playbook(pb, dispatch)
+        assert pb.steps[0].status == StepStatus.FAILED
+        assert pb.steps[1].status == StepStatus.COMPLETED
+        parsed = json.loads(pb.steps[1].output)
+        assert parsed["got"] == ""
+
+    @pytest.mark.asyncio
+    async def test_multiple_refs_in_separate_params(self):
+        """Multiple params can each reference different steps."""
+        pb = Playbook(
+            name="multi-ref",
+            steps=[
+                PlaybookStep(name="red", tool="t", action="r", on_fail="continue"),
+                PlaybookStep(name="blue", tool="t", action="b", on_fail="continue"),
+                PlaybookStep(
+                    name="combine",
+                    tool="t",
+                    action="c",
+                    params={"red": "${steps.red.output}", "blue": "${steps.blue.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "r":
+                return '[{"technique_id":"T1046"}]'
+            if action == "b":
+                return '[{"technique_id":"T1046","detected":true}]'
+            return json.dumps({"red": params["red"], "blue": params["blue"]})
+
+        await run_playbook(pb, dispatch)
+        result = json.loads(pb.steps[2].output)
+        assert "T1046" in result["red"]
+        assert "detected" in result["blue"]
+
+    @pytest.mark.asyncio
+    async def test_non_string_params_untouched(self):
+        """Integer/bool params should not be affected by ref resolution."""
+        pb = Playbook(
+            name="types-test",
+            steps=[
+                PlaybookStep(
+                    name="s1",
+                    tool="t",
+                    action="a",
+                    params={"port": 443, "verbose": True, "name": "${steps.x.output}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            return json.dumps(params, default=str)
+
+        await run_playbook(pb, dispatch)
+        result = json.loads(pb.steps[0].output)
+        assert result["port"] == 443
+        assert result["verbose"] is True

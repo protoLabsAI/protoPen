@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Callable, Awaitable
 
 from playbooks.schema import Playbook, PlaybookStep, StepStatus
@@ -43,7 +44,8 @@ async def run_playbook(
         )
 
         try:
-            output = await dispatch(step.tool, step.action, step.params)
+            resolved_params = _resolve_step_refs(step.params, playbook)
+            output = await dispatch(step.tool, step.action, resolved_params)
             step.output = output
             step.status = StepStatus.COMPLETED
             logger.info("Step '%s' completed", step.name)
@@ -67,6 +69,34 @@ async def run_playbook(
             on_step_complete(step)
 
     return playbook
+
+
+_STEP_REF_RE = re.compile(r"\$\{steps\.([a-zA-Z0-9_]+)\.output\}")
+
+
+def _resolve_step_refs(
+    params: dict[str, Any], playbook: Playbook,
+) -> dict[str, Any]:
+    """Resolve ${steps.<name>.output} references in step params.
+
+    Looks up the named step in the playbook and substitutes its output.
+    If the step hasn't run or doesn't exist, the reference is left as-is.
+    If the step failed (empty output), resolves to empty string.
+    Non-string param values are passed through unchanged.
+    """
+    resolved = {}
+    for key, value in params.items():
+        if isinstance(value, str) and "${steps." in value:
+            def _replace(match: re.Match) -> str:
+                step_name = match.group(1)
+                for step in playbook.steps:
+                    if step.name == step_name:
+                        return step.output  # "" if failed/not run
+                return match.group(0)  # leave unresolved
+            resolved[key] = _STEP_REF_RE.sub(_replace, value)
+        else:
+            resolved[key] = value
+    return resolved
 
 
 def _evaluate_condition(condition: str, playbook: Playbook) -> bool:
