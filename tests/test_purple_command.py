@@ -7,6 +7,7 @@ by exercising the same code path it uses: load playbook → run → format outpu
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -16,6 +17,15 @@ from playbooks.schema import StepStatus
 
 
 # ── Helpers mimicking _handle_purple_command internals ────────────────────────
+
+
+def _strip_code_fences(raw: str) -> str:
+    """Strip markdown code fences the LLM may wrap around JSON."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*\n?", "", raw)
+        raw = re.sub(r"\n?```\s*$", "", raw)
+    return raw
 
 
 def _format_purple_output(pb, scope: str) -> str:
@@ -40,8 +50,9 @@ def _format_purple_output(pb, scope: str) -> str:
     )
     if report_step and report_step.output:
         try:
-            report = json.loads(report_step.output)
-            rate = report.get("detection_rate", 0)
+            raw = _strip_code_fences(report_step.output)
+            report = json.loads(raw)
+            rate = report.get("detection_rate", report.get("detection_rate_pct", 0))
             rating = report.get("rating", "UNKNOWN")
             lines.append(f"\n### ATT&CK Coverage")
             lines.append(f"**Rating:** {rating} ({rate:.0%} detection rate)")
@@ -155,6 +166,63 @@ class TestPurpleCommandEndToEnd:
 
         assert "Raw Report Output" in output
         assert "NOT VALID JSON" in output
+
+
+class TestCodeFenceStripping:
+    """The LLM often wraps JSON in markdown fences — verify we handle it."""
+
+    def test_strip_json_fence(self):
+        raw = '```json\n{"rating": "GOOD"}\n```'
+        assert _strip_code_fences(raw) == '{"rating": "GOOD"}'
+
+    def test_strip_bare_fence(self):
+        raw = '```\n{"x": 1}\n```'
+        assert _strip_code_fences(raw) == '{"x": 1}'
+
+    def test_no_fence_passthrough(self):
+        raw = '{"x": 1}'
+        assert _strip_code_fences(raw) == '{"x": 1}'
+
+    def test_strip_with_trailing_whitespace(self):
+        raw = '```json\n{"x": 1}\n```  \n'
+        assert _strip_code_fences(raw) == '{"x": 1}'
+
+    @pytest.mark.asyncio
+    async def test_fenced_report_parsed_correctly(self):
+        """End-to-end: LLM returns fenced JSON, output still shows coverage."""
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+
+        async def fenced_dispatch(tool: str, action: str, params: dict) -> str:
+            if tool == "purple_team" and action == "exercise_report":
+                return '```json\n{"rating": "GOOD", "detection_rate": 0.9}\n```'
+            return '{"ok": true}'
+
+        await run_playbook(pb, fenced_dispatch)
+        output = _format_purple_output(pb, "10.0.0.1")
+
+        assert "ATT&CK Coverage" in output
+        assert "GOOD" in output
+        assert "90%" in output
+        assert "Raw Report Output" not in output
+
+    @pytest.mark.asyncio
+    async def test_detection_rate_pct_fallback(self):
+        """The live API returns detection_rate_pct instead of detection_rate."""
+        pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
+
+        async def pct_dispatch(tool: str, action: str, params: dict) -> str:
+            if tool == "purple_team" and action == "exercise_report":
+                return json.dumps({
+                    "rating": "CRITICAL",
+                    "detection_rate_pct": 0.15,
+                })
+            return '{"ok": true}'
+
+        await run_playbook(pb, pct_dispatch)
+        output = _format_purple_output(pb, "10.0.0.1")
+
+        assert "CRITICAL" in output
+        assert "15%" in output
 
 
 class TestPurpleCommandScope:

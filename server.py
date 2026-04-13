@@ -376,8 +376,13 @@ async def _handle_purple_command(
     )
     if report_step and report_step.output:
         try:
-            report = json.loads(report_step.output)
-            rate = report.get("detection_rate", 0)
+            raw = report_step.output.strip()
+            # Strip markdown code fences the LLM may wrap around JSON
+            if raw.startswith("```"):
+                raw = re.sub(r"^```(?:json)?\s*\n?", "", raw)
+                raw = re.sub(r"\n?```\s*$", "", raw)
+            report = json.loads(raw)
+            rate = report.get("detection_rate", report.get("detection_rate_pct", 0))
             rating = report.get("rating", "UNKNOWN")
             progress_lines.append(f"\n### ATT&CK Coverage")
             progress_lines.append(
