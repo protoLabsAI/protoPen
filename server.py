@@ -706,6 +706,55 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
         tracing.end_trace()
 
 
+async def _chat_langgraph_stream(message: str, session_id: str):
+    """Async generator that yields (event_type, payload) tuples via astream_events.
+
+    event_type is one of: "status", "tool_start", "tool_end", "text", "done", "error"
+    """
+    from langchain_core.messages import HumanMessage
+
+    config = {"configurable": {"thread_id": f"gradio:{session_id}"}}
+    if _checkpointer:
+        config["checkpointer"] = _checkpointer
+
+    accumulated_text = ""
+
+    try:
+        async for event in _graph.astream_events(
+            {"messages": [HumanMessage(content=message)], "session_id": session_id},
+            config=config,
+            version="v2",
+        ):
+            kind = event.get("event", "")
+            name = event.get("name", "")
+
+            if kind == "on_tool_start":
+                tool_input = event.get("data", {}).get("input", "")
+                preview = str(tool_input)[:200] if tool_input else ""
+                yield ("tool_start", f"🔧 {name}: {preview}")
+
+            elif kind == "on_tool_end":
+                output = event.get("data", {}).get("output", "")
+                preview = str(output)[:300] if output else ""
+                yield ("tool_end", f"✅ {name} → {preview}")
+
+            elif kind == "on_chat_model_stream":
+                chunk = event.get("data", {}).get("chunk")
+                if chunk and hasattr(chunk, "content") and chunk.content:
+                    content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                    content = _strip_think(content)
+                    if content:
+                        accumulated_text += content
+                        yield ("text", content)
+
+        # Final response
+        final = _strip_think(accumulated_text)
+        yield ("done", final)
+
+    except Exception as e:
+        yield ("error", str(e))
+
+
 def chat_streaming(message: str, history: list[dict], session_id: str):
     """Streaming wrapper — yields incremental history updates as tools run."""
     import threading
@@ -1167,7 +1216,7 @@ def _main():
         "url": "http://steamdeck:7870",
         "provider": {"organization": "protoLabsAI"},
         "version": "2.0",
-        "capabilities": {"streaming": False, "pushNotifications": False},
+        "capabilities": {"streaming": True, "pushNotifications": False},
         "skills": [
             {
                 "id": "passive_recon",
@@ -1232,9 +1281,21 @@ def _main():
 
     from fastapi import Request as _FRequest
 
+    def _extract_a2a_text(params: dict) -> tuple[str, str, dict | None]:
+        """Extract text, contextId from A2A params. Returns (text, context_id, error_dict)."""
+        message = params.get("message", {})
+        context_id = params.get("contextId", "")
+        parts = message.get("parts", [])
+        text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
+        if not text:
+            text = next((p.get("text", "") for p in parts), "")
+        if not text:
+            return "", context_id, {"code": -32600, "message": "No text content in message"}
+        return text, context_id, None
+
     @fastapi_app.post("/a2a", include_in_schema=False)
     async def _a2a(request: _FRequest, req: dict):
-        # Optional API key auth — workstacean sends X-API-Key header
+        # Optional API key auth
         if _A2A_API_KEY and request.headers.get("x-api-key") != _A2A_API_KEY:
             from fastapi.responses import JSONResponse as _JSONResponse
             return _JSONResponse({"detail": "Unauthorized"}, status_code=401)
@@ -1243,50 +1304,126 @@ def _main():
         method = req.get("method", "")
         params = req.get("params", {})
 
-        if method != "message/send":
+        # ── message/sendStream → SSE ──────────────────────────────────
+        if method == "message/sendStream":
+            text, context_id, err = _extract_a2a_text(params)
+            if err:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
+
+            import uuid as _uuid
+            from starlette.responses import StreamingResponse
+
+            task_id = str(_uuid.uuid4())
+            context_id = context_id or f"a2a-{rpc_id}"
+
+            async def _sse_generator():
+                # Streaming only available with LangGraph backend
+                if _BACKEND != "langgraph" or _graph is None:
+                    # Fallback: run sync and emit single completed event
+                    result_messages = await chat(text, context_id)
+                    assistant_parts = [
+                        m["content"] for m in result_messages
+                        if m.get("role") == "assistant" and m.get("content")
+                    ]
+                    response_text = "\n\n".join(assistant_parts)
+                    evt = json.dumps({
+                        "jsonrpc": "2.0", "id": rpc_id,
+                        "result": {
+                            "id": task_id, "contextId": context_id,
+                            "status": {"state": "completed"},
+                            "artifacts": [{"parts": [{"kind": "text", "text": response_text}]}],
+                        },
+                    })
+                    yield f"data: {evt}\n\n"
+                    return
+
+                # Stream via LangGraph astream_events
+                async for event_type, payload in _chat_langgraph_stream(text, context_id):
+                    if event_type in ("tool_start", "tool_end"):
+                        evt = json.dumps({
+                            "jsonrpc": "2.0", "id": rpc_id,
+                            "result": {
+                                "id": task_id, "contextId": context_id,
+                                "status": {
+                                    "state": "working",
+                                    "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
+                                },
+                            },
+                        })
+                        yield f"data: {evt}\n\n"
+
+                    elif event_type == "text":
+                        evt = json.dumps({
+                            "jsonrpc": "2.0", "id": rpc_id,
+                            "result": {
+                                "id": task_id, "contextId": context_id,
+                                "status": {"state": "working"},
+                                "artifacts": [{"parts": [{"kind": "text", "text": payload}], "append": True}],
+                            },
+                        })
+                        yield f"data: {evt}\n\n"
+
+                    elif event_type == "done":
+                        evt = json.dumps({
+                            "jsonrpc": "2.0", "id": rpc_id,
+                            "result": {
+                                "id": task_id, "contextId": context_id,
+                                "status": {"state": "completed"},
+                                "artifacts": [{"parts": [{"kind": "text", "text": payload}]}],
+                            },
+                        })
+                        yield f"data: {evt}\n\n"
+
+                    elif event_type == "error":
+                        evt = json.dumps({
+                            "jsonrpc": "2.0", "id": rpc_id,
+                            "result": {
+                                "id": task_id, "contextId": context_id,
+                                "status": {"state": "failed", "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]}},
+                            },
+                        })
+                        yield f"data: {evt}\n\n"
+
+            return StreamingResponse(
+                _sse_generator(),
+                media_type="text/event-stream",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+            )
+
+        # ── message/send → synchronous (existing) ────────────────────
+        if method == "message/send":
+            text, context_id, err = _extract_a2a_text(params)
+            if err:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
+
+            import uuid as _uuid
+            task_id = str(_uuid.uuid4())
+            context_id = context_id or f"a2a-{rpc_id}"
+
+            result_messages = await chat(text, context_id)
+            assistant_parts = [
+                m["content"] for m in result_messages
+                if m.get("role") == "assistant" and m.get("content")
+            ]
+            response_text = "\n\n".join(assistant_parts)
+
             return {
                 "jsonrpc": "2.0",
                 "id": rpc_id,
-                "error": {"code": -32601, "message": f"Method not found: {method}"},
+                "result": {
+                    "id": task_id,
+                    "contextId": context_id,
+                    "status": {"state": "completed"},
+                    "artifacts": [{
+                        "parts": [{"kind": "text", "text": response_text}]
+                    }],
+                },
             }
-
-        message = params.get("message", {})
-        context_id = params.get("contextId", f"a2a-{rpc_id}")
-
-        # Extract text from A2A message parts
-        parts = message.get("parts", [])
-        text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
-        if not text:
-            text = next((p.get("text", "") for p in parts), "")
-
-        if not text:
-            return {
-                "jsonrpc": "2.0",
-                "id": rpc_id,
-                "error": {"code": -32600, "message": "No text content in message"},
-            }
-
-        import uuid as _uuid
-        task_id = str(_uuid.uuid4())
-
-        result_messages = await chat(text, context_id)
-        assistant_parts = [
-            m["content"] for m in result_messages
-            if m.get("role") == "assistant" and m.get("content")
-        ]
-        response_text = "\n\n".join(assistant_parts)
 
         return {
             "jsonrpc": "2.0",
             "id": rpc_id,
-            "result": {
-                "id": task_id,
-                "contextId": context_id,
-                "status": {"state": "completed"},
-                "artifacts": [{
-                    "parts": [{"kind": "text", "text": response_text}]
-                }],
-            },
+            "error": {"code": -32601, "message": f"Method not found: {method}"},
         }
 
     # Prometheus /metrics endpoint
