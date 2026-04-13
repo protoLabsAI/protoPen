@@ -67,6 +67,15 @@ Or via the tool directly:
 Mode escalation (e.g. PASSIVE to REDTEAM) should only happen with explicit authorization. The agent will not auto-escalate modes -- it will report when a higher mode is needed and wait for instructions.
 :::
 
+## Reports
+
+`engagement generate_report` produces a full markdown report from all logged findings, sorted by severity. The report is saved to `<workspace_dir>/<engagement_name>/report.md` — by default `/home/deck/engagements/<name>/report.md`.
+
+Reports can also be published to Discord as rich embeds via `discord_feed publish` or the `/intel` chat command. See [Discord Integration](../guides/discord-integration.md) for details.
+
 ## Alerts
 
-When a finding with `critical` or `high` severity is logged, protoPen sends an alert to the configured Discord webhook (`alert_webhook` in `engagement-config.json`). This provides real-time notification of significant discoveries.
+When a finding with `critical` or `high` severity is logged, protoPen sends an alert to the configured Discord webhook. There are two webhook paths:
+
+- **`alert_webhook`** in `engagement-config.json` — per-engagement alerts (plain text)
+- **`DISCORD_WEBHOOK_URL`** env var — used by `discord_feed publish` and `/intel` for digests and reports (rich embeds)

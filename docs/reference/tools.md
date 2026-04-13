@@ -143,7 +143,7 @@ Mission control for pen testing operations. Manages lifecycle, mode enforcement,
 | `status` | Get current engagement status | -- |
 | `log_finding` | Log a security finding | `severity`, `category`, `title`, `detail` |
 | `check_permission` | Check if a tool action is permitted at the current mode | `tool_name` |
-| `generate_report` | Generate a markdown report from all findings | -- |
+| `generate_report` | Generate a markdown report from all findings. Saved to `<workspace_dir>/<engagement_name>/report.md` (default workspace: `/home/deck/engagements/`). | -- |
 | `list_findings` | List all findings in the current engagement | -- |
 
 ---
@@ -168,3 +168,22 @@ Query and manage the target intelligence database. Tracks hosts, services, WiFi,
 | `end_scan` | End a scan session | `scan_session_id` |
 | `stats` | Get entity counts across all tables | -- |
 | `diff` | Show new entities since a given timestamp | `since` (ISO 8601) |
+
+---
+
+## discord_feed
+
+Discord channel scanning and webhook publishing. Reads channel history via the Discord Bot API and publishes content as rich embeds via webhook.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `publish` | Publish content as rich Discord embeds via `DISCORD_WEBHOOK_URL`. Auto-chunks content exceeding the 4096-char embed limit. | `content`, `title` |
+| `share` | Share a finding to the collaboration channel via the Discord Bot API. | `content`, `title` |
+| `scan` | Extract and classify URLs from channel messages. | `channel_id` |
+| `history` | Retrieve raw message history from a channel. | `channel_id`, `limit` |
+| `channels` | List channels in a Discord guild. | `guild_id` |
+| `digest` | Generate a structured link digest from channel history. | `channel_id` |
+
+::: tip
+The `publish` action uses `DISCORD_WEBHOOK_URL` (no channel ID needed). The `scan`, `history`, `channels`, and `digest` actions require `DISCORD_BOT_TOKEN` and a `channel_id`.
+:::

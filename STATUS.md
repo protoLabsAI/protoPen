@@ -1,7 +1,7 @@
 # protoPen — Project Status
 
-**Last updated**: 2026-04-12
-**Branch**: `main` @ `ce1492f`
+**Last updated**: 2026-04-13
+**Branch**: `main`
 **All changes pushed**: ✅
 
 ---
@@ -61,6 +61,13 @@ See `handoffs/001-phase5-integration.md` for full details.
 3. **Playbooks** — defensive assessment, incident response, purple team exercise YAMLs
 4. **Auto-ingest** — KnowledgeIngestMiddleware to pipe findings into security_memory
 5. **`/purple` command** — end-to-end chat command for purple team exercises
+
+## Infrastructure Updates (2026-04-13)
+
+- **Discord Webhook** — Created `protoPen Security Reports` webhook for channel `1493168494945243227`. Used for publishing engagement reports as color-coded severity embeds.
+- **Infisical** — `DISCORD_WEBHOOK_URL` added to protoPen `prod` vault. Auto-exported at startup via `start.sh`.
+- **A2A Protocol** — Verified end-to-end: JSON-RPC `message/send` and `message/sendStream` working for agent-to-agent delegation. Used to orchestrate a full LAN red team engagement remotely.
+- **Engagement Reports** — `engagement generate_report` saves full markdown report to `<workspace_dir>/<engagement_name>/report.md` (default: `/home/deck/engagements/`).
 
 ## Known Issues
 

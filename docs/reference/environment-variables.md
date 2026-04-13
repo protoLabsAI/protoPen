@@ -12,6 +12,20 @@ All environment variables used by protoPen. Set these in your `docker-compose.ym
 `start.sh` exports **every** secret from the Infisical protoPen project (prod env) into the process environment. You do not need to manually set individual API keys — they are all fetched at startup. The variables below document what the code expects to find, but they are populated automatically from Infisical.
 :::
 
+### Infisical Secrets Inventory
+
+Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment):
+
+| Secret Key | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic API key for LLM access |
+| `DISCORD_BOT_TOKEN` | Discord bot token for Gateway + REST API |
+| `DISCORD_WEBHOOK_URL` | Discord webhook for publishing digests, security reports, and alerts |
+| `GITHUB_TOKEN` | GitHub personal access token |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse tracing public key |
+| `LANGFUSE_SECRET_KEY` | Langfuse tracing secret key |
+| `PROTOPEN_API_KEY` | API key for A2A endpoint authentication |
+
 ## Core
 
 | Variable | Required | Default | Description |
@@ -41,7 +55,7 @@ All environment variables used by protoPen. Set these in your `docker-compose.ym
 |---|---|---|---|
 | `GITHUB_TOKEN` | no | -- | GitHub personal access token (higher API rate limits for trending tool) |
 | `DISCORD_BOT_TOKEN` | no | -- | Discord bot token for reading channel feeds and reacting to mentions |
-| `DISCORD_WEBHOOK_URL` | no | -- | Discord webhook URL for publishing research digests and security alerts |
+| `DISCORD_WEBHOOK_URL` | no | -- | Discord webhook URL for publishing research digests, security alerts, and engagement reports as rich embeds. Managed via Infisical in prod. |
 
 ## Rabbit Hole
 

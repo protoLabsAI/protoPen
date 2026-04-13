@@ -15,7 +15,7 @@ A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID p
 - **Purple Team** — MITRE ATT&CK coverage matrix, red↔blue detection gap analysis, exercise reporting
 - **Target Intelligence** — Unified SQLite database tracks hosts, ports, WiFi networks, RF signals, BLE devices, RFID tags, and credentials across all sensors
 - **Engagement Modes** — Risk-gated tool access: PASSIVE (observe only), ACTIVE (directed probing), REDTEAM (full offensive)
-- **Discord Integration** — Real-time alerts on critical/high findings, automated threat intel digests
+- **Discord Integration** — Real-time alerts on critical/high findings, automated threat intel digests, security assessment reports published as rich embeds via webhook
 - **Agent-to-Agent (A2A)** — JSON-RPC endpoint for other agents to delegate recon, pen testing, or threat intel tasks
 - **Observability** — Langfuse tracing, Prometheus metrics, JSONL audit trail
 
@@ -102,7 +102,7 @@ python server.py --port 7870
 | `security_memory` | Store/search advisories, exploits, threat intel — hybrid search with target correlation |
 | `github_trending` | Track trending security tools, exploit PoCs, and offensive/defensive repos |
 | `browser` | Deep-read security advisories, blog posts, PoC writeups |
-| `discord_feed` | Scan Discord channels for security intel, publish digests |
+| `discord_feed` | Scan Discord channels for security intel, publish digests and security reports as rich embeds via webhook |
 | `rabbit_hole_bridge` | Ship threat intel to rabbit-hole.io knowledge graph |
 
 ### Pen Testing
@@ -266,7 +266,7 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 | `ANTHROPIC_API_KEY` | No | Direct Anthropic API (alternative to CLIProxyAPI) |
 | `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
 | `DISCORD_BOT_TOKEN` | No | Discord channel reading |
-| `DISCORD_WEBHOOK_URL` | No | Discord digest publishing + security alerts |
+| `DISCORD_WEBHOOK_URL` | No | Discord webhook for publishing digests, security alerts, and engagement reports (managed via Infisical in prod) |
 | `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing |
 | `LANGFUSE_SECRET_KEY` | No | Langfuse tracing |
 | `LAB_GPU` | No | GPU ID for lab mode (default: `1`) |
