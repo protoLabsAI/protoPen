@@ -34,15 +34,21 @@ fi
 
 SECRETS="$(infisical export $INFISICAL_ARGS 2>/dev/null)" || true
 
-export OPENAI_API_KEY="$(echo "$SECRETS" | grep LITELLM_MASTER_KEY | cut -d"'" -f2)"
-
-if [ -z "$OPENAI_API_KEY" ]; then
-    echo "ERROR: Failed to fetch LITELLM_MASTER_KEY from Infisical."
+if [ -z "$SECRETS" ]; then
+    echo "ERROR: Failed to fetch secrets from Infisical."
     echo "Set INFISICAL_TOKEN or run: infisical login --domain https://secrets.proto-labs.ai/api"
     exit 1
 fi
 
-echo "✓ LiteLLM key loaded from Infisical"
+# Export all Infisical secrets into the environment (in-memory only)
+eval "$(echo "$SECRETS" | sed "s/^/export /")"
+
+# LiteLLM gateway key → OPENAI_API_KEY
+export OPENAI_API_KEY="$LITELLM_MASTER_KEY"
+# GitHub token alias
+export GITHUB_TOKEN="${GH_TOKEN:-}"
+
+echo "✓ Secrets loaded from Infisical ($(echo "$SECRETS" | wc -l | tr -d ' ') vars)"
 
 # Use LangGraph backend pointed at ava
 export AGENT_BACKEND=langgraph
