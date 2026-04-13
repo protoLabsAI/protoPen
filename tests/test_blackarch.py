@@ -113,3 +113,50 @@ class TestNanobotInterface:
 
     def test_has_name(self, tool):
         assert tool.name == "blackarch"
+
+
+class TestShellExecLockdown:
+    """shell_exec deny-by-default + force override."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_command_blocked(self, tool):
+        result = await tool.shell_exec("custom_tool --flag")
+        assert "Blocked" in result
+        assert "allow list" in result
+
+    @pytest.mark.asyncio
+    async def test_safe_command_allowed(self, tool):
+        with patch("tools.blackarch.asyncio.create_subprocess_exec") as mock_proc:
+            proc = AsyncMock()
+            proc.communicate.return_value = (b"scan output", b"")
+            proc.returncode = 0
+            mock_proc.return_value = proc
+            result = await tool.shell_exec("nmap -sV 10.0.0.1")
+            assert "scan output" in result
+
+    @pytest.mark.asyncio
+    async def test_blocked_command_always_denied(self, tool):
+        result = await tool.shell_exec("rm -rf /", force=True)
+        assert "Blocked" in result
+        assert "deny list" in result
+
+    @pytest.mark.asyncio
+    async def test_force_without_redteam_blocked(self, tool):
+        result = await tool.shell_exec("custom_tool --flag", force=True)
+        assert "Blocked" in result
+        assert "REDTEAM" in result
+
+    @pytest.mark.asyncio
+    async def test_force_with_redteam_allowed(self, tool):
+        from unittest.mock import MagicMock
+        mgr = MagicMock()
+        mgr.mode.value = 2  # REDTEAM
+        tool._engagement_manager = mgr
+
+        with patch("tools.blackarch.asyncio.create_subprocess_exec") as mock_proc:
+            proc = AsyncMock()
+            proc.communicate.return_value = (b"forced output", b"")
+            proc.returncode = 0
+            mock_proc.return_value = proc
+            result = await tool.shell_exec("custom_tool --flag", force=True)
+            assert "forced output" in result

@@ -59,6 +59,7 @@ class BlackArchTool(Tool):
         self._mon = monitor_interface
         self._workspace = Path(workspace)
         self._workspace.mkdir(parents=True, exist_ok=True)
+        self._engagement_manager = None  # Set externally for shell_exec force override
 
     @property
     def name(self) -> str:
@@ -142,6 +143,7 @@ class BlackArchTool(Tool):
             ),
             "shell_exec": lambda: self.shell_exec(
                 kwargs.get("command", ""), kwargs.get("timeout", 120),
+                kwargs.get("force", False),
             ),
         }
         fn = dispatch.get(action)
@@ -220,13 +222,39 @@ class BlackArchTool(Tool):
     async def tshark_capture(self, interface: Optional[str] = None, count: int = 100, timeout: int = 30) -> str:
         return await self._run("tshark", "-i", interface or self._mon, "-c", str(count), timeout=timeout)
 
-    async def shell_exec(self, command: str, timeout: int = 120) -> str:
+    async def shell_exec(self, command: str, timeout: int = 120, force: bool = False) -> str:
+        """Execute a shell command with deny-by-default filtering.
+
+        Only commands in _SAFE_COMMANDS are allowed.  Unknown commands are
+        BLOCKED unless force=True AND engagement mode is REDTEAM (2).
+        Commands in _BLOCKED_COMMANDS are always denied regardless of force.
+        """
         parts = shlex.split(command)
         if not parts:
             return "Empty command"
         base_cmd = Path(parts[0]).name
+
+        # Hard deny — never allowed, even with force
         if base_cmd in _BLOCKED_COMMANDS:
             return f"Blocked: '{base_cmd}' is on the deny list for safety"
-        if base_cmd not in _SAFE_COMMANDS:
-            logger.warning("shell_exec: unrecognized command '%s' — allowing with caution", base_cmd)
-        return await self._run(*parts, timeout=timeout)
+
+        # Allow list — known-safe security tools
+        if base_cmd in _SAFE_COMMANDS:
+            return await self._run(*parts, timeout=timeout)
+
+        # Unknown command — deny by default
+        eng_mode = 0
+        if self._engagement_manager:
+            eng_mode = self._engagement_manager.mode.value
+
+        if force and eng_mode >= 2:  # REDTEAM
+            logger.warning("shell_exec: FORCE override for '%s' in REDTEAM mode", base_cmd)
+            return await self._run(*parts, timeout=timeout)
+
+        if force:
+            return (
+                f"Blocked: '{base_cmd}' is not in the allow list. "
+                f"force=True requires REDTEAM mode (current mode level: {eng_mode})"
+            )
+
+        return f"Blocked: '{base_cmd}' is not in the allow list. Use a curated action or add to _SAFE_COMMANDS."
