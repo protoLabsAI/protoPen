@@ -11,3 +11,6 @@ build/
 *.db
 *.jsonl
 data/
+node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
