@@ -1,36 +1,58 @@
--- protoPen knowledge base schema
+-- protoPen security knowledge base schema
 
--- Papers: tracked arxiv papers and their summaries
-CREATE TABLE IF NOT EXISTS papers (
-    id TEXT PRIMARY KEY,                -- arxiv ID (e.g., "2401.12345")
-    title TEXT NOT NULL,
-    authors TEXT,                        -- JSON array
-    abstract TEXT,
-    summary TEXT,                        -- agent-generated summary
-    significance TEXT DEFAULT 'unknown', -- breakthrough/significant/incremental/noise
-    categories TEXT,                     -- JSON array of arxiv categories
+-- CVEs: tracked vulnerabilities
+CREATE TABLE IF NOT EXISTS cves (
+    id TEXT PRIMARY KEY,                -- CVE ID (e.g., "CVE-2024-12345")
+    title TEXT,
+    description TEXT,
+    severity TEXT,                       -- critical/high/medium/low
+    cvss_score REAL,
+    cvss_vector TEXT,
+    affected_products TEXT,              -- JSON array
+    references TEXT,                     -- JSON array of URLs
+    exploit_available INTEGER DEFAULT 0,
+    exploit_maturity TEXT,               -- poc/weaponized/active/none
     tags TEXT,                           -- JSON array of custom tags
-    pdf_path TEXT,                       -- local path if downloaded
-    source_url TEXT,
     published_at TEXT,
     discovered_at TEXT NOT NULL,
-    read_at TEXT,
+    analyzed_at TEXT,
     notes TEXT
 );
 
--- Findings: extracted insights, methods, results
-CREATE TABLE IF NOT EXISTS findings (
+-- Exploits: tracked PoCs and exploit code
+CREATE TABLE IF NOT EXISTS exploits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    content TEXT NOT NULL,
-    source TEXT,                          -- paper ID, URL, or other source
-    source_type TEXT,                     -- paper/blog/github/model_release
-    topic TEXT,
-    finding_type TEXT,                    -- insight/result/method/benchmark/recommendation
-    significance TEXT,
-    created_at TEXT NOT NULL
+    cve_id TEXT,                          -- linked CVE (nullable)
+    title TEXT NOT NULL,
+    description TEXT,
+    source TEXT,                          -- exploit-db/github/custom
+    source_url TEXT,
+    platform TEXT,                        -- linux/windows/multi/hardware
+    exploit_type TEXT,                    -- remote/local/webapps/dos/shellcode
+    verified INTEGER DEFAULT 0,
+    code_path TEXT,                       -- local path if downloaded
+    discovered_at TEXT NOT NULL,
+    tested_at TEXT,
+    notes TEXT,
+    FOREIGN KEY (cve_id) REFERENCES cves(id)
 );
 
--- Topics: research areas being tracked
+-- Advisories: vendor and CERT advisories
+CREATE TABLE IF NOT EXISTS advisories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,                 -- vendor/CERT/researcher
+    title TEXT NOT NULL,
+    content TEXT,
+    severity TEXT,
+    affected_products TEXT,               -- JSON array
+    cve_ids TEXT,                         -- JSON array of linked CVEs
+    url TEXT,
+    published_at TEXT,
+    discovered_at TEXT NOT NULL,
+    notes TEXT
+);
+
+-- Topics: security areas being tracked
 CREATE TABLE IF NOT EXISTS topics (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -42,40 +64,35 @@ CREATE TABLE IF NOT EXISTS topics (
     last_scanned_at TEXT
 );
 
--- Digests: generated research summaries
+-- Threat intel: findings and correlations
+CREATE TABLE IF NOT EXISTS threat_intel (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    source TEXT,                           -- CVE ID, advisory, engagement
+    source_type TEXT,                      -- cve/advisory/exploit/engagement/osint
+    topic TEXT,
+    intel_type TEXT,                       -- indicator/technique/correlation/recommendation
+    severity TEXT,
+    target_relevance TEXT,                 -- JSON: which targets this affects
+    created_at TEXT NOT NULL
+);
+
+-- Digests: generated security intelligence summaries
 CREATE TABLE IF NOT EXISTS digests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
-    digest_type TEXT,                     -- daily/weekly/deep_dive/comparison
+    digest_type TEXT,                      -- daily/weekly/threat_brief/engagement_summary
     topic TEXT,
-    papers_referenced TEXT,               -- JSON array of paper IDs
+    cves_referenced TEXT,                  -- JSON array of CVE IDs
     created_at TEXT NOT NULL
 );
 
--- Model releases: tracked from HF/GitHub
-CREATE TABLE IF NOT EXISTS model_releases (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    model_id TEXT NOT NULL,
-    name TEXT,
-    organization TEXT,
-    description TEXT,
-    parameters TEXT,
-    architecture TEXT,
-    license TEXT,
-    downloads INTEGER,
-    likes INTEGER,
-    source TEXT,                           -- huggingface/github
-    released_at TEXT,
-    discovered_at TEXT NOT NULL,
-    notes TEXT
-);
-
--- Sources: tracked external sources
+-- Sources: tracked security feeds
 CREATE TABLE IF NOT EXISTS sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
-    source_type TEXT,                      -- arxiv/huggingface/github/blog/newsletter
+    source_type TEXT,                      -- nvd/exploit_db/github/rss/advisory
     url TEXT,
     scan_schedule TEXT,
     last_scanned_at TEXT,
@@ -83,7 +100,6 @@ CREATE TABLE IF NOT EXISTS sources (
 );
 
 -- FTS5 full-text search index for BM25 keyword search (hybrid search)
--- Populated alongside knowledge_vec at insert time
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
     content,
     source_table UNINDEXED,
