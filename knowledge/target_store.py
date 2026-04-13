@@ -146,7 +146,15 @@ class TargetStore:
         cur = db.execute(
             "INSERT INTO hosts (ip, mac, hostname, os, vendor, device_type, tags, "
             "first_seen, last_seen, scan_session_id, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(ip, mac) DO UPDATE SET "
+            "last_seen = excluded.last_seen, "
+            "hostname = COALESCE(NULLIF(excluded.hostname, ''), hosts.hostname), "
+            "os = COALESCE(NULLIF(excluded.os, ''), hosts.os), "
+            "vendor = COALESCE(NULLIF(excluded.vendor, ''), hosts.vendor), "
+            "device_type = CASE WHEN excluded.device_type != 'unknown' "
+            "  THEN excluded.device_type ELSE hosts.device_type END, "
+            "scan_session_id = COALESCE(excluded.scan_session_id, hosts.scan_session_id)",
             (ip, mac, hostname, os, vendor, device_type,
              json.dumps(tags or []), now, now,
              scan_session_id or None, notes),
