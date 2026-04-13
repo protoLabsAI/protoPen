@@ -214,6 +214,7 @@ _HELP_TEXT = """\
 | `/audit [n]` | Show recent audit log entries |
 | `/lab on\\|off\\|status` | Toggle lab mode (GPU experiment runner) |
 | `/intel` | Generate security intelligence digest and publish to Discord |
+| `/purple <scope>` | Run purple team exercise (red+blue+ATT&CK report) |
 | `/help` | Show this help |
 """
 
@@ -297,7 +298,102 @@ async def _handle_command(
     if cmd == "intel":
         return await _handle_intel_command(session_id)
 
+    if cmd == "purple":
+        return await _handle_purple_command(args, session_id)
+
     return None
+
+
+# ---------------------------------------------------------------------------
+# Purple team command
+# ---------------------------------------------------------------------------
+
+
+async def _handle_purple_command(
+    args: str, session_id: str,
+) -> list[dict[str, Any]]:
+    """Run a purple team exercise via the playbook runner."""
+    scope = args.strip()
+    if not scope:
+        return _msg(
+            "**Usage:** `/purple <scope>`\n\n"
+            "Example: `/purple 192.168.4.0/24`\n\n"
+            "Runs the purple team exercise playbook: red team recon → "
+            "blue team defensive checks → ATT&CK coverage matrix."
+        )
+
+    from playbooks.loader import load_playbook
+    from playbooks.runner import run_playbook
+    from playbooks.schema import StepStatus
+
+    try:
+        pb = load_playbook("purple_team_exercise", {
+            "target": scope,
+            "exercise_name": f"purple-{session_id[:8]}",
+        })
+    except FileNotFoundError:
+        return _msg("❌ Purple team exercise playbook not found.")
+
+    progress_lines = [f"## 🟣 Purple Team Exercise\n**Scope:** `{scope}`\n"]
+
+    def on_step_complete(step):
+        icon = "✅" if step.status == StepStatus.COMPLETED else "❌"
+        progress_lines.append(f"{icon} **{step.name}** ({step.tool}.{step.action})")
+
+    async def _dispatch(tool_name: str, action: str, params: dict) -> str:
+        if _BACKEND == "langgraph" and _graph is not None:
+            prompt = (
+                f"Run the {tool_name} tool with action={action} "
+                f"and parameters: {json.dumps(params)}. "
+                f"Return only the raw tool output."
+            )
+            results = await _chat_langgraph(prompt, session_id)
+            return results[-1].get("content", "") if results else ""
+        # Direct tool dispatch fallback
+        from tools.lg_tools import get_combined_tools
+        for t in get_combined_tools():
+            if t.name == tool_name:
+                return await t.ainvoke({"action": action, **params})
+        return f"Error: Tool '{tool_name}' not found"
+
+    await run_playbook(pb, _dispatch, on_step_complete=on_step_complete)
+
+    # Build summary
+    completed = sum(1 for s in pb.steps if s.status == StepStatus.COMPLETED)
+    failed = sum(1 for s in pb.steps if s.status == StepStatus.FAILED)
+    total = len(pb.steps)
+
+    progress_lines.append(
+        f"\n**Results:** {completed}/{total} steps completed, {failed} failed"
+    )
+
+    # Extract coverage report from the last step if available
+    report_step = next(
+        (s for s in reversed(pb.steps)
+         if s.tool == "purple_team" and s.action == "exercise_report"
+         and s.status == StepStatus.COMPLETED),
+        None,
+    )
+    if report_step and report_step.output:
+        try:
+            report = json.loads(report_step.output)
+            rate = report.get("detection_rate", 0)
+            rating = report.get("rating", "UNKNOWN")
+            progress_lines.append(f"\n### ATT&CK Coverage")
+            progress_lines.append(
+                f"**Rating:** {rating} ({rate:.0%} detection rate)"
+            )
+            if report.get("critical_findings"):
+                progress_lines.append(
+                    f"**Critical gaps:** {len(report['critical_findings'])}"
+                )
+        except (json.JSONDecodeError, TypeError):
+            progress_lines.append(
+                f"\n### Raw Report Output\n```\n"
+                f"{report_step.output[:2000]}\n```"
+            )
+
+    return _msg("\n".join(progress_lines))
 
 
 # ---------------------------------------------------------------------------
