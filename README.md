@@ -1,47 +1,38 @@
-# protoResearcher
+# protoPen
 
-Autonomous AI research agent that tracks the latest developments in AI and machine learning. Built on the [nanobot](https://github.com/HKUDS/nanobot) agent framework with research-specialized tools.
+Autonomous Security Research & Pen-Testing Agent
 
-## What it does
+A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID peripherals. It combines real-time threat intelligence — CVE tracking, exploit monitoring, security feed aggregation — with hardware-in-the-loop pen testing using PortaPack H4M, Flipper Zero, WiFi Marauder, and BlackArch tools. All findings flow into a hybrid-search knowledge store (SQLite + sqlite-vec + FTS5) and are correlated across sensors automatically.
 
-- **Scans Discord feeds** for research links, papers, model releases
-- **Reads PDFs** — downloads and extracts text from papers
-- **Monitors HuggingFace** for new models, datasets, and papers
-- **Integrates with [rabbit-hole.io](https://github.com/protoLabsAI/rabbit-hole.io)** — knowledge graph, media ingestion, entity extraction via MCP
-- **Tracks GitHub** trending AI/ML repositories and releases
-- **Stores knowledge** — papers, findings, digests in a hybrid search knowledge base (vector + BM25)
-- **Generates digests** — structured research summaries with significance ratings
-- **Browses the web** for blog posts, conference pages, and more
-- **Runs experiments** — autonomous GPU training via lab mode (inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch))
+## Features
 
-## Architecture
+- **Threat Intelligence** — CVE search (NVD/MITRE), Exploit-DB monitoring, security RSS feeds (CISA, Krebs, THN), GitHub security tool tracking
+- **Pen Testing** — WiFi (deauth, PMKID, evil portal, karma), Bluetooth (BLE spam, Swift Pair), RF (Sub-GHz capture/replay), RFID/NFC (read/write/emulate), network (nmap, bettercap, nikto)
+- **Knowledge Store** — Hybrid search across advisories, exploits, and threat intel using vector similarity + BM25 keyword matching with Reciprocal Rank Fusion
+- **Security Subagents** — Threat Scanner (feed monitoring), Vuln Analyst (deep advisory analysis + target correlation), Intel Reporter (digest generation + Discord publishing)
+- **Pen-Test Subagents** — Recon (passive enumeration), Exploit (active testing), Reporter (finding synthesis + report generation)
+- **Target Intelligence** — Unified SQLite database tracks hosts, ports, WiFi networks, RF signals, BLE devices, RFID tags, and credentials across all sensors
+- **Engagement Modes** — Risk-gated tool access: PASSIVE (observe only), ACTIVE (directed probing), REDTEAM (full offensive)
+- **Discord Integration** — Real-time alerts on critical/high findings, automated threat intel digests
+- **Agent-to-Agent (A2A)** — JSON-RPC endpoint for other agents to delegate recon, pen testing, or threat intel tasks
+- **Observability** — Langfuse tracing, Prometheus metrics, JSONL audit trail
 
-```
-protoResearcher
-├── nanobot/              # Agent framework (submodule)
-├── tools/
-│   ├── discord_feed.py   # Discord channel scanner + link classifier
-│   ├── paper_reader.py   # PDF text extraction (PyMuPDF)
-│   ├── huggingface.py    # HF Hub models, datasets, papers
-│   ├── github_trending.py # GitHub search + releases
-│   ├── research_memory.py # Knowledge store tool
-│   ├── lab_bench.py      # GPU experiment runner (lab mode)
-│   └── browser.py        # Web automation
-├── knowledge/            # SQLite + sqlite-vec + FTS5 hybrid search knowledge base
-├── lab/                  # Experiment runner + templates
-│   ├── runner.py         # Experiment lifecycle management
-│   └── templates/        # LLaMA-Factory configs for Qwen 0.8B/2B
-├── server.py             # Gradio UI server
-├── chat_ui.py            # Chat interface
-├── Dockerfile            # Multi-stage build (base + lab)
-└── docker-compose.yml    # Orchestration (with lab GPU profile)
-```
+## Hardware
+
+| Device | Role |
+|---|---|
+| **Steam Deck** | Compute platform — runs the agent, tools, and knowledge store |
+| **PortaPack H4M** | HackRF One + Mayhem firmware — RF capture/replay/transmit (1 MHz–6 GHz) |
+| **Flipper Zero** | Multi-tool — Sub-GHz, NFC, RFID, IR, BLE, GPIO |
+| **WiFi Marauder (ESP32)** | WiFi attacks — scan, deauth, PMKID capture, evil portal, karma AP |
+| **External WiFi Adapter** | Monitor mode + packet injection (aircrack-ng, bettercap) |
+| **BlackArch Tools** | nmap, tshark, nikto, gobuster, hashcat, john, sqlmap, hydra, etc. |
 
 ## Quick Start
 
 ### Prerequisites: Claude Code Authentication
 
-protoResearcher uses **CLIProxyAPI** to access Claude models through your existing Claude Code subscription — no separate API key needed. It works by reading the OAuth token from Claude Code's credential file on your host.
+protoPen uses **CLIProxyAPI** to access Claude models through your existing Claude Code subscription — no separate API key needed. It works by reading the OAuth token from Claude Code's credential file on your host.
 
 **Setup:**
 
@@ -66,7 +57,7 @@ protoResearcher uses **CLIProxyAPI** to access Claude models through your existi
    # Should show: -rw-r--r-- ... .credentials.json
    ```
 
-> **How it works:** CLIProxyAPI runs inside the container on port 8317, exposing an OpenAI-compatible API that routes requests to Anthropic using your Claude Code OAuth token. The nanobot agent is configured to use this as its LLM provider (`cliproxy` in `nanobot-config.json`). This means LLM calls use your Claude Code subscription, not a separate API key.
+> **How it works:** CLIProxyAPI runs inside the container on port 8317, exposing an OpenAI-compatible API that routes requests to Anthropic using your Claude Code OAuth token. The agent is configured to use this as its LLM provider (`cliproxy` in `nanobot-config.json`). This means LLM calls use your Claude Code subscription, not a separate API key.
 
 > **Alternative:** If you prefer to use an API key directly, set `ANTHROPIC_API_KEY` in your environment and change the nanobot config provider from `cliproxy` to `anthropic`.
 
@@ -74,8 +65,8 @@ protoResearcher uses **CLIProxyAPI** to access Claude models through your existi
 
 ```bash
 # Clone with submodules (nanobot is a git submodule)
-git clone --recursive https://github.com/protoLabsAI/protoResearcher
-cd protoResearcher
+git clone --recursive https://github.com/protoLabsAI/protoPen
+cd protoPen
 
 # Start (basic mode)
 docker compose up --build
@@ -98,263 +89,184 @@ pip install -r requirements.txt
 python server.py --port 7870
 ```
 
-Requires vLLM running on `localhost:8000` (or configure `config/nanobot-config.json`).
+## Tools
 
-## Rabbit Hole Integration (MCP)
+### Security Research
 
-protoResearcher connects to [rabbit-hole.io](https://github.com/protoLabsAI/rabbit-hole.io)'s MCP server via the Streamable HTTP transport. This gives the agent access to 12 research and media processing tools:
+| Tool | Description |
+|---|---|
+| `cve_search` | Query NVD/MITRE CVE database — search by keyword, product, severity, date range |
+| `security_feeds` | Aggregate RSS/Atom feeds from CISA, NVD, Exploit-DB, security blogs |
+| `security_memory` | Store/search advisories, exploits, threat intel — hybrid search with target correlation |
+| `github_trending` | Track trending security tools, exploit PoCs, and offensive/defensive repos |
+| `browser` | Deep-read security advisories, blog posts, PoC writeups |
+| `discord_feed` | Scan Discord channels for security intel, publish digests |
+| `rabbit_hole_bridge` | Ship threat intel to rabbit-hole.io knowledge graph |
 
-| Tool               | What it does                                               |
-| ------------------ | ---------------------------------------------------------- |
-| `graph_search`     | Search existing entities in the knowledge graph            |
-| `research_entity`  | Full research pipeline (multi-source → extract → validate) |
-| `extract_entities` | LLM-based entity extraction from text                      |
-| `validate_bundle`  | Bundle structural integrity check                          |
-| `ingest_bundle`    | Push entities into the Neo4j knowledge graph               |
-| `wikipedia_search` | Fetch Wikipedia articles                                   |
-| `web_search`       | DuckDuckGo instant answers                                 |
-| `tavily_search`    | Premium web search (requires TAVILY_API_KEY on MCP server) |
-| `ingest_url`       | Ingest any URL (HTML, PDF, YouTube, audio)                 |
-| `ingest_file`      | Ingest local files                                         |
-| `transcribe_audio` | Audio transcription                                        |
-| `extract_pdf`      | PDF text extraction                                        |
+### Pen Testing
 
-### Setup
+| Tool | Description |
+|---|---|
+| `portapack` | PortaPack H4M control — RF scan, capture, replay, transmit, GPS inject |
+| `flipper` | Flipper Zero — Sub-GHz, NFC, RFID, IR, BLE, GPIO, storage |
+| `marauder` | WiFi Marauder — AP/station scan, deauth, PMKID, evil portal, karma, BLE spam |
+| `blackarch` | Curated wrappers — nmap, aircrack-ng, bettercap, nikto, gobuster, hashcat, tshark |
+| `device_manager` | USB serial connection management for all hardware peripherals |
+| `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
+| `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
 
-1. **Start the rabbit-hole MCP server** (on the same host or network):
+## Engagement Modes
 
-   ```bash
-   cd /path/to/rabbit-hole.io
-   pnpm --filter @proto/mcp-server build
+| Mode | Level | Allows |
+|---|---|---|
+| **PASSIVE** | 0 | Listen, scan, enumerate. No transmission. |
+| **ACTIVE** | 1 | Active probing, PMKID capture, signal replay, vuln scan |
+| **REDTEAM** | 2 | Deauth, evil portal, karma AP, BLE spam, brute force |
 
-   # Start with auth token
-   MCP_AUTH_TOKEN=$(openssl rand -hex 32) \
-   MCP_PORT=3398 \
-   pm2 start packages/mcp-server/dist/http-server.js --name rabbit-hole-mcp
-   ```
+The agent does not auto-escalate modes. If it needs a higher mode, it reports the requirement and waits for explicit human instruction.
 
-2. **Pass the token to protoResearcher** via env:
+## Architecture
 
-   ```bash
-   MCP_AUTH_TOKEN=<your-token> docker compose up -d
-   ```
+```
+protoPen
+├── nanobot/              # Agent framework (submodule)
+├── tools/
+│   ├── cve_search.py     # NVD/MITRE CVE database search
+│   ├── security_feeds.py # RSS/Atom security feed aggregator
+│   ├── security_memory.py# Security knowledge store tool
+│   ├── github_trending.py# Security tool + exploit PoC tracking
+│   ├── browser.py        # Web automation
+│   ├── discord_feed.py   # Discord channel scanner
+│   ├── portapack.py      # PortaPack H4M serial bridge
+│   ├── flipper.py        # Flipper Zero serial bridge
+│   ├── marauder.py       # WiFi Marauder serial bridge
+│   ├── blackarch.py      # BlackArch tool wrappers
+│   ├── device_manager.py # USB serial management
+│   ├── engagement.py     # Engagement lifecycle + findings
+│   ├── target_intel.py   # Target intelligence database
+│   ├── rabbit_hole_bridge.py # Knowledge graph integration
+│   └── lab_bench.py      # GPU experiment runner (lab mode)
+├── graph/                # LangGraph agent + subagents + middleware
+├── knowledge/            # SQLite + sqlite-vec + FTS5 hybrid search
+├── lab/                  # Experiment runner + templates
+├── server.py             # FastAPI server (Gradio UI + API + A2A)
+├── chat_ui.py            # Chat interface
+├── Dockerfile            # Multi-stage build (base + lab)
+└── docker-compose.yml    # Orchestration (with lab GPU profile)
+```
 
-3. **Verify connectivity** — the container reaches the MCP server at `host.docker.internal:3398`. The agent's tools list will show `mcp_rabbit-hole_*` prefixed tools when connected.
+### Subagents
 
-The MCP connection is configured in `config/nanobot-config.json` under `tools.mcpServers.rabbit-hole`. Nanobot connects lazily on the first agent loop.
+The lead agent delegates to six specialized subagents via the `task` tool:
 
-### Firewall Note
+| Domain | Subagent | Role |
+|---|---|---|
+| Security Research | **Threat Scanner** | Scans CVE feeds, Exploit-DB, security RSS, GitHub for new threats |
+| Security Research | **Vuln Analyst** | Deep-reads advisories, correlates with target intel, rates exploitability |
+| Security Research | **Intel Reporter** | Synthesizes threat intel reports, publishes security digests |
+| Pen Testing | **Recon** | Passive reconnaissance — RF survey, WiFi scan, network enumeration |
+| Pen Testing | **Exploit** | Active exploitation — PMKID capture, signal replay, vuln scanning |
+| Pen Testing | **Reporter** | Finding synthesis — triage, correlation, report generation |
 
-If you're running UFW or iptables with a DROP policy, Docker containers may not be able to reach host ports. Allow traffic from Docker bridge networks:
+## Chat Commands
+
+| Command | Description |
+|---|---|
+| `/topics` | Show tracked security topics |
+| `/agenda` | Security agenda with stats |
+| `/cves [query]` | Search stored advisories |
+| `/recent [n]` | Show recent advisories and threat intel |
+| `/intel` | Generate and publish threat intel digest |
+| `/lab on\|off\|status` | Toggle lab mode (GPU experiments) |
+| `/think <level>` | Set reasoning effort |
+| `/tools` | List registered tools |
+| `/audit [n]` | Show recent audit log entries |
+| `/help` | Show all commands |
+
+## Rabbit Hole Integration
+
+protoPen connects to [rabbit-hole.io](https://github.com/protoLabsAI/rabbit-hole.io)'s knowledge graph via HTTP bridge, shipping advisories, exploits, and threat intel as structured bundles.
+
+Set `RABBIT_HOLE_URL` and `MCP_AUTH_TOKEN` in your environment. See [docs/guides/rabbit-hole-mcp.md](docs/guides/rabbit-hole-mcp.md) for details.
+
+## API
+
+### Chat API
 
 ```bash
-sudo ufw allow from 10.0.0.0/8 to any port 3398 comment "MCP server from Docker"
-sudo ufw allow from 10.0.0.0/8 to any port 3399 comment "rabbit-hole from Docker"
-```
-
-## API — Trigger from Other Agents
-
-protoResearcher exposes an HTTP API at `http://localhost:7872/api/chat`. Any agent or script can trigger research tasks.
-
-```
-POST http://localhost:7872/api/chat
-Content-Type: application/json
-
-{"message": "<command or natural language>"}
-```
-
-```json
-// Response
-{
-  "response": "Markdown-formatted response text",
-  "messages": [{ "role": "assistant", "content": "..." }]
-}
-```
-
-```bash
-# Examples
 curl -s http://localhost:7872/api/chat -H "Content-Type: application/json" \
-  -d '{"message": "/agenda"}'
-
-curl -s http://localhost:7872/api/chat -H "Content-Type: application/json" \
-  -d '{"message": "What are the latest developments in MoE architectures?"}'
+  -d '{"message": "What are the latest critical CVEs affecting Linux?"}'
 ```
 
-## OpenAI-Compatible API
-
-protoResearcher exposes an OpenAI-compatible `/v1/chat/completions` endpoint, allowing any client that speaks the OpenAI protocol to interact with it directly.
-
-### Direct Access
+### OpenAI-Compatible API
 
 ```bash
 curl http://localhost:7872/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "protoresearcher",
-    "messages": [{"role": "user", "content": "What are the latest MoE architecture papers?"}]
+    "model": "protopen",
+    "messages": [{"role": "user", "content": "Search for recent RCE vulnerabilities in network equipment"}]
   }'
 ```
 
-### Via LiteLLM Gateway
-
-protoResearcher is registered in the protoLabs AI Gateway (LiteLLM proxy on port 4000). This lets you access it alongside cloud models from a single endpoint.
+### A2A (Agent-to-Agent)
 
 ```bash
-curl http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+curl -X POST http://steamdeck:7870/a2a \
   -H "Content-Type: application/json" \
-  -d '{"model": "protoresearcher", "messages": [{"role": "user", "content": "Run an /agenda scan."}]}'
-```
-
-**Gateway config** (`gateway/config.yaml`):
-
-```yaml
-- model_name: protoresearcher
-  litellm_params:
-    model: openai/protoresearcher
-    api_base: http://protoresearcher:7870/v1
-    api_key: researcher-internal
-```
-
-protoResearcher joins the `gateway_default` Docker network so the proxy resolves `protoresearcher:7870` by container name.
-
-### Model Discovery
-
-```bash
-curl http://localhost:7872/v1/models
-# {"object": "list", "data": [{"id": "protoresearcher", ...}]}
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "parts": [{"kind": "text", "text": "Run a passive recon of 192.168.1.0/24"}]
+      }
+    }
+  }'
 ```
 
 ## Knowledge Search
 
-The knowledge store uses **hybrid search** — combining vector similarity (nomic-embed-text via Ollama) with BM25 keyword matching (SQLite FTS5), fused via Reciprocal Rank Fusion (RRF).
-
-This dramatically improves retrieval quality compared to vector-only search, catching both semantically similar and keyword-relevant results. Based on experiments in [`protoLabsAI/lab`](https://github.com/protoLabsAI/lab/tree/main/experiments/context-1), hybrid search produces 2.7x more relevant results than keyword-only and eliminates "cannot find" failures on multi-hop queries.
+Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) with BM25 keyword matching (SQLite FTS5), fused via Reciprocal Rank Fusion (RRF). Searches across advisories, exploits, threat intel, and digests.
 
 **Search modes** (configurable in `langgraph-config.yaml`):
 - `hybrid` (default) — RRF fusion of vector + keyword results
-- `vector` — semantic similarity only (original behavior)
+- `vector` — semantic similarity only
 - `keyword` — BM25 keyword matching only
-
-**Contextual enrichment** (`enrich_chunks: true`): Prepends document-level context to chunks before embedding, based on [Anthropic's Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval). This improves retrieval by ~9% and fundamentally changes which chunks are found (only 2/5 top results overlap with non-enriched). When no LLM enrichment function is configured, falls back to simple document-title headers.
-
-**Migration**: If upgrading from a previous version, run the FTS5 backfill to index existing data:
-
-```python
-from knowledge.store import KnowledgeStore
-store = KnowledgeStore()
-store.backfill_fts()  # One-time — populates FTS5 from existing vectors
-```
-
-Or via Docker exec:
-```bash
-docker exec -it protoresearcher python -c "from knowledge.store import KnowledgeStore; KnowledgeStore().backfill_fts()"
-```
-
-## Chat Commands
-
-| Command                | Description                       |
-| ---------------------- | --------------------------------- |
-| `/topics`              | Show tracked research topics      |
-| `/agenda`              | Research agenda with stats        |
-| `/papers [query]`      | Search stored papers              |
-| `/recent [n]`          | Show recent findings              |
-| `/lab on\|off\|status` | Toggle lab mode (GPU experiments) |
-| `/think <level>`       | Set reasoning effort              |
-| `/tools`               | List registered tools             |
-| `/help`                | Show all commands                 |
-
-## Lab Mode
-
-Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch). When enabled, the agent gets a `lab_bench` tool that runs autonomous training experiments on local GPUs.
-
-### How it works
-
-1. **Init** — create experiment workspace from a template (Qwen 0.8B or 2B DPO)
-2. **Edit** — modify the LLaMA-Factory config (the single modifiable file)
-3. **Run** — train with a fixed time budget, metrics auto-extracted
-4. **Keep/Discard** — accept or revert via git (each hypothesis = commit)
-5. **Repeat** — iterate until the metric stops improving
-
-### Design principles (from autoresearch)
-
-- **Single modifiable file** — `config.yaml` (LLaMA-Factory training config)
-- **Fixed time budget** — default 5 minutes per experiment
-- **Single metric** — eval_loss for optimization
-- **Git-based tracking** — commit per hypothesis, `git reset` on discard
-- **Results ledger** — `results.tsv` with commit, metrics, status, description
-
-### Templates
-
-| Template        | Model        | Method   | Description                 |
-| --------------- | ------------ | -------- | --------------------------- |
-| `dpo_qwen_0.8b` | Qwen3.5-0.8B | LoRA DPO | Fast iteration, tiny model  |
-| `dpo_qwen_2b`   | Qwen3.5-2B   | LoRA DPO | More capacity, same dataset |
-
-### Example session
-
-```
-/lab on
-> Lab mode ON. lab_bench tool registered.
-
-"Initialize a DPO experiment on Qwen 0.8B called baseline-run"
-> Experiment initialized from template dpo_qwen_0.8b.
-
-"Run the baseline"
-> Experiment complete. eval_loss: 2.341, Peak VRAM: 8420 MB
-
-"Try doubling the LoRA rank to 64"
-> Updated lora_rank: 32 -> 64, lora_alpha: 64 -> 128
-
-"Run it"
-> Experiment complete. eval_loss: 2.298 (improved!)
-
-"Keep it, then try learning rate 2e-5"
-> Marked as KEEP. Updated learning_rate: 1e-5 -> 2e-5
-```
-
-## Research Topics (default)
-
-- MoE scaling and efficiency
-- Quantization and model compression
-- Inference optimization (vLLM, speculative decoding)
-- Agentic systems and tool use
-- Video generation
-- Training methods (DPO, RLHF, LoRA)
-- Open-source model releases
-- Multimodal models
 
 ## Environment Variables
 
-| Variable              | Required                    | Description                                                 |
-| --------------------- | --------------------------- | ----------------------------------------------------------- |
-| `MCP_AUTH_TOKEN`      | For rabbit-hole integration | Bearer token for MCP server auth                            |
-| `ANTHROPIC_API_KEY`   | No                          | Direct Anthropic API (alternative to CLIProxyAPI)           |
-| `LANGFUSE_PUBLIC_KEY` | No                          | Langfuse tracing                                            |
-| `LANGFUSE_SECRET_KEY` | No                          | Langfuse tracing                                            |
-| `LANGFUSE_HOST`       | No                          | Langfuse host (default: `http://host.docker.internal:3001`) |
-| `GITHUB_TOKEN`        | No                          | GitHub API (higher rate limits)                             |
-| `DISCORD_BOT_TOKEN`   | No                          | Discord channel reading                                     |
-| `DISCORD_WEBHOOK_URL` | No                          | Discord digest publishing                                   |
-| `LAB_GPU`             | No                          | GPU ID for lab mode (default: `1`)                          |
-| `AGENT_BACKEND`       | No                          | `nanobot` (default) or `langgraph`                          |
+| Variable | Required | Description |
+|---|---|---|
+| `AGENT_BACKEND` | No | `nanobot` (legacy) or `langgraph` (recommended) |
+| `PROTOPEN_API_KEY` | No | API key for A2A authentication |
+| `MCP_AUTH_TOKEN` | No | Token for rabbit-hole knowledge graph |
+| `ANTHROPIC_API_KEY` | No | Direct Anthropic API (alternative to CLIProxyAPI) |
+| `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
+| `DISCORD_BOT_TOKEN` | No | Discord channel reading |
+| `DISCORD_WEBHOOK_URL` | No | Discord digest publishing + security alerts |
+| `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing |
+| `LANGFUSE_SECRET_KEY` | No | Langfuse tracing |
+| `LAB_GPU` | No | GPU ID for lab mode (default: `1`) |
 
 ## Stack
 
-- **Agent**: nanobot (tool-calling agent loop, sessions, LiteLLM provider)
+- **Agent**: LangGraph (recommended) or nanobot (legacy)
 - **LLM**: CLIProxyAPI → Claude Code OAuth (no API key needed) or direct Anthropic API
 - **UI**: Gradio 5 (dark theme, PWA)
 - **Knowledge**: SQLite + sqlite-vec + FTS5 (hybrid search: vector similarity + BM25 keyword, RRF fusion)
-- **Training**: LLaMA-Factory with LoRA DPO on Qwen3.5-0.8B/2B
+- **Training**: LLaMA-Factory with LoRA DPO on Qwen3.5-0.8B/2B (lab mode)
 - **Observability**: Langfuse tracing, Prometheus metrics, JSONL audit
 - **Container**: Docker with seccomp, read-only root, tmpfs workspace
 
 ## Part of protoLabs
 
-protoResearcher is part of the [protoLabs](https://protolabs.studio) autonomous development studio.
+protoPen is part of the [protoLabs](https://protolabs.studio) autonomous development studio.
 
-| Agent               | Role                                              |
-| ------------------- | ------------------------------------------------- |
-| **Ava**             | Chief of Staff — orchestration and strategy       |
-| **Quinn**           | QA Engineer — verification and release management |
-| **protoResearcher** | Research — AI/ML paper tracking and analysis      |
+| Agent | Role |
+|---|---|
+| **Ava** | Chief of Staff — orchestration and strategy |
+| **Quinn** | QA Engineer — verification and release management |
+| **protoPen** | Security — threat intelligence, pen testing, and security research |
