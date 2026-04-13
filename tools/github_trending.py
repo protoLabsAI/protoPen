@@ -18,7 +18,7 @@ _MAX_RETRIES = 2
 
 
 class GitHubTrendingTool(Tool):
-    """Search GitHub for trending and notable AI/ML repositories."""
+    """Search GitHub for trending and notable security tool repositories."""
 
     @property
     def name(self) -> str:
@@ -27,7 +27,7 @@ class GitHubTrendingTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Search GitHub for AI/ML repositories and releases. Actions:\n"
+            "Search GitHub for security tool repositories and releases. Actions:\n"
             "- search: Search repos by query with star/activity filters\n"
             "- recent_repos: Find recently created repos with high engagement\n"
             "- releases: Check latest releases for tracked repos"
@@ -155,7 +155,7 @@ class GitHubTrendingTool(Tool):
         return self._format_repos(repos)
 
     async def _recent_repos(self, kwargs: dict) -> str:
-        topic = kwargs.get("topic", "machine-learning")
+        topic = kwargs.get("topic", "security")
         language = kwargs.get("language", "python")
         created_after = kwargs.get("created_after", "")
         min_stars = kwargs.get("min_stars", 50)
@@ -192,7 +192,7 @@ class GitHubTrendingTool(Tool):
         repos_str = kwargs.get("repos", "")
         if not repos_str:
             # Default tracked repos
-            repos_str = "vllm-project/vllm,huggingface/transformers,QwenLM/Qwen3,pytorch/pytorch"
+            repos_str = "projectdiscovery/nuclei,projectdiscovery/httpx,swisskyrepo/PayloadsAllTheThings,carlospolop/PEASS-ng,fortra/impacket,BloodHoundAD/BloodHound,rapid7/metasploit-framework,hashcat/hashcat"
 
         repos = [r.strip() for r in repos_str.split(",") if r.strip()]
         lines = []
