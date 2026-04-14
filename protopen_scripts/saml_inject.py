@@ -84,7 +84,7 @@ def test_saml_injection(session: requests.Session, acs_url: str, saml_response: 
                 findings.append({
                     "severity": "high",
                     "vulnerability_type": "saml_response_accepted",
-                    "message": f"SAML response accepted and session cookie issued — verify signature was validated",
+                    "message": "SAML response accepted and session cookie issued — verify signature was validated",
                 })
 
         # Signature wrapping: try sending response without signature

@@ -377,7 +377,7 @@ class KnowledgeStore:
             return []
         embedding = self._embed(query)
         if embedding is None:
-            print(f"[knowledge] Embedding unavailable, falling back to keyword search")
+            print("[knowledge] Embedding unavailable, falling back to keyword search")
             return self.keyword_search(query, k=k, filter_table=filter_table)
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
         rows = db.execute(

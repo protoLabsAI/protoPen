@@ -374,13 +374,13 @@ class DiscordFeedTool(Tool):
                 match = re.search(r'(\d{4}\.\d{4,5})', l["url"])
                 aid = match.group(1) if match else ""
                 lines.append(f"- [{aid}]({l['url']})")
-            lines.append(f"\n_Tip: Use `browser` to fetch these papers, or rabbit-hole MCP to ingest them._\n")
+            lines.append("\n_Tip: Use `browser` to fetch these papers, or rabbit-hole MCP to ingest them._\n")
 
         if hf_links:
             lines.append(f"**HuggingFace ({len(hf_links)}):**")
             for l in hf_links:
                 lines.append(f"- {l['url']}")
-            lines.append(f"\n_Tip: Use `huggingface` tool to get model cards._\n")
+            lines.append("\n_Tip: Use `huggingface` tool to get model cards._\n")
 
         if gh_links:
             lines.append(f"**GitHub ({len(gh_links)}):**")

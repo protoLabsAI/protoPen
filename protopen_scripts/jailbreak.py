@@ -171,7 +171,7 @@ def main() -> None:
                 result["attempts"].append({
                     "technique": probe_name,
                     "success": False,
-                    "description": f"Request failed — endpoint may be unreachable",
+                    "description": "Request failed — endpoint may be unreachable",
                     "bypassed_guardrail": "",
                     "response": "",
                 })

@@ -298,7 +298,7 @@ def format_findings_summary(scored: list[ScoredFinding]) -> str:
         lines.append("")
         lines.append("### Priority Targets for Agent Follow-up")
         for f in priority[:8]:
-            lines.append(f"")
+            lines.append("")
             lines.append(f"**[{f.severity.upper()} score={f.score}]** {f.title} (id=`{f.id}`)")
             if f.target:
                 lines.append(f"  Target: `{f.target}`")

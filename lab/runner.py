@@ -256,7 +256,7 @@ class ExperimentRunner:
             lines.append(f"- Peak VRAM: {metrics['peak_vram_mb']} MB")
         if metrics.get("steps"):
             lines.append(f"- Steps: {metrics['steps']}")
-        lines.append(f"\nUse `keep` to accept or `discard` to revert.")
+        lines.append("\nUse `keep` to accept or `discard` to revert.")
 
         return "\n".join(lines)
 
@@ -326,7 +326,7 @@ class ExperimentRunner:
 
         lines = log_path.read_text().strip().splitlines()
         shown = lines[-tail:]
-        return f"```\n" + "\n".join(shown) + "\n```"
+        return "```\n" + "\n".join(shown) + "\n```"
 
     def get_status(self) -> str:
         """Show all experiments and their status."""

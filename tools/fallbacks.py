@@ -22,7 +22,7 @@ def with_fallback(fallback_msg: str = ""):
             except Exception as e:
                 error_type = type(e).__name__
                 error_msg = str(e)[:200]
-                fallback = fallback_msg or f"This search encountered an issue."
+                fallback = fallback_msg or "This search encountered an issue."
                 return (
                     f"**Partial result** (fallback): {fallback}\n\n"
                     f"_Error: {error_type}: {error_msg}_\n\n"

@@ -457,7 +457,7 @@ async def _handle_message(data: dict, bot_id: str):
         if recent and isinstance(recent, list):
             lines = [_format_message(m) for m in reversed(recent) if _format_message(m)]
             if lines:
-                context_parts.append(f"--- Recent channel messages ---\n" + "\n\n".join(lines))
+                context_parts.append("--- Recent channel messages ---\n" + "\n\n".join(lines))
                 _log(f"  Loaded channel context ({len(lines)} messages)")
 
     # 2. If this is a reply, fetch the referenced message

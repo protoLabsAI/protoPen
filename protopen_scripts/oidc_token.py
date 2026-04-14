@@ -70,7 +70,7 @@ def analyze_token(token: str) -> list[dict[str, Any]]:
         findings.append({
             "severity": "critical",
             "vulnerability_type": "alg_none",
-            "message": f"Token uses 'alg: none' — signature verification bypassed",
+            "message": "Token uses 'alg: none' — signature verification bypassed",
         })
     elif alg in ("HS256", "HS384", "HS512"):
         findings.append({
@@ -125,7 +125,7 @@ def analyze_token(token: str) -> list[dict[str, Any]]:
             findings.append({
                 "severity": "low",
                 "vulnerability_type": "long_lived_token",
-                "message": f"Token expires far in the future — long-lived tokens increase blast radius on compromise",
+                "message": "Token expires far in the future — long-lived tokens increase blast radius on compromise",
             })
 
     # Check for sensitive claims

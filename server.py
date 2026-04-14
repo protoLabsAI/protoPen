@@ -57,7 +57,7 @@ def _init_langgraph_agent():
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
     status_block = run_sitrep(engagement_config)
     if status_block:
-        print(f"[sitrep] Startup probe injected into system prompt")
+        print("[sitrep] Startup probe injected into system prompt")
 
     _graph = create_researcher_graph(
         config=_graph_config,
@@ -257,7 +257,7 @@ async def _handle_purple_command(
             rate_pct = report.get("detection_rate_pct",
                                     report.get("detection_rate", 0) * 100)
             rating = report.get("rating", "UNKNOWN")
-            progress_lines.append(f"\n### ATT&CK Coverage")
+            progress_lines.append("\n### ATT&CK Coverage")
             progress_lines.append(
                 f"**Rating:** {rating} ({rate_pct:.0f}% detection rate)"
             )

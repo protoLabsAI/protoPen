@@ -68,7 +68,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "shell_exec": KillChainPhase.EXPLOITATION,
 
     # ── BlackArch curated actions ──
-    "nikto_scan": KillChainPhase.ENUMERATION,
     "gobuster_scan": KillChainPhase.ENUMERATION,
     "hashcat_crack": KillChainPhase.EXPLOITATION,
     "tshark_capture": KillChainPhase.RECON,
@@ -79,7 +78,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     # ── Enhanced BlackArch ──
     "nmap_os_detect": KillChainPhase.RECON,
     "nmap_udp_scan": KillChainPhase.ENUMERATION,
-    "hashcat_rules": KillChainPhase.EXPLOITATION,
 
     # ── DNS Enum ──
     "dig_query": KillChainPhase.RECON,
@@ -224,7 +222,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "ble_scan": KillChainPhase.RECON,
     "nfc_emulate": KillChainPhase.EXPLOITATION,
     "subghz_bruteforce": KillChainPhase.EXPLOITATION,
-    "bettercap_mitm": KillChainPhase.EXPLOITATION,
 
     # ── Container/K8s Audit ──
     "kube_hunter": KillChainPhase.ENUMERATION,

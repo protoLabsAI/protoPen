@@ -54,7 +54,7 @@ def _format_purple_output(pb, scope: str) -> str:
             report = json.loads(raw)
             rate = report.get("detection_rate", report.get("detection_rate_pct", 0))
             rating = report.get("rating", "UNKNOWN")
-            lines.append(f"\n### ATT&CK Coverage")
+            lines.append("\n### ATT&CK Coverage")
             lines.append(f"**Rating:** {rating} ({rate:.0%} detection rate)")
             if report.get("critical_findings"):
                 lines.append(f"**Critical gaps:** {len(report['critical_findings'])}")

@@ -16,7 +16,6 @@ from urllib.parse import urlparse
 _TOOL_TARGET_ARG: dict[str, str] = {
     "nmap_scan": "target",
     "nmap_vuln_scan": "target",
-    "nikto_scan": "url",
     "gobuster_scan": "url",
     # Enhanced BlackArch
     "nmap_os_detect": "target",

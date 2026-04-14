@@ -131,7 +131,7 @@ def test_redirect_uri(session: requests.Session, auth_endpoint: str, client_id: 
                 findings.append({
                     "severity": "medium",
                     "vulnerability_type": "redirect_uri_reflected_in_error",
-                    "message": f"redirect_uri reflected in error response (check for open redirect chain)",
+                    "message": "redirect_uri reflected in error response (check for open redirect chain)",
                 })
                 break
         except requests.RequestException as exc:

@@ -48,7 +48,7 @@ def generate_report(
     name_b = sum_b["backend"]
 
     lines = []
-    lines.append(f"# protoPen Eval Comparison")
+    lines.append("# protoPen Eval Comparison")
     lines.append("")
     lines.append(f"**Backend A:** `{name_a}` (run: {sum_a['timestamp'][:19]})")
     lines.append(f"**Backend B:** `{name_b}` (run: {sum_b['timestamp'][:19]})")

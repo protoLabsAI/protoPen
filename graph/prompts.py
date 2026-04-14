@@ -119,5 +119,5 @@ def build_subagent_prompt(agent_name: str, workspace: str = "/sandbox") -> str:
     """Build system prompt for a specific subagent."""
     config = SUBAGENT_REGISTRY.get(agent_name)
     if not config:
-        return f"You are a security subagent. Complete the delegated task efficiently."
+        return "You are a security subagent. Complete the delegated task efficiently."
     return config.system_prompt
