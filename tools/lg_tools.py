@@ -74,6 +74,12 @@ from tools.container_audit import ContainerAuditTool
 # WebSocket testing
 from tools.websocket_test import WebSocketTestTool
 
+# Tier 2 — CI/CD, IPv6, IoT, AD
+from tools.cicd_audit import CICDAuditTool
+from tools.ipv6_attack import IPv6AttackTool
+from tools.iot_protocol import IoTProtocolTool
+from tools.ad_attack import ADAttackTool
+
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
 _rabbit_hole_bridge = None
@@ -135,6 +141,12 @@ _container_audit: ContainerAuditTool | None = None
 
 # WebSocket testing singleton
 _websocket_test: WebSocketTestTool | None = None
+
+# Tier 2 singletons
+_cicd_audit: CICDAuditTool | None = None
+_ipv6_attack: IPv6AttackTool | None = None
+_iot_protocol: IoTProtocolTool | None = None
+_ad_attack: ADAttackTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -530,6 +542,18 @@ def _init_pentest_singletons():
 
     global _websocket_test
     _websocket_test = WebSocketTestTool()
+
+    global _cicd_audit
+    _cicd_audit = CICDAuditTool()
+
+    global _ipv6_attack
+    _ipv6_attack = IPv6AttackTool()
+
+    global _iot_protocol
+    _iot_protocol = IoTProtocolTool()
+
+    global _ad_attack
+    _ad_attack = ADAttackTool()
 
 
 @tool
@@ -1687,6 +1711,134 @@ async def websocket_test(
     )
 
 
+@tool
+async def cicd_audit(
+    action: str,
+    repo_url: str = "",
+    path: str = ".",
+    timeout: int = 120,
+) -> str:
+    """CI/CD pipeline security scanning — secret detection, IaC scanning, SAST.
+
+    - trufflehog_scan: Scan git repo history for leaked secrets
+    - trufflehog_filesystem: Scan local filesystem for secrets
+    - gitleaks_detect: Detect secrets committed to a git repository
+    - gitleaks_protect: Scan staged changes for secrets before commit
+    - github_actions_audit: Lint GitHub Actions workflows for security issues
+    - dependency_check: OWASP dependency-check for vulnerable libraries
+    - semgrep_ci: Static analysis security scan with semgrep
+    - checkov_iac: Infrastructure-as-code security scan
+    """
+    _init_pentest_singletons()
+    return await _cicd_audit.execute(
+        action=action, repo_url=repo_url, path=path, timeout=timeout,
+    )
+
+
+@tool
+async def ipv6_attack(
+    action: str,
+    target: str = "",
+    interface: str = "eth0",
+    network: str = "",
+    router: str = "",
+    new_router: str = "",
+    timeout: int = 60,
+) -> str:
+    """IPv6 network attack and discovery — THC-IPv6 suite, nmap IPv6.
+
+    - alive6: Discover alive IPv6 hosts on local link
+    - detect_sniffer6: Detect IPv6 sniffers on the network
+    - dos_new_ip6: DoS attack against new IPv6 addresses (DAD)
+    - fake_router6: Inject fake Router Advertisements for MITM
+    - flood_router6: Flood network with Router Advertisements
+    - parasite6: ICMPv6 Neighbor Advertisement spoofer
+    - redir6: Redirect traffic via ICMPv6 redirect messages
+    - nmap_ipv6: IPv6 nmap service version scan
+    - thcping6: Send crafted ICMPv6 packets
+    """
+    _init_pentest_singletons()
+    return await _ipv6_attack.execute(
+        action=action, target=target, interface=interface,
+        network=network, router=router, new_router=new_router,
+        timeout=timeout,
+    )
+
+
+@tool
+async def iot_protocol(
+    action: str,
+    target: str = "localhost",
+    topic: str = "#",
+    message: str = "test",
+    username: str = "admin",
+    wordlist: str = "/usr/share/wordlists/rockyou.txt",
+    count: int = 100,
+    resource: str = "",
+    slave_id: int = 1,
+    register: int = 0,
+    channel: int = 11,
+    path: str = "/tmp/zigbee.pcap",
+    timeout: int = 30,
+) -> str:
+    """IoT protocol security testing — MQTT, CoAP, Modbus, BACnet, UPnP, Zigbee.
+
+    - mqtt_discover: Subscribe to all MQTT topics and capture messages
+    - mqtt_pub_test: Test MQTT publish permissions
+    - mqtt_bruteforce: Brute-force MQTT broker credentials
+    - coap_discover: Discover CoAP resources
+    - coap_get: Read a CoAP resource
+    - modbus_scan: Scan for Modbus TCP devices
+    - modbus_read: Read Modbus holding registers
+    - bacnet_scan: Scan for BACnet devices
+    - upnp_discover: Discover UPnP devices
+    - zigbee_sniff: Sniff Zigbee traffic
+    """
+    _init_pentest_singletons()
+    return await _iot_protocol.execute(
+        action=action, target=target, topic=topic, message=message,
+        username=username, wordlist=wordlist, count=count,
+        resource=resource, slave_id=slave_id, register=register,
+        channel=channel, path=path, timeout=timeout,
+    )
+
+
+@tool
+async def ad_attack(
+    action: str,
+    target: str = "",
+    domain: str = "",
+    username: str = "",
+    password: str = "",
+    base_dn: str = "",
+    filter: str = "(objectClass=*)",
+    ca_name: str = "",
+    template: str = "",
+    wordlist: str = "",
+    timeout: int = 120,
+) -> str:
+    """Active Directory security testing — BloodHound, Certipy, impacket.
+
+    - bloodhound_collect: Collect AD data for BloodHound analysis
+    - bloodhound_edges: Collect ACL and trust relationships
+    - certipy_find: Enumerate AD Certificate Services templates
+    - certipy_vuln: Find vulnerable ADCS certificate templates
+    - certipy_req: Request a certificate from a vulnerable template
+    - enum4linux_ng: Enumerate SMB/LDAP/RPC information
+    - ldapsearch: LDAP search query
+    - kerberoast: Extract Kerberoastable service account hashes
+    - asreproast: Extract AS-REP roastable user hashes
+    - secretsdump: Dump secrets from domain controller
+    """
+    _init_pentest_singletons()
+    return await _ad_attack.execute(
+        action=action, target=target, domain=domain,
+        username=username, password=password, base_dn=base_dn,
+        filter=filter, ca_name=ca_name, template=template,
+        wordlist=wordlist, timeout=timeout,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -1749,6 +1901,11 @@ def get_pentest_tools():
         container_audit,
         # WebSocket testing
         websocket_test,
+        # Tier 2 — CI/CD, IPv6, IoT, AD
+        cicd_audit,
+        ipv6_attack,
+        iot_protocol,
+        ad_attack,
     ]
 
 

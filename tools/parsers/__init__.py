@@ -71,3 +71,8 @@ from tools.parsers import ir_toolkit        # noqa: E402,F401
 from tools.parsers import container_audit   # noqa: E402,F401
 # WebSocket testing
 from tools.parsers import websocket_test    # noqa: E402,F401
+# Tier 2 — CI/CD, IPv6, IoT, AD
+from tools.parsers import cicd_audit        # noqa: E402,F401
+from tools.parsers import ipv6_attack       # noqa: E402,F401
+from tools.parsers import iot_protocol      # noqa: E402,F401
+from tools.parsers import ad_attack         # noqa: E402,F401

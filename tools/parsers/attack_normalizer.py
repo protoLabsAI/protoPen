@@ -46,6 +46,52 @@ _RED_RULES: dict[tuple[str, str], list[dict]] = {
     ("lateral_move", "wmiexec"): [
         {"technique_id": "T1021", "technique_name": "Remote Services"},
     ],
+    # Tier 2 — CI/CD audit
+    ("cicd_audit", "trufflehog_scan"): [
+        {"technique_id": "T1552", "technique_name": "Unsecured Credentials"},
+    ],
+    ("cicd_audit", "gitleaks_detect"): [
+        {"technique_id": "T1552", "technique_name": "Unsecured Credentials"},
+    ],
+    ("cicd_audit", "semgrep_ci"): [
+        {"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter"},
+    ],
+    # Tier 2 — IPv6
+    ("ipv6_attack", "alive6"): [
+        {"technique_id": "T1018", "technique_name": "Remote System Discovery"},
+    ],
+    ("ipv6_attack", "nmap_ipv6"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("ipv6_attack", "fake_router6"): [
+        {"technique_id": "T1557", "technique_name": "Adversary-in-the-Middle"},
+    ],
+    ("ipv6_attack", "parasite6"): [
+        {"technique_id": "T1557", "technique_name": "Adversary-in-the-Middle"},
+    ],
+    # Tier 2 — IoT
+    ("iot_protocol", "mqtt_bruteforce"): [
+        {"technique_id": "T1110", "technique_name": "Brute Force"},
+    ],
+    ("iot_protocol", "modbus_scan"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    # Tier 2 — AD
+    ("ad_attack", "bloodhound_collect"): [
+        {"technique_id": "T1087", "technique_name": "Account Discovery"},
+    ],
+    ("ad_attack", "certipy_vuln"): [
+        {"technique_id": "T1649", "technique_name": "Steal or Forge Authentication Certificates"},
+    ],
+    ("ad_attack", "kerberoast"): [
+        {"technique_id": "T1558", "technique_name": "Steal or Forge Kerberos Tickets"},
+    ],
+    ("ad_attack", "asreproast"): [
+        {"technique_id": "T1558", "technique_name": "Steal or Forge Kerberos Tickets"},
+    ],
+    ("ad_attack", "secretsdump"): [
+        {"technique_id": "T1003", "technique_name": "OS Credential Dumping"},
+    ],
 }
 
 _BLUE_RULES: dict[tuple[str, str], list[dict]] = {
@@ -174,6 +220,24 @@ _HEURISTIC: dict[tuple[str, str], callable] = {
     ("net_monitor", "traffic_baseline"): _json_has_issues,
     ("ir_toolkit", "ioc_scan"): _json_has_issues,
     ("ir_toolkit", "auth_log_analyze"): _json_has_issues,
+    # Tier 2 — CI/CD
+    ("cicd_audit", "trufflehog_scan"): _prose_has_results,
+    ("cicd_audit", "gitleaks_detect"): _json_has_issues,
+    ("cicd_audit", "semgrep_ci"): _json_has_issues,
+    # Tier 2 — IPv6
+    ("ipv6_attack", "alive6"): _prose_has_results,
+    ("ipv6_attack", "nmap_ipv6"): _nmap_has_results,
+    ("ipv6_attack", "fake_router6"): _prose_has_results,
+    ("ipv6_attack", "parasite6"): _prose_has_results,
+    # Tier 2 — IoT
+    ("iot_protocol", "mqtt_bruteforce"): _prose_has_results,
+    ("iot_protocol", "modbus_scan"): _nmap_has_results,
+    # Tier 2 — AD
+    ("ad_attack", "bloodhound_collect"): _prose_has_results,
+    ("ad_attack", "certipy_vuln"): _json_has_issues,
+    ("ad_attack", "kerberoast"): _prose_has_results,
+    ("ad_attack", "asreproast"): _prose_has_results,
+    ("ad_attack", "secretsdump"): _prose_has_results,
 }
 
 

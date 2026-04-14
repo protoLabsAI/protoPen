@@ -16,10 +16,12 @@ MITRE_TACTICS: dict[str, list[dict[str, str]]] = {
         {"id": "T1190", "name": "Exploit Public-Facing Application"},
         {"id": "T1566", "name": "Phishing"},
         {"id": "T1078", "name": "Valid Accounts"},
+        {"id": "T1659", "name": "Content Injection"},
     ],
     "execution": [
         {"id": "T1059", "name": "Command and Scripting Interpreter"},
         {"id": "T1053", "name": "Scheduled Task/Job"},
+        {"id": "T1648", "name": "Serverless Execution"},
     ],
     "persistence": [
         {"id": "T1098", "name": "Account Manipulation"},
@@ -29,26 +31,34 @@ MITRE_TACTICS: dict[str, list[dict[str, str]]] = {
     "privilege_escalation": [
         {"id": "T1548", "name": "Abuse Elevation Control Mechanism"},
         {"id": "T1068", "name": "Exploitation for Privilege Escalation"},
+        {"id": "T1651", "name": "Cloud Administration Command"},
     ],
     "defense_evasion": [
         {"id": "T1070", "name": "Indicator Removal"},
         {"id": "T1036", "name": "Masquerading"},
+        {"id": "T1550", "name": "Use Alternate Authentication Material"},
     ],
     "credential_access": [
         {"id": "T1110", "name": "Brute Force"},
         {"id": "T1003", "name": "OS Credential Dumping"},
+        {"id": "T1649", "name": "Steal or Forge Authentication Certificates"},
+        {"id": "T1558", "name": "Steal or Forge Kerberos Tickets"},
     ],
     "discovery": [
         {"id": "T1046", "name": "Network Service Discovery"},
         {"id": "T1087", "name": "Account Discovery"},
+        {"id": "T1613", "name": "Container and Resource Discovery"},
+        {"id": "T1018", "name": "Remote System Discovery"},
     ],
     "lateral_movement": [
         {"id": "T1021", "name": "Remote Services"},
         {"id": "T1080", "name": "Taint Shared Content"},
+        {"id": "T1610", "name": "Deploy Container"},
     ],
     "collection": [
         {"id": "T1005", "name": "Data from Local System"},
         {"id": "T1039", "name": "Data from Network Shared Drive"},
+        {"id": "T1557", "name": "Adversary-in-the-Middle"},
     ],
     "exfiltration": [
         {"id": "T1048", "name": "Exfiltration Over Alternative Protocol"},
@@ -57,6 +67,7 @@ MITRE_TACTICS: dict[str, list[dict[str, str]]] = {
     "impact": [
         {"id": "T1486", "name": "Data Encrypted for Impact"},
         {"id": "T1489", "name": "Service Stop"},
+        {"id": "T1496", "name": "Resource Hijacking"},
     ],
 }
 
