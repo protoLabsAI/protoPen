@@ -7,10 +7,7 @@ CVEs, exploits, advisories, threat intel, and digests.
 import json
 from typing import Any
 
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 from knowledge.store import KnowledgeStore
 

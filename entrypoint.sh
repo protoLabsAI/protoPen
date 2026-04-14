@@ -4,24 +4,13 @@
 echo "[entrypoint] Starting protoPen"
 
 # Create dirs inside tmpfs home
-mkdir -p /home/sandbox/.nanobot /home/sandbox/.local
-
-# Symlink persistent cron data into nanobot's expected location
-if [ -d /opt/.cron ]; then
-    ln -sf /opt/.cron /home/sandbox/.nanobot/cron
-fi
+mkdir -p /home/sandbox/.local
 
 # Ensure persistent volume dirs exist
 mkdir -p /sandbox/audit /sandbox/knowledge /sandbox/papers
 
-# Copy configs from read-only image, expanding env vars (e.g. MCP_AUTH_TOKEN)
-envsubst < /opt/protopen/config/nanobot-config.json > /home/sandbox/.nanobot/config.json
-
-# Copy persona into workspace (nanobot reads SOUL.md from workspace)
-mkdir -p /sandbox
-cp /opt/protopen/config/SOUL.md /sandbox/SOUL.md
-
 # Copy skills into workspace
+mkdir -p /sandbox
 cp -r /opt/protopen/skills /sandbox/skills
 
 # --- Claude credentials ---
@@ -136,4 +125,4 @@ if [ -n "${LAB_GPU}" ] || command -v nvidia-smi &>/dev/null; then
 fi
 
 # Start protoPen Gradio UI on port 7870
-exec python /opt/protopen/server.py --config /home/sandbox/.nanobot/config.json
+exec python /opt/protopen/server.py

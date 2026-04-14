@@ -11,10 +11,7 @@ from typing import Any
 
 import httpx
 
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 _NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 _TIMEOUT = 30

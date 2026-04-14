@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 _HF_API = "https://huggingface.co/api"
 _TIMEOUT = 30

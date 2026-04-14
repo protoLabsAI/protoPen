@@ -9,7 +9,7 @@ Toggled on/off via /lab command. Only available when running with the
 
 from typing import Any
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 from lab.runner import ExperimentRunner
 

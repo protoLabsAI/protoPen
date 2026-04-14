@@ -8,11 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.parsers import ingest_output
-
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
 

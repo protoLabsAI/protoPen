@@ -9,7 +9,7 @@ import json
 import os
 from typing import Any
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 
 class BrowserTool(Tool):

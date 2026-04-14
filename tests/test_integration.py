@@ -9,16 +9,19 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
+import sys
+
 try:
     import langchain_core  # noqa: F401
-    import nanobot.agent  # noqa: F401
-    HAS_LANGCHAIN = True
+    # Tools use Python 3.10+ type union syntax (dict | None);
+    # integration tests that import them must skip on older interpreters.
+    HAS_LANGCHAIN = sys.version_info >= (3, 10)
 except ImportError:
     HAS_LANGCHAIN = False
 
 needs_langchain = pytest.mark.skipif(
     not HAS_LANGCHAIN,
-    reason="langchain_core or nanobot.agent not installed",
+    reason="langchain_core not installed or Python < 3.10",
 )
 
 

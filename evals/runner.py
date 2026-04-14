@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Evaluation runner for protoPen agent backends.
+"""Evaluation runner for protoPen agent.
 
 Loads tasks from tasks.json, runs each through the chat() interface,
 and records timing, tool usage, and response quality metrics.
 
 Usage:
-    python -m evals.runner --backend nanobot
     python -m evals.runner --backend langgraph
-    python -m evals.runner --backend nanobot --dry-run
-    python -m evals.runner --backend nanobot --tasks simple_question,hf_model_search
+    python -m evals.runner --backend langgraph --dry-run
+    python -m evals.runner --backend langgraph --tasks simple_question,hf_model_search
 """
 
 import argparse
@@ -269,8 +268,8 @@ def main():
     parser = argparse.ArgumentParser(description="protoPen eval runner")
     parser.add_argument(
         "--backend",
-        choices=["nanobot", "langgraph"],
-        required=True,
+        choices=["langgraph"],
+        default="langgraph",
         help="Agent backend to evaluate",
     )
     parser.add_argument(

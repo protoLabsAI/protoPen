@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 _BASE_URL = os.environ.get("RABBIT_HOLE_URL", "http://host.docker.internal:3399")
 _TIMEOUT = 30

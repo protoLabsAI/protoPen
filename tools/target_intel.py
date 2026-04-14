@@ -7,10 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 from knowledge.target_store import TargetStore
 

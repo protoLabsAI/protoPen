@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 _DISCORD_API = "https://discord.com/api/v10"
 _WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")

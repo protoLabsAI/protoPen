@@ -12,10 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 from tools.device_manager import DeviceConnection
 

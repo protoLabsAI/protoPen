@@ -7,10 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-try:
-    from nanobot.tool import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 from tools.device_manager import DeviceConnection
 

@@ -12,10 +12,7 @@ from typing import Any
 
 import httpx
 
-try:
-    from nanobot.agent.tools.base import Tool
-except ImportError:
-    from tools._tool_base import Tool
+from tools._tool_base import Tool
 
 _TIMEOUT = 30
 _MAX_RETRIES = 2

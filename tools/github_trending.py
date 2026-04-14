@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from nanobot.agent.tools.base import Tool
+from tools._tool_base import Tool
 
 _GITHUB_API = "https://api.github.com"
 _TIMEOUT = 30

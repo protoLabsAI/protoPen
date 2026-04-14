@@ -29,9 +29,8 @@ RUN ARCH=$(dpkg --print-architecture) \
     | tar xz -C /usr/local/bin cli-proxy-api \
     && chmod +x /usr/local/bin/cli-proxy-api
 
-# Install nanobot from submodule + Python deps
-COPY nanobot/ /opt/nanobot/
-RUN pip install --no-cache-dir /opt/nanobot/ \
+# Install Python deps
+RUN pip install --no-cache-dir \
     gradio sqlite-vec httpx uvicorn langfuse prometheus-client PyMuPDF pyyaml \
     langchain langchain-openai langgraph websockets
 
@@ -59,10 +58,6 @@ RUN mkdir -p /sandbox /tmp/sandbox /sandbox/audit /sandbox/knowledge /sandbox/pa
 # Persistent dirs (volumes mounted at runtime)
 RUN mkdir -p /opt/.cliproxy /opt/.cron \
     && chown -R sandbox:sandbox /opt/.cliproxy /opt/.cron
-
-# Nanobot data dir
-RUN mkdir -p /home/sandbox/.nanobot \
-    && chown -R sandbox:sandbox /home/sandbox/.nanobot
 
 # Drop to sandbox user
 USER sandbox
