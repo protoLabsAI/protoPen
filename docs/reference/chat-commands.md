@@ -15,7 +15,6 @@ Slash commands available in the protoPen chat UI. These are handled locally befo
 | `/cves [query]` | optional search query | Search stored advisories. Without a query, shows the 10 most recent CVEs. |
 | `/recent [n]` | optional count (default 10) | Show recent advisories and threat intel. |
 | `/audit [n]` | optional count (default 20) | Show recent audit log entries for the current session with tool name, duration, and status. |
-| `/lab on\|off\|status` | `on`, `off`, or `status` | Toggle lab mode (GPU experiment runner). Registers/unregisters the `lab_bench` tool. |
 | `/intel` | -- | Generate a weekly threat intel digest and publish it to Discord via the configured webhook. |
 | `/help` | -- | Show the command help table. |
 

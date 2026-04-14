@@ -19,7 +19,7 @@ from graph.middleware.knowledge_ingest import KnowledgeIngestMiddleware
 from graph.middleware.memory import MemoryMiddleware
 from graph.middleware.message_capture import MessageCaptureMiddleware
 from graph.subagents.config import SUBAGENT_REGISTRY
-from tools.lg_tools import get_all_tools, get_combined_tools, get_engagement_manager, create_lab_bench_tool
+from tools.lg_tools import get_all_tools, get_combined_tools, get_engagement_manager
 
 
 def _build_middleware(config: LangGraphConfig, knowledge_store=None):

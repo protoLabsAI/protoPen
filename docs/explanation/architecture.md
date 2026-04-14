@@ -18,16 +18,15 @@ protoPen is an autonomous pen-testing and security research agent that runs on a
 │              │   (FastAPI)    │                                   │
 │              └───────┬────────┘                                   │
 │                      │                                           │
-│         ┌────────────┴────────────┐                              │
-│         ▼                         ▼                              │
-│  ┌──────────────┐      ┌───────────────────┐                    │
-│  │   nanobot    │      │    LangGraph       │                    │
-│  │  AgentLoop   │      │  create_agent()    │                    │
-│  │  (legacy)    │      │  + middleware      │                    │
-│  └──────┬───────┘      └───────┬───────────┘                    │
-│         │                      │                                 │
-│         └──────────┬───────────┘                                 │
-│                    ▼                                             │
+│                      │                                           │
+│                      ▼                                           │
+│              ┌───────────────────┐                               │
+│              │    LangGraph       │                               │
+│              │  create_agent()    │                               │
+│              │  + middleware      │                               │
+│              └───────────────────┘                               │
+│                      │                                           │
+│                      ▼                                           │
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │                   Subagents (task tool)                  │    │
 │  │  ┌──────────┐ ┌─────────┐ ┌────────┐                    │    │
@@ -44,7 +43,6 @@ protoPen is an autonomous pen-testing and security research agent that runs on a
 │  │  device_manager │ engagement │ target_intel              │    │
 │  │  cve_search │ security_feeds │ github_trending            │    │
 │  │  browser │ security_memory │ discord_feed                │    │
-│  │  rabbit_hole_bridge │ lab_bench                          │    │
 │  └─────────────────────┬───────────────────────────────────┘    │
 │                        ▼                                         │
 │  ┌───────────────┐  ┌───────────────┐  ┌──────────────────┐    │
@@ -62,24 +60,14 @@ protoPen is an autonomous pen-testing and security research agent that runs on a
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Two Agent Backends
+## Agent Backend
 
-protoPen supports two agent backends, selected via the `AGENT_BACKEND` environment variable:
-
-### nanobot (legacy)
-
-The original backend. Uses the nanobot `AgentLoop` with a `LiteLLMProvider` for model access. Tools are registered directly on the agent's tool registry. Session state is managed by nanobot's built-in session manager.
-
-### LangGraph (recommended)
-
-The current backend. Uses LangChain's `create_agent()` with a compiled LangGraph state machine. Features:
+protoPen uses LangChain's `create_agent()` with a compiled LangGraph state machine. Features:
 
 - **Middleware chain**: Knowledge injection, audit logging, memory consolidation, message capture
 - **Persistent sessions**: SQLite-backed checkpointer that survives container restarts
 - **Streaming**: `astream_events` for real-time tool progress and text generation
 - **Subagent delegation**: The `task` tool spawns specialized `create_react_agent` subgraphs
-
-Both backends share the same tool implementations, chat command handler, and HTTP endpoints.
 
 ## Six Subagents
 
@@ -89,9 +77,9 @@ The lead agent delegates work to six specialized subagents via the `task` tool:
 
 | Subagent | Role | Tools |
 |---|---|---|
-| **Threat Scanner** | Scans CVE feeds, Exploit-DB, security RSS, GitHub for new threats | cve_search, security_feeds, github_trending, browser, security_memory, rabbit_hole_bridge |
-| **Vuln Analyst** | Deep-reads advisories and PoCs, correlates with target intel, rates exploitability | cve_search, security_feeds, security_memory, browser, rabbit_hole_bridge |
-| **Intel Reporter** | Synthesizes threat intel reports, publishes security digests to Discord | security_memory, discord_feed, rabbit_hole_bridge |
+| **Threat Scanner** | Scans CVE feeds, Exploit-DB, security RSS, GitHub for new threats | cve_search, security_feeds, github_trending, browser, security_memory |
+| **Vuln Analyst** | Deep-reads advisories and PoCs, correlates with target intel, rates exploitability | cve_search, security_feeds, security_memory, browser |
+| **Intel Reporter** | Synthesizes threat intel reports, publishes security digests to Discord | security_memory, discord_feed |
 
 ### Pentest Domain
 

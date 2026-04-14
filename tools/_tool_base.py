@@ -1,4 +1,4 @@
-"""Minimal Tool base class shim for when nanobot is not installed."""
+"""Minimal Tool base class for protoPen tools."""
 from abc import ABC, abstractmethod
 from typing import Any
 

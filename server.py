@@ -101,7 +101,6 @@ _HELP_TEXT = """\
 | `/cves [query]` | Search stored CVEs and advisories |
 | `/recent [n]` | Show recent findings |
 | `/audit [n]` | Show recent audit log entries |
-| `/lab on\\|off\\|status` | Toggle lab mode (GPU experiment runner) |
 | `/intel` | Generate security intelligence digest and publish to Discord |
 | `/purple <scope>` | Run purple team exercise (red+blue+ATT&CK report) |
 | `/help` | Show this help |
@@ -174,9 +173,6 @@ async def _handle_command(
 
     if cmd == "recent":
         return await _handle_recent_command(args)
-
-    if cmd == "lab":
-        return await _handle_lab_command(args)
 
     if cmd == "intel":
         return await _handle_intel_command(session_id)
@@ -451,63 +447,6 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
     except Exception as e:
         return _msg(f"**Error publishing:** {e}")
 
-
-# ---------------------------------------------------------------------------
-# Lab mode — toggleable GPU experiment runner
-# ---------------------------------------------------------------------------
-
-_lab_mode = False
-_lab_tool = None
-
-
-def _is_lab_available() -> bool:
-    """Check if GPU/lab dependencies are available."""
-    import os
-    return os.path.exists("/opt/llama-factory") or os.environ.get("LAB_GPU") is not None
-
-
-async def _handle_lab_command(args: str) -> list[dict[str, Any]]:
-    global _lab_mode, _lab_tool
-    subcmd = args.strip().lower() or "status"
-
-    if subcmd == "on":
-        if _lab_mode:
-            return _msg("Lab mode is already **on**.")
-        if not _is_lab_available():
-            return _msg(
-                "**Lab mode unavailable.** Run with the lab profile:\n"
-                "```\ndocker compose --profile lab up --build\n```"
-            )
-        from tools.lab_bench import LabBenchTool
-        _lab_tool = LabBenchTool()
-        _lab_mode = True
-
-        import os
-        gpu = os.environ.get("LAB_GPU", "1")
-        return _msg(
-            f"**Lab mode ON.** `lab_bench` tool registered.\n"
-            f"GPU: `CUDA_VISIBLE_DEVICES={gpu}`\n"
-            f"Models: Qwen3.5-0.8B, Qwen3.5-2B\n"
-            f"Stack: LLaMA-Factory (LoRA DPO)\n\n"
-            f"Use `lab_bench` tool to init and run experiments."
-        )
-
-    if subcmd == "off":
-        if not _lab_mode:
-            return _msg("Lab mode is already **off**.")
-        _lab_tool = None
-        _lab_mode = False
-        return _msg("**Lab mode OFF.** `lab_bench` tool unregistered.")
-
-    if subcmd == "status":
-        if not _lab_mode:
-            return _msg("Lab mode is **off**. Use `/lab on` to enable.")
-        if _lab_tool:
-            status = _lab_tool._runner.get_status()
-            return _msg(f"Lab mode is **on**.\n\n{status}")
-        return _msg("Lab mode is **on** (no experiments yet).")
-
-    return _msg("Usage: `/lab on`, `/lab off`, `/lab status`")
 
 
 # ---------------------------------------------------------------------------

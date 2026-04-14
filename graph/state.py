@@ -39,5 +39,4 @@ class ResearcherState(AgentState):
     # Current research topic (set by user message analysis)
     current_topic: NotRequired[str | None]
 
-    # Captured message() tool content (for nanobot compat)
     captured_messages: Annotated[list[str], operator.add]

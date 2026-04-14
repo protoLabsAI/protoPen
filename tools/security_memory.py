@@ -1,4 +1,4 @@
-"""Security memory tool — nanobot Tool interface for the knowledge store.
+"""Security memory tool — LangGraph tool interface for the knowledge store.
 
 Wraps KnowledgeStore as a tool the agent can call to store and search
 CVEs, exploits, advisories, threat intel, and digests.

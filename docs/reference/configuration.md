@@ -91,11 +91,11 @@ model:
 subagents:
   threat_scanner:
     enabled: true
-    tools: [cve_search, security_feeds, github_trending, browser, security_memory, rabbit_hole_bridge]
+    tools: [cve_search, security_feeds, github_trending, browser, security_memory]
     max_turns: 30
   vuln_analyst:
     enabled: true
-    tools: [cve_search, security_feeds, security_memory, browser, rabbit_hole_bridge]
+    tools: [cve_search, security_feeds, security_memory, browser, target_intel]
     max_turns: 40
   # ... (intel_reporter, recon, exploit, reporter)
 
@@ -120,16 +120,6 @@ knowledge:
 | `subagents` | Per-subagent tool allowlists, enable/disable, max turns |
 | `middleware` | Toggle knowledge injection, audit logging, memory consolidation |
 | `knowledge` | Embedding model, vector search config, contextual enrichment setting |
-
----
-
-## nanobot-config.json
-
-Configuration for the nanobot (legacy) agent backend.
-
-**Path:** `config/nanobot-config.json`
-
-This follows the standard nanobot configuration format. Refer to the nanobot documentation for the full schema. Key settings include model selection, provider configuration, tool restrictions, and workspace paths.
 
 ---
 
