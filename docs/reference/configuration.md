@@ -95,7 +95,7 @@ subagents:
     max_turns: 30
   vuln_analyst:
     enabled: true
-    tools: [cve_search, security_feeds, security_memory, browser]
+    tools: [cve_search, security_feeds, security_memory, browser, target_intel]
     max_turns: 40
   # ... (intel_reporter, recon, exploit, reporter)
 
