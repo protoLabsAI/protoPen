@@ -1,4 +1,5 @@
 """Tests for grpc_audit parsers."""
+
 from __future__ import annotations
 
 import json
@@ -63,7 +64,9 @@ class TestParseCall:
 
 class TestParseFuzz:
     def test_results(self, store):
-        raw = json.dumps({"results": [{"service": "my.Api", "method": "GetUser", "severity": "high", "message": "crash on input"}]})
+        raw = json.dumps(
+            {"results": [{"service": "my.Api", "method": "GetUser", "severity": "high", "message": "crash on input"}]}
+        )
         entities = parse_grpc_fuzz(raw, store)
         assert len(entities) == 1
         assert entities[0]["severity"] == "high"

@@ -5,6 +5,7 @@ Makes a GET to the URL, records cookies, then makes a POST to discoverable
 login endpoints. Checks for session fixation, missing HttpOnly/Secure/SameSite
 cookie flags, and whether session IDs regenerate after login.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,54 +36,64 @@ LOGIN_PATHS = [
 ]
 
 SESSION_COOKIE_NAMES = re.compile(
-    r'(?:session|sess|sid|auth|token|jwt|connect\.sid|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|CSRF)',
+    r"(?:session|sess|sid|auth|token|jwt|connect\.sid|PHPSESSID|JSESSIONID|ASP\.NET_SessionId|CSRF)",
     re.IGNORECASE,
 )
 
 
-def _analyze_cookie_flags(cookie: requests.cookies.RequestsCookieJar | Any, cookie_name: str, cookie_value: str, resp: requests.Response) -> list[dict[str, Any]]:
+def _analyze_cookie_flags(
+    cookie: requests.cookies.RequestsCookieJar | Any, cookie_name: str, cookie_value: str, resp: requests.Response
+) -> list[dict[str, Any]]:
     """Analyze Set-Cookie header flags for a given cookie name."""
     findings: list[dict[str, Any]] = []
 
     # Parse Set-Cookie header(s) from response
-    set_cookie_headers = resp.raw.headers.getlist('Set-Cookie') if hasattr(resp.raw.headers, 'getlist') else []
+    set_cookie_headers = resp.raw.headers.getlist("Set-Cookie") if hasattr(resp.raw.headers, "getlist") else []
     if not set_cookie_headers:
         # Fallback: parse from response.headers
-        raw_header = resp.headers.get('Set-Cookie', '')
+        raw_header = resp.headers.get("Set-Cookie", "")
         if raw_header:
             set_cookie_headers = [raw_header]
 
     for sc_header in set_cookie_headers:
-        if not sc_header.startswith(cookie_name + '='):
+        if not sc_header.startswith(cookie_name + "="):
             continue
 
         flags = sc_header.lower()
-        if 'httponly' not in flags:
-            findings.append({
-                "severity": "medium",
-                "vulnerability_type": "cookie_flags_missing",
-                "message": f"Session cookie '{cookie_name}' missing HttpOnly flag — accessible via JavaScript",
-            })
+        if "httponly" not in flags:
+            findings.append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "cookie_flags_missing",
+                    "message": f"Session cookie '{cookie_name}' missing HttpOnly flag — accessible via JavaScript",
+                }
+            )
 
-        if 'secure' not in flags:
-            findings.append({
-                "severity": "medium",
-                "vulnerability_type": "cookie_flags_missing",
-                "message": f"Session cookie '{cookie_name}' missing Secure flag — transmitted over HTTP",
-            })
+        if "secure" not in flags:
+            findings.append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "cookie_flags_missing",
+                    "message": f"Session cookie '{cookie_name}' missing Secure flag — transmitted over HTTP",
+                }
+            )
 
-        if 'samesite' not in flags:
-            findings.append({
-                "severity": "medium",
-                "vulnerability_type": "cookie_flags_missing",
-                "message": f"Session cookie '{cookie_name}' missing SameSite attribute — CSRF risk",
-            })
-        elif 'samesite=none' in flags and 'secure' not in flags:
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": "cookie_samesite_none_no_secure",
-                "message": f"Session cookie '{cookie_name}' has SameSite=None without Secure — cross-site requests allowed over HTTP",
-            })
+        if "samesite" not in flags:
+            findings.append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "cookie_flags_missing",
+                    "message": f"Session cookie '{cookie_name}' missing SameSite attribute — CSRF risk",
+                }
+            )
+        elif "samesite=none" in flags and "secure" not in flags:
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": "cookie_samesite_none_no_secure",
+                    "message": f"Session cookie '{cookie_name}' has SameSite=None without Secure — cross-site requests allowed over HTTP",
+                }
+            )
 
     return findings
 
@@ -94,11 +105,11 @@ def get_session_cookies(resp: requests.Response) -> dict[str, str]:
         if SESSION_COOKIE_NAMES.search(cookie.name):
             cookies[cookie.name] = cookie.value
     # Also check Set-Cookie header for cookies not in requests cookie jar
-    for sc in resp.headers.get('Set-Cookie', '').split('\n'):
-        if '=' in sc:
-            name = sc.split('=')[0].strip()
+    for sc in resp.headers.get("Set-Cookie", "").split("\n"):
+        if "=" in sc:
+            name = sc.split("=")[0].strip()
             if SESSION_COOKIE_NAMES.search(name) and name not in cookies:
-                cookies[name] = sc.split('=', 1)[1].split(';')[0].strip()
+                cookies[name] = sc.split("=", 1)[1].split(";")[0].strip()
     return cookies
 
 
@@ -123,11 +134,13 @@ def main() -> None:
             result["findings"].extend(flag_findings)
 
         if not pre_login_cookies:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "no_session_cookie",
-                "message": "No session-like cookies found on initial GET — may use token-based auth",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "no_session_cookie",
+                    "message": "No session-like cookies found on initial GET — may use token-based auth",
+                }
+            )
 
         # Step 2: Find login endpoint
         parsed = urlparse(args.url)
@@ -145,17 +158,21 @@ def main() -> None:
                 pass
 
         if not login_url:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "login_endpoint_not_found",
-                "message": "Could not discover login endpoint — session fixation test skipped",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "login_endpoint_not_found",
+                    "message": "Could not discover login endpoint — session fixation test skipped",
+                }
+            )
         else:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "login_endpoint_found",
-                "message": f"Login endpoint found: {login_url}",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "login_endpoint_found",
+                    "message": f"Login endpoint found: {login_url}",
+                }
+            )
 
             # Step 3: POST to login with dummy credentials
             post_data = {
@@ -177,17 +194,21 @@ def main() -> None:
                     post_value = post_login_cookies.get(cookie_name)
                     if post_value is not None:
                         if post_value == pre_value:
-                            result["findings"].append({
-                                "severity": "high",
-                                "vulnerability_type": "session_fixation",
-                                "message": f"Session cookie '{cookie_name}' was NOT regenerated after login attempt — session fixation risk",
-                            })
+                            result["findings"].append(
+                                {
+                                    "severity": "high",
+                                    "vulnerability_type": "session_fixation",
+                                    "message": f"Session cookie '{cookie_name}' was NOT regenerated after login attempt — session fixation risk",
+                                }
+                            )
                         else:
-                            result["findings"].append({
-                                "severity": "info",
-                                "vulnerability_type": "session_regenerated",
-                                "message": f"Session cookie '{cookie_name}' was regenerated after login — good",
-                            })
+                            result["findings"].append(
+                                {
+                                    "severity": "info",
+                                    "vulnerability_type": "session_regenerated",
+                                    "message": f"Session cookie '{cookie_name}' was regenerated after login — good",
+                                }
+                            )
 
                 # Analyze flags on post-login cookies
                 for cookie_name, cookie_value in post_login_cookies.items():
@@ -195,31 +216,37 @@ def main() -> None:
                     result["findings"].extend(flag_findings)
 
             except requests.RequestException as exc:
-                result["findings"].append({
-                    "severity": "info",
-                    "vulnerability_type": "login_post_error",
-                    "message": f"POST to login endpoint failed: {exc}",
-                })
+                result["findings"].append(
+                    {
+                        "severity": "info",
+                        "vulnerability_type": "login_post_error",
+                        "message": f"POST to login endpoint failed: {exc}",
+                    }
+                )
 
         # Check CSRF protection
         resp_check = session.get(args.url, timeout=10)
-        csrf_indicators = ['csrf', 'xsrf', '_token', 'authenticity_token']
+        csrf_indicators = ["csrf", "xsrf", "_token", "authenticity_token"]
         html = resp_check.text.lower()
         has_csrf = any(ind in html for ind in csrf_indicators)
         if not has_csrf:
-            result["findings"].append({
-                "severity": "medium",
-                "vulnerability_type": "csrf_token_not_detected",
-                "message": "No CSRF token indicators found in page HTML — CSRF protection may be absent",
-            })
+            result["findings"].append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "csrf_token_not_detected",
+                    "message": "No CSRF token indicators found in page HTML — CSRF protection may be absent",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["findings"].append({
-            "severity": "error",
-            "vulnerability_type": "scan_error",
-            "message": f"Scan failed: {exc}",
-        })
+        result["findings"].append(
+            {
+                "severity": "error",
+                "vulnerability_type": "scan_error",
+                "message": f"Scan failed: {exc}",
+            }
+        )
         logger.error("session_test error: %s", exc)
 
     print(json.dumps(result))

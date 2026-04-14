@@ -3,6 +3,7 @@
 Validates that tool targets (IPs, hostnames, URLs) are within the defined
 engagement scope before allowing execution.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -16,7 +17,6 @@ from urllib.parse import urlparse
 _TOOL_TARGET_ARG: dict[str, str] = {
     "nmap_scan": "target",
     "nmap_vuln_scan": "target",
-    "nikto_scan": "url",
     "gobuster_scan": "url",
     # Enhanced BlackArch
     "nmap_os_detect": "target",
@@ -218,10 +218,7 @@ class ScopeValidator:
         if not hostname:
             return False
         hostname_lower = hostname.lower()
-        return any(
-            fnmatch.fnmatch(hostname_lower, pattern.lower())
-            for pattern in self._targets
-        )
+        return any(fnmatch.fnmatch(hostname_lower, pattern.lower()) for pattern in self._targets)
 
     @staticmethod
     def _extract_ip(target: str) -> Optional[ipaddress.IPv4Address | ipaddress.IPv6Address]:

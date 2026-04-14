@@ -1,4 +1,5 @@
 """Tests for ipv6_attack parsers."""
+
 from __future__ import annotations
 
 import pytest
@@ -19,6 +20,7 @@ def store():
 
 # ── alive6 ───────────────────────────────────────────────────────────────────
 
+
 class TestParseAlive6:
     def test_hosts_found(self, store):
         raw = "fe80::1\nfe80::2\nfe80::dead:beef\n"
@@ -37,6 +39,7 @@ class TestParseAlive6:
 
 # ── detect-sniffer6 ──────────────────────────────────────────────────────────
 
+
 class TestParseDetectSniffer6:
     def test_sniffer_detected(self, store):
         raw = "Sniffer detected on fe80::bad\n"
@@ -54,6 +57,7 @@ class TestParseDetectSniffer6:
 
 # ── thc_text (generic) ───────────────────────────────────────────────────────
 
+
 class TestParseThcText:
     def test_output_lines(self, store):
         raw = "Starting attack...\nPacket sent\nDone\n"
@@ -66,6 +70,7 @@ class TestParseThcText:
 
 
 # ── nmap_ipv6 ────────────────────────────────────────────────────────────────
+
 
 class TestParseNmapIPv6:
     def test_hosts_with_ports(self, store):

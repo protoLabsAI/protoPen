@@ -1,4 +1,5 @@
 """Tests for ad_attack parsers — BloodHound, Certipy, enum4linux-ng, ldapsearch, Impacket."""
+
 from __future__ import annotations
 
 import json
@@ -24,6 +25,7 @@ def store():
 
 
 # ── BloodHound ───────────────────────────────────────────────────────────────
+
 
 class TestParseBloodhound:
     def test_collect_with_zip(self, store):
@@ -53,25 +55,30 @@ class TestParseBloodhound:
 
 # ── Certipy find ─────────────────────────────────────────────────────────────
 
+
 class TestParseCertipyFind:
     def test_templates_found(self, store):
-        raw = json.dumps({"Certificate Templates": {
-            "User": {
-                "Template Name": "User",
-                "Display Name": "User Certificate",
-                "Enabled": True,
-                "Client Authentication": True,
-                "Enrollee Supplies Subject": False,
-            },
-            "VulnTemplate": {
-                "Template Name": "VulnTemplate",
-                "Display Name": "Vulnerable Template",
-                "Enabled": True,
-                "Client Authentication": True,
-                "Enrollee Supplies Subject": True,
-                "Vulnerabilities": ["ESC1"],
-            },
-        }})
+        raw = json.dumps(
+            {
+                "Certificate Templates": {
+                    "User": {
+                        "Template Name": "User",
+                        "Display Name": "User Certificate",
+                        "Enabled": True,
+                        "Client Authentication": True,
+                        "Enrollee Supplies Subject": False,
+                    },
+                    "VulnTemplate": {
+                        "Template Name": "VulnTemplate",
+                        "Display Name": "Vulnerable Template",
+                        "Enabled": True,
+                        "Client Authentication": True,
+                        "Enrollee Supplies Subject": True,
+                        "Vulnerabilities": ["ESC1"],
+                    },
+                }
+            }
+        )
         entities = parse_certipy_find(raw, store)
         assert len(entities) == 2
         safe = [e for e in entities if e["target"] == "User"][0]
@@ -91,30 +98,39 @@ class TestParseCertipyFind:
 
 # ── Certipy vuln ─────────────────────────────────────────────────────────────
 
+
 class TestParseCertipyVuln:
     def test_vulnerable_templates(self, store):
-        raw = json.dumps({"Certificate Templates": {
-            "ESC1-Vuln": {
-                "Template Name": "ESC1-Vuln",
-                "Display Name": "ESC1 Vulnerable",
-                "Vulnerabilities": ["ESC1"],
-                "Enabled": True,
-                "Client Authentication": True,
-                "Enrollee Supplies Subject": True,
-            },
-        }})
+        raw = json.dumps(
+            {
+                "Certificate Templates": {
+                    "ESC1-Vuln": {
+                        "Template Name": "ESC1-Vuln",
+                        "Display Name": "ESC1 Vulnerable",
+                        "Vulnerabilities": ["ESC1"],
+                        "Enabled": True,
+                        "Client Authentication": True,
+                        "Enrollee Supplies Subject": True,
+                    },
+                }
+            }
+        )
         entities = parse_certipy_vuln(raw, store)
         assert len(entities) == 1
         assert entities[0]["severity"] == "critical"
         assert entities[0]["vulnerabilities"] == ["ESC1"]
 
     def test_no_vulnerable(self, store):
-        raw = json.dumps({"Certificate Templates": {
-            "Safe": {
-                "Template Name": "Safe",
-                "Vulnerabilities": [],
-            },
-        }})
+        raw = json.dumps(
+            {
+                "Certificate Templates": {
+                    "Safe": {
+                        "Template Name": "Safe",
+                        "Vulnerabilities": [],
+                    },
+                }
+            }
+        )
         assert parse_certipy_vuln(raw, store) == []
 
     def test_invalid_json(self, store):
@@ -123,20 +139,23 @@ class TestParseCertipyVuln:
 
 # ── enum4linux-ng ────────────────────────────────────────────────────────────
 
+
 class TestParseEnum4linux:
     def test_shares_users_groups(self, store):
-        raw = json.dumps({
-            "shares": [
-                {"name": "ADMIN$", "comment": "Remote Admin", "access": "NO ACCESS"},
-                {"name": "C$", "comment": "Default share", "access": "NO ACCESS"},
-            ],
-            "users": [
-                {"username": "Administrator", "name": "Built-in Administrator"},
-            ],
-            "groups": [
-                {"groupname": "Domain Admins", "members": ["Administrator", "svc_admin"]},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "shares": [
+                    {"name": "ADMIN$", "comment": "Remote Admin", "access": "NO ACCESS"},
+                    {"name": "C$", "comment": "Default share", "access": "NO ACCESS"},
+                ],
+                "users": [
+                    {"username": "Administrator", "name": "Built-in Administrator"},
+                ],
+                "groups": [
+                    {"groupname": "Domain Admins", "members": ["Administrator", "svc_admin"]},
+                ],
+            }
+        )
         entities = parse_enum4linux_ng(raw, store)
         assert len(entities) == 4  # 2 shares + 1 user + 1 group
         shares = [e for e in entities if e["check"] == "smb_share"]
@@ -156,6 +175,7 @@ class TestParseEnum4linux:
 
 
 # ── ldapsearch ───────────────────────────────────────────────────────────────
+
 
 class TestParseLdapsearch:
     def test_parse_ldif(self, store):
@@ -195,6 +215,7 @@ class TestParseLdapsearch:
 
 # ── Kerberoast ───────────────────────────────────────────────────────────────
 
+
 class TestParseKerberoast:
     def test_hashes_found(self, store):
         raw = (
@@ -218,6 +239,7 @@ class TestParseKerberoast:
 
 # ── AS-REP Roast ─────────────────────────────────────────────────────────────
 
+
 class TestParseASREPRoast:
     def test_hashes_found(self, store):
         raw = "$krb5asrep$23$user1@CORP.LOCAL:abc...\n$krb5asrep$23$user2@CORP.LOCAL:def..."
@@ -235,6 +257,7 @@ class TestParseASREPRoast:
 
 
 # ── secretsdump ──────────────────────────────────────────────────────────────
+
 
 class TestParseSecretsdump:
     def test_ntlm_hashes(self, store):

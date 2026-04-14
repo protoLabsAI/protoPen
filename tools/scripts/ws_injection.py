@@ -3,6 +3,7 @@
 Sends crafted payloads through a WebSocket connection to test for
 injection vulnerabilities (SQLi, XSS, command injection, path traversal).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -61,7 +62,10 @@ async def main(url: str, origin: str, categories: str) -> None:
         for payload in payloads:
             try:
                 async with websockets.connect(
-                    url, additional_headers=headers, ssl=ssl_ctx, open_timeout=10,
+                    url,
+                    additional_headers=headers,
+                    ssl=ssl_ctx,
+                    open_timeout=10,
                 ) as ws:
                     await ws.send(payload)
                     try:
@@ -70,8 +74,7 @@ async def main(url: str, origin: str, categories: str) -> None:
                         reflected = payload.lower() in resp.lower()
                         # Check for error messages that leak info
                         error_leak = any(
-                            kw in resp.lower()
-                            for kw in ["sql", "syntax", "error", "exception", "stack", "traceback"]
+                            kw in resp.lower() for kw in ["sql", "syntax", "error", "exception", "stack", "traceback"]
                         )
                         severity = "info"
                         if reflected:
@@ -79,31 +82,37 @@ async def main(url: str, origin: str, categories: str) -> None:
                         elif error_leak:
                             severity = "medium"
 
-                        results["tests"].append({
-                            "test": "injection",
-                            "category": cat,
-                            "payload": payload,
-                            "reflected": reflected,
-                            "error_leak": error_leak,
-                            "severity": severity,
-                            "response_preview": resp[:300],
-                        })
+                        results["tests"].append(
+                            {
+                                "test": "injection",
+                                "category": cat,
+                                "payload": payload,
+                                "reflected": reflected,
+                                "error_leak": error_leak,
+                                "severity": severity,
+                                "response_preview": resp[:300],
+                            }
+                        )
                     except asyncio.TimeoutError:
-                        results["tests"].append({
-                            "test": "injection",
-                            "category": cat,
-                            "payload": payload,
-                            "severity": "info",
-                            "detail": "No response (timeout)",
-                        })
+                        results["tests"].append(
+                            {
+                                "test": "injection",
+                                "category": cat,
+                                "payload": payload,
+                                "severity": "info",
+                                "detail": "No response (timeout)",
+                            }
+                        )
             except Exception as e:
-                results["tests"].append({
-                    "test": "injection",
-                    "category": cat,
-                    "payload": payload,
-                    "severity": "info",
-                    "detail": f"Connection error: {type(e).__name__}: {e}",
-                })
+                results["tests"].append(
+                    {
+                        "test": "injection",
+                        "category": cat,
+                        "payload": payload,
+                        "severity": "info",
+                        "detail": f"Connection error: {type(e).__name__}: {e}",
+                    }
+                )
 
     print(json.dumps(results))
 

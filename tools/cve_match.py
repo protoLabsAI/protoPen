@@ -1,4 +1,5 @@
 """CVE matching tool — cross-reference services with known CVEs."""
+
 from __future__ import annotations
 
 import logging
@@ -26,19 +27,30 @@ class CveMatchTool(BasePentestTool):
         },
         "cve_nmap": {
             "cmd": [
-                "nmap", "--script", "vulners",
-                "-sV", "-p", "{ports}", "{target}",
-                "-oX", "-",
+                "nmap",
+                "--script",
+                "vulners",
+                "-sV",
+                "-p",
+                "{ports}",
+                "{target}",
+                "-oX",
+                "-",
             ],
             "timeout": 120,
             "description": "NSE vulners script against discovered services",
         },
         "cve_nuclei": {
             "cmd": [
-                "nuclei", "-u", "{target}",
-                "-t", "cves/",
-                "-severity", "medium,high,critical",
-                "-jsonl", "-silent",
+                "nuclei",
+                "-u",
+                "{target}",
+                "-t",
+                "cves/",
+                "-severity",
+                "medium,high,critical",
+                "-jsonl",
+                "-silent",
             ],
             "timeout": 300,
             "description": "Nuclei CVE templates against target",
@@ -62,10 +74,7 @@ class CveMatchTool(BasePentestTool):
                 ports = ",".join(str(p) for p in stored_ports)
 
         spec = self.ACTIONS[action]
-        cmd = [
-            c.format(target=target, query=query, ports=ports)
-            for c in spec["cmd"]
-        ]
+        cmd = [c.format(target=target, query=query, ports=ports) for c in spec["cmd"]]
         effective_timeout = spec.get("timeout", 120)
 
         return await self._run(

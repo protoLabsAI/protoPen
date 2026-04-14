@@ -1,4 +1,5 @@
 """Defensive scanning — CIS benchmarks, config audits, patch assessment, port baselines."""
+
 from __future__ import annotations
 
 import logging
@@ -44,8 +45,11 @@ class CisAuditTool(BasePentestTool):
         },
         "port_baseline": {
             "cmd": [
-                "python3", str(_SCRIPTS_DIR / "port_baseline.py"),
-                "{target}", "{expected_ports}", "{timeout}",
+                "python3",
+                str(_SCRIPTS_DIR / "port_baseline.py"),
+                "{target}",
+                "{expected_ports}",
+                "{timeout}",
             ],
             "timeout": 300,
             "description": "Compare open ports against expected baseline",
@@ -66,8 +70,10 @@ class CisAuditTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                target=target, port=port,
-                expected_ports=expected_ports, timeout=timeout,
+                target=target,
+                port=port,
+                expected_ports=expected_ports,
+                timeout=timeout,
             )
             for c in spec["cmd"]
         ]

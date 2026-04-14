@@ -1,4 +1,5 @@
 """Parser for SSRF detection output."""
+
 from __future__ import annotations
 
 import json
@@ -18,18 +19,22 @@ def parse_ssrf(raw: str, store: "TargetStore") -> list[dict]:
         if isinstance(data, list):
             for entry in data:
                 if entry.get("status") == 200:
-                    entities.append({
-                        "type": "ssrf_finding",
-                        "payload": entry.get("payload", ""),
-                        "status": entry.get("status", 0),
-                    })
+                    entities.append(
+                        {
+                            "type": "ssrf_finding",
+                            "payload": entry.get("payload", ""),
+                            "status": entry.get("status", 0),
+                        }
+                    )
         elif isinstance(data, dict):
             if data.get("vulnerable"):
-                entities.append({
-                    "type": "ssrf_finding",
-                    "callback_url": data.get("callback_url", ""),
-                    "hits": len(data.get("hits", [])),
-                })
+                entities.append(
+                    {
+                        "type": "ssrf_finding",
+                        "callback_url": data.get("callback_url", ""),
+                        "hits": len(data.get("hits", [])),
+                    }
+                )
     except json.JSONDecodeError:
         pass
     return entities

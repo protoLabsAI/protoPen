@@ -1,4 +1,5 @@
 """IoT protocol security testing — MQTT, CoAP, Modbus, BACnet, UPnP, Zigbee."""
+
 from __future__ import annotations
 
 import logging
@@ -53,8 +54,13 @@ class IoTProtocolTool(BasePentestTool):
         },
         "modbus_read": {
             "cmd": [
-                "modbus-cli", "-s", "{slave_id}",
-                "read", "{target}", "{register}", "{count}",
+                "modbus-cli",
+                "-s",
+                "{slave_id}",
+                "read",
+                "{target}",
+                "{register}",
+                "{count}",
             ],
             "timeout": 15,
             "description": "Read Modbus holding registers",

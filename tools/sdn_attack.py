@@ -1,4 +1,5 @@
 """SDN/network security testing — controller enumeration, NETCONF, RESTCONF, OpenFlow auditing."""
+
 from __future__ import annotations
 
 import logging
@@ -22,9 +23,13 @@ class SDNAttackTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "sdn_controller_enum": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.sdn_enum",
-                "--target", "{target}",
-                "--port", "{port}",
+                "python3",
+                "-m",
+                "protopen_scripts.sdn_enum",
+                "--target",
+                "{target}",
+                "--port",
+                "{port}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -32,11 +37,17 @@ class SDNAttackTool(BasePentestTool):
         },
         "netconf_exploit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.netconf_audit",
-                "--target", "{target}",
-                "--port", "{netconf_port}",
-                "--username", "{username}",
-                "--password", "{password}",
+                "python3",
+                "-m",
+                "protopen_scripts.netconf_audit",
+                "--target",
+                "{target}",
+                "--port",
+                "{netconf_port}",
+                "--username",
+                "{username}",
+                "--password",
+                "{password}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -44,9 +55,13 @@ class SDNAttackTool(BasePentestTool):
         },
         "network_policy_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.net_policy_audit",
-                "--controller-url", "{target}",
-                "--api-key", "{api_key}",
+                "python3",
+                "-m",
+                "protopen_scripts.net_policy_audit",
+                "--controller-url",
+                "{target}",
+                "--api-key",
+                "{api_key}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -54,9 +69,13 @@ class SDNAttackTool(BasePentestTool):
         },
         "yang_model_enum": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.yang_enum",
-                "--target", "{target}",
-                "--port", "{netconf_port}",
+                "python3",
+                "-m",
+                "protopen_scripts.yang_enum",
+                "--target",
+                "{target}",
+                "--port",
+                "{netconf_port}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -64,10 +83,15 @@ class SDNAttackTool(BasePentestTool):
         },
         "restconf_test": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.restconf_audit",
-                "--url", "{target}",
-                "--username", "{username}",
-                "--password", "{password}",
+                "python3",
+                "-m",
+                "protopen_scripts.restconf_audit",
+                "--url",
+                "{target}",
+                "--username",
+                "{username}",
+                "--password",
+                "{password}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -75,9 +99,13 @@ class SDNAttackTool(BasePentestTool):
         },
         "openflow_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.openflow_audit",
-                "--target", "{target}",
-                "--port", "{openflow_port}",
+                "python3",
+                "-m",
+                "protopen_scripts.openflow_audit",
+                "--target",
+                "{target}",
+                "--port",
+                "{openflow_port}",
                 "--output-json",
             ],
             "timeout": 60,

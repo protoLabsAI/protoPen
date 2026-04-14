@@ -1,4 +1,5 @@
 """Tests for telecom_attack parsers."""
+
 from __future__ import annotations
 
 import json

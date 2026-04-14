@@ -21,7 +21,7 @@ from tools._tool_base import Tool
 _DISCORD_API = "https://discord.com/api/v10"
 _WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 _INSTANCE_NAME = os.environ.get("INSTANCE_NAME", "")
-_URL_PATTERN = re.compile(r'https?://[^\s<>\[\]()\"\']+')
+_URL_PATTERN = re.compile(r"https?://[^\s<>\[\]()\"\']+")
 
 
 def _webhook_username() -> str:
@@ -33,11 +33,11 @@ def _webhook_username() -> str:
 
 # URL classification patterns
 _CLASSIFIERS = [
-    ("arxiv", re.compile(r'arxiv\.org/(abs|pdf)/(\d{4}\.\d{4,5})')),
-    ("huggingface", re.compile(r'huggingface\.co/([^/\s]+/[^/\s]+)')),
-    ("github", re.compile(r'github\.com/([^/\s]+/[^/\s]+)')),
-    ("paper", re.compile(r'(arxiv|openreview|papers\.nips|aclanthology)\.')),
-    ("blog", re.compile(r'(blog|medium\.com|substack\.com|\.ai/blog)')),
+    ("arxiv", re.compile(r"arxiv\.org/(abs|pdf)/(\d{4}\.\d{4,5})")),
+    ("huggingface", re.compile(r"huggingface\.co/([^/\s]+/[^/\s]+)")),
+    ("github", re.compile(r"github\.com/([^/\s]+/[^/\s]+)")),
+    ("paper", re.compile(r"(arxiv|openreview|papers\.nips|aclanthology)\.")),
+    ("blog", re.compile(r"(blog|medium\.com|substack\.com|\.ai/blog)")),
 ]
 
 
@@ -56,7 +56,7 @@ def _extract_urls(text: str) -> list[dict[str, str]]:
     seen = set()
     for url in urls:
         # Clean trailing punctuation
-        url = url.rstrip('.,;:!?)>')
+        url = url.rstrip(".,;:!?)>")
         if url in seen:
             continue
         seen.add(url)
@@ -232,10 +232,7 @@ class DiscordFeedTool(Tool):
         for link_type, links in sorted(by_type.items()):
             lines.append(f"### {link_type} ({len(links)})")
             for l in links:
-                lines.append(
-                    f"- {l['url']}\n"
-                    f"  _{l['author']} at {l['timestamp']}_ — {l['context'][:80]}"
-                )
+                lines.append(f"- {l['url']}\n  _{l['author']} at {l['timestamp']}_ — {l['context'][:80]}")
             lines.append("")
 
         return "\n".join(lines)
@@ -311,10 +308,7 @@ class DiscordFeedTool(Tool):
             if cat != current_category:
                 current_category = cat
                 # Find category name
-                cat_name = next(
-                    (c.get("name", "?") for c in channels if c.get("id") == cat),
-                    "uncategorized"
-                )
+                cat_name = next((c.get("name", "?") for c in channels if c.get("id") == cat), "uncategorized")
                 lines.append(f"\n**{cat_name}**")
             lines.append(f"- `{ch['id']}` #{ch.get('name', '?')}")
 
@@ -363,24 +357,22 @@ class DiscordFeedTool(Tool):
         blog_links = [l for l in unique_links if l["type"] == "blog"]
         other_links = [l for l in unique_links if l["type"] == "link"]
 
-        lines = [
-            f"**Discord Research Digest** — {len(messages)} messages, {len(unique_links)} unique links\n"
-        ]
+        lines = [f"**Discord Research Digest** — {len(messages)} messages, {len(unique_links)} unique links\n"]
 
         if arxiv_links:
             lines.append(f"**Arxiv Papers ({len(arxiv_links)}):**")
             for l in arxiv_links:
                 # Extract arxiv ID
-                match = re.search(r'(\d{4}\.\d{4,5})', l["url"])
+                match = re.search(r"(\d{4}\.\d{4,5})", l["url"])
                 aid = match.group(1) if match else ""
                 lines.append(f"- [{aid}]({l['url']})")
-            lines.append(f"\n_Tip: Use `browser` to fetch these papers, or rabbit-hole MCP to ingest them._\n")
+            lines.append("\n_Tip: Use `browser` to fetch these papers, or rabbit-hole MCP to ingest them._\n")
 
         if hf_links:
             lines.append(f"**HuggingFace ({len(hf_links)}):**")
             for l in hf_links:
                 lines.append(f"- {l['url']}")
-            lines.append(f"\n_Tip: Use `huggingface` tool to get model cards._\n")
+            lines.append("\n_Tip: Use `huggingface` tool to get model cards._\n")
 
         if gh_links:
             lines.append(f"**GitHub ({len(gh_links)}):**")
@@ -439,7 +431,7 @@ class DiscordFeedTool(Tool):
         for i, chunk in enumerate(chunks):
             embed: dict[str, Any] = {
                 "description": chunk,
-                "color": 0x14b8a6,
+                "color": 0x14B8A6,
             }
             if i == 0:
                 embed["title"] = title
@@ -451,7 +443,7 @@ class DiscordFeedTool(Tool):
             async with httpx.AsyncClient(timeout=15) as client:
                 # Send in batches of 10 embeds
                 for batch_start in range(0, len(embeds), 10):
-                    batch = embeds[batch_start:batch_start + 10]
+                    batch = embeds[batch_start : batch_start + 10]
                     payload = {
                         "username": _webhook_username(),
                         "embeds": batch,
@@ -487,7 +479,7 @@ class DiscordFeedTool(Tool):
         embed: dict[str, Any] = {
             "title": f"{title}{instance_tag}",
             "description": content[:4096],
-            "color": 0x14b8a6,
+            "color": 0x14B8A6,
             "footer": {"text": f"via protoPen{instance_tag}"},
         }
 
@@ -509,6 +501,7 @@ class DiscordFeedTool(Tool):
     def _get_collab_channel() -> str | None:
         """Load collaboration channel ID from security-config.json."""
         import json
+
         config_paths = [
             "/opt/protopen/config/security-config.json",  # Docker
             os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "security-config.json"),  # local

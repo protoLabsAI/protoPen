@@ -1,4 +1,5 @@
 """Network monitoring — passive traffic baselines, anomaly detection, DNS monitoring."""
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,8 @@ class NetMonitorTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "traffic_baseline": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-T','fields','-e','ip.src','-e','ip.dst','-e','ip.proto','-e','tcp.dstport',"
@@ -49,7 +51,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "host_discovery": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json; "
                 "r=subprocess.run(['nmap','-sn','{network}','-oX','-'],capture_output=True,text=True,timeout=60); "
                 "import xml.etree.ElementTree as ET; "
@@ -74,7 +77,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "service_diff": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json; "
                 "r=subprocess.run(['nmap','-sV','--top-ports','1000','{target}','-oX','-'],capture_output=True,text=True,timeout=120); "
                 "import xml.etree.ElementTree as ET; "
@@ -101,7 +105,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "dns_monitor": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-f','port 53','-T','fields','-e','dns.qry.name','-e','dns.qry.type',"
@@ -134,7 +139,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "protocol_anomaly": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-T','fields','-e','frame.protocols','-e','ip.src','-e','ip.dst'],capture_output=True,text=True,timeout={duration}+10); "
@@ -156,7 +162,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "arp_watch": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-f','arp','-T','fields',"
@@ -197,7 +204,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "responder_detect": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-f','udp port 5355 or udp port 137 or udp port 5353',"
@@ -236,7 +244,8 @@ class NetMonitorTool(BasePentestTool):
         },
         "rogue_dhcp_detect": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import subprocess,json,collections; "
                 "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
                 "'-f','udp port 67 or udp port 68',"
@@ -288,8 +297,11 @@ class NetMonitorTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                target=target, network=network, interface=interface,
-                duration=duration, known_hosts=known_hosts,
+                target=target,
+                network=network,
+                interface=interface,
+                duration=duration,
+                known_hosts=known_hosts,
                 baseline_services=baseline_services,
                 expected_ports=expected_ports,
                 allowed_protocols=allowed_protocols,

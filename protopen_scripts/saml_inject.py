@@ -5,6 +5,7 @@ If no SAML response is given, checks if SAML ACS endpoints exist at
 common paths. If a response is given, attempts to post it and analyze
 server behavior for XML signature wrapping vulnerabilities.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,27 +72,31 @@ def test_saml_injection(session: requests.Session, acs_url: str, saml_response: 
             allow_redirects=False,
         )
 
-        findings.append({
-            "severity": "info",
-            "vulnerability_type": "saml_post_result",
-            "message": f"SAML POST to {acs_url} returned HTTP {resp.status_code}",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "vulnerability_type": "saml_post_result",
+                "message": f"SAML POST to {acs_url} returned HTTP {resp.status_code}",
+            }
+        )
 
         # Check if accepted (redirected to app, or 200 with session cookie)
-        if resp.status_code in (302, 303) and 'Set-Cookie' in resp.headers:
-            loc = resp.headers.get('Location', '')
-            if not re.search(r'(?:error|fail|invalid|login)', loc, re.IGNORECASE):
-                findings.append({
-                    "severity": "high",
-                    "vulnerability_type": "saml_response_accepted",
-                    "message": f"SAML response accepted and session cookie issued — verify signature was validated",
-                })
+        if resp.status_code in (302, 303) and "Set-Cookie" in resp.headers:
+            loc = resp.headers.get("Location", "")
+            if not re.search(r"(?:error|fail|invalid|login)", loc, re.IGNORECASE):
+                findings.append(
+                    {
+                        "severity": "high",
+                        "vulnerability_type": "saml_response_accepted",
+                        "message": "SAML response accepted and session cookie issued — verify signature was validated",
+                    }
+                )
 
         # Signature wrapping: try sending response without signature
         # We inject a comment to slightly modify the response
         if saml_response:
             # Try adding whitespace (XML normalization attack vector)
-            modified = saml_response.replace('+', '%2B')  # URL-encode for form post
+            modified = saml_response.replace("+", "%2B")  # URL-encode for form post
             resp2 = session.post(
                 acs_url,
                 data={"SAMLResponse": modified, "RelayState": "test"},
@@ -99,19 +104,23 @@ def test_saml_injection(session: requests.Session, acs_url: str, saml_response: 
                 allow_redirects=False,
             )
             if resp2.status_code == resp.status_code:
-                findings.append({
-                    "severity": "medium",
-                    "vulnerability_type": "saml_whitespace_tolerant",
-                    "message": "SAML endpoint returned same response to URL-encoded modification — may accept whitespace normalization attacks",
-                })
+                findings.append(
+                    {
+                        "severity": "medium",
+                        "vulnerability_type": "saml_whitespace_tolerant",
+                        "message": "SAML endpoint returned same response to URL-encoded modification — may accept whitespace normalization attacks",
+                    }
+                )
 
     except requests.RequestException as exc:
         logger.debug("SAML inject request failed: %s", exc)
-        findings.append({
-            "severity": "error",
-            "vulnerability_type": "saml_post_error",
-            "message": f"HTTP request to SAML ACS failed: {exc}",
-        })
+        findings.append(
+            {
+                "severity": "error",
+                "vulnerability_type": "saml_post_error",
+                "message": f"HTTP request to SAML ACS failed: {exc}",
+            }
+        )
 
     return findings
 
@@ -132,18 +141,22 @@ def main() -> None:
         endpoints = check_saml_endpoints(session, args.url)
 
         if not endpoints:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "saml_endpoint",
-                "message": "No SAML endpoint found at target",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "saml_endpoint",
+                    "message": "No SAML endpoint found at target",
+                }
+            )
         else:
             for acs_url, status in endpoints:
-                result["findings"].append({
-                    "severity": "info",
-                    "vulnerability_type": "saml_endpoint_found",
-                    "message": f"SAML ACS endpoint found: {acs_url} (HTTP {status})",
-                })
+                result["findings"].append(
+                    {
+                        "severity": "info",
+                        "vulnerability_type": "saml_endpoint_found",
+                        "message": f"SAML ACS endpoint found: {acs_url} (HTTP {status})",
+                    }
+                )
 
             # If response provided, test injection against first found endpoint
             if args.response:
@@ -153,11 +166,13 @@ def main() -> None:
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["findings"].append({
-            "severity": "error",
-            "vulnerability_type": "scan_error",
-            "message": f"Scan failed: {exc}",
-        })
+        result["findings"].append(
+            {
+                "severity": "error",
+                "vulnerability_type": "scan_error",
+                "message": f"Scan failed: {exc}",
+            }
+        )
         logger.error("saml_inject error: %s", exc)
 
     print(json.dumps(result))

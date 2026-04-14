@@ -6,6 +6,7 @@ hardcoded parsing and handles any tool output format gracefully.
 
 Falls back to the deterministic parser registry when no LLM is available.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,10 +35,19 @@ Output:
 # Tools worth ingesting findings from.
 _INGESTIBLE_TOOLS: set[str] = {
     # Blue-team
-    "cis_audit", "net_monitor", "hardening_check", "ir_toolkit", "purple_team",
+    "cis_audit",
+    "net_monitor",
+    "hardening_check",
+    "ir_toolkit",
+    "purple_team",
     # Red-team (high-signal)
-    "vuln_scan", "web_vuln", "sql_test", "ssl_audit", "cve_match",
-    "credential_attack", "priv_esc",
+    "vuln_scan",
+    "web_vuln",
+    "sql_test",
+    "ssl_audit",
+    "cve_match",
+    "credential_attack",
+    "priv_esc",
 }
 
 
@@ -57,10 +67,12 @@ class KnowledgeIngestMiddleware(AgentMiddleware):
         super().__init__()
         self._store = knowledge_store
         self._model_name = model_name or os.environ.get(
-            "INGEST_MODEL", "claude-haiku-4-5",
+            "INGEST_MODEL",
+            "claude-haiku-4-5",
         )
         self._api_base = api_base or os.environ.get(
-            "INGEST_API_BASE", "http://gateway:4000/v1",
+            "INGEST_API_BASE",
+            "http://gateway:4000/v1",
         )
         self._llm = None
         self._llm_available: bool | None = None  # tri-state: None = untested
@@ -68,6 +80,7 @@ class KnowledgeIngestMiddleware(AgentMiddleware):
     def _get_llm(self):
         if self._llm is None:
             from langchain_openai import ChatOpenAI
+
             self._llm = ChatOpenAI(
                 base_url=self._api_base,
                 api_key=os.environ.get("OPENAI_API_KEY", ""),
@@ -117,9 +130,18 @@ class KnowledgeIngestMiddleware(AgentMiddleware):
         if not findings:
             return
 
-        source_type = "defensive_scan" if tool_name in {
-            "cis_audit", "net_monitor", "hardening_check", "ir_toolkit", "purple_team",
-        } else "vulnerability_scan"
+        source_type = (
+            "defensive_scan"
+            if tool_name
+            in {
+                "cis_audit",
+                "net_monitor",
+                "hardening_check",
+                "ir_toolkit",
+                "purple_team",
+            }
+            else "vulnerability_scan"
+        )
         ingested = 0
 
         for finding in findings:
@@ -150,7 +172,9 @@ class KnowledgeIngestMiddleware(AgentMiddleware):
         try:
             llm = self._get_llm()
             prompt = _EXTRACT_PROMPT.format(
-                tool_name=tool_name, action=action, content=content,
+                tool_name=tool_name,
+                action=action,
+                content=content,
             )
             response = llm.invoke(prompt)
             self._llm_available = True

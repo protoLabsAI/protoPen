@@ -1,4 +1,5 @@
 """Tests for mobile_audit parsers."""
+
 from __future__ import annotations
 
 import json
@@ -41,10 +42,14 @@ class TestParseApkDecompile:
 
 class TestParseStaticAnalysis:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"severity": "high", "description": "Hardcoded API key", "category": "security"},
-            {"severity": "medium", "description": "Debuggable flag set", "category": "config"},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {"severity": "high", "description": "Hardcoded API key", "category": "security"},
+                    {"severity": "medium", "description": "Debuggable flag set", "category": "config"},
+                ]
+            }
+        )
         entities = parse_static_analysis(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "mobile_finding"
@@ -78,10 +83,14 @@ class TestParseJadxDecompile:
 
 class TestParseDrozerScan:
     def test_providers(self, store):
-        raw = json.dumps({"providers": [
-            {"name": "com.example.provider", "exported": True},
-            {"name": "com.example.internal", "exported": False},
-        ]})
+        raw = json.dumps(
+            {
+                "providers": [
+                    {"name": "com.example.provider", "exported": True},
+                    {"name": "com.example.internal", "exported": False},
+                ]
+            }
+        )
         entities = parse_drozer_scan(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "mobile_finding"
@@ -99,10 +108,14 @@ class TestParseDrozerScan:
 
 class TestParseFridaHook:
     def test_hooks(self, store):
-        raw = json.dumps({"hooks": [
-            {"class_name": "com.example.Crypto", "method": "encrypt", "hooked": True},
-            {"class_name": "com.example.Auth", "method": "verify", "hooked": False},
-        ]})
+        raw = json.dumps(
+            {
+                "hooks": [
+                    {"class_name": "com.example.Crypto", "method": "encrypt", "hooked": True},
+                    {"class_name": "com.example.Auth", "method": "verify", "hooked": False},
+                ]
+            }
+        )
         entities = parse_frida_hook(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "mobile_finding"
@@ -146,10 +159,14 @@ class TestParseSslPinning:
 
 class TestParseIpcAudit:
     def test_components(self, store):
-        raw = json.dumps({"components": [
-            {"type": "activity", "name": "com.example.LoginActivity", "exported": True},
-            {"type": "service", "name": "com.example.BackgroundService", "exported": False},
-        ]})
+        raw = json.dumps(
+            {
+                "components": [
+                    {"type": "activity", "name": "com.example.LoginActivity", "exported": True},
+                    {"type": "service", "name": "com.example.BackgroundService", "exported": False},
+                ]
+            }
+        )
         entities = parse_ipc_audit(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "mobile_finding"
@@ -168,10 +185,14 @@ class TestParseIpcAudit:
 
 class TestParseKeychainDump:
     def test_entries(self, store):
-        raw = json.dumps({"entries": [
-            {"alias": "api_key", "type": "SecretKey", "accessible": True},
-            {"alias": "cert", "type": "Certificate", "accessible": False},
-        ]})
+        raw = json.dumps(
+            {
+                "entries": [
+                    {"alias": "api_key", "type": "SecretKey", "accessible": True},
+                    {"alias": "cert", "type": "Certificate", "accessible": False},
+                ]
+            }
+        )
         entities = parse_keychain_dump(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "mobile_finding"

@@ -3,6 +3,7 @@
 Called once at server boot. Produces a Markdown status block injected into
 the agent's system prompt so it knows what's online before the first turn.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,6 +51,7 @@ def run_sitrep(
 # Config
 # ---------------------------------------------------------------------------
 
+
 def _load_config(path: str | Path) -> Optional[dict]:
     p = Path(path)
     if not p.exists():
@@ -65,6 +67,7 @@ def _load_config(path: str | Path) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Battery probe
 # ---------------------------------------------------------------------------
+
 
 def _probe_battery() -> str:
     """Read battery level and charging status from sysfs."""
@@ -109,18 +112,13 @@ def _probe_battery() -> str:
             "Avoid long-running scans until the device is plugged in."
         )
 
-    return (
-        f"## Battery\n"
-        f"| {icon} Level | Status |\n"
-        f"|--------|--------|\n"
-        f"| **{capacity}%** | {status} |"
-        f"{warning}"
-    )
+    return f"## Battery\n| {icon} Level | Status |\n|--------|--------|\n| **{capacity}%** | {status} |{warning}"
 
 
 # ---------------------------------------------------------------------------
 # Hardware probe
 # ---------------------------------------------------------------------------
+
 
 def _probe_hardware(devices: dict) -> str:
     """Enumerate USB serial ports and match against configured devices."""
@@ -164,11 +162,7 @@ def _probe_hardware(devices: dict) -> str:
     if not rows:
         return ""
 
-    header = (
-        "## Hardware\n"
-        "| Device | Status | Port |\n"
-        "|--------|--------|------|"
-    )
+    header = "## Hardware\n| Device | Status | Port |\n|--------|--------|------|"
     return header + "\n" + "\n".join(rows)
 
 
@@ -195,6 +189,7 @@ def _list_usb_ports() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Network probe
 # ---------------------------------------------------------------------------
+
 
 def _probe_network(wifi_cfg: dict) -> str:
     """List network interfaces with addresses."""
@@ -235,11 +230,7 @@ def _probe_network(wifi_cfg: dict) -> str:
     if wifi_iface and not found_wifi and not found_monitor:
         rows.append(f"| {wifi_iface} | ⚠ interface not found |")
 
-    header = (
-        "## Network Interfaces\n"
-        "| Interface | Address |\n"
-        "|-----------|---------|"
-    )
+    header = "## Network Interfaces\n| Interface | Address |\n|-----------|---------|"
     return header + "\n" + "\n".join(rows)
 
 
@@ -284,6 +275,7 @@ def _get_interfaces() -> dict:
 # ---------------------------------------------------------------------------
 # Engagement probe
 # ---------------------------------------------------------------------------
+
 
 def _probe_engagement(eng_cfg: dict) -> str:
     """Check for an active engagement session on disk."""

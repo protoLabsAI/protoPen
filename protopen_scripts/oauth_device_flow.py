@@ -4,6 +4,7 @@
 Checks for device authorization grant endpoints and tests for
 predictable user codes, weak polling intervals, and long expiry times.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -65,39 +66,47 @@ def analyze_device_response(endpoint_url: str, data: dict[str, Any]) -> list[dic
     findings: list[dict[str, Any]] = []
 
     # Endpoint exists
-    findings.append({
-        "severity": "medium",
-        "vulnerability_type": "device_flow_found",
-        "message": f"OAuth device flow endpoint found at {endpoint_url}",
-    })
+    findings.append(
+        {
+            "severity": "medium",
+            "vulnerability_type": "device_flow_found",
+            "message": f"OAuth device flow endpoint found at {endpoint_url}",
+        }
+    )
 
     if "_error" in data:
-        findings.append({
-            "severity": "info",
-            "vulnerability_type": "device_flow_client_rejected",
-            "message": f"Device flow endpoint exists but rejected test client: {data.get('_error', '')[:100]}",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "vulnerability_type": "device_flow_client_rejected",
+                "message": f"Device flow endpoint exists but rejected test client: {data.get('_error', '')[:100]}",
+            }
+        )
         return findings
 
     # Check expiry (expires_in)
     expires_in = data.get("expires_in")
     if expires_in is not None:
         if int(expires_in) > 900:  # > 15 minutes
-            findings.append({
-                "severity": "low",
-                "vulnerability_type": "device_flow_long_expiry",
-                "message": f"Device code expiry is {expires_in}s ({expires_in // 60} min) — longer than recommended 5-15 min",
-            })
+            findings.append(
+                {
+                    "severity": "low",
+                    "vulnerability_type": "device_flow_long_expiry",
+                    "message": f"Device code expiry is {expires_in}s ({expires_in // 60} min) — longer than recommended 5-15 min",
+                }
+            )
 
     # Check polling interval
     interval = data.get("interval")
     if interval is not None:
         if int(interval) < 5:
-            findings.append({
-                "severity": "medium",
-                "vulnerability_type": "device_flow_short_interval",
-                "message": f"Device code polling interval is {interval}s — may allow brute-force of user code",
-            })
+            findings.append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "device_flow_short_interval",
+                    "message": f"Device code polling interval is {interval}s — may allow brute-force of user code",
+                }
+            )
 
     # Check user code predictability
     user_code = data.get("user_code", "")
@@ -106,26 +115,32 @@ def analyze_device_response(endpoint_url: str, data: dict[str, Any]) -> list[dic
         code_clean = user_code.replace("-", "").replace(" ", "")
         code_len = len(code_clean)
         if code_len < 8:
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": "device_flow_weak_user_code",
-                "message": f"Device user code is only {code_len} chars ('{user_code}') — susceptible to brute force",
-            })
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": "device_flow_weak_user_code",
+                    "message": f"Device user code is only {code_len} chars ('{user_code}') — susceptible to brute force",
+                }
+            )
         if entropy < 0.3:
-            findings.append({
-                "severity": "medium",
-                "vulnerability_type": "device_flow_low_entropy_code",
-                "message": f"Device user code '{user_code}' has low character diversity — may be predictable",
-            })
+            findings.append(
+                {
+                    "severity": "medium",
+                    "vulnerability_type": "device_flow_low_entropy_code",
+                    "message": f"Device user code '{user_code}' has low character diversity — may be predictable",
+                }
+            )
 
     # Check if verification_uri is over HTTP
     verification_uri = data.get("verification_uri", data.get("verification_url", ""))
     if verification_uri and verification_uri.startswith("http://"):
-        findings.append({
-            "severity": "high",
-            "vulnerability_type": "device_flow_http_verification_uri",
-            "message": f"Device verification URI uses HTTP: {verification_uri}",
-        })
+        findings.append(
+            {
+                "severity": "high",
+                "vulnerability_type": "device_flow_http_verification_uri",
+                "message": f"Device verification URI uses HTTP: {verification_uri}",
+            }
+        )
 
     return findings
 
@@ -175,19 +190,23 @@ def main() -> None:
                 found = True
 
         if not found:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "device_flow_not_found",
-                "message": "No OAuth device flow endpoint found at target",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "device_flow_not_found",
+                    "message": "No OAuth device flow endpoint found at target",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["findings"].append({
-            "severity": "error",
-            "vulnerability_type": "scan_error",
-            "message": f"Scan failed: {exc}",
-        })
+        result["findings"].append(
+            {
+                "severity": "error",
+                "vulnerability_type": "scan_error",
+                "message": f"Scan failed: {exc}",
+            }
+        )
         logger.error("oauth_device_flow error: %s", exc)
 
     print(json.dumps(result))

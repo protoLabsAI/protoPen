@@ -84,9 +84,7 @@ def _parse_rss(xml_bytes: bytes) -> list[dict[str, str]]:
         pub_date = (item.findtext("pubDate") or "").strip()
         desc_raw = item.findtext("description") or ""
         desc = _truncate(_strip_html(desc_raw))
-        entries.append(
-            {"title": title, "link": link, "published": pub_date, "description": desc}
-        )
+        entries.append({"title": title, "link": link, "published": pub_date, "description": desc})
     return entries
 
 
@@ -108,22 +106,12 @@ def _parse_atom(xml_bytes: bytes) -> list[dict[str, str]]:
             link_el = entry.find(f"{ns}link")
         link = (link_el.get("href", "") if link_el is not None else "").strip()
 
-        published = (
-            entry.findtext(f"{ns}published")
-            or entry.findtext(f"{ns}updated")
-            or ""
-        ).strip()
+        published = (entry.findtext(f"{ns}published") or entry.findtext(f"{ns}updated") or "").strip()
 
         # Atom content or summary
-        desc_raw = (
-            entry.findtext(f"{ns}summary")
-            or entry.findtext(f"{ns}content")
-            or ""
-        )
+        desc_raw = entry.findtext(f"{ns}summary") or entry.findtext(f"{ns}content") or ""
         desc = _truncate(_strip_html(desc_raw))
-        entries.append(
-            {"title": title, "link": link, "published": published, "description": desc}
-        )
+        entries.append({"title": title, "link": link, "published": published, "description": desc})
     return entries
 
 
@@ -216,10 +204,7 @@ class SecurityFeedsTool(Tool):
 
         if source:
             if source not in _FEEDS:
-                return (
-                    f"Error: Unknown source '{source}'. "
-                    f"Available: {', '.join(sorted(_FEEDS))}"
-                )
+                return f"Error: Unknown source '{source}'. Available: {', '.join(sorted(_FEEDS))}"
             keys = [source]
         else:
             keys = list(_FEEDS)

@@ -1,4 +1,5 @@
 """Persistent SQLite audit trail for engagement operations."""
+
 from __future__ import annotations
 
 import logging
@@ -39,12 +40,15 @@ class EngagementStore:
     # ── Engagements ──────────────────────────────────────────────────────
 
     def create_engagement(
-        self, name: str, scope_json: str = "{}", mode: str = "PASSIVE", max_phase: str = None,
+        self,
+        name: str,
+        scope_json: str = "{}",
+        mode: str = "PASSIVE",
+        max_phase: str = None,
     ) -> int:
         db = self._get_db()
         cur = db.execute(
-            "INSERT INTO engagements (name, scope_json, mode, max_phase, started_at) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO engagements (name, scope_json, mode, max_phase, started_at) VALUES (?, ?, ?, ?, ?)",
             (name, scope_json, mode, max_phase, _now()),
         )
         db.commit()
@@ -66,8 +70,14 @@ class EngagementStore:
     # ── Findings ─────────────────────────────────────────────────────────
 
     def log_finding(
-        self, engagement_id: int, severity: str, category: str, title: str,
-        detail: str = "", target_ip: str = "", target_mac: str = "",
+        self,
+        engagement_id: int,
+        severity: str,
+        category: str,
+        title: str,
+        detail: str = "",
+        target_ip: str = "",
+        target_mac: str = "",
     ) -> int:
         db = self._get_db()
         cur = db.execute(
@@ -79,7 +89,10 @@ class EngagementStore:
         return cur.lastrowid
 
     def query_findings(
-        self, engagement_id: int = 0, severity: str = "", category: str = "",
+        self,
+        engagement_id: int = 0,
+        severity: str = "",
+        category: str = "",
     ) -> list[dict]:
         db = self._get_db()
         clauses, params = [], []
@@ -94,16 +107,24 @@ class EngagementStore:
             params.append(category)
         where = " AND ".join(clauses) if clauses else "1=1"
         rows = db.execute(
-            f"SELECT * FROM findings WHERE {where} ORDER BY created_at DESC", params,
+            f"SELECT * FROM findings WHERE {where} ORDER BY created_at DESC",
+            params,
         ).fetchall()
         return [dict(r) for r in rows]
 
     # ── Tool calls ───────────────────────────────────────────────────────
 
     def log_tool_call(
-        self, engagement_id: int = None, tool_name: str = "", action: str = "",
-        args_json: str = "{}", result_summary: str = "", success: bool = True,
-        blocked: bool = False, block_reason: str = "", duration_ms: int = 0,
+        self,
+        engagement_id: int = None,
+        tool_name: str = "",
+        action: str = "",
+        args_json: str = "{}",
+        result_summary: str = "",
+        success: bool = True,
+        blocked: bool = False,
+        block_reason: str = "",
+        duration_ms: int = 0,
         phase: str = "",
     ) -> int:
         db = self._get_db()
@@ -111,14 +132,28 @@ class EngagementStore:
             "INSERT INTO tool_calls (engagement_id, tool_name, action, args_json, "
             "result_summary, success, blocked, block_reason, duration_ms, phase, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (engagement_id, tool_name, action, args_json, result_summary,
-             int(success), int(blocked), block_reason, duration_ms, phase, _now()),
+            (
+                engagement_id,
+                tool_name,
+                action,
+                args_json,
+                result_summary,
+                int(success),
+                int(blocked),
+                block_reason,
+                duration_ms,
+                phase,
+                _now(),
+            ),
         )
         db.commit()
         return cur.lastrowid
 
     def query_tool_calls(
-        self, engagement_id: int = 0, tool_name: str = "", blocked_only: bool = False,
+        self,
+        engagement_id: int = 0,
+        tool_name: str = "",
+        blocked_only: bool = False,
     ) -> list[dict]:
         db = self._get_db()
         clauses, params = [], []
@@ -132,14 +167,19 @@ class EngagementStore:
             clauses.append("blocked = 1")
         where = " AND ".join(clauses) if clauses else "1=1"
         rows = db.execute(
-            f"SELECT * FROM tool_calls WHERE {where} ORDER BY created_at DESC", params,
+            f"SELECT * FROM tool_calls WHERE {where} ORDER BY created_at DESC",
+            params,
         ).fetchall()
         return [dict(r) for r in rows]
 
     # ── Phase transitions ────────────────────────────────────────────────
 
     def log_phase_transition(
-        self, engagement_id: int, from_phase: str = "", to_phase: str = "", reason: str = "",
+        self,
+        engagement_id: int,
+        from_phase: str = "",
+        to_phase: str = "",
+        reason: str = "",
     ) -> int:
         db = self._get_db()
         cur = db.execute(
@@ -158,10 +198,12 @@ class EngagementStore:
             return None
         db = self._get_db()
         finding_count = db.execute(
-            "SELECT COUNT(*) AS cnt FROM findings WHERE engagement_id = ?", (engagement_id,),
+            "SELECT COUNT(*) AS cnt FROM findings WHERE engagement_id = ?",
+            (engagement_id,),
         ).fetchone()["cnt"]
         tool_call_count = db.execute(
-            "SELECT COUNT(*) AS cnt FROM tool_calls WHERE engagement_id = ?", (engagement_id,),
+            "SELECT COUNT(*) AS cnt FROM tool_calls WHERE engagement_id = ?",
+            (engagement_id,),
         ).fetchone()["cnt"]
         blocked_count = db.execute(
             "SELECT COUNT(*) AS cnt FROM tool_calls WHERE engagement_id = ? AND blocked = 1",

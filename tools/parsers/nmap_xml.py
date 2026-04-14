@@ -1,4 +1,5 @@
 """Parser for nmap -oX - XML output → hosts + ports into TargetStore."""
+
 from __future__ import annotations
 
 import logging
@@ -48,14 +49,23 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
             continue
 
         host_id = store.upsert_host(
-            ip=ip, mac=mac, hostname=hostname,
-            os=os_match, vendor=vendor,
+            ip=ip,
+            mac=mac,
+            hostname=hostname,
+            os=os_match,
+            vendor=vendor,
         )
-        entities.append({
-            "type": "host", "id": host_id,
-            "ip": ip, "mac": mac, "hostname": hostname,
-            "os": os_match, "vendor": vendor,
-        })
+        entities.append(
+            {
+                "type": "host",
+                "id": host_id,
+                "ip": ip,
+                "mac": mac,
+                "hostname": hostname,
+                "os": os_match,
+                "vendor": vendor,
+            }
+        )
 
         ports_el = host_el.find("ports")
         if ports_el is None:
@@ -76,15 +86,24 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
                     banner = f"{product} {version}".strip()
 
             port_row_id = store.upsert_port(
-                host_id=host_id, port=portid, protocol=protocol,
-                state=state, service=service, banner=banner,
+                host_id=host_id,
+                port=portid,
+                protocol=protocol,
+                state=state,
+                service=service,
+                banner=banner,
             )
-            entities.append({
-                "type": "port", "id": port_row_id,
-                "host_id": host_id, "port": portid,
-                "protocol": protocol, "service": service,
-                "banner": banner,
-            })
+            entities.append(
+                {
+                    "type": "port",
+                    "id": port_row_id,
+                    "host_id": host_id,
+                    "port": portid,
+                    "protocol": protocol,
+                    "service": service,
+                    "banner": banner,
+                }
+            )
 
     return entities
 

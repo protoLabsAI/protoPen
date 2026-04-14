@@ -1,4 +1,5 @@
 """Tests for engagement → target_store auto-upsert integration."""
+
 import json
 import pytest
 from pathlib import Path
@@ -30,7 +31,8 @@ class TestAutoUpsert:
     def test_finding_with_ip_creates_host(self, mgr, store):
         mgr.start("test-engagement", scope="192.168.1.0/24")
         mgr.log_finding(
-            severity="high", category="open-port",
+            severity="high",
+            category="open-port",
             title="SSH on 192.168.1.1",
             detail="Port 22 open on 192.168.1.1 running OpenSSH 9.0",
         )
@@ -40,15 +42,18 @@ class TestAutoUpsert:
     def test_finding_without_ip_no_crash(self, mgr, store):
         mgr.start("test-engagement")
         mgr.log_finding(
-            severity="info", category="general",
-            title="Observation", detail="Nothing to upsert here",
+            severity="info",
+            category="general",
+            title="Observation",
+            detail="Nothing to upsert here",
         )
         assert store.get_stats()["hosts"] == 0
 
     def test_finding_with_mac_creates_host(self, mgr, store):
         mgr.start("test-engagement")
         mgr.log_finding(
-            severity="medium", category="wifi",
+            severity="medium",
+            category="wifi",
             title="Rogue AP",
             detail="Detected rogue AP with BSSID AA:BB:CC:DD:EE:FF",
         )
@@ -62,7 +67,9 @@ class TestAutoUpsert:
         # target_store defaults to None
         mgr.start("test-engagement")
         mgr.log_finding(
-            severity="info", category="test",
-            title="Test", detail="192.168.1.1 should not crash",
+            severity="info",
+            category="test",
+            title="Test",
+            detail="192.168.1.1 should not crash",
         )
         assert len(mgr.findings) == 1

@@ -12,6 +12,7 @@ Usage (from agent):
     # After reviewing scored_findings, probe a specific finding:
     orchestrator probe_finding finding_id="a3f9c12b1e4d"
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,7 @@ class EngagementOrchestratorTool(Tool):
         dispatch_fn: DispatchFn | None = None,
     ):
         self._engagement = engagement_mgr
-        self._dispatch   = dispatch_fn
+        self._dispatch = dispatch_fn
         # Per-session state — populated by `run`, consumed by `probe_finding`
         self._session: dict = {}
 
@@ -119,12 +120,12 @@ class EngagementOrchestratorTool(Tool):
         from playbooks.loader import load_playbook
         from playbooks.runner import run_playbook
 
-        name      = kwargs.get("name") or "auto_assessment"
-        scope     = kwargs.get("scope", "")
-        raw_tgts  = kwargs.get("targets", "") or scope
-        targets   = [t.strip() for t in raw_tgts.split(",") if t.strip()]
-        mode      = kwargs.get("mode", "active")
-        pb_name   = kwargs.get("playbook", "automated_assessment")
+        name = kwargs.get("name") or "auto_assessment"
+        scope = kwargs.get("scope", "")
+        raw_tgts = kwargs.get("targets", "") or scope
+        targets = [t.strip() for t in raw_tgts.split(",") if t.strip()]
+        mode = kwargs.get("mode", "active")
+        pb_name = kwargs.get("playbook", "automated_assessment")
 
         if not targets:
             return "Error: 'targets' or 'scope' is required."
@@ -138,9 +139,15 @@ class EngagementOrchestratorTool(Tool):
         }
 
         # 1 ── Start engagement ──────────────────────────────────────────────
-        await self._call("engagement", "start", {
-            "name": name, "scope": scope or ", ".join(targets), "mode": mode,
-        })
+        await self._call(
+            "engagement",
+            "start",
+            {
+                "name": name,
+                "scope": scope or ", ".join(targets),
+                "mode": mode,
+            },
+        )
         self._session["phase"] = "opsec"
 
         # 2 ── Opsec pre-flight ──────────────────────────────────────────────
@@ -151,8 +158,9 @@ class EngagementOrchestratorTool(Tool):
             opsec_ok = "original" in out.lower() or "randomized" in out.lower() or "mac" in out.lower()
             # Parse "  iface: AA:BB:CC:DD:EE:FF → 11:22:33:44:55:66 ✓" lines
             import re as _re
-            _MAC = r'[0-9A-Fa-f]{2}(?:[:\-][0-9A-Fa-f]{2}){5}'
-            for m in _re.finditer(rf'(\w+):\s+({_MAC})\s+[→>]\s+{_MAC}', out):
+
+            _MAC = r"[0-9A-Fa-f]{2}(?:[:\-][0-9A-Fa-f]{2}){5}"
+            for m in _re.finditer(rf"(\w+):\s+({_MAC})\s+[→>]\s+{_MAC}", out):
                 original_macs[m.group(1)] = m.group(2)
             logger.info("Opsec pre-flight: %s (saved %d original MACs)", out[:80], len(original_macs))
         except Exception as e:
@@ -172,31 +180,44 @@ class EngagementOrchestratorTool(Tool):
                     engagement_mgr=self._engagement,
                 )
                 for step in result.steps:
-                    step_outputs.append({
-                        "step": step.name,
-                        "tool": step.tool,
-                        "target": target,
-                        "status": step.status.value,
-                        "output_len": len(step.output),
-                    })
+                    step_outputs.append(
+                        {
+                            "step": step.name,
+                            "tool": step.tool,
+                            "target": target,
+                            "status": step.status.value,
+                            "output_len": len(step.output),
+                        }
+                    )
             except FileNotFoundError:
                 logger.warning("Playbook '%s' not found — falling back to direct nmap + nuclei", pb_name)
                 for tool, act, params in [
-                    ("blackarch", "nmap_scan", {
-                        "target": target,
-                        "flags": "-sV -sC -T2 --spoof-mac 0 --randomize-hosts --data-length 25",
-                    }),
-                    ("vuln_scan", "nuclei_scan", {
-                        "target": target, "severity": "medium,high,critical",
-                    }),
+                    (
+                        "blackarch",
+                        "nmap_scan",
+                        {
+                            "target": target,
+                            "flags": "-sV -sC -T2 --spoof-mac 0 --randomize-hosts --data-length 25",
+                        },
+                    ),
+                    (
+                        "vuln_scan",
+                        "nuclei_scan",
+                        {
+                            "target": target,
+                            "severity": "medium,high,critical",
+                        },
+                    ),
                 ]:
                     try:
                         out = await self._call(tool, act, params)
-                        step_outputs.append({"step": act, "tool": tool, "target": target,
-                                             "status": "completed", "output_len": len(out)})
+                        step_outputs.append(
+                            {"step": act, "tool": tool, "target": target, "status": "completed", "output_len": len(out)}
+                        )
                     except Exception as e:
-                        step_outputs.append({"step": act, "tool": tool, "target": target,
-                                             "status": "failed", "error": str(e)})
+                        step_outputs.append(
+                            {"step": act, "tool": tool, "target": target, "status": "failed", "error": str(e)}
+                        )
 
         # 4 ── Score and prioritize findings ─────────────────────────────────
         self._session["phase"] = "analysis"
@@ -211,16 +232,21 @@ class EngagementOrchestratorTool(Tool):
         self._session["phase"] = "reporting"
         await self._call("engagement", "transition_phase", {"phase": "reporting"})
         report_out = await self._call("engagement", "generate_report", {})
-        workspace  = (self._engagement.active_engagement or {}).get("workspace", "")
+        workspace = (self._engagement.active_engagement or {}).get("workspace", "")
         report_path = f"{workspace}/report.md" if workspace else "(in-memory)"
 
         # 6 ── Opsec cleanup ─────────────────────────────────────────────────
         if opsec_ok and original_macs:
             for iface, orig_mac in original_macs.items():
                 try:
-                    await self._call("opsec", "mac_restore", {
-                        "interface": iface, "original_mac": orig_mac,
-                    })
+                    await self._call(
+                        "opsec",
+                        "mac_restore",
+                        {
+                            "interface": iface,
+                            "original_mac": orig_mac,
+                        },
+                    )
                 except Exception as e:
                     logger.warning("MAC restore failed for %s: %s", iface, e)
 
@@ -276,10 +302,7 @@ class EngagementOrchestratorTool(Tool):
     def _status(self) -> str:
         if not self._session:
             return "No active orchestration session. Run `orchestrator run` to start."
-        snapshot = {
-            k: v for k, v in self._session.items()
-            if k not in ("scored",)
-        }
+        snapshot = {k: v for k, v in self._session.items() if k not in ("scored",)}
         snapshot["findings_scored"] = len(self._session.get("scored", []))
         return json.dumps(snapshot, indent=2)
 
@@ -310,8 +333,8 @@ class EngagementOrchestratorTool(Tool):
         from tools.finding_scorer import format_findings_summary
 
         counts = Counter(f.severity for f in scored)
-        steps_done    = sum(1 for s in step_outputs if s.get("status") == "completed")
-        steps_failed  = sum(1 for s in step_outputs if s.get("status") == "failed")
+        steps_done = sum(1 for s in step_outputs if s.get("status") == "completed")
+        steps_failed = sum(1 for s in step_outputs if s.get("status") == "failed")
 
         lines = [
             "## Automated Assessment Complete",

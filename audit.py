@@ -32,6 +32,7 @@ class AuditLogger:
         trace_id = None
         try:
             import tracing
+
             trace_id = tracing._trace_id_ctx.get("") or None
         except Exception:
             pass
@@ -54,18 +55,22 @@ class AuditLogger:
         except OSError:
             pass
 
-        stats = self._session_stats.setdefault(session_id, {
-            "tool_calls": 0, "successes": 0, "failures": 0, "total_ms": 0,
-            "tools_used": set(),
-        })
+        stats = self._session_stats.setdefault(
+            session_id,
+            {
+                "tool_calls": 0,
+                "successes": 0,
+                "failures": 0,
+                "total_ms": 0,
+                "tools_used": set(),
+            },
+        )
         stats["tool_calls"] += 1
         stats["successes" if success else "failures"] += 1
         stats["total_ms"] += duration_ms
         stats["tools_used"].add(tool)
 
-    def get_recent(
-        self, n: int = 20, session_id: str | None = None
-    ) -> list[dict[str, Any]]:
+    def get_recent(self, n: int = 20, session_id: str | None = None) -> list[dict[str, Any]]:
         if not self.path.exists():
             return []
         try:

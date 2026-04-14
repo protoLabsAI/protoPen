@@ -102,15 +102,17 @@ def _build_subagent_section() -> str:
         lines.append(f"  Tools: {', '.join(config.tools)}")
         lines.append("")
 
-    lines.extend([
-        "**Rules:**",
-        "- Delegate threat scanning/discovery to Threat Scanner",
-        "- Delegate deep vulnerability analysis to Vuln Analyst",
-        "- Delegate report writing/publishing to Intel Reporter",
-        "- For simple questions, answer directly without delegation",
-        "- Max 3 concurrent subagent tasks",
-        "- Subagents cannot spawn further subagents",
-    ])
+    lines.extend(
+        [
+            "**Rules:**",
+            "- Delegate threat scanning/discovery to Threat Scanner",
+            "- Delegate deep vulnerability analysis to Vuln Analyst",
+            "- Delegate report writing/publishing to Intel Reporter",
+            "- For simple questions, answer directly without delegation",
+            "- Max 3 concurrent subagent tasks",
+            "- Subagents cannot spawn further subagents",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -119,5 +121,5 @@ def build_subagent_prompt(agent_name: str, workspace: str = "/sandbox") -> str:
     """Build system prompt for a specific subagent."""
     config = SUBAGENT_REGISTRY.get(agent_name)
     if not config:
-        return f"You are a security subagent. Complete the delegated task efficiently."
+        return "You are a security subagent. Complete the delegated task efficiently."
     return config.system_prompt

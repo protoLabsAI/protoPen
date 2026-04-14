@@ -19,6 +19,7 @@ from tools.flipper import FlipperTool  # noqa: E402
 
 # ── Fixtures ───────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 def conn() -> MagicMock:
     mock = MagicMock()
@@ -36,6 +37,7 @@ def flipper(conn: MagicMock) -> FlipperTool:
 
 # ── Tool interface ─────────────────────────────────────────────────
 
+
 class TestToolInterface:
     def test_name(self, flipper: FlipperTool) -> None:
         assert flipper.name == "flipper"
@@ -51,13 +53,12 @@ class TestToolInterface:
         assert "action" in p["required"]
 
     def test_execute_unknown_action(self, flipper: FlipperTool) -> None:
-        result = asyncio.get_event_loop().run_until_complete(
-            flipper.execute(action="nope")
-        )
+        result = asyncio.get_event_loop().run_until_complete(flipper.execute(action="nope"))
         assert "Unknown action" in result
 
 
 # ── SubGHz ─────────────────────────────────────────────────────────
+
 
 class TestSubGHz:
     def test_subghz_rx(self, flipper: FlipperTool, conn: MagicMock) -> None:
@@ -99,6 +100,7 @@ class TestSubGHz:
 
 # ── NFC ────────────────────────────────────────────────────────────
 
+
 class TestNFC:
     def test_nfc_detect(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.nfc_detect()
@@ -118,6 +120,7 @@ class TestNFC:
 
 
 # ── RFID ───────────────────────────────────────────────────────────
+
 
 class TestRFID:
     def test_rfid_read_no_protocol(self, flipper: FlipperTool, conn: MagicMock) -> None:
@@ -139,6 +142,7 @@ class TestRFID:
 
 # ── IR ─────────────────────────────────────────────────────────────
 
+
 class TestIR:
     def test_ir_rx(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.ir_rx()
@@ -159,6 +163,7 @@ class TestIR:
 
 # ── Bluetooth / BLE ────────────────────────────────────────────────
 
+
 class TestBluetooth:
     def test_bt_info(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.bt_info()
@@ -174,6 +179,7 @@ class TestBluetooth:
 
 
 # ── Storage ────────────────────────────────────────────────────────
+
 
 class TestStorage:
     def test_storage_list(self, flipper: FlipperTool, conn: MagicMock) -> None:
@@ -198,6 +204,7 @@ class TestStorage:
 
 
 # ── GPIO ───────────────────────────────────────────────────────────
+
 
 class TestGPIO:
     def test_gpio_set(self, flipper: FlipperTool, conn: MagicMock) -> None:
@@ -224,6 +231,7 @@ class TestGPIO:
 
 # ── System ─────────────────────────────────────────────────────────
 
+
 class TestSystem:
     def test_device_info(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.device_info()
@@ -239,6 +247,7 @@ class TestSystem:
 
 
 # ── Execute dispatch ───────────────────────────────────────────────
+
 
 class TestExecuteDispatch:
     """Verify async execute() routes to every method correctly."""

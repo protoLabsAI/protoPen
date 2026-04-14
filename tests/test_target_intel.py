@@ -1,4 +1,5 @@
 """Tests for the TargetIntelTool agent wrapper."""
+
 import asyncio
 
 import pytest

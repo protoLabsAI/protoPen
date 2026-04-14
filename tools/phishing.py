@@ -1,4 +1,5 @@
 """Phishing simulation — GoPhish, Evilginx, email header analysis, SMTP relay testing."""
+
 from __future__ import annotations
 
 import logging
@@ -22,17 +23,32 @@ class PhishingTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "gophish_create_campaign": {
             "cmd": [
-                "gophish-cli", "campaign", "create", "--name", "{campaign_name}",
-                "--template", "{template}", "--url", "{target}",
-                "--api-key", "{api_key}", "--json",
+                "gophish-cli",
+                "campaign",
+                "create",
+                "--name",
+                "{campaign_name}",
+                "--template",
+                "{template}",
+                "--url",
+                "{target}",
+                "--api-key",
+                "{api_key}",
+                "--json",
             ],
             "timeout": 30,
             "description": "Create GoPhish phishing campaign",
         },
         "gophish_results": {
             "cmd": [
-                "gophish-cli", "campaign", "results", "--id", "{campaign_id}",
-                "--api-key", "{api_key}", "--json",
+                "gophish-cli",
+                "campaign",
+                "results",
+                "--id",
+                "{campaign_id}",
+                "--api-key",
+                "{api_key}",
+                "--json",
             ],
             "timeout": 30,
             "description": "Get GoPhish campaign results (clicks, submissions)",
@@ -68,7 +84,17 @@ class PhishingTool(BasePentestTool):
             "description": "Check DMARC policy for email domain",
         },
         "smtp_relay_test": {
-            "cmd": ["swaks", "--to", "{recipient}", "--from", "{sender}", "--server", "{target}", "--ehlo", "{ehlo_domain}"],
+            "cmd": [
+                "swaks",
+                "--to",
+                "{recipient}",
+                "--from",
+                "{sender}",
+                "--server",
+                "{target}",
+                "--ehlo",
+                "{ehlo_domain}",
+            ],
             "timeout": 30,
             "description": "Test SMTP open relay and email spoofing",
         },
@@ -97,10 +123,18 @@ class PhishingTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                target=target, campaign_name=campaign_name, template=template,
-                api_key=api_key, campaign_id=campaign_id, phishlet=phishlet,
-                domain=domain, email_file=email_file, dkim_selector=dkim_selector,
-                recipient=recipient, sender=sender, ehlo_domain=ehlo_domain,
+                target=target,
+                campaign_name=campaign_name,
+                template=template,
+                api_key=api_key,
+                campaign_id=campaign_id,
+                phishlet=phishlet,
+                domain=domain,
+                email_file=email_file,
+                dkim_selector=dkim_selector,
+                recipient=recipient,
+                sender=sender,
+                ehlo_domain=ehlo_domain,
                 timeout=timeout,
             )
             for c in spec["cmd"]
@@ -108,6 +142,8 @@ class PhishingTool(BasePentestTool):
         effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(
-            action=action, cmd=cmd, timeout=effective_timeout,
+            action=action,
+            cmd=cmd,
+            timeout=effective_timeout,
             target_hint=target or domain,
         )

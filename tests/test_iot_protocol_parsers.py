@@ -1,4 +1,5 @@
 """Tests for iot_protocol parsers."""
+
 from __future__ import annotations
 
 import pytest
@@ -25,6 +26,7 @@ def store():
 
 # ── MQTT discover ────────────────────────────────────────────────────────────
 
+
 class TestParseMqttDiscover:
     def test_messages(self, store):
         raw = "sensors/temp 23.5\nsensors/humidity 65\n"
@@ -39,6 +41,7 @@ class TestParseMqttDiscover:
 
 
 # ── MQTT pub ─────────────────────────────────────────────────────────────────
+
 
 class TestParseMqttPub:
     def test_success(self, store):
@@ -55,6 +58,7 @@ class TestParseMqttPub:
 
 # ── MQTT bruteforce ──────────────────────────────────────────────────────────
 
+
 class TestParseMqttBruteforce:
     def test_creds_found(self, store):
         raw = "Discovered credentials for mqtt://192.168.1.1\nadmin password: secret\n"
@@ -67,6 +71,7 @@ class TestParseMqttBruteforce:
 
 
 # ── CoAP discover ────────────────────────────────────────────────────────────
+
 
 class TestParseCoapDiscover:
     def test_resources(self, store):
@@ -82,6 +87,7 @@ class TestParseCoapDiscover:
 
 # ── CoAP get ─────────────────────────────────────────────────────────────────
 
+
 class TestParseCoapGet:
     def test_response(self, store):
         entities = parse_coap_get("23.5", store)
@@ -93,6 +99,7 @@ class TestParseCoapGet:
 
 
 # ── Modbus scan ──────────────────────────────────────────────────────────────
+
 
 class TestParseModbusScan:
     def test_nmap_xml(self, store):
@@ -119,6 +126,7 @@ class TestParseModbusScan:
 
 # ── Modbus read ──────────────────────────────────────────────────────────────
 
+
 class TestParseModbusRead:
     def test_registers(self, store):
         raw = "100\n200\n300\n"
@@ -130,6 +138,7 @@ class TestParseModbusRead:
 
 
 # ── BACnet scan ──────────────────────────────────────────────────────────────
+
 
 class TestParseBacnetScan:
     def test_device_found(self, store):
@@ -155,6 +164,7 @@ class TestParseBacnetScan:
 
 # ── UPnP discover ────────────────────────────────────────────────────────────
 
+
 class TestParseUpnpDiscover:
     def test_device(self, store):
         raw = """<?xml version="1.0"?>
@@ -175,6 +185,7 @@ class TestParseUpnpDiscover:
 
 
 # ── Zigbee sniff ─────────────────────────────────────────────────────────────
+
 
 class TestParseZigbeeSniff:
     def test_capture_info(self, store):

@@ -5,6 +5,7 @@ Reads JSON files from an input directory (produced by recon tools),
 correlates IPs, domains, and technologies across all sources,
 and returns a unified asset summary with cross-source correlations.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -58,44 +59,52 @@ def _extract_assets(filename: str, data: Any) -> list[dict[str, Any]]:
     for shot in data.get("screenshots", []):
         if isinstance(shot, dict) and shot.get("status") == "live":
             from urllib.parse import urlparse
+
             parsed = urlparse(shot.get("url", ""))
-            assets.append({
-                "type": "url",
-                "host": parsed.netloc or shot.get("url", ""),
-                "ips": [],
-                "technologies": [],
-                "source": source,
-                "http_status": shot.get("http_status"),
-                "url": shot.get("url", ""),
-            })
+            assets.append(
+                {
+                    "type": "url",
+                    "host": parsed.netloc or shot.get("url", ""),
+                    "ips": [],
+                    "technologies": [],
+                    "source": source,
+                    "http_status": shot.get("http_status"),
+                    "url": shot.get("url", ""),
+                }
+            )
 
     # Direct domain/IP entries
     if "domain" in data and "dns" in data:
-        assets.append({
-            "type": "domain",
-            "host": data["domain"],
-            "ips": data.get("dns", {}).get("ips", []),
-            "technologies": list(data.get("technologies", {}).keys()),
-            "source": source,
-            "http_status": None,
-            "url": "",
-        })
+        assets.append(
+            {
+                "type": "domain",
+                "host": data["domain"],
+                "ips": data.get("dns", {}).get("ips", []),
+                "technologies": list(data.get("technologies", {}).keys()),
+                "source": source,
+                "http_status": None,
+                "url": "",
+            }
+        )
 
     # Findings with URLs
     for finding in data.get("findings", []):
         if isinstance(finding, dict) and "url" in finding:
             from urllib.parse import urlparse
+
             parsed = urlparse(finding["url"])
             if parsed.netloc:
-                assets.append({
-                    "type": "finding_url",
-                    "host": parsed.netloc,
-                    "ips": [],
-                    "technologies": [],
-                    "source": source,
-                    "severity": finding.get("severity", "info"),
-                    "url": finding["url"],
-                })
+                assets.append(
+                    {
+                        "type": "finding_url",
+                        "host": parsed.netloc,
+                        "ips": [],
+                        "technologies": [],
+                        "source": source,
+                        "severity": finding.get("severity", "info"),
+                        "url": finding["url"],
+                    }
+                )
 
     return assets
 
@@ -120,32 +129,38 @@ def _build_correlations(assets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # Hosts seen across multiple files
     for host, sources in host_to_sources.items():
         if len(sources) > 1:
-            correlations.append({
-                "type": "cross_source_host",
-                "host": host,
-                "sources": list(sources),
-                "detail": f"Host '{host}' appears in {len(sources)} sources: {', '.join(sorted(sources))}",
-            })
+            correlations.append(
+                {
+                    "type": "cross_source_host",
+                    "host": host,
+                    "sources": list(sources),
+                    "detail": f"Host '{host}' appears in {len(sources)} sources: {', '.join(sorted(sources))}",
+                }
+            )
 
     # IPs shared by multiple hosts (potential shared infrastructure)
     for ip, hosts in ip_to_hosts.items():
         if len(hosts) > 1:
-            correlations.append({
-                "type": "shared_ip",
-                "ip": ip,
-                "hosts": list(hosts),
-                "detail": f"IP {ip} shared by {len(hosts)} hosts — possible shared infrastructure",
-            })
+            correlations.append(
+                {
+                    "type": "shared_ip",
+                    "ip": ip,
+                    "hosts": list(hosts),
+                    "detail": f"IP {ip} shared by {len(hosts)} hosts — possible shared infrastructure",
+                }
+            )
 
     # Technologies seen across multiple hosts
     for tech, hosts in tech_to_hosts.items():
         if len(hosts) > 2:
-            correlations.append({
-                "type": "common_technology",
-                "technology": tech,
-                "hosts": list(hosts),
-                "detail": f"Technology '{tech}' detected on {len(hosts)} hosts",
-            })
+            correlations.append(
+                {
+                    "type": "common_technology",
+                    "technology": tech,
+                    "hosts": list(hosts),
+                    "detail": f"Technology '{tech}' detected on {len(hosts)} hosts",
+                }
+            )
 
     return correlations
 

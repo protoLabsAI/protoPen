@@ -1,4 +1,5 @@
 """Tests for evasion parsers."""
+
 from __future__ import annotations
 
 import json

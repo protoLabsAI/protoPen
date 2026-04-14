@@ -1,4 +1,5 @@
 """Privilege escalation enumeration tool — linpeas, winpeas, sudo checks."""
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,11 @@ class PrivEscTool(BasePentestTool):
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "linpeas": {
-            "cmd": ["bash", "-c", "curl -fsSL https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh"],
+            "cmd": [
+                "bash",
+                "-c",
+                "curl -fsSL https://github.com/carlospolop/PEASS-ng/releases/latest/download/linpeas.sh | sh",
+            ],
             "timeout": 300,
             "description": "Run linpeas for Linux privilege escalation enumeration",
         },

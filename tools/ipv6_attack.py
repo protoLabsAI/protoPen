@@ -1,4 +1,5 @@
 """IPv6 network attack and discovery — THC-IPv6 suite, nmap IPv6 scanning."""
+
 from __future__ import annotations
 
 import logging

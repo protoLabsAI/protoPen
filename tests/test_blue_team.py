@@ -1,4 +1,5 @@
 """Tests for Phase 4 blue-team tools — purple team, IR containment, chain planner."""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ from knowledge.target_profile import TargetProfile, TargetPort
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def purple():
     return PurpleTeamTool()
@@ -25,21 +27,16 @@ def ir():
 
 def _red_results(*technique_ids, success=True):
     """Helper to build red-team result dicts."""
-    return [
-        {"technique_id": tid, "technique_name": f"Tech {tid}", "success": success}
-        for tid in technique_ids
-    ]
+    return [{"technique_id": tid, "technique_name": f"Tech {tid}", "success": success} for tid in technique_ids]
 
 
 def _blue_results(*technique_ids):
     """Helper to build blue-team detection dicts."""
-    return [
-        {"technique_id": tid, "detected": True}
-        for tid in technique_ids
-    ]
+    return [{"technique_id": tid, "detected": True} for tid in technique_ids]
 
 
 # ── PurpleTeamTool ───────────────────────────────────────────────────────────
+
 
 class TestPurpleTeamInstantiation:
     def test_name_and_actions(self, purple):
@@ -222,6 +219,7 @@ class TestExerciseReport:
 
 # ── IrToolkitTool — containment_recommend ────────────────────────────────────
 
+
 class TestIrToolkitInstantiation:
     def test_name_and_actions(self, ir):
         assert ir.name == "ir_toolkit"
@@ -296,6 +294,7 @@ class TestContainmentRecommend:
 
 # ── ChainPlanner ─────────────────────────────────────────────────────────────
 
+
 class TestChainPlanner:
     def _profile(self, **kwargs) -> TargetProfile:
         return TargetProfile(ip="10.0.0.1", **kwargs)
@@ -306,9 +305,7 @@ class TestChainPlanner:
         assert suggestions == []
 
     def test_web_service_triggers_web_suggestions(self):
-        profile = self._profile(
-            ports=[TargetPort(port=80, service="http")]
-        )
+        profile = self._profile(ports=[TargetPort(port=80, service="http")])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "web_enum" in tools
@@ -317,41 +314,31 @@ class TestChainPlanner:
         assert all(s["rule_name"] == "web_discovered" for s in suggestions)
 
     def test_smb_service_by_name(self):
-        profile = self._profile(
-            ports=[TargetPort(port=445, service="microsoft-ds")]
-        )
+        profile = self._profile(ports=[TargetPort(port=445, service="microsoft-ds")])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "service_enum" in tools
 
     def test_smb_service_by_port(self):
-        profile = self._profile(
-            ports=[TargetPort(port=445, service="")]
-        )
+        profile = self._profile(ports=[TargetPort(port=445, service="")])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "service_enum" in tools
 
     def test_ssh_service(self):
-        profile = self._profile(
-            ports=[TargetPort(port=22, service="ssh")]
-        )
+        profile = self._profile(ports=[TargetPort(port=22, service="ssh")])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "credential_attack" in tools
 
     def test_dns_service(self):
-        profile = self._profile(
-            ports=[TargetPort(port=53, service="domain")]
-        )
+        profile = self._profile(ports=[TargetPort(port=53, service="domain")])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "dns_enum" in tools
 
     def test_web_paths_trigger_vuln_assessment(self):
-        profile = self._profile(
-            web_paths=[{"path": "/admin", "status": 200}]
-        )
+        profile = self._profile(web_paths=[{"path": "/admin", "status": 200}])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "web_vuln" in tools
@@ -364,18 +351,14 @@ class TestChainPlanner:
         assert "hydra_spray" in actions
 
     def test_vulns_trigger_exploit_search(self):
-        profile = self._profile(
-            vulnerabilities=[{"cve": "CVE-2024-1234", "severity": "critical"}]
-        )
+        profile = self._profile(vulnerabilities=[{"cve": "CVE-2024-1234", "severity": "critical"}])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "msf_exploit" in tools
         assert "cve_match" in tools
 
     def test_creds_trigger_lateral_movement(self):
-        profile = self._profile(
-            credentials=[{"username": "admin", "password": "pass"}]
-        )
+        profile = self._profile(credentials=[{"username": "admin", "password": "pass"}])
         suggestions = suggest_next_steps(profile)
         tools = [s["tool"] for s in suggestions]
         assert "lateral_move" in tools
@@ -414,9 +397,7 @@ class TestChainPlanner:
         assert len(suggestions) == 3
 
     def test_suggestion_has_required_keys(self):
-        profile = self._profile(
-            ports=[TargetPort(port=80, service="http")]
-        )
+        profile = self._profile(ports=[TargetPort(port=80, service="http")])
         suggestions = suggest_next_steps(profile)
         for s in suggestions:
             assert "tool" in s

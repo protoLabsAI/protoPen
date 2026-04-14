@@ -26,18 +26,24 @@ class LangGraphConfig:
     max_iterations: int = 75
 
     # Subagents
-    threat_scanner: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["cve_search", "security_feeds", "github_trending", "browser", "security_memory"],
-        max_turns=30,
-    ))
-    vuln_analyst: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["cve_search", "browser", "security_memory", "target_intel"],
-        max_turns=40,
-    ))
-    intel_reporter: SubagentDef = field(default_factory=lambda: SubagentDef(
-        tools=["security_memory", "discord_feed"],
-        max_turns=20,
-    ))
+    threat_scanner: SubagentDef = field(
+        default_factory=lambda: SubagentDef(
+            tools=["cve_search", "security_feeds", "github_trending", "browser", "security_memory"],
+            max_turns=30,
+        )
+    )
+    vuln_analyst: SubagentDef = field(
+        default_factory=lambda: SubagentDef(
+            tools=["cve_search", "browser", "security_memory", "target_intel"],
+            max_turns=40,
+        )
+    )
+    intel_reporter: SubagentDef = field(
+        default_factory=lambda: SubagentDef(
+            tools=["security_memory", "discord_feed"],
+            max_turns=20,
+        )
+    )
 
     # Middleware toggles
     knowledge_middleware: bool = True
@@ -93,10 +99,14 @@ class LangGraphConfig:
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):
             if name in subagents:
                 sub = subagents[name]
-                setattr(config, name, SubagentDef(
-                    enabled=sub.get("enabled", True),
-                    tools=sub.get("tools", getattr(config, name).tools),
-                    max_turns=sub.get("max_turns", getattr(config, name).max_turns),
-                ))
+                setattr(
+                    config,
+                    name,
+                    SubagentDef(
+                        enabled=sub.get("enabled", True),
+                        tools=sub.get("tools", getattr(config, name).tools),
+                        max_turns=sub.get("max_turns", getattr(config, name).max_turns),
+                    ),
+                )
 
         return config

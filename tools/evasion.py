@@ -1,4 +1,5 @@
 """Payload evasion and AV bypass — encoding, obfuscation, shellcode, detection testing."""
+
 from __future__ import annotations
 
 import logging
@@ -22,17 +23,37 @@ class EvasionTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "msfvenom_generate": {
             "cmd": [
-                "msfvenom", "-p", "{payload}", "LHOST={lhost}", "LPORT={lport}",
-                "-f", "{format}", "-e", "{encoder}", "-i", "{iterations}",
-                "-o", "{output_path}",
+                "msfvenom",
+                "-p",
+                "{payload}",
+                "LHOST={lhost}",
+                "LPORT={lport}",
+                "-f",
+                "{format}",
+                "-e",
+                "{encoder}",
+                "-i",
+                "{iterations}",
+                "-o",
+                "{output_path}",
             ],
             "timeout": 60,
             "description": "Generate encoded payload with msfvenom",
         },
         "veil_generate": {
             "cmd": [
-                "veil", "-t", "Evasion", "-p", "{payload}",
-                "--ip", "{lhost}", "--port", "{lport}", "-o", "{output_path}", "--quiet",
+                "veil",
+                "-t",
+                "Evasion",
+                "-p",
+                "{payload}",
+                "--ip",
+                "{lhost}",
+                "--port",
+                "{lport}",
+                "-o",
+                "{output_path}",
+                "--quiet",
             ],
             "timeout": 120,
             "description": "Generate AV-evasive payload with Veil-Framework",
@@ -49,8 +70,15 @@ class EvasionTool(BasePentestTool):
         },
         "scarecrow_generate": {
             "cmd": [
-                "scarecrow", "-I", "{input_file}", "-Loader", "{loader}",
-                "-domain", "{domain}", "-o", "{output_path}",
+                "scarecrow",
+                "-I",
+                "{input_file}",
+                "-Loader",
+                "{loader}",
+                "-domain",
+                "{domain}",
+                "-o",
+                "{output_path}",
             ],
             "timeout": 60,
             "description": "EDR-evasive loader generation with ScareCrow",
@@ -96,10 +124,19 @@ class EvasionTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             str(c).format(
-                payload=payload, lhost=lhost, lport=lport, format=format,
-                encoder=encoder, iterations=iterations, output_path=output_path,
-                target_pe=target_pe, input_file=input_file, arch=arch,
-                loader=loader, domain=domain, payload_path=payload_path,
+                payload=payload,
+                lhost=lhost,
+                lport=lport,
+                format=format,
+                encoder=encoder,
+                iterations=iterations,
+                output_path=output_path,
+                target_pe=target_pe,
+                input_file=input_file,
+                arch=arch,
+                loader=loader,
+                domain=domain,
+                payload_path=payload_path,
                 timeout=timeout,
             )
             for c in spec["cmd"]
@@ -107,6 +144,8 @@ class EvasionTool(BasePentestTool):
         effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(
-            action=action, cmd=cmd, timeout=effective_timeout,
+            action=action,
+            cmd=cmd,
+            timeout=effective_timeout,
             target_hint=payload_path or output_path,
         )

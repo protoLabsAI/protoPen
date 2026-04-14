@@ -1,4 +1,5 @@
 """Tests for container_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,20 +17,29 @@ def tool():
 
 # ── Instantiation ────────────────────────────────────────────────────────────
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "container_audit"
 
     def test_actions_defined(self, tool):
         expected = {
-            "kube_hunter", "kube_hunter_internal", "kube_bench",
-            "kube_bench_target", "deepce", "cdk_evaluate", "cdk_exploit",
-            "trivy_image", "trivy_k8s", "trivy_fs",
+            "kube_hunter",
+            "kube_hunter_internal",
+            "kube_bench",
+            "kube_bench_target",
+            "deepce",
+            "cdk_evaluate",
+            "cdk_exploit",
+            "trivy_image",
+            "trivy_k8s",
+            "trivy_fs",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -65,6 +75,7 @@ class TestDispatch:
 
 # ── kube-bench ───────────────────────────────────────────────────────────────
 
+
 class TestKubeBench:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -95,14 +106,17 @@ class TestKubeBench:
 
 # ── deepce ───────────────────────────────────────────────────────────────────
 
+
 class TestDeepce:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_deepce_run(self, mock_exec, tool):
-        output = json.dumps({
-            "escapes": [{"name": "docker.sock", "severity": "high"}],
-            "info": [{"name": "container_runtime", "value": "docker"}],
-        })
+        output = json.dumps(
+            {
+                "escapes": [{"name": "docker.sock", "severity": "high"}],
+                "info": [{"name": "container_runtime", "value": "docker"}],
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -118,13 +132,16 @@ class TestDeepce:
 
 # ── CDK ──────────────────────────────────────────────────────────────────────
 
+
 class TestCDK:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_cdk_evaluate(self, mock_exec, tool):
-        output = json.dumps({
-            "findings": [{"name": "service-account", "severity": "high"}],
-        })
+        output = json.dumps(
+            {
+                "findings": [{"name": "service-account", "severity": "high"}],
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -148,19 +165,28 @@ class TestCDK:
 
 # ── Trivy ────────────────────────────────────────────────────────────────────
 
+
 class TestTrivy:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_trivy_image(self, mock_exec, tool):
-        output = json.dumps({
-            "Results": [{
-                "Target": "alpine:3.19",
-                "Vulnerabilities": [
-                    {"VulnerabilityID": "CVE-2024-1234", "Severity": "HIGH",
-                     "PkgName": "openssl", "InstalledVersion": "3.1.4"},
+        output = json.dumps(
+            {
+                "Results": [
+                    {
+                        "Target": "alpine:3.19",
+                        "Vulnerabilities": [
+                            {
+                                "VulnerabilityID": "CVE-2024-1234",
+                                "Severity": "HIGH",
+                                "PkgName": "openssl",
+                                "InstalledVersion": "3.1.4",
+                            },
+                        ],
+                    }
                 ],
-            }],
-        })
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -208,6 +234,7 @@ class TestTrivy:
 
 
 # ── Binary not found ─────────────────────────────────────────────────────────
+
 
 class TestBinaryNotFound:
     @pytest.mark.asyncio

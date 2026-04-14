@@ -1,4 +1,5 @@
 """Supply-chain security testing — dependency confusion, typosquatting, secret detection."""
+
 from __future__ import annotations
 
 import logging
@@ -22,9 +23,13 @@ class SupplyChainTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "dependency_confusion_test": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.dep_confusion",
-                "--registry", "{registry}",
-                "--packages-file", "{packages_file}",
+                "python3",
+                "-m",
+                "protopen_scripts.dep_confusion",
+                "--registry",
+                "{registry}",
+                "--packages-file",
+                "{packages_file}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -32,9 +37,13 @@ class SupplyChainTool(BasePentestTool):
         },
         "typosquat_scan": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.typosquat",
-                "--package", "{package_name}",
-                "--registry", "{registry}",
+                "python3",
+                "-m",
+                "protopen_scripts.typosquat",
+                "--package",
+                "{package_name}",
+                "--registry",
+                "{registry}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -42,9 +51,13 @@ class SupplyChainTool(BasePentestTool):
         },
         "package_provenance_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.provenance",
-                "--package", "{package_name}",
-                "--registry", "{registry}",
+                "python3",
+                "-m",
+                "protopen_scripts.provenance",
+                "--package",
+                "{package_name}",
+                "--registry",
+                "{registry}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -52,8 +65,11 @@ class SupplyChainTool(BasePentestTool):
         },
         "postinstall_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.postinstall_audit",
-                "--package-dir", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.postinstall_audit",
+                "--package-dir",
+                "{target}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -66,10 +82,14 @@ class SupplyChainTool(BasePentestTool):
         },
         "gitleaks_scan": {
             "cmd": [
-                "gitleaks", "detect",
-                "--source", "{target}",
-                "--report-format", "json",
-                "--report-path", "/dev/stdout",
+                "gitleaks",
+                "detect",
+                "--source",
+                "{target}",
+                "--report-format",
+                "json",
+                "--report-path",
+                "/dev/stdout",
             ],
             "timeout": 120,
             "description": "Detect hardcoded secrets in source with gitleaks",
@@ -77,9 +97,12 @@ class SupplyChainTool(BasePentestTool):
         "depscan": {
             "cmd": [
                 "depscan",
-                "--src", "{target}",
-                "--report_file", "/dev/stdout",
-                "--type", "{scan_type}",
+                "--src",
+                "{target}",
+                "--report_file",
+                "/dev/stdout",
+                "--type",
+                "{scan_type}",
             ],
             "timeout": 120,
             "description": "Dependency vulnerability scan with OWASP depscan",

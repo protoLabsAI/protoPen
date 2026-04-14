@@ -1,4 +1,5 @@
 """Tests for llm_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,20 +17,27 @@ def tool():
 
 # -- Instantiation ------------------------------------------------------------
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "llm_audit"
 
     def test_actions_defined(self, tool):
         expected = {
-            "garak_scan", "garak_probe", "promptfoo_eval", "promptfoo_redteam",
-            "prompt_inject_test", "rag_poison_check", "model_extract_test",
+            "garak_scan",
+            "garak_probe",
+            "promptfoo_eval",
+            "promptfoo_redteam",
+            "prompt_inject_test",
+            "rag_poison_check",
+            "model_extract_test",
             "jailbreak_test",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # -- Dispatch ------------------------------------------------------------------
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -40,14 +48,22 @@ class TestDispatch:
 
 # -- garak_scan ----------------------------------------------------------------
 
+
 class TestGarakScan:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_garak_scan(self, mock_exec, tool):
-        output = json.dumps({"vulnerabilities": [
-            {"probe": "promptinject", "severity": "high",
-             "description": "Prompt injection via encoding bypass"},
-        ]})
+        output = json.dumps(
+            {
+                "vulnerabilities": [
+                    {
+                        "probe": "promptinject",
+                        "severity": "high",
+                        "description": "Prompt injection via encoding bypass",
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -74,6 +90,7 @@ class TestGarakScan:
 
 # -- garak_probe ---------------------------------------------------------------
 
+
 class TestGarakProbe:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -90,19 +107,25 @@ class TestGarakProbe:
 
 # -- promptfoo_eval ------------------------------------------------------------
 
+
 class TestPromptfooEval:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_promptfoo_eval(self, mock_exec, tool):
-        output = json.dumps({"results": [
-            {"test_name": "sql_injection", "status": "fail", "output": "leaked data"},
-        ]})
+        output = json.dumps(
+            {
+                "results": [
+                    {"test_name": "sql_injection", "status": "fail", "output": "leaked data"},
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "promptfoo_eval", config_path="/tmp/config.yaml",
+            "promptfoo_eval",
+            config_path="/tmp/config.yaml",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "promptfoo"
@@ -114,14 +137,22 @@ class TestPromptfooEval:
 
 # -- promptfoo_redteam ---------------------------------------------------------
 
+
 class TestPromptfooRedteam:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_promptfoo_redteam(self, mock_exec, tool):
-        output = json.dumps({"findings": [
-            {"attack_type": "jailbreak", "severity": "critical",
-             "description": "Model bypassed safety guardrails"},
-        ]})
+        output = json.dumps(
+            {
+                "findings": [
+                    {
+                        "attack_type": "jailbreak",
+                        "severity": "critical",
+                        "description": "Model bypassed safety guardrails",
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -136,14 +167,22 @@ class TestPromptfooRedteam:
 
 # -- prompt_inject_test --------------------------------------------------------
 
+
 class TestPromptInjectTest:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_prompt_inject_default(self, mock_exec, tool):
-        output = json.dumps({"injections": [
-            {"payload_name": "ignore_previous", "success": True,
-             "description": "Direct prompt injection succeeded"},
-        ]})
+        output = json.dumps(
+            {
+                "injections": [
+                    {
+                        "payload_name": "ignore_previous",
+                        "success": True,
+                        "description": "Direct prompt injection succeeded",
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -169,21 +208,30 @@ class TestPromptInjectTest:
 
 # -- rag_poison_check ----------------------------------------------------------
 
+
 class TestRagPoisonCheck:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_rag_poison_check(self, mock_exec, tool):
-        output = json.dumps({"poisoned_entries": [
-            {"document_id": "doc-42", "severity": "high",
-             "description": "Injected instruction in corpus chunk",
-             "confidence": 0.95},
-        ]})
+        output = json.dumps(
+            {
+                "poisoned_entries": [
+                    {
+                        "document_id": "doc-42",
+                        "severity": "high",
+                        "description": "Injected instruction in corpus chunk",
+                        "confidence": 0.95,
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "rag_poison_check", target="http://llm.local",
+            "rag_poison_check",
+            target="http://llm.local",
             corpus_path="/data/corpus",
         )
         cmd = mock_exec.call_args[0]
@@ -196,15 +244,24 @@ class TestRagPoisonCheck:
 
 # -- model_extract_test --------------------------------------------------------
 
+
 class TestModelExtractTest:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_model_extract_default(self, mock_exec, tool):
-        output = json.dumps({"probes": [
-            {"method": "logit_extraction", "similarity_score": 0.92,
-             "threshold": 0.8, "queries_used": 100,
-             "description": "High similarity — extraction likely"},
-        ]})
+        output = json.dumps(
+            {
+                "probes": [
+                    {
+                        "method": "logit_extraction",
+                        "similarity_score": 0.92,
+                        "threshold": 0.8,
+                        "queries_used": 100,
+                        "description": "High similarity — extraction likely",
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -229,15 +286,23 @@ class TestModelExtractTest:
 
 # -- jailbreak_test ------------------------------------------------------------
 
+
 class TestJailbreakTest:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_jailbreak_default(self, mock_exec, tool):
-        output = json.dumps({"attempts": [
-            {"technique": "DAN", "success": True,
-             "description": "DAN jailbreak succeeded",
-             "bypassed_guardrail": "content_filter"},
-        ]})
+        output = json.dumps(
+            {
+                "attempts": [
+                    {
+                        "technique": "DAN",
+                        "success": True,
+                        "description": "DAN jailbreak succeeded",
+                        "bypassed_guardrail": "content_filter",
+                    },
+                ]
+            }
+        )
         proc = AsyncMock()
         proc.communicate.return_value = (output.encode(), b"")
         proc.returncode = 0
@@ -263,6 +328,7 @@ class TestJailbreakTest:
 
 
 # -- Binary not found ----------------------------------------------------------
+
 
 class TestBinaryNotFound:
     @pytest.mark.asyncio

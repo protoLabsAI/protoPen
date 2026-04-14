@@ -1,4 +1,5 @@
 """Parser for privilege escalation output."""
+
 from __future__ import annotations
 
 import re
@@ -25,12 +26,14 @@ def parse_sudo(raw: str, store: "TargetStore") -> list[dict]:
     """Parse sudo -l output."""
     entities: list[dict] = []
     for m in _SUDO_RE.finditer(raw):
-        entities.append({
-            "type": "sudo_rule",
-            "runas": m.group(1),
-            "nopasswd": bool(m.group(2)),
-            "command": m.group(3).strip(),
-        })
+        entities.append(
+            {
+                "type": "sudo_rule",
+                "runas": m.group(1),
+                "nopasswd": bool(m.group(2)),
+                "command": m.group(3).strip(),
+            }
+        )
     return entities
 
 

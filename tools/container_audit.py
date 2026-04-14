@@ -1,4 +1,5 @@
 """Container & Kubernetes security auditing — kube-hunter, deepce, CDK, kube-bench, Trivy."""
+
 from __future__ import annotations
 
 import json
@@ -38,8 +39,11 @@ class ContainerAuditTool(BasePentestTool):
         },
         "kube_bench_target": {
             "cmd": [
-                "kube-bench", "run", "--json",
-                "--benchmark", "{benchmark}",
+                "kube-bench",
+                "run",
+                "--json",
+                "--benchmark",
+                "{benchmark}",
             ],
             "timeout": 180,
             "description": "Run CIS benchmark for a specific K8s version (e.g. gke-1.2.0, eks-1.1.0)",
@@ -61,24 +65,39 @@ class ContainerAuditTool(BasePentestTool):
         },
         "trivy_image": {
             "cmd": [
-                "trivy", "image", "--format", "json",
-                "--severity", "{severity}", "{image}",
+                "trivy",
+                "image",
+                "--format",
+                "json",
+                "--severity",
+                "{severity}",
+                "{image}",
             ],
             "timeout": 300,
             "description": "Scan container image for known CVEs (Trivy)",
         },
         "trivy_k8s": {
             "cmd": [
-                "trivy", "k8s", "--format", "json",
-                "--report", "summary", "{target}",
+                "trivy",
+                "k8s",
+                "--format",
+                "json",
+                "--report",
+                "summary",
+                "{target}",
             ],
             "timeout": 300,
             "description": "Scan Kubernetes cluster resources for misconfigurations and CVEs",
         },
         "trivy_fs": {
             "cmd": [
-                "trivy", "fs", "--format", "json",
-                "--severity", "{severity}", "{path}",
+                "trivy",
+                "fs",
+                "--format",
+                "json",
+                "--severity",
+                "{severity}",
+                "{path}",
             ],
             "timeout": 180,
             "description": "Scan filesystem/project for vulnerabilities in dependencies",

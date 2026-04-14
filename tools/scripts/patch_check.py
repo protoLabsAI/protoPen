@@ -4,6 +4,7 @@
 Usage: python3 patch_check.py
 Outputs: JSON with pending update counts and severity.
 """
+
 import json
 import platform
 import subprocess
@@ -18,7 +19,9 @@ def main() -> None:
         try:
             r = subprocess.run(
                 ["apt", "list", "--upgradable"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if r.returncode == 0:
                 for line in r.stdout.splitlines()[1:]:
@@ -30,7 +33,9 @@ def main() -> None:
             try:
                 r = subprocess.run(
                     ["yum", "check-update", "--quiet"],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 for line in r.stdout.splitlines():
                     parts = line.split()
@@ -43,7 +48,9 @@ def main() -> None:
         try:
             r = subprocess.run(
                 ["softwareupdate", "-l"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             for line in r.stdout.splitlines():
                 if "*" in line:
@@ -60,12 +67,16 @@ def main() -> None:
     else:
         severity = "info"
 
-    print(json.dumps({
-        "os": os_type,
-        "pending_updates": len(packages),
-        "packages": packages[:30],
-        "severity": severity,
-    }))
+    print(
+        json.dumps(
+            {
+                "os": os_type,
+                "pending_updates": len(packages),
+                "packages": packages[:30],
+                "severity": severity,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

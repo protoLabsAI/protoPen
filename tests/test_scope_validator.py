@@ -1,4 +1,5 @@
 """Tests for ScopeValidator — engagement scope enforcement."""
+
 import pytest
 
 from enforcement.scope import ScopeValidator

@@ -59,8 +59,12 @@ class LabMonitorTool(Tool):
                 "action": {
                     "type": "string",
                     "enum": [
-                        "recent_commits", "read_file", "experiments",
-                        "diff", "watch_paths", "changes_since",
+                        "recent_commits",
+                        "read_file",
+                        "experiments",
+                        "diff",
+                        "watch_paths",
+                        "changes_since",
                     ],
                 },
                 "path": {
@@ -127,12 +131,14 @@ class LabMonitorTool(Tool):
             return f"Error: {e}"
 
     async def _recent_commits(
-        self, days: int = 7, path: str = "", limit: int = 20,
+        self,
+        days: int = 7,
+        path: str = "",
+        limit: int = 20,
     ) -> str:
-        since = datetime.now(timezone.utc).replace(
-            hour=0, minute=0, second=0
-        )
+        since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
         from datetime import timedelta
+
         since = since - timedelta(days=days)
 
         params: dict[str, Any] = {
@@ -145,7 +151,8 @@ class LabMonitorTool(Tool):
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 f"{_GITHUB_API}/repos/{_REPO}/commits",
-                headers=self._headers(), params=params,
+                headers=self._headers(),
+                params=params,
             )
             r.raise_for_status()
             commits = r.json()
@@ -176,6 +183,7 @@ class LabMonitorTool(Tool):
 
         if data.get("encoding") == "base64":
             import base64
+
             content = base64.b64decode(data["content"]).decode("utf-8")
             return f"## {path}\n\n{content}"
         elif data.get("type") == "dir":
@@ -210,7 +218,9 @@ class LabMonitorTool(Tool):
         return "\n".join(lines)
 
     async def _changes_since(
-        self, since: str = "", limit: int = 30,
+        self,
+        since: str = "",
+        limit: int = 30,
     ) -> str:
         if not since:
             return "Error: 'since' date is required (e.g. 2026-03-20)."
@@ -223,7 +233,8 @@ class LabMonitorTool(Tool):
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 f"{_GITHUB_API}/repos/{_REPO}/commits",
-                headers=self._headers(), params=params,
+                headers=self._headers(),
+                params=params,
             )
             r.raise_for_status()
             all_commits = r.json()
@@ -241,10 +252,7 @@ class LabMonitorTool(Tool):
                     continue
                 files = cr.json().get("files", [])
 
-            touched = [
-                f["filename"] for f in files
-                if any(f["filename"].startswith(wp) for wp in _WATCH_PATHS)
-            ]
+            touched = [f["filename"] for f in files if any(f["filename"].startswith(wp) for wp in _WATCH_PATHS)]
             if touched:
                 msg = c["commit"]["message"].split("\n")[0]
                 date = c["commit"]["author"]["date"][:10]

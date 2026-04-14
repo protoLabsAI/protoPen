@@ -1,4 +1,5 @@
 """CI/CD pipeline security scanning — truffleHog, gitleaks, actionlint, semgrep, checkov."""
+
 from __future__ import annotations
 
 import logging
@@ -32,8 +33,14 @@ class CICDAuditTool(BasePentestTool):
         },
         "gitleaks_detect": {
             "cmd": [
-                "gitleaks", "detect", "--source", "{path}",
-                "--report-format", "json", "--report-path", "/dev/stdout",
+                "gitleaks",
+                "detect",
+                "--source",
+                "{path}",
+                "--report-format",
+                "json",
+                "--report-path",
+                "/dev/stdout",
                 "--no-banner",
             ],
             "timeout": 180,
@@ -41,9 +48,16 @@ class CICDAuditTool(BasePentestTool):
         },
         "gitleaks_protect": {
             "cmd": [
-                "gitleaks", "protect", "--source", "{path}",
-                "--report-format", "json", "--report-path", "/dev/stdout",
-                "--no-banner", "--staged",
+                "gitleaks",
+                "protect",
+                "--source",
+                "{path}",
+                "--report-format",
+                "json",
+                "--report-path",
+                "/dev/stdout",
+                "--no-banner",
+                "--staged",
             ],
             "timeout": 60,
             "description": "Scan staged changes for secrets before commit",
@@ -55,8 +69,13 @@ class CICDAuditTool(BasePentestTool):
         },
         "dependency_check": {
             "cmd": [
-                "dependency-check", "--scan", "{path}",
-                "--format", "JSON", "--out", "/dev/stdout",
+                "dependency-check",
+                "--scan",
+                "{path}",
+                "--format",
+                "JSON",
+                "--out",
+                "/dev/stdout",
                 "--disableAssembly",
             ],
             "timeout": 600,
@@ -85,10 +104,7 @@ class CICDAuditTool(BasePentestTool):
             return self._unknown_action(action)
 
         spec = self.ACTIONS[action]
-        cmd = [
-            c.format(repo_url=repo_url, path=path, timeout=timeout)
-            for c in spec["cmd"]
-        ]
+        cmd = [c.format(repo_url=repo_url, path=path, timeout=timeout) for c in spec["cmd"]]
         effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(

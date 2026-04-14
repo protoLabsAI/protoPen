@@ -1,4 +1,5 @@
 """Tests for phishing — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,10 +21,15 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "gophish_create_campaign", "gophish_results",
-            "evilginx_phishlet", "evilginx_lures",
-            "email_header_analyze", "spf_check", "dkim_check",
-            "dmarc_check", "smtp_relay_test",
+            "gophish_create_campaign",
+            "gophish_results",
+            "evilginx_phishlet",
+            "evilginx_lures",
+            "email_header_analyze",
+            "spf_check",
+            "dkim_check",
+            "dmarc_check",
+            "smtp_relay_test",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -43,7 +49,9 @@ class TestGoPhish:
         proc.communicate.return_value = (b'{"id":1,"name":"test"}', b"")
         proc.returncode = 0
         mock_exec.return_value = proc
-        await tool.execute("gophish_create_campaign", campaign_name="test", template="tmpl", target="http://gophish", api_key="key123")
+        await tool.execute(
+            "gophish_create_campaign", campaign_name="test", template="tmpl", target="http://gophish", api_key="key123"
+        )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "gophish-cli"
         assert "test" in cmd
@@ -118,7 +126,9 @@ class TestSMTP:
         proc.communicate.return_value = (b"250 Ok: queued\n", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
-        await tool.execute("smtp_relay_test", target="mail.example.com", recipient="user@test.com", sender="attacker@evil.com")
+        await tool.execute(
+            "smtp_relay_test", target="mail.example.com", recipient="user@test.com", sender="attacker@evil.com"
+        )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "swaks"
         assert "user@test.com" in cmd

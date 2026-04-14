@@ -118,7 +118,11 @@ class KnowledgeStore:
         return chunk
 
     def _store_vector(
-        self, db: sqlite3.Connection, text: str, table: str, source_id: str,
+        self,
+        db: sqlite3.Connection,
+        text: str,
+        table: str,
+        source_id: str,
         doc_context: str = "",
     ) -> bool:
         embed_text = text
@@ -128,9 +132,7 @@ class KnowledgeStore:
         if embedding is None:
             return False
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
-        cursor = db.execute(
-            "INSERT INTO knowledge_vec (embedding) VALUES (?)", (vec_bytes,)
-        )
+        cursor = db.execute("INSERT INTO knowledge_vec (embedding) VALUES (?)", (vec_bytes,))
         db.execute(
             "INSERT INTO knowledge_vec_map (rowid, source_table, source_id, content_preview) VALUES (?, ?, ?, ?)",
             (cursor.lastrowid, table, str(source_id), text[:_CONTENT_PREVIEW_LEN]),
@@ -174,10 +176,21 @@ class KnowledgeStore:
                 tags, published_at, discovered_at, analyzed_at, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                cve_id, title, description, severity, cvss_score, cvss_vector,
-                json.dumps(affected_products or []), json.dumps(references or []),
-                int(exploit_available), exploit_maturity,
-                json.dumps(tags or []), published_at, now, "", notes,
+                cve_id,
+                title,
+                description,
+                severity,
+                cvss_score,
+                cvss_vector,
+                json.dumps(affected_products or []),
+                json.dumps(references or []),
+                int(exploit_available),
+                exploit_maturity,
+                json.dumps(tags or []),
+                published_at,
+                now,
+                "",
+                notes,
             ),
         )
         embed_text = f"{cve_id} {title}\n{description}".strip()
@@ -197,8 +210,11 @@ class KnowledgeStore:
         return dict(zip(cols, row))
 
     def get_cves(
-        self, severity: Optional[str] = None, since: Optional[str] = None,
-        exploit_available: Optional[bool] = None, limit: int = 20,
+        self,
+        severity: Optional[str] = None,
+        since: Optional[str] = None,
+        exploit_available: Optional[bool] = None,
+        limit: int = 20,
     ) -> list[dict]:
         db = self._get_db()
         if db is None:
@@ -223,10 +239,17 @@ class KnowledgeStore:
     # --- Exploits ---
 
     def add_exploit(
-        self, title: str, cve_id: str = "", description: str = "",
-        source: str = "", source_url: str = "", platform: str = "",
-        exploit_type: str = "", verified: bool = False,
-        code_path: str = "", notes: str = "",
+        self,
+        title: str,
+        cve_id: str = "",
+        description: str = "",
+        source: str = "",
+        source_url: str = "",
+        platform: str = "",
+        exploit_type: str = "",
+        verified: bool = False,
+        code_path: str = "",
+        notes: str = "",
     ) -> bool:
         db = self._get_db()
         if db is None:
@@ -238,8 +261,18 @@ class KnowledgeStore:
                 exploit_type, verified, code_path, discovered_at, tested_at, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                cve_id or None, title, description, source, source_url,
-                platform, exploit_type, int(verified), code_path, now, "", notes,
+                cve_id or None,
+                title,
+                description,
+                source,
+                source_url,
+                platform,
+                exploit_type,
+                int(verified),
+                code_path,
+                now,
+                "",
+                notes,
             ),
         )
         embed_text = f"{title}\n{description}".strip()
@@ -251,10 +284,16 @@ class KnowledgeStore:
     # --- Advisories ---
 
     def add_advisory(
-        self, source: str, title: str, content: str = "",
-        severity: str = "", affected_products: Optional[list[str]] = None,
-        cve_ids: Optional[list[str]] = None, url: str = "",
-        published_at: str = "", notes: str = "",
+        self,
+        source: str,
+        title: str,
+        content: str = "",
+        severity: str = "",
+        affected_products: Optional[list[str]] = None,
+        cve_ids: Optional[list[str]] = None,
+        url: str = "",
+        published_at: str = "",
+        notes: str = "",
     ) -> bool:
         db = self._get_db()
         if db is None:
@@ -266,9 +305,16 @@ class KnowledgeStore:
                 url, published_at, discovered_at, notes)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                source, title, content, severity,
-                json.dumps(affected_products or []), json.dumps(cve_ids or []),
-                url, published_at, now, notes,
+                source,
+                title,
+                content,
+                severity,
+                json.dumps(affected_products or []),
+                json.dumps(cve_ids or []),
+                url,
+                published_at,
+                now,
+                notes,
             ),
         )
         embed_text = f"{title}\n{content[:500]}".strip()
@@ -280,8 +326,13 @@ class KnowledgeStore:
     # --- Threat Intel ---
 
     def add_threat_intel(
-        self, content: str, source: str = "", source_type: str = "",
-        topic: str = "", intel_type: str = "indicator", severity: str = "",
+        self,
+        content: str,
+        source: str = "",
+        source_type: str = "",
+        topic: str = "",
+        intel_type: str = "indicator",
+        severity: str = "",
         target_relevance: str = "",
     ) -> bool:
         db = self._get_db()
@@ -293,8 +344,7 @@ class KnowledgeStore:
                (content, source, source_type, topic, intel_type, severity,
                 target_relevance, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (content, source, source_type, topic, intel_type, severity,
-             target_relevance, now),
+            (content, source, source_type, topic, intel_type, severity, target_relevance, now),
         )
         doc_context = f"Threat intel ({intel_type}) on topic: {topic or 'general'}. Source: {source or 'unknown'}"
         self._store_vector(db, content, "threat_intel", str(cursor.lastrowid), doc_context=doc_context)
@@ -304,7 +354,10 @@ class KnowledgeStore:
     # --- Topics ---
 
     def add_topic(
-        self, name: str, description: str = "", keywords: Optional[list[str]] = None,
+        self,
+        name: str,
+        description: str = "",
+        keywords: Optional[list[str]] = None,
         priority: int = 2,
     ) -> bool:
         db = self._get_db()
@@ -334,8 +387,12 @@ class KnowledgeStore:
     # --- Digests ---
 
     def add_digest(
-        self, title: str, content: str, digest_type: str = "weekly",
-        topic: str = "", cves_referenced: Optional[list[str]] = None,
+        self,
+        title: str,
+        content: str,
+        digest_type: str = "weekly",
+        topic: str = "",
+        cves_referenced: Optional[list[str]] = None,
     ) -> bool:
         db = self._get_db()
         if db is None:
@@ -369,7 +426,9 @@ class KnowledgeStore:
     # --- Semantic Search ---
 
     def search(
-        self, query: str, k: int = 10,
+        self,
+        query: str,
+        k: int = 10,
         filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         db = self._get_db()
@@ -377,7 +436,7 @@ class KnowledgeStore:
             return []
         embedding = self._embed(query)
         if embedding is None:
-            print(f"[knowledge] Embedding unavailable, falling back to keyword search")
+            print("[knowledge] Embedding unavailable, falling back to keyword search")
             return self.keyword_search(query, k=k, filter_table=filter_table)
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
         rows = db.execute(
@@ -393,18 +452,22 @@ class KnowledgeStore:
         for table, source_id, preview, distance in rows:
             if filter_table and table != filter_table:
                 continue
-            results.append({
-                "table": table,
-                "source_id": source_id,
-                "preview": preview,
-                "distance": distance,
-            })
+            results.append(
+                {
+                    "table": table,
+                    "source_id": source_id,
+                    "preview": preview,
+                    "distance": distance,
+                }
+            )
         return results
 
     # --- Keyword Search (BM25 via FTS5) ---
 
     def keyword_search(
-        self, query: str, k: int = 10,
+        self,
+        query: str,
+        k: int = 10,
         filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """BM25 keyword search via FTS5."""
@@ -427,13 +490,15 @@ class KnowledgeStore:
         for table, source_id, content, rank in rows:
             if filter_table and table != filter_table:
                 continue
-            results.append({
-                "table": table,
-                "source_id": source_id,
-                "preview": content,
-                "distance": 0.0,
-                "bm25_rank": rank,
-            })
+            results.append(
+                {
+                    "table": table,
+                    "source_id": source_id,
+                    "preview": content,
+                    "distance": 0.0,
+                    "bm25_rank": rank,
+                }
+            )
             if len(results) >= k:
                 break
         return results
@@ -441,7 +506,9 @@ class KnowledgeStore:
     # --- Hybrid Search (RRF fusion of vector + keyword) ---
 
     def hybrid_search(
-        self, query: str, k: int = 10,
+        self,
+        query: str,
+        k: int = 10,
         filter_table: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """Hybrid search: reciprocal rank fusion of vector + BM25 results."""
@@ -473,9 +540,7 @@ class KnowledgeStore:
         if db is None:
             return 0
         db.execute("DELETE FROM knowledge_fts")
-        cursor = db.execute(
-            "SELECT source_table, source_id, content_preview FROM knowledge_vec_map"
-        )
+        cursor = db.execute("SELECT source_table, source_id, content_preview FROM knowledge_vec_map")
         count = 0
         for table, source_id, preview in cursor:
             if preview:

@@ -19,6 +19,7 @@ from tools.marauder import MarauderTool  # noqa: E402
 
 # ── Fixtures ───────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 def conn() -> MagicMock:
     mock = MagicMock()
@@ -36,6 +37,7 @@ def marauder(conn: MagicMock) -> MarauderTool:
 
 # ── Tool interface ─────────────────────────────────────────────────
 
+
 class TestToolInterface:
     def test_name(self, marauder: MarauderTool) -> None:
         assert marauder.name == "marauder"
@@ -51,13 +53,12 @@ class TestToolInterface:
         assert "action" in p["required"]
 
     def test_execute_unknown_action(self, marauder: MarauderTool) -> None:
-        result = asyncio.get_event_loop().run_until_complete(
-            marauder.execute(action="nope")
-        )
+        result = asyncio.get_event_loop().run_until_complete(marauder.execute(action="nope"))
         assert "Unknown action" in result
 
 
 # ── Scanning ───────────────────────────────────────────────────────
+
 
 class TestScanning:
     def test_scan_aps(self, marauder: MarauderTool, conn: MagicMock) -> None:
@@ -123,6 +124,7 @@ class TestScanning:
 
 # ── Attacks ────────────────────────────────────────────────────────
 
+
 class TestAttacks:
     def test_deauth(self, marauder: MarauderTool, conn: MagicMock) -> None:
         marauder.deauth()
@@ -142,6 +144,7 @@ class TestAttacks:
 
 
 # ── Sniffing ───────────────────────────────────────────────────────
+
 
 class TestSniffing:
     def test_sniff_pmkid_default(self, marauder: MarauderTool, conn: MagicMock) -> None:
@@ -167,6 +170,7 @@ class TestSniffing:
 
 # ── BLE ────────────────────────────────────────────────────────────
 
+
 class TestBLE:
     def test_bt_spam_all(self, marauder: MarauderTool, conn: MagicMock) -> None:
         marauder.bt_spam_all()
@@ -186,6 +190,7 @@ class TestBLE:
 
 
 # ── Advanced ───────────────────────────────────────────────────────
+
 
 class TestAdvanced:
     def test_evil_portal_no_path(self, marauder: MarauderTool, conn: MagicMock) -> None:
@@ -215,6 +220,7 @@ class TestAdvanced:
 
 # ── System ─────────────────────────────────────────────────────────
 
+
 class TestSystem:
     def test_info(self, marauder: MarauderTool, conn: MagicMock) -> None:
         marauder.info()
@@ -226,6 +232,7 @@ class TestSystem:
 
 
 # ── Execute dispatch ───────────────────────────────────────────────
+
 
 class TestExecuteDispatch:
     """Verify async execute() routes to every method correctly."""

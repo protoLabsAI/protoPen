@@ -8,6 +8,7 @@ Discord delivery model:
   Payload: summary embed (severity breakdown + top findings) + full report.md attachment.
   No intermediate alerts — all findings are captured in the final report.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,17 +42,14 @@ class EngagementManager(Tool):
         self._mode = EngagementMode[config["engagement"].get("default_mode", "passive").upper()]
         self._tool_risk: dict[str, int] = config.get("tool_risk", {})
         self._workspace_root = Path(config["engagement"]["workspace_dir"])
-        self._webhook_url = (
-            os.environ.get("DISCORD_WEBHOOK_URL", "")
-            or config["engagement"].get("alert_webhook", "")
-        )
+        self._webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "") or config["engagement"].get("alert_webhook", "")
         self.active_engagement: Optional[dict] = None
         self.findings: list[dict] = []
         self.target_store = None
         self.current_phase: str = ""
 
-    _IP_RE = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
-    _MAC_RE = re.compile(r'\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b')
+    _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+    _MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b")
 
     @property
     def name(self) -> str:
@@ -75,9 +73,14 @@ class EngagementManager(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "start", "end", "set_mode", "status",
-                        "log_finding", "check_permission",
-                        "generate_report", "list_findings",
+                        "start",
+                        "end",
+                        "set_mode",
+                        "status",
+                        "log_finding",
+                        "check_permission",
+                        "generate_report",
+                        "list_findings",
                         "transition_phase",
                     ],
                 },
@@ -217,8 +220,7 @@ class EngagementManager(Tool):
         # Top findings block
         if top:
             findings_block = "\n".join(
-                f"`{i}.` **[{f['severity'].upper()}]** {f['title']} `{f['category']}`"
-                for i, f in enumerate(top, 1)
+                f"`{i}.` **[{f['severity'].upper()}]** {f['title']} `{f['category']}`" for i, f in enumerate(top, 1)
             )
         else:
             findings_block = "_No critical or high findings._"
@@ -275,29 +277,30 @@ class EngagementManager(Tool):
         eng = self.active_engagement
 
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-        sorted_findings = sorted(
-            self.findings, key=lambda f: severity_order.get(f["severity"], 5)
-        )
+        sorted_findings = sorted(self.findings, key=lambda f: severity_order.get(f["severity"], 5))
         severity_counts = Counter(f["severity"] for f in self.findings)
 
         # ── Executive summary ─────────────────────────────────────────────────
         total = len(self.findings)
         risk_label = (
-            "CRITICAL" if severity_counts.get("critical", 0) else
-            "HIGH"     if severity_counts.get("high", 0) else
-            "MEDIUM"   if severity_counts.get("medium", 0) else
-            "LOW / INFORMATIONAL"
+            "CRITICAL"
+            if severity_counts.get("critical", 0)
+            else "HIGH"
+            if severity_counts.get("high", 0)
+            else "MEDIUM"
+            if severity_counts.get("medium", 0)
+            else "LOW / INFORMATIONAL"
         )
         started = eng.get("started_at", "N/A")[:19].replace("T", " ")
-        ended   = datetime.now(timezone.utc).isoformat()[:19].replace("T", " ")
+        ended = datetime.now(timezone.utc).isoformat()[:19].replace("T", " ")
 
         lines = [
             f"# Pen Test Report: {eng['name']}",
             "",
             "## Engagement Details",
             "",
-            f"| Field | Value |",
-            f"|---|---|",
+            "| Field | Value |",
+            "|---|---|",
             f"| **Scope** | {eng.get('scope', 'N/A')} |",
             f"| **Mode** | {eng.get('mode', 'N/A')} |",
             f"| **Started** | {started} UTC |",
@@ -306,8 +309,8 @@ class EngagementManager(Tool):
             "",
             "## Severity Summary",
             "",
-            f"| Severity | Count |",
-            f"|---|---|",
+            "| Severity | Count |",
+            "|---|---|",
             f"| 🔴 Critical | {severity_counts.get('critical', 0)} |",
             f"| 🟠 High | {severity_counts.get('high', 0)} |",
             f"| 🟡 Medium | {severity_counts.get('medium', 0)} |",
@@ -425,5 +428,5 @@ class EngagementManager(Tool):
             return "No findings recorded"
         lines = []
         for i, f in enumerate(self.findings):
-            lines.append(f"{i+1}. [{f['severity'].upper()}] {f['category']}: {f['title']}")
+            lines.append(f"{i + 1}. [{f['severity'].upper()}] {f['category']}: {f['title']}")
         return "\n".join(lines)

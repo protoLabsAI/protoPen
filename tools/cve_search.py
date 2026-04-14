@@ -93,9 +93,7 @@ class CVESearchTool(Tool):
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                    resp = await client.get(
-                        _NVD_API, params=params, headers=self._headers()
-                    )
+                    resp = await client.get(_NVD_API, params=params, headers=self._headers())
                     if resp.status_code == 403:
                         return {"error": "Rate limited. Set NVD_API_KEY for higher limits."}
                     resp.raise_for_status()
@@ -200,8 +198,7 @@ class CVESearchTool(Tool):
             published = cve.get("published", "")[:10]
 
             lines.append(
-                f"**{cve_id}** [{severity} {score}] ({published})\n"
-                f"  {desc[:200]}{'...' if len(desc) > 200 else ''}"
+                f"**{cve_id}** [{severity} {score}] ({published})\n  {desc[:200]}{'...' if len(desc) > 200 else ''}"
             )
 
         return "\n\n".join(lines)

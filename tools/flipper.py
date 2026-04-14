@@ -40,16 +40,33 @@ class FlipperTool(Tool):
                     "type": "string",
                     "description": "Method to invoke on the Flipper Zero.",
                     "enum": [
-                        "subghz_rx", "subghz_tx", "subghz_tx_from_file", "subghz_decode_raw",
+                        "subghz_rx",
+                        "subghz_tx",
+                        "subghz_tx_from_file",
+                        "subghz_decode_raw",
                         "subghz_bruteforce",
-                        "nfc_detect", "nfc_field", "nfc_emulate",
-                        "rfid_read", "rfid_write", "rfid_emulate",
-                        "ir_rx", "ir_tx", "ir_tx_raw", "ir_brute",
-                        "bt_info", "ble_scan",
-                        "storage_list", "storage_read", "storage_stat",
-                        "storage_mkdir", "storage_md5",
-                        "gpio_set", "gpio_read",
-                        "device_info", "power_info", "send_command",
+                        "nfc_detect",
+                        "nfc_field",
+                        "nfc_emulate",
+                        "rfid_read",
+                        "rfid_write",
+                        "rfid_emulate",
+                        "ir_rx",
+                        "ir_tx",
+                        "ir_tx_raw",
+                        "ir_brute",
+                        "bt_info",
+                        "ble_scan",
+                        "storage_list",
+                        "storage_read",
+                        "storage_stat",
+                        "storage_mkdir",
+                        "storage_md5",
+                        "gpio_set",
+                        "gpio_read",
+                        "device_info",
+                        "power_info",
+                        "send_command",
                     ],
                 },
                 "freq": {"type": "number", "description": "Frequency in Hz."},
@@ -80,17 +97,22 @@ class FlipperTool(Tool):
         dispatch = {
             "subghz_rx": lambda: self.subghz_rx(kwargs["freq"], kwargs.get("device", 0)),
             "subghz_tx": lambda: self.subghz_tx(
-                kwargs["key_hex"], kwargs["freq"],
-                te=kwargs.get("te", 400), repeat=kwargs.get("repeat", 3),
+                kwargs["key_hex"],
+                kwargs["freq"],
+                te=kwargs.get("te", 400),
+                repeat=kwargs.get("repeat", 3),
                 device=kwargs.get("device", 0),
             ),
             "subghz_tx_from_file": lambda: self.subghz_tx_from_file(
-                kwargs["path"], repeat=kwargs.get("repeat", 3),
+                kwargs["path"],
+                repeat=kwargs.get("repeat", 3),
                 device=kwargs.get("device", 0),
             ),
             "subghz_decode_raw": lambda: self.subghz_decode_raw(kwargs["path"]),
             "subghz_bruteforce": lambda: self.subghz_bruteforce(
-                kwargs["path"], kwargs["freq"], repeat=kwargs.get("repeat", 3),
+                kwargs["path"],
+                kwargs["freq"],
+                repeat=kwargs.get("repeat", 3),
                 device=kwargs.get("device", 0),
             ),
             "nfc_detect": lambda: self.nfc_detect(),
@@ -134,27 +156,23 @@ class FlipperTool(Tool):
         repeat: int = 3,
         device: int = 0,
     ) -> str:
-        return self._conn.send(
-            f"subghz tx {key_hex} {freq} {te} {repeat} {device}"
-        )
+        return self._conn.send(f"subghz tx {key_hex} {freq} {te} {repeat} {device}")
 
-    def subghz_tx_from_file(
-        self, path: str, repeat: int = 3, device: int = 0
-    ) -> str:
-        return self._conn.send(
-            f"subghz tx_from_file {path} {repeat} {device}"
-        )
+    def subghz_tx_from_file(self, path: str, repeat: int = 3, device: int = 0) -> str:
+        return self._conn.send(f"subghz tx_from_file {path} {repeat} {device}")
 
     def subghz_decode_raw(self, path: str) -> str:
         return self._conn.send(f"subghz decode_raw {path}")
 
     def subghz_bruteforce(
-        self, path: str, freq: int | float, repeat: int = 3, device: int = 0,
+        self,
+        path: str,
+        freq: int | float,
+        repeat: int = 3,
+        device: int = 0,
     ) -> str:
         """Brute-force Sub-GHz codes from a .sub file."""
-        return self._conn.send(
-            f"subghz tx_from_file {path} {repeat} {device}"
-        )
+        return self._conn.send(f"subghz tx_from_file {path} {repeat} {device}")
 
     # ── NFC ────────────────────────────────────────────────────────
 

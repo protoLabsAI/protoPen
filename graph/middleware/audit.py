@@ -46,12 +46,20 @@ class AuditMiddleware(AgentMiddleware):
             success = not content.startswith("Error")
 
             audit_logger.log(
-                session_id=session_id, tool=tool_name, args=args,
-                result_summary=content, duration_ms=duration_ms, success=success,
+                session_id=session_id,
+                tool=tool_name,
+                args=args,
+                result_summary=content,
+                duration_ms=duration_ms,
+                success=success,
             )
             tracing.trace_tool_call(
-                tool_name=tool_name, args=args, result=content,
-                duration_ms=duration_ms, success=success, session_id=session_id,
+                tool_name=tool_name,
+                args=args,
+                result=content,
+                duration_ms=duration_ms,
+                success=success,
+                session_id=session_id,
             )
             metrics.record_tool_call(tool_name, success, duration_ms / 1000)
 
@@ -59,12 +67,20 @@ class AuditMiddleware(AgentMiddleware):
         except Exception as exc:
             duration_ms = int((time.monotonic() - t0) * 1000)
             audit_logger.log(
-                session_id=session_id, tool=tool_name, args=args,
-                result_summary=str(exc)[:200], duration_ms=duration_ms, success=False,
+                session_id=session_id,
+                tool=tool_name,
+                args=args,
+                result_summary=str(exc)[:200],
+                duration_ms=duration_ms,
+                success=False,
             )
             tracing.trace_tool_call(
-                tool_name=tool_name, args=args, result=str(exc)[:200],
-                duration_ms=duration_ms, success=False, session_id=session_id,
+                tool_name=tool_name,
+                args=args,
+                result=str(exc)[:200],
+                duration_ms=duration_ms,
+                success=False,
+                session_id=session_id,
             )
             metrics.record_tool_call(tool_name, False, duration_ms / 1000)
             raise
@@ -90,12 +106,20 @@ class AuditMiddleware(AgentMiddleware):
             success = not content.startswith("Error")
 
             audit_logger.log(
-                session_id=session_id, tool=tool_name, args=args,
-                result_summary=content, duration_ms=duration_ms, success=success,
+                session_id=session_id,
+                tool=tool_name,
+                args=args,
+                result_summary=content,
+                duration_ms=duration_ms,
+                success=success,
             )
             tracing.trace_tool_call(
-                tool_name=tool_name, args=args, result=content,
-                duration_ms=duration_ms, success=success, session_id=session_id,
+                tool_name=tool_name,
+                args=args,
+                result=content,
+                duration_ms=duration_ms,
+                success=success,
+                session_id=session_id,
             )
             metrics.record_tool_call(tool_name, success, duration_ms / 1000)
 
@@ -103,12 +127,20 @@ class AuditMiddleware(AgentMiddleware):
         except Exception as exc:
             duration_ms = int((time.monotonic() - t0) * 1000)
             audit_logger.log(
-                session_id=session_id, tool=tool_name, args=args,
-                result_summary=str(exc)[:200], duration_ms=duration_ms, success=False,
+                session_id=session_id,
+                tool=tool_name,
+                args=args,
+                result_summary=str(exc)[:200],
+                duration_ms=duration_ms,
+                success=False,
             )
             tracing.trace_tool_call(
-                tool_name=tool_name, args=args, result=str(exc)[:200],
-                duration_ms=duration_ms, success=False, session_id=session_id,
+                tool_name=tool_name,
+                args=args,
+                result=str(exc)[:200],
+                duration_ms=duration_ms,
+                success=False,
+                session_id=session_id,
             )
             metrics.record_tool_call(tool_name, False, duration_ms / 1000)
             raise

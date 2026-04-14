@@ -1,4 +1,5 @@
 """Hardening validation — per-service checklists with remediation recommendations."""
+
 from __future__ import annotations
 
 import logging
@@ -29,7 +30,8 @@ class HardeningCheckTool(BasePentestTool):
         },
         "nginx_harden": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,subprocess; "
                 "checks=[]; "
                 "r=subprocess.run(['nginx','-T'],capture_output=True,text=True,timeout=5); "
@@ -54,7 +56,8 @@ class HardeningCheckTool(BasePentestTool):
         },
         "apache_harden": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,subprocess; "
                 "r=subprocess.run(['apachectl','-t','-D','DUMP_CONFIG'],capture_output=True,text=True,timeout=5); "
                 "conf=r.stdout.lower()+r.stderr.lower(); "
@@ -75,7 +78,8 @@ class HardeningCheckTool(BasePentestTool):
         },
         "docker_harden": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,subprocess; "
                 "checks=[]; "
                 "try:\n"
@@ -99,7 +103,8 @@ class HardeningCheckTool(BasePentestTool):
         },
         "k8s_harden": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,subprocess; "
                 "checks=[]; "
                 "try:\n"

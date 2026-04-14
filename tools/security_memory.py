@@ -45,9 +45,15 @@ class SecurityMemoryTool(Tool):
                 "action": {
                     "type": "string",
                     "enum": [
-                        "store_cve", "store_exploit", "store_advisory",
-                        "store_threat_intel", "store_digest",
-                        "search", "get_topics", "add_topic", "stats",
+                        "store_cve",
+                        "store_exploit",
+                        "store_advisory",
+                        "store_threat_intel",
+                        "store_digest",
+                        "search",
+                        "get_topics",
+                        "add_topic",
+                        "stats",
                     ],
                     "description": "Action to perform.",
                 },
@@ -75,7 +81,10 @@ class SecurityMemoryTool(Tool):
                 },
                 "tags": {"type": "string", "description": "Comma-separated tags."},
                 # store_exploit fields
-                "source": {"type": "string", "description": "Source (exploit-db/github/custom for exploits, vendor/CERT for advisories)."},
+                "source": {
+                    "type": "string",
+                    "description": "Source (exploit-db/github/custom for exploits, vendor/CERT for advisories).",
+                },
                 "source_url": {"type": "string", "description": "URL to exploit source."},
                 "platform": {"type": "string", "description": "Platform: linux/windows/multi/hardware."},
                 "exploit_type": {"type": "string", "description": "Type: remote/local/webapps/dos/shellcode."},
@@ -100,7 +109,10 @@ class SecurityMemoryTool(Tool):
                 "keywords": {"type": "string", "description": "Comma-separated keywords."},
                 "priority": {"type": "integer", "description": "Priority 0-4 (0=critical)."},
                 # search
-                "filter_table": {"type": "string", "description": "Filter search to: cves/exploits/advisories/threat_intel/digests."},
+                "filter_table": {
+                    "type": "string",
+                    "description": "Filter search to: cves/exploits/advisories/threat_intel/digests.",
+                },
                 "k": {"type": "integer", "description": "Number of results (default 10)."},
                 "search_mode": {
                     "type": "string",
@@ -246,10 +258,7 @@ class SecurityMemoryTool(Tool):
             return "No results found."
         lines = []
         for i, r in enumerate(results, 1):
-            lines.append(
-                f"{i}. [{r['table']}:{r['source_id']}] (dist: {r['distance']:.3f})\n"
-                f"   {r['preview']}"
-            )
+            lines.append(f"{i}. [{r['table']}:{r['source_id']}] (dist: {r['distance']:.3f})\n   {r['preview']}")
         return "\n".join(lines)
 
     def _get_topics(self) -> str:

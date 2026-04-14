@@ -1,4 +1,5 @@
 """Tests for engagement manager — mode enforcement, logging, reporting."""
+
 import pytest
 import json
 from pathlib import Path

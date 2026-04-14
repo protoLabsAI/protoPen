@@ -1,4 +1,5 @@
 """Tests for sdn_attack parsers."""
+
 from __future__ import annotations
 
 import json
@@ -23,10 +24,14 @@ def store():
 
 class TestParseSDNControllerEnum:
     def test_controllers(self, store):
-        raw = json.dumps({"controllers": [
-            {"host": "10.0.0.1", "type": "OpenDaylight", "severity": "medium"},
-            {"host": "10.0.0.2", "type": "ONOS", "severity": "low"},
-        ]})
+        raw = json.dumps(
+            {
+                "controllers": [
+                    {"host": "10.0.0.1", "type": "OpenDaylight", "severity": "medium"},
+                    {"host": "10.0.0.2", "type": "ONOS", "severity": "low"},
+                ]
+            }
+        )
         entities = parse_sdn_controller_enum(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "sdn_finding"
@@ -44,9 +49,13 @@ class TestParseSDNControllerEnum:
 
 class TestParseNETCONFExploit:
     def test_vulnerabilities(self, store):
-        raw = json.dumps({"vulnerabilities": [
-            {"target": "10.0.0.1", "severity": "critical", "description": "Default credentials accepted"},
-        ]})
+        raw = json.dumps(
+            {
+                "vulnerabilities": [
+                    {"target": "10.0.0.1", "severity": "critical", "description": "Default credentials accepted"},
+                ]
+            }
+        )
         entities = parse_netconf_exploit(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "sdn_finding"
@@ -63,10 +72,14 @@ class TestParseNETCONFExploit:
 
 class TestParseNetworkPolicy:
     def test_policy_issues(self, store):
-        raw = json.dumps({"policy_issues": [
-            {"controller": "odl-1", "severity": "high", "description": "Overly permissive ACL on port 80"},
-            {"controller": "odl-1", "severity": "medium", "description": "No rate limiting on northbound API"},
-        ]})
+        raw = json.dumps(
+            {
+                "policy_issues": [
+                    {"controller": "odl-1", "severity": "high", "description": "Overly permissive ACL on port 80"},
+                    {"controller": "odl-1", "severity": "medium", "description": "No rate limiting on northbound API"},
+                ]
+            }
+        )
         entities = parse_network_policy(raw, store)
         assert len(entities) == 2
         assert entities[0]["protocol"] == "sdn"
@@ -82,10 +95,14 @@ class TestParseNetworkPolicy:
 
 class TestParseYANGModel:
     def test_models(self, store):
-        raw = json.dumps({"models": [
-            {"target": "10.0.0.1", "module": "ietf-interfaces", "severity": "info"},
-            {"target": "10.0.0.1", "module": "openconfig-network-instance"},
-        ]})
+        raw = json.dumps(
+            {
+                "models": [
+                    {"target": "10.0.0.1", "module": "ietf-interfaces", "severity": "info"},
+                    {"target": "10.0.0.1", "module": "openconfig-network-instance"},
+                ]
+            }
+        )
         entities = parse_yang_model(raw, store)
         assert len(entities) == 2
         assert entities[0]["protocol"] == "yang"
@@ -101,9 +118,18 @@ class TestParseYANGModel:
 
 class TestParseRESTCONF:
     def test_endpoints(self, store):
-        raw = json.dumps({"endpoints": [
-            {"url": "https://10.0.0.1:8181/restconf/data", "severity": "medium", "path": "/restconf/data", "description": "Unauthenticated read"},
-        ]})
+        raw = json.dumps(
+            {
+                "endpoints": [
+                    {
+                        "url": "https://10.0.0.1:8181/restconf/data",
+                        "severity": "medium",
+                        "path": "/restconf/data",
+                        "description": "Unauthenticated read",
+                    },
+                ]
+            }
+        )
         entities = parse_restconf(raw, store)
         assert len(entities) == 1
         assert entities[0]["protocol"] == "restconf"
@@ -119,10 +145,14 @@ class TestParseRESTCONF:
 
 class TestParseOpenFlow:
     def test_issues(self, store):
-        raw = json.dumps({"issues": [
-            {"target": "10.0.0.5", "severity": "high", "description": "No TLS on OpenFlow channel"},
-            {"switch": "sw-02", "severity": "critical", "message": "Default flow table allows all"},
-        ]})
+        raw = json.dumps(
+            {
+                "issues": [
+                    {"target": "10.0.0.5", "severity": "high", "description": "No TLS on OpenFlow channel"},
+                    {"switch": "sw-02", "severity": "critical", "message": "Default flow table allows all"},
+                ]
+            }
+        )
         entities = parse_openflow(raw, store)
         assert len(entities) == 2
         assert entities[0]["protocol"] == "openflow"

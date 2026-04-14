@@ -1,4 +1,5 @@
 """Persistence mechanism tool — cron, systemd, authorized_keys planting."""
+
 from __future__ import annotations
 
 import logging
@@ -14,14 +15,14 @@ class PersistenceTool(BasePentestTool):
 
     name = "persistence"
     description = (
-        "Persistence — establish persistence mechanisms for authorized "
-        "engagement testing (cron, SSH keys, services)."
+        "Persistence — establish persistence mechanisms for authorized engagement testing (cron, SSH keys, services)."
     )
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "add_ssh_key": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "mkdir -p ~/.ssh && echo '{pubkey}' >> ~/.ssh/authorized_keys && echo 'Key added'",
             ],
             "timeout": 10,
@@ -29,7 +30,8 @@ class PersistenceTool(BasePentestTool):
         },
         "add_cron": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "(crontab -l 2>/dev/null; echo '{schedule} {command}') | crontab - && echo 'Cron added'",
             ],
             "timeout": 10,
@@ -37,7 +39,8 @@ class PersistenceTool(BasePentestTool):
         },
         "check_persistence": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "echo '=== CRON ===' && crontab -l 2>/dev/null && "
                 "echo '=== SSH KEYS ===' && cat ~/.ssh/authorized_keys 2>/dev/null && "
                 "echo '=== SERVICES ===' && systemctl list-unit-files --state=enabled 2>/dev/null | head -20",
@@ -59,10 +62,7 @@ class PersistenceTool(BasePentestTool):
             return self._unknown_action(action)
 
         spec = self.ACTIONS[action]
-        cmd = [
-            c.format(pubkey=pubkey, schedule=schedule, command=command)
-            for c in spec["cmd"]
-        ]
+        cmd = [c.format(pubkey=pubkey, schedule=schedule, command=command) for c in spec["cmd"]]
         effective_timeout = spec.get("timeout", 30)
 
         return await self._run(

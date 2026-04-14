@@ -1,4 +1,5 @@
 """Tests for recon_pipeline — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,12 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "full_pipeline", "subdomain_httpx", "nuclei_scan",
-            "screenshot_capture", "asset_correlate", "attack_graph_build",
+            "full_pipeline",
+            "subdomain_httpx",
+            "nuclei_scan",
+            "screenshot_capture",
+            "asset_correlate",
+            "attack_graph_build",
             "tech_detect",
         }
         assert set(tool.ACTIONS.keys()) == expected
@@ -65,7 +70,7 @@ class TestSubdomainHttpx:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_subdomain_httpx(self, mock_exec, tool):
         proc = AsyncMock()
-        proc.communicate.return_value = (b'', b"")
+        proc.communicate.return_value = (b"", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute("subdomain_httpx", domain="example.com")
@@ -80,7 +85,7 @@ class TestNucleiScan:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_nuclei_scan(self, mock_exec, tool):
         proc = AsyncMock()
-        proc.communicate.return_value = (b'', b"")
+        proc.communicate.return_value = (b"", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute("nuclei_scan", target="https://example.com")
@@ -92,7 +97,7 @@ class TestNucleiScan:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_nuclei_scan_custom_severity(self, mock_exec, tool):
         proc = AsyncMock()
-        proc.communicate.return_value = (b'', b"")
+        proc.communicate.return_value = (b"", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute("nuclei_scan", target="https://example.com", severity="critical")
@@ -148,7 +153,7 @@ class TestTechDetect:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_tech_detect(self, mock_exec, tool):
         proc = AsyncMock()
-        proc.communicate.return_value = (b'', b"")
+        proc.communicate.return_value = (b"", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute("tech_detect", target="https://example.com")
@@ -173,6 +178,7 @@ class TestTimeout:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_timeout_returns_message(self, mock_exec, tool):
         import asyncio
+
         proc = AsyncMock()
         proc.communicate.side_effect = asyncio.TimeoutError
         proc.kill = AsyncMock()

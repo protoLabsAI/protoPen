@@ -3,6 +3,7 @@
 All tests mock the engagement_manager and handler to avoid needing
 a real LangGraph agent. Stubs langchain since it's not installed locally.
 """
+
 import sys
 from types import ModuleType
 from unittest.mock import MagicMock, AsyncMock
@@ -33,6 +34,7 @@ if "langchain_core" not in sys.modules:
 
     class _ToolMessage:
         """Minimal ToolMessage stub for testing."""
+
         def __init__(self, content: str = "", tool_call_id: str = "", **kwargs):
             self.content = content
             self.tool_call_id = tool_call_id
@@ -268,6 +270,7 @@ class TestBlockedResponseIsToolMessage:
     @pytest.mark.asyncio
     async def test_blocked_returns_tool_message_type(self):
         from langchain_core.messages import ToolMessage as TM
+
         mgr = _make_engagement_manager(active=False)
         mw = EnforcementMiddleware(mgr)
         req = _make_request("nmap_scan", {"target": "1.2.3.4"}, tool_call_id="toolu_abc123")
@@ -286,6 +289,7 @@ class TestBlockedResponseIsToolMessage:
 
     def test_sync_blocked_returns_tool_message(self):
         from langchain_core.messages import ToolMessage as TM
+
         mgr = _make_engagement_manager(active=False)
         mw = EnforcementMiddleware(mgr)
         req = _make_request("nmap_scan", {"target": "1.2.3.4"}, tool_call_id="toolu_sync456")

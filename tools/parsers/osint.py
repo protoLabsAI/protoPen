@@ -1,4 +1,5 @@
 """Parser for OSINT recon output — theHarvester."""
+
 from __future__ import annotations
 
 import re

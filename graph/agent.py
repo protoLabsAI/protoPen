@@ -41,11 +41,13 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None):
         middleware.append(EnforcementMiddleware(mgr, max_phase=max_phase))
 
     if config.knowledge_middleware and knowledge_store:
-        middleware.append(KnowledgeMiddleware(
-            knowledge_store,
-            top_k=config.knowledge_top_k,
-            search_mode=config.knowledge_search_mode,
-        ))
+        middleware.append(
+            KnowledgeMiddleware(
+                knowledge_store,
+                top_k=config.knowledge_top_k,
+                search_mode=config.knowledge_search_mode,
+            )
+        )
 
     if config.knowledge_ingest_middleware and knowledge_store:
         middleware.append(KnowledgeIngestMiddleware(knowledge_store))
@@ -100,10 +102,7 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
             return f"Error: Unknown subagent '{subagent_type}'. Available: {available}"
 
         # Filter tools for this subagent
-        sub_tools = [
-            tool_map[name] for name in sub_config.tools
-            if name in tool_map
-        ]
+        sub_tools = [tool_map[name] for name in sub_config.tools if name in tool_map]
 
         if not sub_tools:
             return f"Error: No tools available for subagent '{subagent_type}'."

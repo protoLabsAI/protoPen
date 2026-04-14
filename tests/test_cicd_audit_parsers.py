@@ -1,4 +1,5 @@
 """Tests for cicd_audit parsers."""
+
 from __future__ import annotations
 
 import json
@@ -23,14 +24,17 @@ def store():
 
 # ── truffleHog ───────────────────────────────────────────────────────────────
 
+
 class TestParseTrufflehog:
     def test_single_finding(self, store):
-        raw = json.dumps({
-            "DetectorName": "AWS",
-            "Verified": True,
-            "Raw": "AKIAIOSFODNN7EXAMPLE",
-            "SourceMetadata": {"Data": {"Git": {"file": "config.py", "line": 42}}},
-        })
+        raw = json.dumps(
+            {
+                "DetectorName": "AWS",
+                "Verified": True,
+                "Raw": "AKIAIOSFODNN7EXAMPLE",
+                "SourceMetadata": {"Data": {"Git": {"file": "config.py", "line": 42}}},
+            }
+        )
         entities = parse_trufflehog(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "secret_finding"
@@ -40,8 +44,22 @@ class TestParseTrufflehog:
 
     def test_multi_line_jsonl(self, store):
         lines = [
-            json.dumps({"DetectorName": "AWS", "Verified": False, "Raw": "key1", "SourceMetadata": {"Data": {"Git": {"file": "a.py", "line": 1}}}}),
-            json.dumps({"DetectorName": "GitHub", "Verified": False, "Raw": "ghp_xxx", "SourceMetadata": {"Data": {"Git": {"file": "b.py", "line": 5}}}}),
+            json.dumps(
+                {
+                    "DetectorName": "AWS",
+                    "Verified": False,
+                    "Raw": "key1",
+                    "SourceMetadata": {"Data": {"Git": {"file": "a.py", "line": 1}}},
+                }
+            ),
+            json.dumps(
+                {
+                    "DetectorName": "GitHub",
+                    "Verified": False,
+                    "Raw": "ghp_xxx",
+                    "SourceMetadata": {"Data": {"Git": {"file": "b.py", "line": 5}}},
+                }
+            ),
         ]
         entities = parse_trufflehog("\n".join(lines), store)
         assert len(entities) == 2
@@ -56,12 +74,20 @@ class TestParseTrufflehog:
 
 # ── gitleaks ─────────────────────────────────────────────────────────────────
 
+
 class TestParseGitleaks:
     def test_findings(self, store):
-        raw = json.dumps([
-            {"RuleID": "aws-access-key", "Secret": "AKIAIOSFODNN7EXAMPLE",
-             "File": "config.py", "StartLine": 10, "Commit": "abc12345678"},
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "RuleID": "aws-access-key",
+                    "Secret": "AKIAIOSFODNN7EXAMPLE",
+                    "File": "config.py",
+                    "StartLine": 10,
+                    "Commit": "abc12345678",
+                },
+            ]
+        )
         entities = parse_gitleaks(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "secret_finding"
@@ -78,13 +104,20 @@ class TestParseGitleaks:
 
 # ── actionlint ───────────────────────────────────────────────────────────────
 
+
 class TestParseGithubActions:
     def test_findings(self, store):
-        raw = json.dumps([
-            {"message": "shell injection via ${{ inputs.name }}",
-             "filepath": ".github/workflows/ci.yml", "line": 15,
-             "column": 20, "kind": "expression"},
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "message": "shell injection via ${{ inputs.name }}",
+                    "filepath": ".github/workflows/ci.yml",
+                    "line": 15,
+                    "column": 20,
+                    "kind": "expression",
+                },
+            ]
+        )
         entities = parse_github_actions(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "cicd_finding"
@@ -99,17 +132,26 @@ class TestParseGithubActions:
 
 # ── dependency-check ─────────────────────────────────────────────────────────
 
+
 class TestParseDependencyCheck:
     def test_vuln_found(self, store):
-        raw = json.dumps({"dependencies": [{
-            "fileName": "log4j-core-2.14.1.jar",
-            "vulnerabilities": [{
-                "name": "CVE-2021-44228",
-                "severity": "CRITICAL",
-                "description": "Log4Shell RCE",
-                "cvssv3": {"baseScore": 10.0},
-            }],
-        }]})
+        raw = json.dumps(
+            {
+                "dependencies": [
+                    {
+                        "fileName": "log4j-core-2.14.1.jar",
+                        "vulnerabilities": [
+                            {
+                                "name": "CVE-2021-44228",
+                                "severity": "CRITICAL",
+                                "description": "Log4Shell RCE",
+                                "cvssv3": {"baseScore": 10.0},
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
         entities = parse_dependency_check(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "dependency_vuln"
@@ -126,14 +168,21 @@ class TestParseDependencyCheck:
 
 # ── semgrep ──────────────────────────────────────────────────────────────────
 
+
 class TestParseSemgrep:
     def test_results(self, store):
-        raw = json.dumps({"results": [{
-            "check_id": "python.lang.security.audit.exec-used",
-            "path": "app.py",
-            "start": {"line": 42},
-            "extra": {"severity": "ERROR", "message": "Use of exec()"},
-        }]})
+        raw = json.dumps(
+            {
+                "results": [
+                    {
+                        "check_id": "python.lang.security.audit.exec-used",
+                        "path": "app.py",
+                        "start": {"line": 42},
+                        "extra": {"severity": "ERROR", "message": "Use of exec()"},
+                    }
+                ]
+            }
+        )
         entities = parse_semgrep(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "code_finding"
@@ -148,15 +197,24 @@ class TestParseSemgrep:
 
 # ── checkov ──────────────────────────────────────────────────────────────────
 
+
 class TestParseCheckov:
     def test_failed_checks(self, store):
-        raw = json.dumps({"results": {"failed_checks": [{
-            "check_id": "CKV_DOCKER_2",
-            "resource": "Dockerfile",
-            "name": "Ensure healthcheck exists",
-            "guideline": "https://docs.bridgecrew.io/CKV_DOCKER_2",
-            "file_path": "/Dockerfile",
-        }]}})
+        raw = json.dumps(
+            {
+                "results": {
+                    "failed_checks": [
+                        {
+                            "check_id": "CKV_DOCKER_2",
+                            "resource": "Dockerfile",
+                            "name": "Ensure healthcheck exists",
+                            "guideline": "https://docs.bridgecrew.io/CKV_DOCKER_2",
+                            "file_path": "/Dockerfile",
+                        }
+                    ]
+                }
+            }
+        )
         entities = parse_checkov(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "iac_finding"
@@ -171,9 +229,17 @@ class TestParseCheckov:
 
     def test_list_format(self, store):
         """checkov can return a list of check-type results."""
-        raw = json.dumps([
-            {"results": {"failed_checks": [{"check_id": "CKV_1", "resource": "r1", "name": "n1", "guideline": "", "file_path": "/f"}]}},
-            {"results": {"failed_checks": []}},
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "results": {
+                        "failed_checks": [
+                            {"check_id": "CKV_1", "resource": "r1", "name": "n1", "guideline": "", "file_path": "/f"}
+                        ]
+                    }
+                },
+                {"results": {"failed_checks": []}},
+            ]
+        )
         entities = parse_checkov(raw, store)
         assert len(entities) == 1

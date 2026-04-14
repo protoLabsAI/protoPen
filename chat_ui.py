@@ -200,8 +200,10 @@ def create_chat_app(
 
             with gr.Row():
                 txt = gr.Textbox(
-                    placeholder=placeholder, show_label=False,
-                    scale=9, container=False,
+                    placeholder=placeholder,
+                    show_label=False,
+                    scale=9,
+                    container=False,
                 )
                 send_btn = gr.Button("Send", variant="primary", scale=1, min_width=80)
 
@@ -222,7 +224,9 @@ def create_chat_app(
                     with gr.Accordion("Model", open=False):
                         model_display = gr.Markdown("Loading...")
                         provider_dropdown = gr.Dropdown(
-                            label="Provider", choices=[], interactive=True,
+                            label="Provider",
+                            choices=[],
+                            interactive=True,
                         )
                         switch_status = gr.Markdown("")
                         refresh_model_btn = gr.Button("Refresh", size="sm")
@@ -256,17 +260,21 @@ def create_chat_app(
                     app.load(fn=load_provider_choices, outputs=[provider_dropdown])
 
                     refresh_tools_btn.click(fn=load_tools, outputs=[tools_display])
-                    refresh_model_btn.click(
-                        fn=load_model, outputs=[model_display]
-                    ).then(fn=load_provider_choices, outputs=[provider_dropdown])
+                    refresh_model_btn.click(fn=load_model, outputs=[model_display]).then(
+                        fn=load_provider_choices, outputs=[provider_dropdown]
+                    )
 
                     provider_dropdown.change(
-                        fn=switch_provider, inputs=[provider_dropdown], outputs=[switch_status],
+                        fn=switch_provider,
+                        inputs=[provider_dropdown],
+                        outputs=[switch_status],
                     ).then(fn=load_model, outputs=[model_display]).then(
-                        fn=load_subtitle, outputs=[header_md],
+                        fn=load_subtitle,
+                        outputs=[header_md],
                     )
 
                     if "get_knowledge_stats" in settings:
+
                         def load_kb_stats():
                             return settings["get_knowledge_stats"]()
 

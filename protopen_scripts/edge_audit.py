@@ -4,6 +4,7 @@
 Checks response headers for edge function indicators and tests
 for enumerability and path traversal on edge routes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -74,13 +75,15 @@ def check_edge_headers(resp: requests.Response, url: str) -> list[dict[str, Any]
     for header_name, provider, description in EDGE_HEADER_SIGNATURES:
         if header_name.lower() in headers_lower:
             value = headers_lower[header_name.lower()]
-            findings.append({
-                "url": url,
-                "severity": "info",
-                "description": f"{description} — header '{header_name}: {value[:50]}'",
-                "provider": provider,
-                "header": header_name,
-            })
+            findings.append(
+                {
+                    "url": url,
+                    "severity": "info",
+                    "description": f"{description} — header '{header_name}: {value[:50]}'",
+                    "provider": provider,
+                    "header": header_name,
+                }
+            )
 
     return findings
 
@@ -96,13 +99,15 @@ def probe_edge_routes(session: requests.Session, base_url: str) -> list[dict[str
         try:
             resp = session.get(url, timeout=8, allow_redirects=False)
             if resp.status_code not in (404, 410, 501):
-                findings.append({
-                    "url": url,
-                    "severity": "info" if resp.status_code in (200, 301, 302) else "low",
-                    "description": f"Edge route accessible: {url} (HTTP {resp.status_code})",
-                    "provider": "unknown",
-                    "http_status": resp.status_code,
-                })
+                findings.append(
+                    {
+                        "url": url,
+                        "severity": "info" if resp.status_code in (200, 301, 302) else "low",
+                        "description": f"Edge route accessible: {url} (HTTP {resp.status_code})",
+                        "provider": "unknown",
+                        "http_status": resp.status_code,
+                    }
+                )
         except requests.RequestException:
             pass
 
@@ -133,21 +138,24 @@ def test_path_traversal(session: requests.Session, base_url: str) -> list[dict[s
             try:
                 resp = session.get(url, timeout=8, allow_redirects=False)
                 body = resp.text[:500]
-                if (resp.status_code == 200 and
-                    ('root:' in body or 'AWS_SECRET' in body or 'DB_PASSWORD' in body)):
-                    findings.append({
-                        "url": url,
-                        "severity": "critical",
-                        "description": f"Path traversal successful at {url} — sensitive content in response",
-                        "provider": "unknown",
-                    })
+                if resp.status_code == 200 and ("root:" in body or "AWS_SECRET" in body or "DB_PASSWORD" in body):
+                    findings.append(
+                        {
+                            "url": url,
+                            "severity": "critical",
+                            "description": f"Path traversal successful at {url} — sensitive content in response",
+                            "provider": "unknown",
+                        }
+                    )
                 elif resp.status_code == 200:
-                    findings.append({
-                        "url": url,
-                        "severity": "medium",
-                        "description": f"Path traversal returned 200 at {url} — verify response content",
-                        "provider": "unknown",
-                    })
+                    findings.append(
+                        {
+                            "url": url,
+                            "severity": "medium",
+                            "description": f"Path traversal returned 200 at {url} — verify response content",
+                            "provider": "unknown",
+                        }
+                    )
             except requests.RequestException:
                 pass
 
@@ -180,12 +188,14 @@ def main() -> None:
         result["findings"].extend(traversal_findings)
 
         if not result["findings"]:
-            result["findings"].append({
-                "url": args.url,
-                "severity": "info",
-                "description": "No edge function indicators detected",
-                "provider": "none",
-            })
+            result["findings"].append(
+                {
+                    "url": args.url,
+                    "severity": "info",
+                    "description": "No edge function indicators detected",
+                    "provider": "none",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)

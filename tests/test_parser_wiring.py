@@ -1,4 +1,5 @@
 """Integration tests: BlackArch execute() auto-ingests to TargetStore."""
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -20,15 +21,13 @@ NMAP_XML = """<?xml version="1.0"?>
   </host>
 </nmaprun>"""
 
-BETTERCAP_TABLE = (
-    "│ 10.0.0.99      │ AA:BB:CC:DD:EE:01 │ target-host      "
-    "│ Dell Inc         │  10k │   20k │"
-)
+BETTERCAP_TABLE = "│ 10.0.0.99      │ AA:BB:CC:DD:EE:01 │ target-host      │ Dell Inc         │  10k │   20k │"
 
 
 class TestBlackArchNmapWiring:
     def test_nmap_auto_ingests_host(self, store):
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=NMAP_XML):
@@ -40,6 +39,7 @@ class TestBlackArchNmapWiring:
 
     def test_nmap_auto_ingests_ports(self, store):
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=NMAP_XML):
@@ -53,6 +53,7 @@ class TestBlackArchNmapWiring:
 class TestBlackArchBettercapWiring:
     def test_bettercap_auto_ingests_host(self, store):
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=BETTERCAP_TABLE):
@@ -66,6 +67,7 @@ class TestBlackArchBettercapWiring:
 class TestNoStoreGraceful:
     def test_no_target_store_still_returns(self):
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=NMAP_XML):
             result = asyncio.run(tool.execute(action="nmap_scan", target="10.0.0.5"))

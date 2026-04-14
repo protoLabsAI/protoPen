@@ -5,6 +5,7 @@ Reads correlated asset data from JSON files in an input directory
 and constructs an attack graph showing logical attack paths
 (e.g., internet → CDN → WAF → API gateway → backend → database).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -81,7 +82,7 @@ SUBDOMAIN_ROLES = {
 
 def _classify_node(host: str, technologies: list[str]) -> str:
     """Determine the role/type of a node."""
-    subdomain = host.split('.')[0].lower()
+    subdomain = host.split(".")[0].lower()
     if subdomain in SUBDOMAIN_ROLES:
         return SUBDOMAIN_ROLES[subdomain]
     for tech in technologies:
@@ -104,11 +105,13 @@ def _load_assets(input_dir: str) -> list[dict[str, Any]]:
             elif isinstance(data, dict) and "subdomains" in data:
                 for sub in data.get("subdomains", []):
                     if isinstance(sub, dict):
-                        assets.append({
-                            "host": sub.get("subdomain", ""),
-                            "technologies": sub.get("technologies", []),
-                            "ips": sub.get("ips", []),
-                        })
+                        assets.append(
+                            {
+                                "host": sub.get("subdomain", ""),
+                                "technologies": sub.get("technologies", []),
+                                "ips": sub.get("ips", []),
+                            }
+                        )
         except Exception as exc:
             logger.debug("Skipping %s: %s", filepath, exc)
     return assets
@@ -127,12 +130,14 @@ def _build_attack_graph(domain: str, assets: list[dict[str, Any]]) -> tuple[list
             nid = f"n{next_id[0]}"
             next_id[0] += 1
             node_map[host] = nid
-            nodes.append({
-                "id": nid,
-                "label": label or host,
-                "host": host,
-                "role": role,
-            })
+            nodes.append(
+                {
+                    "id": nid,
+                    "label": label or host,
+                    "host": host,
+                    "role": role,
+                }
+            )
         return node_map[host]
 
     # Internet entry point
@@ -140,12 +145,14 @@ def _build_attack_graph(domain: str, assets: list[dict[str, Any]]) -> tuple[list
 
     # Domain root
     domain_id = _get_or_create_node(domain, "domain_root", domain)
-    edges.append({
-        "from": internet_id,
-        "to": domain_id,
-        "label": "HTTP/HTTPS",
-        "attack_path": "initial_access",
-    })
+    edges.append(
+        {
+            "from": internet_id,
+            "to": domain_id,
+            "label": "HTTP/HTTPS",
+            "attack_path": "initial_access",
+        }
+    )
 
     # CDN/WAF layer (cloudflare, fastly, etc.)
     cdn_nodes: list[str] = []
@@ -200,7 +207,9 @@ def _build_attack_graph(domain: str, assets: list[dict[str, Any]]) -> tuple[list
             edges.append({"from": backend_id, "to": db_id, "label": "DB query", "attack_path": "data_exfiltration"})
 
     for admin_id in admin_nodes:
-        edges.append({"from": internet_id, "to": admin_id, "label": "direct access", "attack_path": "admin_panel_exposure"})
+        edges.append(
+            {"from": internet_id, "to": admin_id, "label": "direct access", "attack_path": "admin_panel_exposure"}
+        )
 
     for auth_id in auth_nodes:
         for src_id in prev_layer:

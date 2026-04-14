@@ -4,6 +4,7 @@
 Fetches the OpenID Connect discovery document from /.well-known/openid-configuration
 and returns the full configuration JSON. Empty findings if not found.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,32 +41,50 @@ def main() -> None:
                 print(json.dumps(config))
                 return
             except Exception as exc:
-                print(json.dumps({
-                    "findings": [{
-                        "severity": "info",
-                        "vulnerability_type": "oidc_parse_error",
-                        "message": f"OIDC endpoint returned 200 but invalid JSON: {exc}",
-                    }]
-                }))
+                print(
+                    json.dumps(
+                        {
+                            "findings": [
+                                {
+                                    "severity": "info",
+                                    "vulnerability_type": "oidc_parse_error",
+                                    "message": f"OIDC endpoint returned 200 but invalid JSON: {exc}",
+                                }
+                            ]
+                        }
+                    )
+                )
                 return
         else:
-            print(json.dumps({
-                "findings": [{
-                    "severity": "info",
-                    "vulnerability_type": "oidc_not_found",
-                    "message": f"No OIDC discovery document found at {wk_url} (HTTP {resp.status_code})",
-                }]
-            }))
+            print(
+                json.dumps(
+                    {
+                        "findings": [
+                            {
+                                "severity": "info",
+                                "vulnerability_type": "oidc_not_found",
+                                "message": f"No OIDC discovery document found at {wk_url} (HTTP {resp.status_code})",
+                            }
+                        ]
+                    }
+                )
+            )
 
     except Exception as exc:
-        print(json.dumps({
-            "error": str(exc),
-            "findings": [{
-                "severity": "error",
-                "vulnerability_type": "scan_error",
-                "message": f"OIDC discovery failed: {exc}",
-            }]
-        }))
+        print(
+            json.dumps(
+                {
+                    "error": str(exc),
+                    "findings": [
+                        {
+                            "severity": "error",
+                            "vulnerability_type": "scan_error",
+                            "message": f"OIDC discovery failed: {exc}",
+                        }
+                    ],
+                }
+            )
+        )
         logger.error("oidc_discover error: %s", exc)
 
 

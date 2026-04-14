@@ -5,6 +5,7 @@ Sends N concurrent requests to a serverless function URL using asyncio
 and aiohttp (falls back to threaded requests). Measures cold-start time
 variance and checks for race conditions in response content.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 async def _async_fetch(url: str, payload: dict, session_headers: dict) -> dict[str, Any]:
     """Async HTTP POST using asyncio + aiohttp if available, else httpx."""
     import aiohttp  # type: ignore
+
     start = time.monotonic()
     try:
         async with aiohttp.ClientSession(headers=session_headers) as client:
@@ -76,35 +78,42 @@ def analyze_responses(responses: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     # High variance suggests some requests hit cold starts
     if variance > 2000:
-        findings.append({
-            "type": "cold_start_detected",
-            "severity": "low",
-            "description": f"High response time variance ({variance:.0f}ms) suggests cold starts — min={min_ms:.0f}ms, max={max_ms:.0f}ms, avg={avg_ms:.0f}ms",
-        })
+        findings.append(
+            {
+                "type": "cold_start_detected",
+                "severity": "low",
+                "description": f"High response time variance ({variance:.0f}ms) suggests cold starts — min={min_ms:.0f}ms, max={max_ms:.0f}ms, avg={avg_ms:.0f}ms",
+            }
+        )
 
     # Check for unique/different response bodies (race condition signal)
     bodies = [r["body_preview"] for r in successful if r["body_preview"]]
     unique_bodies = set(bodies)
     if len(unique_bodies) > 1 and len(bodies) > 2:
-        findings.append({
-            "type": "inconsistent_responses",
-            "severity": "high",
-            "description": f"Concurrent requests returned {len(unique_bodies)} distinct response bodies — possible race condition in state initialization",
-        })
+        findings.append(
+            {
+                "type": "inconsistent_responses",
+                "severity": "high",
+                "description": f"Concurrent requests returned {len(unique_bodies)} distinct response bodies — possible race condition in state initialization",
+            }
+        )
 
     # Check for error responses that indicate initialization failure
     errors = [r for r in responses if r["status"] not in (200, 201, 202, 204, -1)]
     if errors:
-        findings.append({
-            "type": "cold_start_errors",
-            "severity": "medium",
-            "description": f"{len(errors)}/{len(responses)} requests failed during concurrent load — {set(r['status'] for r in errors)} status codes",
-        })
+        findings.append(
+            {
+                "type": "cold_start_errors",
+                "severity": "medium",
+                "description": f"{len(errors)}/{len(responses)} requests failed during concurrent load — {set(r['status'] for r in errors)} status codes",
+            }
+        )
 
     # Check for duplicate IDs or counters in responses (shared state leak)
     id_pattern_found = False
     seen_ids: set[str] = set()
     import re
+
     id_re = re.compile(r'"(?:id|request_id|trace_id|nonce)"\s*:\s*"?([a-f0-9\-]{8,})"?', re.IGNORECASE)
     for body in bodies:
         for m in id_re.finditer(body):
@@ -117,11 +126,13 @@ def analyze_responses(responses: list[dict[str, Any]]) -> list[dict[str, Any]]:
             break
 
     if id_pattern_found:
-        findings.append({
-            "type": "duplicate_id_detected",
-            "severity": "high",
-            "description": "Duplicate request ID/nonce returned by concurrent requests — possible shared state vulnerability",
-        })
+        findings.append(
+            {
+                "type": "duplicate_id_detected",
+                "severity": "high",
+                "description": "Duplicate request ID/nonce returned by concurrent requests — possible shared state vulnerability",
+            }
+        )
 
     return findings
 
@@ -152,6 +163,7 @@ def main() -> None:
 
         try:
             import aiohttp  # noqa: F401
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
@@ -162,8 +174,9 @@ def main() -> None:
             # Fall back to ThreadPoolExecutor
             logger.debug("aiohttp not available, using threaded fallback")
             with ThreadPoolExecutor(max_workers=concurrency) as executor:
-                futures = [executor.submit(_threaded_fetch, args.function_url, payload, headers)
-                           for _ in range(concurrency)]
+                futures = [
+                    executor.submit(_threaded_fetch, args.function_url, payload, headers) for _ in range(concurrency)
+                ]
                 responses = [f.result() for f in as_completed(futures)]
 
         # Analyze results
@@ -174,30 +187,36 @@ def main() -> None:
         elapsed_vals = [r["elapsed_ms"] for r in responses if r.get("elapsed_ms", 0) > 0]
         avg_ms = sum(elapsed_vals) / len(elapsed_vals) if elapsed_vals else 0
 
-        result["results"].append({
-            "function_url": args.function_url,
-            "severity": "info",
-            "description": f"Sent {concurrency} concurrent requests — {successful} succeeded, avg={avg_ms:.0f}ms",
-            "concurrency": concurrency,
-            "successful_requests": successful,
-            "avg_response_ms": round(avg_ms, 2),
-        })
+        result["results"].append(
+            {
+                "function_url": args.function_url,
+                "severity": "info",
+                "description": f"Sent {concurrency} concurrent requests — {successful} succeeded, avg={avg_ms:.0f}ms",
+                "concurrency": concurrency,
+                "successful_requests": successful,
+                "avg_response_ms": round(avg_ms, 2),
+            }
+        )
 
         for finding in race_findings:
-            result["results"].append({
-                "function_url": args.function_url,
-                "severity": finding["severity"],
-                "description": finding["description"],
-                "vulnerability_type": finding["type"],
-            })
+            result["results"].append(
+                {
+                    "function_url": args.function_url,
+                    "severity": finding["severity"],
+                    "description": finding["description"],
+                    "vulnerability_type": finding["type"],
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["results"].append({
-            "function_url": args.function_url,
-            "severity": "error",
-            "description": f"Cold-start race test failed: {exc}",
-        })
+        result["results"].append(
+            {
+                "function_url": args.function_url,
+                "severity": "error",
+                "description": f"Cold-start race test failed: {exc}",
+            }
+        )
         logger.error("cold_start_race error: %s", exc)
 
     print(json.dumps(result))

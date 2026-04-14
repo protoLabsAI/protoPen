@@ -7,6 +7,7 @@ Converts prose / structured tool outputs into:
 Used by the playbook runner's ``normalize`` step directive to bridge
 raw tool output → ``purple_team.coverage_matrix`` / ``exercise_report`` input.
 """
+
 from __future__ import annotations
 
 import json
@@ -181,13 +182,13 @@ _BLUE_RULES: dict[tuple[str, str], list[dict]] = {
 
 # ── Success / detection heuristics ────────────────────────────────────
 
+
 def _nmap_has_results(raw: str) -> bool:
     """Check if nmap XML contains at least one open port."""
     try:
         root = ET.fromstring(raw)
         return any(
-            port.find("state") is not None
-            and port.find("state").get("state") == "open"  # type: ignore[union-attr]
+            port.find("state") is not None and port.find("state").get("state") == "open"  # type: ignore[union-attr]
             for host in root.findall("host")
             for port in (host.find("ports") or [])
         )
@@ -213,9 +214,9 @@ def _json_has_issues(raw: str) -> bool:
             # If tool itself reported an error, treat as no detection
             if data.get("error"):
                 return False
-            return bool(data.get("issues") or data.get("findings")
-                        or data.get("fail_count", 0) > 0
-                        or data.get("failed", 0) > 0)
+            return bool(
+                data.get("issues") or data.get("findings") or data.get("fail_count", 0) > 0 or data.get("failed", 0) > 0
+            )
         if isinstance(data, list):
             return len(data) > 0
     except (json.JSONDecodeError, TypeError):
@@ -232,18 +233,40 @@ def _prose_has_results(raw: str) -> bool:
     if lower.startswith("[stderr]") or lower.startswith("traceback"):
         return False
     # Positive indicators
-    positive = any(kw in lower for kw in [
-        "open", "found", "detected", "vulnerable", "issue",
-        "warning", "critical", "high", "fail",
-        "port", "service", "record",
-    ])
+    positive = any(
+        kw in lower
+        for kw in [
+            "open",
+            "found",
+            "detected",
+            "vulnerable",
+            "issue",
+            "warning",
+            "critical",
+            "high",
+            "fail",
+            "port",
+            "service",
+            "record",
+        ]
+    )
     # Negative indicators (empty / no-results)
-    negative = any(kw in lower for kw in [
-        "no results", "no hosts", "no open", "timed out",
-        "unreachable", "0 hosts up",
-        "command not found", "no such file", "not found",
-        "filenotfounderror", "errno 2",
-    ])
+    negative = any(
+        kw in lower
+        for kw in [
+            "no results",
+            "no hosts",
+            "no open",
+            "timed out",
+            "unreachable",
+            "0 hosts up",
+            "command not found",
+            "no such file",
+            "not found",
+            "filenotfounderror",
+            "errno 2",
+        ]
+    )
     return positive and not negative
 
 
@@ -311,6 +334,7 @@ _HEURISTIC: dict[tuple[str, str], callable] = {
 
 # ── Public API ────────────────────────────────────────────────────────
 
+
 def normalize_red(tool: str, action: str, raw: str) -> list[dict]:
     """Convert a red-team tool output to ATT&CK-aligned result dicts."""
     rules = _RED_RULES.get((tool, action))
@@ -321,10 +345,7 @@ def normalize_red(tool: str, action: str, raw: str) -> list[dict]:
     heuristic = _HEURISTIC.get((tool, action), _prose_has_results)
     success = heuristic(raw)
 
-    return [
-        {**rule, "success": success}
-        for rule in rules
-    ]
+    return [{**rule, "success": success} for rule in rules]
 
 
 def normalize_blue(tool: str, action: str, raw: str) -> list[dict]:
@@ -337,10 +358,7 @@ def normalize_blue(tool: str, action: str, raw: str) -> list[dict]:
     heuristic = _HEURISTIC.get((tool, action), _json_has_issues)
     detected = heuristic(raw)
 
-    return [
-        {**rule, "detected": detected}
-        for rule in rules
-    ]
+    return [{**rule, "detected": detected} for rule in rules]
 
 
 def normalize_step(tool: str, action: str, raw: str, phase: str) -> list[dict]:

@@ -1,4 +1,5 @@
 """Parser for phishing framework output — GoPhish, Evilginx, email, DNS, SMTP."""
+
 from __future__ import annotations
 
 import json
@@ -21,26 +22,32 @@ def parse_gophish_json(raw: str, store: "TargetStore") -> list[dict]:
     # Campaign results
     if "results" in data:
         for r in data["results"]:
-            entities.append({
-                "type": "phishing_finding",
-                "check": "gophish_results",
-                "severity": "info",
-                "details": f"{r.get('email', '')} — status: {r.get('status', 'unknown')}",
-            })
+            entities.append(
+                {
+                    "type": "phishing_finding",
+                    "check": "gophish_results",
+                    "severity": "info",
+                    "details": f"{r.get('email', '')} — status: {r.get('status', 'unknown')}",
+                }
+            )
     elif "id" in data:
-        entities.append({
-            "type": "phishing_finding",
-            "check": "gophish_create_campaign",
-            "severity": "info",
-            "details": f"Campaign created: {data.get('name', '')} (id={data.get('id', '')})",
-        })
+        entities.append(
+            {
+                "type": "phishing_finding",
+                "check": "gophish_create_campaign",
+                "severity": "info",
+                "details": f"Campaign created: {data.get('name', '')} (id={data.get('id', '')})",
+            }
+        )
     else:
-        entities.append({
-            "type": "phishing_finding",
-            "check": "gophish",
-            "severity": "info",
-            "details": str(data)[:300],
-        })
+        entities.append(
+            {
+                "type": "phishing_finding",
+                "check": "gophish",
+                "severity": "info",
+                "details": str(data)[:300],
+            }
+        )
     return entities
 
 
@@ -52,12 +59,14 @@ def parse_evilginx_text(raw: str, store: "TargetStore") -> list[dict]:
         if not line:
             continue
         if "http" in line.lower() or "lure" in line.lower() or "phishlet" in line.lower():
-            entities.append({
-                "type": "phishing_finding",
-                "check": "evilginx",
-                "severity": "info",
-                "details": line,
-            })
+            entities.append(
+                {
+                    "type": "phishing_finding",
+                    "check": "evilginx",
+                    "severity": "info",
+                    "details": line,
+                }
+            )
     return entities
 
 
@@ -68,13 +77,15 @@ def parse_email_header(raw: str, store: "TargetStore") -> list[dict]:
         data = json.loads(raw)
     except json.JSONDecodeError:
         return entities
-    for finding in (data if isinstance(data, list) else data.get("findings", [data])):
-        entities.append({
-            "type": "phishing_finding",
-            "check": "email_header_analyze",
-            "severity": finding.get("severity", "medium"),
-            "details": finding.get("message", str(finding)[:200]),
-        })
+    for finding in data if isinstance(data, list) else data.get("findings", [data]):
+        entities.append(
+            {
+                "type": "phishing_finding",
+                "check": "email_header_analyze",
+                "severity": finding.get("severity", "medium"),
+                "details": finding.get("message", str(finding)[:200]),
+            }
+        )
     return entities
 
 
@@ -83,12 +94,14 @@ def parse_dns_txt(raw: str, store: "TargetStore") -> list[dict]:
     entities: list[dict] = []
     raw_s = raw.strip()
     if not raw_s:
-        entities.append({
-            "type": "phishing_finding",
-            "check": "dns_txt",
-            "severity": "high",
-            "details": "No TXT record found — missing email authentication",
-        })
+        entities.append(
+            {
+                "type": "phishing_finding",
+                "check": "dns_txt",
+                "severity": "high",
+                "details": "No TXT record found — missing email authentication",
+            }
+        )
         return entities
 
     for line in raw_s.splitlines():
@@ -105,12 +118,14 @@ def parse_dns_txt(raw: str, store: "TargetStore") -> list[dict]:
             severity = "medium"
         elif "p=reject" in line:
             severity = "info"
-        entities.append({
-            "type": "phishing_finding",
-            "check": "dns_txt",
-            "severity": severity,
-            "details": line,
-        })
+        entities.append(
+            {
+                "type": "phishing_finding",
+                "check": "dns_txt",
+                "severity": severity,
+                "details": line,
+            }
+        )
     return entities
 
 
@@ -121,12 +136,14 @@ def parse_smtp_relay(raw: str, store: "TargetStore") -> list[dict]:
     if not raw_s:
         return entities
     relay_open = "250" in raw_s and ("Ok" in raw_s or "Queued" in raw_s or "ok" in raw_s)
-    entities.append({
-        "type": "phishing_finding",
-        "check": "smtp_relay_test",
-        "severity": "critical" if relay_open else "info",
-        "details": "SMTP relay OPEN — server accepted message" if relay_open else raw_s[:300],
-    })
+    entities.append(
+        {
+            "type": "phishing_finding",
+            "check": "smtp_relay_test",
+            "severity": "critical" if relay_open else "info",
+            "details": "SMTP relay OPEN — server accepted message" if relay_open else raw_s[:300],
+        }
+    )
     return entities
 
 

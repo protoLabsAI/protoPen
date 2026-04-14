@@ -1,4 +1,5 @@
 """Cleanup tool — remove artifacts, persistence, and evidence from target."""
+
 from __future__ import annotations
 
 import logging
@@ -13,15 +14,13 @@ class CleanupTool(BasePentestTool):
     """Wrapper for post-engagement cleanup of artifacts and persistence."""
 
     name = "cleanup"
-    description = (
-        "Cleanup — remove engagement artifacts, persistence mechanisms, "
-        "and other traces from target systems."
-    )
+    description = "Cleanup — remove engagement artifacts, persistence mechanisms, and other traces from target systems."
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "remove_ssh_key": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "sed -i '/{key_fingerprint}/d' ~/.ssh/authorized_keys && echo 'Key removed'",
             ],
             "timeout": 10,
@@ -29,7 +28,8 @@ class CleanupTool(BasePentestTool):
         },
         "remove_cron": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "crontab -l 2>/dev/null | grep -v '{pattern}' | crontab - && echo 'Cron removed'",
             ],
             "timeout": 10,
@@ -37,7 +37,8 @@ class CleanupTool(BasePentestTool):
         },
         "remove_files": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "rm -f {file_paths} && echo 'Files removed'",
             ],
             "timeout": 10,
@@ -45,7 +46,8 @@ class CleanupTool(BasePentestTool):
         },
         "cleanup_report": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "echo '=== Cleanup Report ===' && "
                 "echo 'Cron entries:' && crontab -l 2>/dev/null | wc -l && "
                 "echo 'SSH keys:' && wc -l < ~/.ssh/authorized_keys 2>/dev/null && "

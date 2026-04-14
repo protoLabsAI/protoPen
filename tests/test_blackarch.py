@@ -1,4 +1,5 @@
 """Tests for BlackArch curated tool wrappers — mocked subprocess."""
+
 import pytest
 from unittest.mock import patch, AsyncMock
 
@@ -172,6 +173,7 @@ class TestShellExecLockdown:
     @pytest.mark.asyncio
     async def test_force_with_redteam_allowed(self, tool):
         from unittest.mock import MagicMock
+
         mgr = MagicMock()
         mgr.mode.value = 2  # REDTEAM
         tool._engagement_manager = mgr

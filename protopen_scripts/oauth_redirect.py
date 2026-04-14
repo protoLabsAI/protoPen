@@ -4,6 +4,7 @@
 Discovers OAuth endpoints and tests whether redirect_uri is validated
 against registered URIs or can be tampered to redirect tokens to attacker domains.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -111,28 +112,32 @@ def test_redirect_uri(session: requests.Session, auth_endpoint: str, client_id: 
             # If the server redirects to the evil URI or returns a 200 with code,
             # that indicates a vulnerability
             location = resp.headers.get("Location", "")
-            if resp.status_code in (200, 302, 303) and (
-                "evil.com" in location or "evil.com" in resp.text
-            ):
-                findings.append({
-                    "severity": "critical",
-                    "vulnerability_type": "redirect_uri_bypass",
-                    "message": f"redirect_uri validation bypass: server accepted '{evil_uri}' — redirected to attacker domain",
-                })
+            if resp.status_code in (200, 302, 303) and ("evil.com" in location or "evil.com" in resp.text):
+                findings.append(
+                    {
+                        "severity": "critical",
+                        "vulnerability_type": "redirect_uri_bypass",
+                        "message": f"redirect_uri validation bypass: server accepted '{evil_uri}' — redirected to attacker domain",
+                    }
+                )
                 break
             elif resp.status_code == 200 and "code=" in resp.text:
-                findings.append({
-                    "severity": "high",
-                    "vulnerability_type": "redirect_uri_reflection",
-                    "message": f"Authorization code potentially leakable via redirect_uri='{evil_uri}' (200 response with code)",
-                })
+                findings.append(
+                    {
+                        "severity": "high",
+                        "vulnerability_type": "redirect_uri_reflection",
+                        "message": f"Authorization code potentially leakable via redirect_uri='{evil_uri}' (200 response with code)",
+                    }
+                )
                 break
             elif resp.status_code in (400, 422) and evil_uri in (resp.text or ""):
-                findings.append({
-                    "severity": "medium",
-                    "vulnerability_type": "redirect_uri_reflected_in_error",
-                    "message": f"redirect_uri reflected in error response (check for open redirect chain)",
-                })
+                findings.append(
+                    {
+                        "severity": "medium",
+                        "vulnerability_type": "redirect_uri_reflected_in_error",
+                        "message": "redirect_uri reflected in error response (check for open redirect chain)",
+                    }
+                )
                 break
         except requests.RequestException as exc:
             logger.debug("redirect_uri test failed for %s: %s", evil_uri, exc)
@@ -155,11 +160,13 @@ def test_open_redirect(session: requests.Session, base_url: str) -> list[dict[st
                 resp = session.get(test_url, timeout=8, allow_redirects=False)
                 location = resp.headers.get("Location", "")
                 if resp.status_code in (301, 302, 303, 307, 308) and "evil.com" in location:
-                    findings.append({
-                        "severity": "high",
-                        "vulnerability_type": "open_redirect",
-                        "message": f"Open redirect via '{param}' parameter at {login_url} — accepts external domain",
-                    })
+                    findings.append(
+                        {
+                            "severity": "high",
+                            "vulnerability_type": "open_redirect",
+                            "message": f"Open redirect via '{param}' parameter at {login_url} — accepts external domain",
+                        }
+                    )
             except requests.RequestException:
                 pass
 
@@ -185,47 +192,57 @@ def main() -> None:
         auth_endpoint = endpoint_info.get("authorization_endpoint")
 
         if not auth_endpoint:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "no_oauth_endpoint",
-                "message": "No OAuth/OIDC authorization endpoint discovered at target",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "no_oauth_endpoint",
+                    "message": "No OAuth/OIDC authorization endpoint discovered at target",
+                }
+            )
         else:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "oauth_endpoint_found",
-                "message": f"OAuth authorization endpoint found: {auth_endpoint}",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "oauth_endpoint_found",
+                    "message": f"OAuth authorization endpoint found: {auth_endpoint}",
+                }
+            )
 
             # Test redirect_uri manipulation
             redirect_findings = test_redirect_uri(session, auth_endpoint, args.client_id)
             result["findings"].extend(redirect_findings)
 
             if not redirect_findings:
-                result["findings"].append({
-                    "severity": "info",
-                    "vulnerability_type": "redirect_uri_validated",
-                    "message": "redirect_uri appears to be validated (evil URIs rejected)",
-                })
+                result["findings"].append(
+                    {
+                        "severity": "info",
+                        "vulnerability_type": "redirect_uri_validated",
+                        "message": "redirect_uri appears to be validated (evil URIs rejected)",
+                    }
+                )
 
         # Test open redirect in login flow
         open_redirect_findings = test_open_redirect(session, args.url)
         result["findings"].extend(open_redirect_findings)
 
         if not open_redirect_findings:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "no_open_redirect",
-                "message": "No open redirect found in login flow parameters",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "no_open_redirect",
+                    "message": "No open redirect found in login flow parameters",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["findings"].append({
-            "severity": "error",
-            "vulnerability_type": "scan_error",
-            "message": f"Scan failed: {exc}",
-        })
+        result["findings"].append(
+            {
+                "severity": "error",
+                "vulnerability_type": "scan_error",
+                "message": f"Scan failed: {exc}",
+            }
+        )
         logger.error("oauth_redirect error: %s", exc)
 
     print(json.dumps(result))

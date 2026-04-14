@@ -54,14 +54,53 @@ async def check_guardrail(query: str, llm_url: str = "http://127.0.0.1:8317/v1",
 
     # Quick heuristic bypass for obvious security queries
     security_keywords = [
-        "cve", "exploit", "vulnerability", "advisory", "threat", "intel",
-        "pentest", "recon", "scan", "nmap", "nuclei", "burp", "metasploit",
-        "wifi", "bluetooth", "rfid", "flipper", "portapack", "marauder",
-        "github", "discord", "digest", "osint", "shodan", "censys",
-        "target", "engagement", "finding", "severity", "cvss",
-        "cron", "schedule", "job", "topic", "status", "tool", "help",
-        "setting", "config", "what do you", "what can you", "your",
-        "publish", "report", "weekly", "lab", "experiment",
+        "cve",
+        "exploit",
+        "vulnerability",
+        "advisory",
+        "threat",
+        "intel",
+        "pentest",
+        "recon",
+        "scan",
+        "nmap",
+        "nuclei",
+        "burp",
+        "metasploit",
+        "wifi",
+        "bluetooth",
+        "rfid",
+        "flipper",
+        "portapack",
+        "marauder",
+        "github",
+        "discord",
+        "digest",
+        "osint",
+        "shodan",
+        "censys",
+        "target",
+        "engagement",
+        "finding",
+        "severity",
+        "cvss",
+        "cron",
+        "schedule",
+        "job",
+        "topic",
+        "status",
+        "tool",
+        "help",
+        "setting",
+        "config",
+        "what do you",
+        "what can you",
+        "your",
+        "publish",
+        "report",
+        "weekly",
+        "lab",
+        "experiment",
     ]
     query_lower = query.lower()
     if any(kw in query_lower for kw in security_keywords):
@@ -84,8 +123,9 @@ async def check_guardrail(query: str, llm_url: str = "http://127.0.0.1:8317/v1",
             content = resp.json()["choices"][0]["message"]["content"]
             # Parse JSON from response — handle think blocks, markdown fences
             import re
-            content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL).strip()
-            content = re.sub(r'```json?\s*', '', content).replace('```', '').strip()
+
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+            content = re.sub(r"```json?\s*", "", content).replace("```", "").strip()
             result = json.loads(content)
             score = int(result["score"])
             reason = result.get("reason", "")
@@ -137,9 +177,7 @@ def cache_get(query: str) -> str | None:
 
     key = _cache_key(query)
     try:
-        row = _cache_db.execute(
-            "SELECT response, created_at FROM response_cache WHERE key = ?", (key,)
-        ).fetchone()
+        row = _cache_db.execute("SELECT response, created_at FROM response_cache WHERE key = ?", (key,)).fetchone()
         if row:
             response, created_at = row
             if time.time() - created_at < _CACHE_TTL:
@@ -263,7 +301,11 @@ async def rewrite_query(query: str, llm_url: str = "http://127.0.0.1:8317/v1") -
 # Tools that require engagement mode checks (maps tool action → risk key
 # in engagement-config.json tool_risk table).
 _PENTEST_TOOL_PREFIXES = {
-    "portapack", "flipper", "marauder", "blackarch", "engagement",
+    "portapack",
+    "flipper",
+    "marauder",
+    "blackarch",
+    "engagement",
     "device_manager",
 }
 

@@ -1,4 +1,5 @@
 """Parser for vulnerability scan output — nikto, nuclei, nmap NSE."""
+
 from __future__ import annotations
 
 import json
@@ -19,20 +20,24 @@ def parse_nikto(raw: str, store: "TargetStore") -> list[dict]:
     try:
         data = json.loads(raw)
         for vuln in data.get("vulnerabilities", []):
-            entities.append({
-                "type": "vulnerability",
-                "id": vuln.get("id", ""),
-                "msg": vuln.get("msg", ""),
-                "method": vuln.get("method", ""),
-                "url": vuln.get("url", ""),
-            })
+            entities.append(
+                {
+                    "type": "vulnerability",
+                    "id": vuln.get("id", ""),
+                    "msg": vuln.get("msg", ""),
+                    "method": vuln.get("method", ""),
+                    "url": vuln.get("url", ""),
+                }
+            )
     except json.JSONDecodeError:
         for m in _NIKTO_VULN_RE.finditer(raw):
-            entities.append({
-                "type": "vulnerability",
-                "osvdb": m.group(1),
-                "msg": m.group(2).strip(),
-            })
+            entities.append(
+                {
+                    "type": "vulnerability",
+                    "osvdb": m.group(1),
+                    "msg": m.group(2).strip(),
+                }
+            )
     return entities
 
 
@@ -45,13 +50,15 @@ def parse_nuclei(raw: str, store: "TargetStore") -> list[dict]:
             continue
         try:
             entry = json.loads(line)
-            entities.append({
-                "type": "vulnerability",
-                "template_id": entry.get("template-id", ""),
-                "name": entry.get("info", {}).get("name", ""),
-                "severity": entry.get("info", {}).get("severity", ""),
-                "matched_at": entry.get("matched-at", ""),
-            })
+            entities.append(
+                {
+                    "type": "vulnerability",
+                    "template_id": entry.get("template-id", ""),
+                    "name": entry.get("info", {}).get("name", ""),
+                    "severity": entry.get("info", {}).get("severity", ""),
+                    "matched_at": entry.get("matched-at", ""),
+                }
+            )
         except json.JSONDecodeError:
             continue
     return entities

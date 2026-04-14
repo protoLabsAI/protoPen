@@ -1,4 +1,5 @@
 """API discovery — OpenAPI/Swagger endpoint detection, REST enumeration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,8 +13,13 @@ from tools._tool_base import Tool
 logger = logging.getLogger(__name__)
 
 _SWAGGER_PATHS = [
-    "/swagger.json", "/openapi.json", "/api-docs", "/v2/api-docs",
-    "/swagger/v1/swagger.json", "/v3/api-docs", "/.well-known/openapi.json",
+    "/swagger.json",
+    "/openapi.json",
+    "/api-docs",
+    "/v2/api-docs",
+    "/swagger/v1/swagger.json",
+    "/v3/api-docs",
+    "/.well-known/openapi.json",
 ]
 
 
@@ -79,7 +85,9 @@ class ApiEnumTool(Tool):
     async def _run(self, *args: str, timeout: int = 60) -> str:
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -98,29 +106,39 @@ class ApiEnumTool(Tool):
         for path in _SWAGGER_PATHS:
             check_url = base + path
             out = await self._run(
-                "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-                check_url, timeout=10,
+                "curl",
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                check_url,
+                timeout=10,
             )
             results.append(f"{path}: {out}")
         return "\n".join(results)
 
-    async def endpoint_brute(self, url: str, wordlist: str,
-                             timeout: int = 120) -> str:
+    async def endpoint_brute(self, url: str, wordlist: str, timeout: int = 120) -> str:
         fuzz_url = url.rstrip("/") + "/FUZZ"
-        args = ["ffuf", "-u", fuzz_url, "-w", wordlist,
-                "-mc", "200,201,301,302,401,403", "-of", "json", "-o", "-"]
+        args = ["ffuf", "-u", fuzz_url, "-w", wordlist, "-mc", "200,201,301,302,401,403", "-of", "json", "-o", "-"]
         return await self._run(*args, timeout=timeout)
 
-    async def method_check(self, url: str,
-                           methods: str = "GET,POST,PUT,DELETE,PATCH",
-                           timeout: int = 30) -> str:
+    async def method_check(self, url: str, methods: str = "GET,POST,PUT,DELETE,PATCH", timeout: int = 30) -> str:
         """Test which HTTP methods are allowed on a URL."""
         results = []
         for method in methods.split(","):
             m = method.strip()
             out = await self._run(
-                "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-                "-X", m, url, timeout=10,
+                "curl",
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "-X",
+                m,
+                url,
+                timeout=10,
             )
             results.append(f"{m}: {out}")
         return "\n".join(results)

@@ -1,4 +1,5 @@
 """Parser for llm_audit output — garak, promptfoo, prompt injection, RAG, model extraction, jailbreak."""
+
 from __future__ import annotations
 
 import json
@@ -20,15 +21,17 @@ def parse_garak_scan(raw: str, store: "TargetStore") -> list[dict]:
 
     for vuln in data.get("vulnerabilities", []):
         severity = vuln.get("severity", "medium").lower()
-        entities.append({
-            "type": "llm_finding",
-            "check": vuln.get("probe", vuln.get("name", "")),
-            "severity": severity,
-            "vulnerability_type": vuln.get("type", "prompt_vulnerability"),
-            "details": vuln.get("description", ""),
-            "detector": vuln.get("detector", ""),
-            "success_rate": vuln.get("success_rate", 0.0),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": vuln.get("probe", vuln.get("name", "")),
+                "severity": severity,
+                "vulnerability_type": vuln.get("type", "prompt_vulnerability"),
+                "details": vuln.get("description", ""),
+                "detector": vuln.get("detector", ""),
+                "success_rate": vuln.get("success_rate", 0.0),
+            }
+        )
     return entities
 
 
@@ -44,15 +47,17 @@ def parse_promptfoo_eval(raw: str, store: "TargetStore") -> list[dict]:
         status = result.get("status", "unknown").lower()
         if status in ("fail", "error"):
             severity = "high" if status == "fail" else "medium"
-            entities.append({
-                "type": "llm_finding",
-                "check": result.get("test_name", result.get("description", "")),
-                "severity": severity,
-                "vulnerability_type": "eval_failure",
-                "details": result.get("output", ""),
-                "expected": result.get("expected", ""),
-                "actual": result.get("actual", ""),
-            })
+            entities.append(
+                {
+                    "type": "llm_finding",
+                    "check": result.get("test_name", result.get("description", "")),
+                    "severity": severity,
+                    "vulnerability_type": "eval_failure",
+                    "details": result.get("output", ""),
+                    "expected": result.get("expected", ""),
+                    "actual": result.get("actual", ""),
+                }
+            )
     return entities
 
 
@@ -65,15 +70,17 @@ def parse_promptfoo_redteam(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     for finding in data.get("findings", []):
-        entities.append({
-            "type": "llm_finding",
-            "check": finding.get("attack_type", finding.get("name", "")),
-            "severity": finding.get("severity", "high").lower(),
-            "vulnerability_type": "redteam_finding",
-            "details": finding.get("description", ""),
-            "payload": finding.get("payload", ""),
-            "response": finding.get("response", ""),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": finding.get("attack_type", finding.get("name", "")),
+                "severity": finding.get("severity", "high").lower(),
+                "vulnerability_type": "redteam_finding",
+                "details": finding.get("description", ""),
+                "payload": finding.get("payload", ""),
+                "response": finding.get("response", ""),
+            }
+        )
     return entities
 
 
@@ -87,15 +94,17 @@ def parse_prompt_inject(raw: str, store: "TargetStore") -> list[dict]:
 
     for injection in data.get("injections", []):
         success = injection.get("success", False)
-        entities.append({
-            "type": "llm_finding",
-            "check": injection.get("payload_name", injection.get("technique", "")),
-            "severity": "critical" if success else "info",
-            "vulnerability_type": "prompt_injection",
-            "details": injection.get("description", ""),
-            "success": success,
-            "response": injection.get("response", ""),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": injection.get("payload_name", injection.get("technique", "")),
+                "severity": "critical" if success else "info",
+                "vulnerability_type": "prompt_injection",
+                "details": injection.get("description", ""),
+                "success": success,
+                "response": injection.get("response", ""),
+            }
+        )
     return entities
 
 
@@ -108,15 +117,17 @@ def parse_rag_poison(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     for entry in data.get("poisoned_entries", []):
-        entities.append({
-            "type": "llm_finding",
-            "check": entry.get("document_id", entry.get("chunk_id", "")),
-            "severity": entry.get("severity", "high").lower(),
-            "vulnerability_type": "rag_poisoning",
-            "details": entry.get("description", ""),
-            "confidence": entry.get("confidence", 0.0),
-            "source": entry.get("source", ""),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": entry.get("document_id", entry.get("chunk_id", "")),
+                "severity": entry.get("severity", "high").lower(),
+                "vulnerability_type": "rag_poisoning",
+                "details": entry.get("description", ""),
+                "confidence": entry.get("confidence", 0.0),
+                "source": entry.get("source", ""),
+            }
+        )
     return entities
 
 
@@ -131,16 +142,18 @@ def parse_model_extract(raw: str, store: "TargetStore") -> list[dict]:
     for probe in data.get("probes", []):
         similarity = probe.get("similarity_score", 0.0)
         extractable = similarity > probe.get("threshold", 0.8)
-        entities.append({
-            "type": "llm_finding",
-            "check": probe.get("method", probe.get("name", "")),
-            "severity": "critical" if extractable else "low",
-            "vulnerability_type": "model_extraction",
-            "details": probe.get("description", ""),
-            "similarity_score": similarity,
-            "extractable": extractable,
-            "queries_used": probe.get("queries_used", 0),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": probe.get("method", probe.get("name", "")),
+                "severity": "critical" if extractable else "low",
+                "vulnerability_type": "model_extraction",
+                "details": probe.get("description", ""),
+                "similarity_score": similarity,
+                "extractable": extractable,
+                "queries_used": probe.get("queries_used", 0),
+            }
+        )
     return entities
 
 
@@ -154,15 +167,17 @@ def parse_jailbreak(raw: str, store: "TargetStore") -> list[dict]:
 
     for attempt in data.get("attempts", []):
         success = attempt.get("success", False)
-        entities.append({
-            "type": "llm_finding",
-            "check": attempt.get("technique", attempt.get("name", "")),
-            "severity": "critical" if success else "info",
-            "vulnerability_type": "jailbreak",
-            "details": attempt.get("description", ""),
-            "success": success,
-            "bypassed_guardrail": attempt.get("bypassed_guardrail", ""),
-        })
+        entities.append(
+            {
+                "type": "llm_finding",
+                "check": attempt.get("technique", attempt.get("name", "")),
+                "severity": "critical" if success else "info",
+                "vulnerability_type": "jailbreak",
+                "details": attempt.get("description", ""),
+                "success": success,
+                "bypassed_guardrail": attempt.get("bypassed_guardrail", ""),
+            }
+        )
     return entities
 
 

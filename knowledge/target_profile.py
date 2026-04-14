@@ -1,4 +1,5 @@
 """Target profiles — rich model of a target host built from tool outputs."""
+
 from __future__ import annotations
 
 import json
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TargetPort:
     """A single open port on a target."""
+
     port: int
     protocol: str = "tcp"
     state: str = "open"
@@ -23,6 +25,7 @@ class TargetPort:
 @dataclass
 class TargetProfile:
     """Aggregated intelligence about a single target host."""
+
     ip: str
     hostname: str = ""
     os: str = ""
@@ -47,10 +50,7 @@ class TargetProfile:
 
     def has_service(self, service: str) -> bool:
         """Check if target has a specific service."""
-        return any(
-            service.lower() in p.service.lower()
-            for p in self.ports if p.service
-        )
+        return any(service.lower() in p.service.lower() for p in self.ports if p.service)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,8 +59,10 @@ class TargetProfile:
             "os": self.os,
             "ports": [
                 {
-                    "port": p.port, "protocol": p.protocol,
-                    "service": p.service, "version": p.version,
+                    "port": p.port,
+                    "protocol": p.protocol,
+                    "service": p.service,
+                    "version": p.version,
                 }
                 for p in self.ports
             ],
@@ -68,9 +70,7 @@ class TargetProfile:
             "web_paths": self.web_paths[:20],
             "users": self.users,
             "shares": self.shares,
-            "credentials": [
-                {**c, "password": "***"} for c in self.credentials
-            ],
+            "credentials": [{**c, "password": "***"} for c in self.credentials],
             "vulnerabilities": self.vulnerabilities[:20],
             "ssl_findings": self.ssl_findings[:10],
         }
@@ -84,9 +84,7 @@ class TargetProfile:
             parts.append(f"OS: {self.os}")
         parts.append(f"Open ports: {len(self.ports)}")
         if self.ports:
-            svcs = ", ".join(
-                f"{p.port}/{p.service}" for p in self.ports[:10]
-            )
+            svcs = ", ".join(f"{p.port}/{p.service}" for p in self.ports[:10])
             parts.append(f"Services: {svcs}")
         if self.vulnerabilities:
             parts.append(f"Vulns: {len(self.vulnerabilities)}")

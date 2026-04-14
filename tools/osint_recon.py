@@ -1,4 +1,5 @@
 """OSINT reconnaissance — theHarvester for emails, subdomains, IPs."""
+
 from __future__ import annotations
 
 import asyncio
@@ -53,11 +54,14 @@ class OsintReconTool(Tool):
         action = kwargs.get("action", "")
         dispatch = {
             "theharvester": lambda: self.theharvester(
-                kwargs.get("target", ""), kwargs.get("source", "all"),
-                kwargs.get("limit", 500), kwargs.get("timeout", 120),
+                kwargs.get("target", ""),
+                kwargs.get("source", "all"),
+                kwargs.get("limit", 500),
+                kwargs.get("timeout", 120),
             ),
             "whois_lookup": lambda: self.whois_lookup(
-                kwargs.get("target", ""), kwargs.get("timeout", 30),
+                kwargs.get("target", ""),
+                kwargs.get("timeout", 30),
             ),
         }
         fn = dispatch.get(action)
@@ -73,7 +77,9 @@ class OsintReconTool(Tool):
     async def _run(self, *args: str, timeout: int = 120) -> str:
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -85,8 +91,7 @@ class OsintReconTool(Tool):
             output += f"\n[stderr] {stderr.decode(errors='replace')}"
         return output.strip()
 
-    async def theharvester(self, target: str, source: str = "all",
-                           limit: int = 500, timeout: int = 120) -> str:
+    async def theharvester(self, target: str, source: str = "all", limit: int = 500, timeout: int = 120) -> str:
         args = ["theHarvester", "-d", target, "-b", source, "-l", str(limit)]
         return await self._run(*args, timeout=timeout)
 

@@ -2,6 +2,7 @@
 
 Risk level: 1 (active) — sends ARP/UDP/TCP probes onto the local network.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,32 +20,35 @@ ACTIONS: dict[str, dict[str, Any]] = {
         "cmd": ["arp-scan", "-I", "{interface}", "{network}"],
         "timeout": 60,
         "description": (
-            "Fast L2 host discovery via ARP — returns IP, MAC, and vendor info "
-            "for every host on the subnet."
+            "Fast L2 host discovery via ARP — returns IP, MAC, and vendor info for every host on the subnet."
         ),
     },
     "netdiscover": {
         "cmd": ["netdiscover", "-r", "{network}", "-P", "-N"],
         "timeout": 120,
         "description": (
-            "Passive/active ARP recon using netdiscover — outputs IP/MAC/vendor "
-            "table suitable for host inventory."
+            "Passive/active ARP recon using netdiscover — outputs IP/MAC/vendor table suitable for host inventory."
         ),
     },
     "nbtscan": {
         "cmd": ["nbtscan", "-r", "{network}"],
         "timeout": 60,
         "description": (
-            "NetBIOS name scan — finds Windows hosts and workgroup/domain names "
-            "via UDP NetBIOS Name Service queries."
+            "NetBIOS name scan — finds Windows hosts and workgroup/domain names via UDP NetBIOS Name Service queries."
         ),
     },
     "snmp_sweep": {
         "cmd": [
-            "nmap", "-sU", "-p", "161",
-            "--script", "snmp-info",
-            "--script-args", "snmpcommunity=public,private",
-            "-oX", "-",
+            "nmap",
+            "-sU",
+            "-p",
+            "161",
+            "--script",
+            "snmp-info",
+            "--script-args",
+            "snmpcommunity=public,private",
+            "-oX",
+            "-",
             "{network}",
         ],
         "timeout": 300,
@@ -57,16 +61,18 @@ ACTIONS: dict[str, dict[str, Any]] = {
         "cmd": ["avahi-browse", "-a", "-t", "-p"],
         "timeout": 60,
         "description": (
-            "Enumerate mDNS/Bonjour services via avahi-browse — returns all "
-            "advertised services with type and hostname."
+            "Enumerate mDNS/Bonjour services via avahi-browse — returns all advertised services with type and hostname."
         ),
     },
     "smb_discovery": {
         "cmd": [
-            "nmap", "-p", "139,445",
+            "nmap",
+            "-p",
+            "139,445",
             "--script",
             "smb-os-discovery,smb2-security-mode,smb-security-mode",
-            "-oX", "-",
+            "-oX",
+            "-",
             "{network}",
         ],
         "timeout": 300,
@@ -77,7 +83,8 @@ ACTIONS: dict[str, dict[str, Any]] = {
     },
     "full_lan_sweep": {
         "cmd": [
-            "python3", "-c",
+            "python3",
+            "-c",
             "import subprocess,json,shlex,xml.etree.ElementTree as ET; "
             "arp=subprocess.run(['arp-scan','-I','{interface}','{network}'],"
             "capture_output=True,text=True,timeout=60); "
@@ -178,7 +185,9 @@ class LanScanTool(Tool):
     ) -> str:
         logger.info(
             "[lan_scan] %s → %s (timeout=%ds)",
-            action, target_hint or "n/a", timeout,
+            action,
+            target_hint or "n/a",
+            timeout,
         )
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -189,13 +198,9 @@ class LanScanTool(Tool):
         except FileNotFoundError:
             binary = cmd[0] if cmd else "unknown"
             logger.warning("[lan_scan] %s: binary '%s' not found", action, binary)
-            return json.dumps(
-                {"error": f"{binary} not found", "tool": "lan_scan", "action": action}
-            )
+            return json.dumps({"error": f"{binary} not found", "tool": "lan_scan", "action": action})
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
@@ -221,10 +226,7 @@ class LanScanTool(Tool):
         spec = ACTIONS[action]
         effective_timeout = timeout if timeout is not None else spec.get("timeout", 120)
 
-        cmd = [
-            c.format(network=network, interface=interface)
-            for c in spec["cmd"]
-        ]
+        cmd = [c.format(network=network, interface=interface) for c in spec["cmd"]]
 
         result = await self._run(
             action=action,

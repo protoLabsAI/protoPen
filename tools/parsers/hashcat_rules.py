@@ -1,4 +1,5 @@
 """Parser for hashcat / john output."""
+
 from __future__ import annotations
 
 import re
@@ -25,11 +26,13 @@ def parse_hashcat(raw: str, store: "TargetStore") -> list[dict]:
     """Parse hashcat cracked output (hash:plaintext)."""
     entities: list[dict] = []
     for m in _HASHCAT_LINE_RE.finditer(raw):
-        entities.append({
-            "type": "cracked_hash",
-            "hash": m.group(1),
-            "plaintext": m.group(2),
-        })
+        entities.append(
+            {
+                "type": "cracked_hash",
+                "hash": m.group(1),
+                "plaintext": m.group(2),
+            }
+        )
     return entities
 
 

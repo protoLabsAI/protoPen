@@ -1,4 +1,5 @@
 """Parser for lateral movement output."""
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,5 @@
 """Parser for hardening check output — per-service pass/fail findings."""
+
 from __future__ import annotations
 
 import json
@@ -28,16 +29,18 @@ def parse_hardening(raw: str, store: "TargetStore") -> list[dict]:
     for check in data.get("checks", []):
         if check.get("passed"):
             continue
-        entities.append({
-            "type": "hardening_finding",
-            "service": service,
-            "target": target,
-            "check": check.get("check", ""),
-            "severity": check.get("severity", "info"),
-            "expected": check.get("expected", ""),
-            "actual": check.get("actual", ""),
-            "remediation": check.get("remediation", ""),
-        })
+        entities.append(
+            {
+                "type": "hardening_finding",
+                "service": service,
+                "target": target,
+                "check": check.get("check", ""),
+                "severity": check.get("severity", "info"),
+                "expected": check.get("expected", ""),
+                "actual": check.get("actual", ""),
+                "remediation": check.get("remediation", ""),
+            }
+        )
     return entities
 
 

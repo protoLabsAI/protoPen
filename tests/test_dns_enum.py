@@ -1,4 +1,5 @@
 """Tests for DNS enumeration tool — mocked subprocess."""
+
 import pytest
 from unittest.mock import patch, AsyncMock
 

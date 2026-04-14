@@ -1,4 +1,5 @@
 """DNS enumeration tool — dig, nslookup, zone transfers, reverse lookups."""
+
 from __future__ import annotations
 
 import asyncio
@@ -55,19 +56,24 @@ class DnsEnumTool(Tool):
         action = kwargs.get("action", "")
         dispatch = {
             "dig_query": lambda: self.dig_query(
-                kwargs.get("target", ""), kwargs.get("record_type", "A"),
-                kwargs.get("nameserver", ""), kwargs.get("timeout", 30),
+                kwargs.get("target", ""),
+                kwargs.get("record_type", "A"),
+                kwargs.get("nameserver", ""),
+                kwargs.get("timeout", 30),
             ),
             "nslookup": lambda: self.nslookup(
-                kwargs.get("target", ""), kwargs.get("record_type", "A"),
+                kwargs.get("target", ""),
+                kwargs.get("record_type", "A"),
                 kwargs.get("timeout", 30),
             ),
             "zone_transfer": lambda: self.zone_transfer(
-                kwargs.get("target", ""), kwargs.get("nameserver", ""),
+                kwargs.get("target", ""),
+                kwargs.get("nameserver", ""),
                 kwargs.get("timeout", 60),
             ),
             "reverse_lookup": lambda: self.reverse_lookup(
-                kwargs.get("target", ""), kwargs.get("nameserver", ""),
+                kwargs.get("target", ""),
+                kwargs.get("nameserver", ""),
                 kwargs.get("timeout", 30),
             ),
             "dns_brute": lambda: self.dns_brute(
@@ -108,35 +114,34 @@ class DnsEnumTool(Tool):
             output += f"\n[stderr] {stderr.decode(errors='replace')}"
         return output.strip()
 
-    async def dig_query(self, target: str, record_type: str = "A",
-                        nameserver: str = "", timeout: int = 30) -> str:
+    async def dig_query(self, target: str, record_type: str = "A", nameserver: str = "", timeout: int = 30) -> str:
         args = ["dig"]
         if nameserver:
             args.append(f"@{nameserver}")
         args.extend([target, record_type, "+noall", "+answer"])
         return await self._run(*args, timeout=timeout)
 
-    async def nslookup(self, target: str, record_type: str = "A",
-                       timeout: int = 30) -> str:
+    async def nslookup(self, target: str, record_type: str = "A", timeout: int = 30) -> str:
         args = ["nslookup", f"-type={record_type}", target]
         return await self._run(*args, timeout=timeout)
 
-    async def zone_transfer(self, target: str, nameserver: str = "",
-                            timeout: int = 60) -> str:
+    async def zone_transfer(self, target: str, nameserver: str = "", timeout: int = 60) -> str:
         ns = nameserver or target
         args = ["dig", f"@{ns}", target, "AXFR"]
         return await self._run(*args, timeout=timeout)
 
-    async def reverse_lookup(self, target: str, nameserver: str = "",
-                             timeout: int = 30) -> str:
+    async def reverse_lookup(self, target: str, nameserver: str = "", timeout: int = 30) -> str:
         args = ["dig"]
         if nameserver:
             args.append(f"@{nameserver}")
         args.extend(["-x", target, "+short"])
         return await self._run(*args, timeout=timeout)
 
-    async def dns_brute(self, target: str,
-                        wordlist: str = "/usr/share/wordlists/dns/subdomains-top1million-5000.txt",
-                        timeout: int = 300) -> str:
+    async def dns_brute(
+        self,
+        target: str,
+        wordlist: str = "/usr/share/wordlists/dns/subdomains-top1million-5000.txt",
+        timeout: int = 300,
+    ) -> str:
         args = ["dnsrecon", "-d", target, "-t", "brt", "-D", wordlist]
         return await self._run(*args, timeout=timeout)

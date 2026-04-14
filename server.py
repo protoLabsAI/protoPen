@@ -23,7 +23,7 @@ from chat_ui import create_chat_app
 # Agent setup
 # ---------------------------------------------------------------------------
 
-_graph = None       # LangGraph compiled graph
+_graph = None  # LangGraph compiled graph
 _graph_config = None  # LangGraphConfig
 _checkpointer = None  # LangGraph MemorySaver for session persistence
 
@@ -46,10 +46,12 @@ def _init_langgraph_agent():
     _sessions_db.parent.mkdir(parents=True, exist_ok=True)
     try:
         from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
         _checkpointer = AsyncSqliteSaver.from_conn_string(str(_sessions_db))
         print(f"[sessions] Persistent checkpointer: {_sessions_db}")
     except ImportError:
         from langgraph.checkpoint.memory import MemorySaver
+
         _checkpointer = MemorySaver()
         print("[sessions] Falling back to in-memory checkpointer")
 
@@ -57,7 +59,7 @@ def _init_langgraph_agent():
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
     status_block = run_sitrep(engagement_config)
     if status_block:
-        print(f"[sitrep] Startup probe injected into system prompt")
+        print("[sitrep] Startup probe injected into system prompt")
 
     _graph = create_researcher_graph(
         config=_graph_config,
@@ -72,6 +74,7 @@ def _init_langgraph_agent():
 def _detect_vllm_model(api_base: str) -> str | None:
     """Query vLLM /v1/models to get the currently loaded model."""
     import httpx
+
     try:
         resp = httpx.get(f"{api_base}/models", timeout=5)
         data = resp.json().get("data", [])
@@ -113,9 +116,7 @@ def _msg(content: str) -> list[dict[str, Any]]:
     return [{"role": "assistant", "content": content}]
 
 
-async def _handle_command(
-    cmd: str, args: str, session_id: str
-) -> list[dict[str, Any]] | None:
+async def _handle_command(cmd: str, args: str, session_id: str) -> list[dict[str, Any]] | None:
     if cmd == "help":
         return _msg(_HELP_TEXT)
 
@@ -131,6 +132,7 @@ async def _handle_command(
 
     if cmd == "tools":
         from tools.lg_tools import get_all_tools
+
         tools = get_all_tools(_get_store())
         names = sorted(t.name for t in tools)
         listing = "\n".join(f"- `{n}`" for n in names)
@@ -147,6 +149,7 @@ async def _handle_command(
 
     if cmd == "audit":
         from audit import audit_logger
+
         n = 20
         if args.strip().isdigit():
             n = int(args.strip())
@@ -189,7 +192,8 @@ async def _handle_command(
 
 
 async def _handle_purple_command(
-    args: str, session_id: str,
+    args: str,
+    session_id: str,
 ) -> list[dict[str, Any]]:
     """Run a purple team exercise via the playbook runner."""
     scope = args.strip()
@@ -206,10 +210,13 @@ async def _handle_purple_command(
     from playbooks.schema import StepStatus
 
     try:
-        pb = load_playbook("purple_team_exercise", {
-            "target": scope,
-            "exercise_name": f"purple-{session_id[:8]}",
-        })
+        pb = load_playbook(
+            "purple_team_exercise",
+            {
+                "target": scope,
+                "exercise_name": f"purple-{session_id[:8]}",
+            },
+        )
     except FileNotFoundError:
         return _msg("❌ Purple team exercise playbook not found.")
 
@@ -223,6 +230,7 @@ async def _handle_purple_command(
         # Always dispatch directly — routing through the LLM adds latency
         # and risks the model wrapping / summarising raw tool output.
         from tools.lg_tools import get_combined_tools
+
         for t in get_combined_tools():
             if t.name == tool_name:
                 return await t.ainvoke({"action": action, **params})
@@ -235,15 +243,15 @@ async def _handle_purple_command(
     failed = sum(1 for s in pb.steps if s.status == StepStatus.FAILED)
     total = len(pb.steps)
 
-    progress_lines.append(
-        f"\n**Results:** {completed}/{total} steps completed, {failed} failed"
-    )
+    progress_lines.append(f"\n**Results:** {completed}/{total} steps completed, {failed} failed")
 
     # Extract coverage report from the last step if available
     report_step = next(
-        (s for s in reversed(pb.steps)
-         if s.tool == "purple_team" and s.action == "exercise_report"
-         and s.status == StepStatus.COMPLETED),
+        (
+            s
+            for s in reversed(pb.steps)
+            if s.tool == "purple_team" and s.action == "exercise_report" and s.status == StepStatus.COMPLETED
+        ),
         None,
     )
     if report_step and report_step.output:
@@ -254,36 +262,22 @@ async def _handle_purple_command(
                 raw = re.sub(r"^```(?:json)?\s*\n?", "", raw)
                 raw = re.sub(r"\n?```\s*$", "", raw)
             report = json.loads(raw)
-            rate_pct = report.get("detection_rate_pct",
-                                    report.get("detection_rate", 0) * 100)
+            rate_pct = report.get("detection_rate_pct", report.get("detection_rate", 0) * 100)
             rating = report.get("rating", "UNKNOWN")
-            progress_lines.append(f"\n### ATT&CK Coverage")
-            progress_lines.append(
-                f"**Rating:** {rating} ({rate_pct:.0f}% detection rate)"
-            )
+            progress_lines.append("\n### ATT&CK Coverage")
+            progress_lines.append(f"**Rating:** {rating} ({rate_pct:.0f}% detection rate)")
             crit = report.get("critical_findings", [])
             high = report.get("high_findings", [])
             if crit:
-                progress_lines.append(
-                    f"**Critical gaps:** {len(crit)}"
-                )
+                progress_lines.append(f"**Critical gaps:** {len(crit)}")
             if high:
-                progress_lines.append(
-                    f"**High gaps:** {len(high)}"
-                )
+                progress_lines.append(f"**High gaps:** {len(high)}")
             for f in crit[:5]:
-                progress_lines.append(
-                    f"  - 🔴 {f['technique_id']} {f['technique_name']}"
-                )
+                progress_lines.append(f"  - 🔴 {f['technique_id']} {f['technique_name']}")
             for f in high[:5]:
-                progress_lines.append(
-                    f"  - 🟠 {f['technique_id']} {f['technique_name']}"
-                )
+                progress_lines.append(f"  - 🟠 {f['technique_id']} {f['technique_name']}")
         except (json.JSONDecodeError, TypeError):
-            progress_lines.append(
-                f"\n### Raw Report Output\n```\n"
-                f"{report_step.output[:2000]}\n```"
-            )
+            progress_lines.append(f"\n### Raw Report Output\n```\n{report_step.output[:2000]}\n```")
 
     return _msg("\n".join(progress_lines))
 
@@ -299,6 +293,7 @@ def _get_store():
     global _knowledge_store
     if _knowledge_store is None:
         from knowledge.store import KnowledgeStore
+
         _knowledge_store = KnowledgeStore()
     return _knowledge_store
 
@@ -390,6 +385,7 @@ async def _handle_recent_command(args: str) -> list[dict[str, Any]]:
 async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
     """Generate a security intelligence digest and publish to Discord via webhook."""
     import os
+
     webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "")
     if not webhook_url:
         return _msg("**Error:** DISCORD_WEBHOOK_URL not set.")
@@ -402,6 +398,7 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
 
     # Build the security digest
     from datetime import datetime, timezone
+
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     instance_name = os.environ.get("INSTANCE_NAME", "")
@@ -409,8 +406,10 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
     lines = [f"**🔒 protoPen{instance_tag} Security Intelligence Digest — {date_str}**\n"]
 
     if stats:
-        lines.append(f"📊 **Knowledge Base:** {stats.get('cves', stats.get('papers', 0))} CVEs, "
-                     f"{stats.get('findings', 0)} findings, {stats.get('advisories', 0)} advisories\n")
+        lines.append(
+            f"📊 **Knowledge Base:** {stats.get('cves', stats.get('papers', 0))} CVEs, "
+            f"{stats.get('findings', 0)} findings, {stats.get('advisories', 0)} advisories\n"
+        )
 
     if entries:
         lines.append("**🛡️ Recent Threats:**")
@@ -428,14 +427,17 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
 
     # Publish via webhook
     import httpx
+
     webhook_name = f"protoPen [{instance_name}]" if instance_name else "protoPen"
     payload = {
         "username": webhook_name,
-        "embeds": [{
-            "title": f"🔒 Security Intelligence Digest — {date_str}",
-            "description": digest_content[:4096],
-            "color": 0xef4444,
-        }],
+        "embeds": [
+            {
+                "title": f"🔒 Security Intelligence Digest — {date_str}",
+                "description": digest_content[:4096],
+                "color": 0xEF4444,
+            }
+        ],
     }
 
     try:
@@ -446,7 +448,6 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
             return _msg(f"**Error:** Discord returned {resp.status_code}: {resp.text[:200]}")
     except Exception as e:
         return _msg(f"**Error publishing:** {e}")
-
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +598,7 @@ def chat_streaming(message: str, history: list[dict], session_id: str):
                         return
                     if meta.get("_new"):
                         import secrets as _s
+
                         yield [], _s.token_hex(4)
                         return
                 history.extend(data)
@@ -609,11 +611,13 @@ def chat_streaming(message: str, history: list[dict], session_id: str):
         except _queue_mod.Empty:
             # Show a working indicator if nothing yet
             if not placeholder_shown:
-                history.append({
-                    "role": "assistant",
-                    "metadata": {"title": "🔬 Working..."},
-                    "content": "",
-                })
+                history.append(
+                    {
+                        "role": "assistant",
+                        "metadata": {"title": "🔬 Working..."},
+                        "content": "",
+                    }
+                )
                 placeholder_shown = True
                 yield history, session_id
 
@@ -630,6 +634,7 @@ def chat_streaming(message: str, history: list[dict], session_id: str):
                     return
                 if meta.get("_new"):
                     import secrets as _s
+
                     yield [], _s.token_hex(4)
                     return
             history.extend(data)
@@ -651,6 +656,7 @@ def chat_streaming(message: str, history: list[dict], session_id: str):
 def _build_settings_callbacks() -> dict:
     def get_tools_list() -> str:
         from tools.lg_tools import get_all_tools
+
         tools = get_all_tools(_get_store())
         names = sorted(t.name for t in tools)
         return "\n".join(f"- `{n}`" for n in names) or "No tools registered."
@@ -667,11 +673,13 @@ def _build_settings_callbacks() -> dict:
         if detected:
             choices.append(f"local: {detected}")
         # Claude models via CLIProxyAPI (OAuth)
-        choices.extend([
-            "claude: claude-sonnet-4-6",
-            "claude: claude-haiku-4-5",
-            "claude: claude-opus-4-6",
-        ])
+        choices.extend(
+            [
+                "claude: claude-sonnet-4-6",
+                "claude: claude-haiku-4-5",
+                "claude: claude-opus-4-6",
+            ]
+        )
         return choices
 
     def get_current_provider() -> str:
@@ -709,8 +717,10 @@ def _build_settings_callbacks() -> dict:
                 return f"**Error:** Unknown provider: {provider_type}"
 
             from graph.agent import create_researcher_graph
+
             _graph = create_researcher_graph(
-                config=_graph_config, knowledge_store=_get_store(),
+                config=_graph_config,
+                knowledge_store=_get_store(),
                 include_subagents=True,
             )
             return f"**Switched to:** `{_graph_config.model_name}` (graph rebuilt)"
@@ -784,6 +794,7 @@ def _main():
     # Initialize observability
     import tracing
     import metrics
+
     tracing.init()
     metrics.init()
 
@@ -795,6 +806,7 @@ def _main():
     # Start Discord bot (watches for 🔬 reactions and @mentions)
     if os.environ.get("DISCORD_BOT_TOKEN"):
         from discord_bot import start_bot
+
         start_bot()
 
     blocks = create_chat_app(
@@ -856,17 +868,20 @@ def _main():
 
         if stream:
             import json as _json
+
             async def _stream():
                 chunk = {
                     "id": completion_id,
                     "object": "chat.completion.chunk",
                     "created": created,
                     "model": "protopen",
-                    "choices": [{
-                        "index": 0,
-                        "delta": {"role": "assistant", "content": content},
-                        "finish_reason": None,
-                    }],
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": content},
+                            "finish_reason": None,
+                        }
+                    ],
                 }
                 yield f"data: {_json.dumps(chunk)}\n\n"
                 done_chunk = {
@@ -886,11 +901,13 @@ def _main():
             "object": "chat.completion",
             "created": created,
             "model": "protopen",
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": content},
+                    "finish_reason": "stop",
+                }
+            ],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
 
@@ -898,12 +915,14 @@ def _main():
     async def _openai_models():
         return {
             "object": "list",
-            "data": [{
-                "id": "protopen",
-                "object": "model",
-                "created": 1774600000,
-                "owned_by": "protolabs",
-            }],
+            "data": [
+                {
+                    "id": "protopen",
+                    "object": "model",
+                    "created": 1774600000,
+                    "owned_by": "protolabs",
+                }
+            ],
         }
 
     # ─── A2A protocol ────────────────────────────────────────────────────────
@@ -925,7 +944,7 @@ def _main():
         "url": "http://steamdeck:7870",
         "provider": {"organization": "protoLabsAI"},
         "version": "2.0",
-        "capabilities": {},   # populated by register_a2a_routes()
+        "capabilities": {},  # populated by register_a2a_routes()
         "skills": [
             {
                 "id": "passive_recon",
@@ -985,6 +1004,7 @@ def _main():
     }
 
     from a2a_handler import register_a2a_routes
+
     register_a2a_routes(
         app=fastapi_app,
         chat_stream_fn_factory=_chat_langgraph_stream,
@@ -1008,23 +1028,28 @@ def _main():
     if static_dir.exists():
         manifest_path = static_dir / "manifest.json"
         if manifest_path.exists():
+
             @fastapi_app.get("/manifest.json", include_in_schema=False)
             async def _serve_manifest() -> FileResponse:
                 return FileResponse(str(manifest_path), media_type="application/manifest+json")
 
         sw_path = static_dir / "sw.js"
         if sw_path.exists():
+
             @fastapi_app.get("/sw.js", include_in_schema=False)
             async def _serve_sw() -> FileResponse:
                 return FileResponse(
-                    str(sw_path), media_type="application/javascript",
+                    str(sw_path),
+                    media_type="application/javascript",
                     headers={"Service-Worker-Allowed": "/"},
                 )
 
         fastapi_app.mount("/static", StaticFiles(directory=str(static_dir)), name="ava-static")
 
     app = gr.mount_gradio_app(
-        fastapi_app, blocks, path="/",
+        fastapi_app,
+        blocks,
+        path="/",
         footer_links=[],
         favicon_path=str(static_dir / "favicon.svg") if (static_dir / "favicon.svg").exists() else None,
     )

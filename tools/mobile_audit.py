@@ -1,4 +1,5 @@
 """Mobile application security testing — APK/IPA analysis, Frida hooking, IPC auditing."""
+
 from __future__ import annotations
 
 import logging
@@ -37,9 +38,13 @@ class MobileAuditTool(BasePentestTool):
         },
         "drozer_scan": {
             "cmd": [
-                "drozer", "console", "connect",
-                "--command", "run scanner.provider.finduris -a {package_name}",
-                "--server", "{target}",
+                "drozer",
+                "console",
+                "connect",
+                "--command",
+                "run scanner.provider.finduris -a {package_name}",
+                "--server",
+                "{target}",
             ],
             "timeout": 120,
             "description": "Scan content providers for exposed URIs with drozer",
@@ -51,25 +56,37 @@ class MobileAuditTool(BasePentestTool):
         },
         "ssl_pinning_bypass": {
             "cmd": [
-                "objection", "-g", "{package_name}", "explore",
-                "--startup-command", "android sslpinning disable",
+                "objection",
+                "-g",
+                "{package_name}",
+                "explore",
+                "--startup-command",
+                "android sslpinning disable",
             ],
             "timeout": 120,
             "description": "Bypass SSL certificate pinning via objection",
         },
         "ipc_audit": {
             "cmd": [
-                "drozer", "console", "connect",
-                "--command", "run app.activity.info -a {package_name}",
-                "--server", "{target}",
+                "drozer",
+                "console",
+                "connect",
+                "--command",
+                "run app.activity.info -a {package_name}",
+                "--server",
+                "{target}",
             ],
             "timeout": 120,
             "description": "Audit IPC components (activities, services, receivers)",
         },
         "keychain_dump": {
             "cmd": [
-                "objection", "-g", "{package_name}", "explore",
-                "--startup-command", "android keystore list",
+                "objection",
+                "-g",
+                "{package_name}",
+                "explore",
+                "--startup-command",
+                "android keystore list",
             ],
             "timeout": 120,
             "description": "Dump Android keystore entries via objection",

@@ -1,4 +1,5 @@
 """Tests for device manager — USB device discovery, connection lifecycle, health checks."""
+
 import pytest
 from unittest.mock import patch, MagicMock
 import json
