@@ -71,8 +71,12 @@ class SslAuditTool(Tool):
 
     async def _run(self, *args: str, timeout: int = 180) -> str:
         logger.info("Running: %s", " ".join(args))
+        import os
+        env = os.environ.copy()
+        # Use system openssl — testssl.sh's bundled binary crashes on SteamOS (glibc mismatch)
+        env.setdefault("OPENSSL", "/usr/bin/openssl")
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)

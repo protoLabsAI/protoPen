@@ -40,17 +40,28 @@ class BasePentestTool:
         cmd: list[str],
         timeout: int,
         target_hint: str = "",
+        env: dict[str, str] | None = None,
     ) -> str:
-        """Run *cmd* as an async subprocess with *timeout* seconds."""
+        """Run *cmd* as an async subprocess with *timeout* seconds.
+
+        Pass *env* to override specific environment variables; the current
+        process environment is used as the base when *env* is provided.
+        """
+        import os
         logger.info(
             "[%s] %s → %s (timeout=%ds)",
             self.name, action, target_hint or "n/a", timeout,
         )
+        merged_env: dict[str, str] | None = None
+        if env is not None:
+            merged_env = os.environ.copy()
+            merged_env.update(env)
         try:
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=merged_env,
             )
         except FileNotFoundError:
             binary = cmd[0] if cmd else "unknown"
