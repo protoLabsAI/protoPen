@@ -97,12 +97,6 @@ from tools.sdn_attack import SDNAttackTool
 from tools.recon_pipeline import ReconPipelineTool
 
 
-# Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
-_rabbit_hole_bridge = None
-if os.environ.get("RABBIT_HOLE_URL"):
-    from tools.rabbit_hole_bridge import RabbitHoleBridgeTool
-    _rabbit_hole_bridge = RabbitHoleBridgeTool()
-
 # Instantiate underlying tool classes (stateless singletons)
 _cve_search = CVESearchTool()
 _security_feeds = SecurityFeedsTool()
@@ -367,36 +361,6 @@ def create_security_memory_tool(store=None):
     return security_memory
 
 
-def create_lab_bench_tool():
-    """Factory: creates lab_bench tool (called at runtime when /lab on)."""
-    from tools.lab_bench import LabBenchTool
-    _tool = LabBenchTool()
-
-    @tool
-    async def lab_bench(
-        action: str,
-        experiment: str = "",
-        template: str = "dpo_qwen_0.8b",
-        key: str = "",
-        value: str = "",
-        description: str = "",
-        gpu: str = "1",
-        time_budget: int = 300,
-        tail: int = 50,
-    ) -> str:
-        """Run autonomous training experiments on tiny Qwen models.
-
-        Uses LLaMA-Factory with LoRA DPO training on local GPU.
-        Workflow: init -> edit config -> run -> keep/discard -> repeat.
-        """
-        return await _tool.execute(
-            action=action, experiment=experiment, template=template,
-            key=key, value=value, description=description,
-            gpu=gpu, time_budget=time_budget, tail=tail,
-        )
-
-    return lab_bench
-
 
 @tool
 async def lab_monitor(
@@ -422,32 +386,6 @@ async def lab_monitor(
     )
 
 
-if _rabbit_hole_bridge is not None:
-    @tool
-    async def rabbit_hole_bridge(
-        action: str,
-        query: str = "",
-        arxiv_id: str = "",
-        model_id: str = "",
-        text: str = "",
-        focus_entity: str = "",
-        paper_ids: Optional[list[str]] = None,
-        model_ids: Optional[list[str]] = None,
-        limit: int = 10,
-    ) -> str:
-        """Ship research data to rabbit-hole.io's knowledge graph.
-
-        - search_graph: Check what's already in the graph (query required)
-        - ingest_paper: Send a stored paper to the graph (arxiv_id required)
-        - ingest_model: Send a stored model release to the graph (model_id required)
-        - ingest_text: Extract entities from free text and ingest (text required)
-        - ingest_batch: Send multiple papers/models at once (paper_ids and/or model_ids)
-        """
-        return await _rabbit_hole_bridge.execute(
-            action=action, query=query, arxiv_id=arxiv_id, model_id=model_id,
-            text=text, focus_entity=focus_entity, paper_ids=paper_ids,
-            model_ids=model_ids, limit=limit,
-        )
 
 
 def get_security_tools(knowledge_store=None):
@@ -462,8 +400,6 @@ def get_security_tools(knowledge_store=None):
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)
-    if _rabbit_hole_bridge is not None:
-        tools.append(rabbit_hole_bridge)
     return tools
 
 

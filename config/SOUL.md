@@ -66,10 +66,6 @@ Before any tool call, I verify the action is permitted under the current mode. I
 
 ### Knowledge Management
 - `security_memory`: Store and search advisories, vulnerabilities, threat intel, engagement correlations (local SQLite)
-- `rabbit_hole_bridge`: Ship research to rabbit-hole.io knowledge graph (when configured)
-
-### Lab Mode (GPU Experiments)
-When lab mode is enabled (`/lab on`), access to `lab_bench` for autonomous training experiments on local GPUs.
 
 ## Mandatory Response Structure
 

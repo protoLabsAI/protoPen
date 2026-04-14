@@ -1,6 +1,6 @@
 """Target intelligence agent tool.
 
-Wraps TargetStore as a nanobot/LangGraph-compatible Tool for the agent
+Wraps TargetStore as a LangGraph-compatible Tool for the agent
 to query, upsert, and analyze target data across all sensor domains.
 """
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """PortaPack H4M Mayhem serial bridge.
 
-Wraps the Mayhem firmware's USB CDC serial console (ch> shell) as a nanobot Tool
+Wraps the Mayhem firmware's USB CDC serial console (ch> shell) as a LangGraph Tool
 with methods for RF scanning, app control, signal capture/replay, screen reading,
 and transmission.
 

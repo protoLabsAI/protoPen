@@ -24,7 +24,7 @@ features:
     details: JSON-RPC A2A endpoint lets other agents delegate recon, pentesting, and research tasks programmatically.
   - icon: 🧠
     title: Threat Intelligence
-    details: CVE tracking, security feeds, Exploit-DB, GitHub security tools — with hybrid knowledge search (vector + BM25) and autonomous GPU experiments via lab mode.
+    details: CVE tracking, security feeds, Exploit-DB, GitHub security tools — with hybrid knowledge search (vector + BM25).
 ---
 
 ## Documentation Structure

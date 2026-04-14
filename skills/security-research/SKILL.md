@@ -77,30 +77,6 @@ discord_feed action=publish title="Threat Brief — 2026-04-12" content="..."
 
 **Important:** The `publish` action does NOT need a `channel_id`. It posts via a webhook automatically. Only `scan`, `history`, and `digest` actions need `channel_id`.
 
-## Knowledge Graph Integration
-
-All security research findings should be shipped to rabbit-hole.io's knowledge graph so they're searchable and connected beyond this session. Use the `rabbit_hole_bridge` tool.
-
-### Before Researching
-Call `rabbit_hole_bridge action=search_graph query="<topic>"` to check what's already in the knowledge graph. If entities exist with recent data, build on them rather than re-researching from scratch.
-
-### After Storing a Finding
-After `security_memory store_finding` or `security_memory store_cve`, also run:
-```
-rabbit_hole_bridge action=ingest_text text="<finding content>" focus_entity="<CVE ID or topic>"
-```
-
-### After Generating a Digest
-Ship the digest text for entity extraction:
-```
-rabbit_hole_bridge action=ingest_text text="<digest content>" focus_entity="<main topic>"
-```
-
-### Batch Ingestion
-After a bulk scan, collect all findings and ingest in one shot:
-```
-rabbit_hole_bridge action=ingest_batch paper_ids=[] model_ids=[]
-```
 
 ## Severity Rating Guide
 

@@ -59,15 +59,14 @@ protoPen uses **CLIProxyAPI** to access Claude models through your existing Clau
    # Should show: -rw-r--r-- ... .credentials.json
    ```
 
-> **How it works:** CLIProxyAPI runs inside the container on port 8317, exposing an OpenAI-compatible API that routes requests to Anthropic using your Claude Code OAuth token. The agent is configured to use this as its LLM provider (`cliproxy` in `nanobot-config.json`). This means LLM calls use your Claude Code subscription, not a separate API key.
+> **How it works:** CLIProxyAPI runs inside the container on port 8317, exposing an OpenAI-compatible API that routes requests to Anthropic using your Claude Code OAuth token. The agent uses this as its LLM provider — LLM calls use your Claude Code subscription, not a separate API key.
 
-> **Alternative:** If you prefer to use an API key directly, set `ANTHROPIC_API_KEY` in your environment and change the nanobot config provider from `cliproxy` to `anthropic`.
+> **Alternative:** If you prefer to use an API key directly, set `ANTHROPIC_API_KEY` in your environment.
 
 ### Docker (recommended)
 
 ```bash
-# Clone with submodules (nanobot is a git submodule)
-git clone --recursive https://github.com/protoLabsAI/protoPen
+git clone https://github.com/protoLabsAI/protoPen
 cd protoPen
 
 # Start (basic mode)
@@ -75,15 +74,7 @@ docker compose up --build
 # UI at http://localhost:7872
 ```
 
-### With Lab Mode (GPU experiments)
-
 ```bash
-docker compose --profile lab up --build
-# UI at http://localhost:7872, then /lab on in chat
-```
-
-Requires NVIDIA GPU. Lab mode mounts LLaMA-Factory + HuggingFace model cache from the host.
-
 ### Local
 
 ```bash
@@ -103,7 +94,6 @@ python server.py --port 7870
 | `github_trending` | Track trending security tools, exploit PoCs, and offensive/defensive repos |
 | `browser` | Deep-read security advisories, blog posts, PoC writeups |
 | `discord_feed` | Scan Discord channels for security intel, publish digests and security reports as rich embeds via webhook |
-| `rabbit_hole_bridge` | Ship threat intel to rabbit-hole.io knowledge graph |
 
 ### Pen Testing
 
@@ -141,7 +131,6 @@ The agent does not auto-escalate modes. If it needs a higher mode, it reports th
 
 ```
 protoPen
-├── nanobot/              # Agent framework (submodule)
 ├── tools/
 │   ├── base.py           # BasePentestTool — async subprocess runner
 │   ├── cve_search.py     # NVD/MITRE CVE database search
@@ -157,14 +146,12 @@ protoPen
 │   ├── device_manager.py # USB serial management
 │   ├── engagement.py     # Engagement lifecycle + findings
 │   ├── target_intel.py   # Target intelligence database
-│   ├── rabbit_hole_bridge.py # Knowledge graph integration
-│   ├── lab_bench.py      # GPU experiment runner (lab mode)
 │   ├── cis_audit.py      # CIS benchmark + config audits
 │   ├── net_monitor.py    # Network monitoring + anomaly detection
 │   ├── hardening_check.py# Service hardening validation
 │   ├── ir_toolkit.py     # Incident response toolkit
 │   ├── purple_team.py    # Purple team correlation engine
-│   ├── parsers/          # Output normalizers (nmap XML, ATT&CK alignment)
+│   ├── parsers/          # Output normalizers (nmap XML, ATT&CK alignment, etc.)
 │   └── scripts/          # Standalone audit scripts (ssh_audit, tls_audit, etc.)
 ├── playbooks/
 │   ├── library/          # YAML playbook definitions
@@ -206,7 +193,6 @@ The lead agent delegates to nine specialized subagents via the `task` tool:
 | `/cves [query]` | Search stored advisories |
 | `/recent [n]` | Show recent advisories and threat intel |
 | `/intel` | Generate and publish threat intel digest |
-| `/lab on\|off\|status` | Toggle lab mode (GPU experiments) |
 | `/think <level>` | Set reasoning effort |
 | `/tools` | List registered tools |
 | `/audit [n]` | Show recent audit log entries |
@@ -235,11 +221,6 @@ pb = load_playbook("defensive_assessment", {"target": "192.168.4.1"})
 result = await run_playbook(pb, dispatch)
 ```
 
-## Rabbit Hole Integration
-
-protoPen connects to [rabbit-hole.io](https://github.com/protoLabsAI/rabbit-hole.io)'s knowledge graph via HTTP bridge, shipping advisories, exploits, and threat intel as structured bundles.
-
-Set `RABBIT_HOLE_URL` and `MCP_AUTH_TOKEN` in your environment. See [docs/guides/rabbit-hole-mcp.md](docs/guides/rabbit-hole-mcp.md) for details.
 
 ## API
 
@@ -292,24 +273,21 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 
 | Variable | Required | Description |
 |---|---|---|
-| `AGENT_BACKEND` | No | `nanobot` (legacy) or `langgraph` (recommended) |
+| `AGENT_BACKEND` | No | `langgraph` |
 | `PROTOPEN_API_KEY` | No | API key for A2A authentication |
-| `MCP_AUTH_TOKEN` | No | Token for rabbit-hole knowledge graph |
 | `ANTHROPIC_API_KEY` | No | Direct Anthropic API (alternative to CLIProxyAPI) |
 | `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
 | `DISCORD_BOT_TOKEN` | No | Discord channel reading |
 | `DISCORD_WEBHOOK_URL` | No | Discord webhook for publishing digests, security alerts, and engagement reports (managed via Infisical in prod) |
 | `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing |
 | `LANGFUSE_SECRET_KEY` | No | Langfuse tracing |
-| `LAB_GPU` | No | GPU ID for lab mode (default: `1`) |
 
 ## Stack
 
-- **Agent**: LangGraph (recommended) or nanobot (legacy)
+- **Agent**: LangGraph
 - **LLM**: CLIProxyAPI → Claude Code OAuth (no API key needed) or direct Anthropic API
 - **UI**: Gradio 5 (dark theme, PWA)
 - **Knowledge**: SQLite + sqlite-vec + FTS5 (hybrid search: vector similarity + BM25 keyword, RRF fusion)
-- **Training**: LLaMA-Factory with LoRA DPO on Qwen3.5-0.8B/2B (lab mode)
 - **Observability**: Langfuse tracing, Prometheus metrics, JSONL audit
 - **Container**: Docker with seccomp, read-only root, tmpfs workspace
 

@@ -156,7 +156,7 @@ class TestSubagentRegistry:
         from tools.lg_tools import get_combined_tools
         valid_names = {_tool_name(t) for t in get_combined_tools(knowledge_store=None)}
         # Also include tools that may only be available conditionally
-        valid_names.update({"discord_feed", "rabbit_hole_bridge", "security_memory", "target_intel"})
+        valid_names.update({"discord_feed", "security_memory", "target_intel"})
         for name, config in SUBAGENT_REGISTRY.items():
             for tool_name in config.tools:
                 assert tool_name in valid_names, (

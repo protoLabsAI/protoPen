@@ -30,7 +30,7 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `AGENT_BACKEND` | no | `nanobot` | Agent backend to use: `nanobot` (legacy) or `langgraph` (recommended) |
+| `AGENT_BACKEND` | no | `langgraph` | Agent backend to use (`langgraph`) |
 | `SANDBOX_DIR` | no | `/sandbox` | Root directory for the sandboxed workspace |
 | `INSTANCE_NAME` | no | `ava` | Instance name for multi-node identification and Discord digest branding |
 
@@ -57,18 +57,6 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 | `DISCORD_BOT_TOKEN` | no | -- | Discord bot token for reading channel feeds and reacting to mentions |
 | `DISCORD_WEBHOOK_URL` | no | -- | Discord webhook URL for publishing research digests, security alerts, and engagement reports as rich embeds. Managed via Infisical in prod. |
 
-## Rabbit Hole
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `RABBIT_HOLE_URL` | no | `http://host.docker.internal:3399` | Base URL for the rabbit-hole knowledge graph API |
-| `MCP_AUTH_TOKEN` | no | -- | Authentication token for the rabbit-hole API |
-
-## Lab Mode (GPU)
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `LAB_GPU` | no | `1` | CUDA device index for lab experiments |
 
 ## A2A Authentication
 
