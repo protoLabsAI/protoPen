@@ -387,7 +387,12 @@ class EngagementManager(Tool):
 
     def _exec_start(self, kwargs) -> str:
         self.start(kwargs.get("name", "unnamed"), kwargs.get("scope", ""), kwargs.get("mode"))
-        return f"Engagement '{kwargs.get('name')}' started in {self._mode.name} mode"
+        return (
+            f"Engagement '{kwargs.get('name')}' started in {self._mode.name} mode\n\n"
+            f"[OPSEC REQUIRED] Before any scanning, run:\n"
+            f"  opsec pre_scan_setup — pass the list of active interfaces to randomize MACs\n"
+            f"Save the original MACs from the output. Restore them with opsec mac_restore before ending the engagement."
+        )
 
     def _exec_end(self) -> str:
         name = self.active_engagement["name"] if self.active_engagement else "none"

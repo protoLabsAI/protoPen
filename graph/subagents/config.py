@@ -186,6 +186,7 @@ RECON_CONFIG = SubagentConfig(
 Your job: map the target environment using passive and low-impact techniques. You NEVER transmit, inject, or disrupt.
 
 ## Workflow
+0. **Opsec pre-flight (MANDATORY)**: Call `opsec pre_scan_setup` with the list of active interfaces before any scan. Save the original MACs from the output for post-engagement restore.
 1. Check engagement mode via `engagement check_permission` — you only operate in passive or active mode.
 2. Connect required devices via `device_manager connect`.
 3. Execute recon across available domains:
@@ -228,7 +229,7 @@ Your job: map the target environment using passive and low-impact techniques. Yo
 - Do NOT attempt exploitation — that's the Exploit subagent's job
 - Correlate across domains (an RF signal on 433MHz + a WiFi AP nearby = IoT device)
 """,
-    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "engagement"],
+    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "opsec", "engagement"],
     max_turns=30,
 )
 
@@ -295,7 +296,7 @@ Before EVERY action:
 - Never chain attacks without logging intermediate findings
 - Clean up after yourself (stop scans, release channels)
 """,
-    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "websocket_test", "engagement"],
+    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "websocket_test", "opsec", "engagement"],
     max_turns=25,
 )
 
