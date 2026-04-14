@@ -110,10 +110,10 @@ class TestToolRegistration:
 
 
 class TestSubagentRegistry:
-    def test_registry_has_nine_agents(self):
+    def test_registry_has_ten_agents(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
 
-        assert len(SUBAGENT_REGISTRY) == 9
+        assert len(SUBAGENT_REGISTRY) == 10
 
     def test_security_subagents_present(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
@@ -138,7 +138,11 @@ class TestSubagentRegistry:
     def test_all_subagents_disallow_task(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
 
+        # orchestrator is the only subagent that may spawn sub-subagents (delegates to reporter)
+        exempt = {"orchestrator"}
         for name, config in SUBAGENT_REGISTRY.items():
+            if name in exempt:
+                continue
             assert "task" in config.disallowed_tools, f"Subagent {name} can spawn sub-subagents"
 
     def test_recon_has_hardware_tools(self):
