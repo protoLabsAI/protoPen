@@ -143,7 +143,6 @@ gh auth setup-git  # wires gh as git credential helper for HTTPS
 # Clone (uses HTTPS via gh credential helper)
 git clone https://github.com/protoLabsAI/protoPen.git ~/protoPen
 cd ~/protoPen
-git submodule update --init --recursive
 
 # Create a venv
 python -m venv .venv
@@ -170,7 +169,7 @@ python -m pytest tests/ -v
 **Expected output:**
 
 ```
-196 passed
+1051 passed
 ```
 
 If all 196 pass, protoPen is installed correctly and ready for hardware hookup.

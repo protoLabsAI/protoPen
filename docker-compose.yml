@@ -67,9 +67,6 @@ services:
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
       # Instance identity (for multi-node collaboration)
       - INSTANCE_NAME=${INSTANCE_NAME:-ava}
-      # Rabbit Hole integration
-      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}
-      - RABBIT_HOLE_URL=${RABBIT_HOLE_URL:-http://host.docker.internal:3399}
       # A2A authentication — workstacean sends this as X-API-Key
       - RESEARCHER_API_KEY=${RESEARCHER_API_KEY:-}
 
@@ -84,83 +81,6 @@ services:
 
     command: ["/opt/protopen/entrypoint.sh"]
 
-  # Lab mode — GPU-enabled researcher with training capabilities
-  # Usage: docker compose --profile lab up --build
-  researcher-lab:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: lab
-    container_name: protopen-lab
-    hostname: sandbox
-    restart: unless-stopped
-    profiles:
-      - lab
-
-    # Relaxed security for CUDA (GPU needs syscalls seccomp blocks)
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_RAW
-
-    tmpfs:
-      - /tmp:size=1G,uid=1001,gid=1001
-      - /run:size=64M
-      - /sandbox:size=1G,uid=1001,gid=1001
-      - /home/sandbox:size=256M,uid=1001,gid=1001
-
-    volumes:
-      - protopen-knowledge:/sandbox/knowledge
-      - protopen-audit:/sandbox/audit
-      - protopen-papers:/sandbox/papers
-      - protopen-lab:/sandbox/lab
-      - protopen-cron:/opt/.cron
-      # Host mounts for training
-      - /mnt/models/huggingface:/mnt/models/huggingface:ro
-      - /home/ava/dev/LLaMA-Factory:/opt/llama-factory:ro
-      - /home/ava/dev/lab/training/data:/opt/lab-data:ro
-      - /mnt/data/training/researcher:/mnt/data/training/researcher
-      # Claude OAuth credentials (read-only)
-      - ${HOME}/.claude:/opt/claude-creds:ro
-
-    ports:
-      - "7870:7870"
-
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-    # GPU access
-    deploy:
-      resources:
-        limits:
-          cpus: "8"
-          memory: 16G
-        reservations:
-          memory: 2G
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-    environment:
-      - HOME=/home/sandbox
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - LAB_GPU=${LAB_GPU:-1}
-      - HF_HOME=/mnt/models/huggingface
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://host.docker.internal:3001}
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL:-}
-      - INSTANCE_NAME=${INSTANCE_NAME:-protolabs}
-
-    stdin_open: true
-    tty: true
-
-    command: ["/opt/protopen/entrypoint.sh"]
 
 networks:
   gateway:
@@ -173,4 +93,3 @@ volumes:
   protopen-papers:
   protopen-cron:
   protopen-cliproxy:
-  protopen-lab:
