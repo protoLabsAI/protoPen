@@ -68,6 +68,12 @@ from tools.hardening_check import HardeningCheckTool
 from tools.ir_toolkit import IrToolkitTool
 from tools.purple_team import PurpleTeamTool
 
+# Container/K8s audit
+from tools.container_audit import ContainerAuditTool
+
+# WebSocket testing
+from tools.websocket_test import WebSocketTestTool
+
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
 _rabbit_hole_bridge = None
@@ -123,6 +129,12 @@ _net_monitor: NetMonitorTool | None = None
 _hardening_check: HardeningCheckTool | None = None
 _ir_toolkit: IrToolkitTool | None = None
 _purple_team: PurpleTeamTool | None = None
+
+# Container/K8s audit singleton
+_container_audit: ContainerAuditTool | None = None
+
+# WebSocket testing singleton
+_websocket_test: WebSocketTestTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -512,6 +524,12 @@ def _init_pentest_singletons():
     _hardening_check = HardeningCheckTool()
     _ir_toolkit = IrToolkitTool()
     _purple_team = PurpleTeamTool()
+
+    global _container_audit
+    _container_audit = ContainerAuditTool()
+
+    global _websocket_test
+    _websocket_test = WebSocketTestTool()
 
 
 @tool
@@ -1610,6 +1628,61 @@ async def purple_team(
     )
 
 
+@tool
+async def container_audit(
+    action: str,
+    target: str = "localhost",
+    image: str = "",
+    path: str = ".",
+    severity: str = "HIGH,CRITICAL",
+    benchmark: str = "cis-1.8",
+    exploit_name: str = "",
+    timeout: int = 120,
+) -> str:
+    """Container & Kubernetes security auditing and escape detection.
+
+    - kube_hunter: Scan K8s cluster for security weaknesses (remote)
+    - kube_hunter_internal: In-cluster kube-hunter scan
+    - kube_bench: CIS Kubernetes Benchmark checks (local node)
+    - kube_bench_target: CIS benchmark for specific K8s distro (eks, gke, etc.)
+    - deepce: Detect container escape vectors from inside a container
+    - cdk_evaluate: Evaluate container for exploitation opportunities
+    - cdk_exploit: Run a specific CDK exploit by name
+    - trivy_image: Scan container image for CVEs
+    - trivy_k8s: Scan K8s cluster resources for misconfigs and CVEs
+    - trivy_fs: Scan filesystem/project for dependency vulnerabilities
+    """
+    _init_pentest_singletons()
+    return await _container_audit.execute(
+        action=action, target=target, image=image, path=path,
+        severity=severity, benchmark=benchmark,
+        exploit_name=exploit_name, timeout=timeout,
+    )
+
+
+@tool
+async def websocket_test(
+    action: str,
+    url: str = "ws://localhost:8080",
+    origin: str = "",
+    auth_token: str = "",
+    categories: str = "",
+    timeout: int = 60,
+) -> str:
+    """WebSocket security testing — authentication bypass, CSWSH, injection.
+
+    - auth_bypass: Test WebSocket endpoint for authentication bypass
+    - cswsh: Test for Cross-Site WebSocket Hijacking via Origin validation
+    - injection: Test WebSocket messages for injection vulns (sqli, xss, command_injection, path_traversal)
+    """
+    _init_pentest_singletons()
+    return await _websocket_test.execute(
+        action=action, url=url, origin=origin,
+        auth_token=auth_token, categories=categories,
+        timeout=timeout,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -1668,6 +1741,10 @@ def get_pentest_tools():
         hardening_check,
         ir_toolkit,
         purple_team,
+        # Container/K8s audit
+        container_audit,
+        # WebSocket testing
+        websocket_test,
     ]
 
 

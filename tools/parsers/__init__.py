@@ -67,3 +67,7 @@ from tools.parsers import cis_audit         # noqa: E402,F401
 from tools.parsers import net_monitor       # noqa: E402,F401
 from tools.parsers import hardening_check   # noqa: E402,F401
 from tools.parsers import ir_toolkit        # noqa: E402,F401
+# Container/K8s audit
+from tools.parsers import container_audit   # noqa: E402,F401
+# WebSocket testing
+from tools.parsers import websocket_test    # noqa: E402,F401
