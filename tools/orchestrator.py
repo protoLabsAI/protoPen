@@ -145,10 +145,16 @@ class EngagementOrchestratorTool(Tool):
 
         # 2 ── Opsec pre-flight ──────────────────────────────────────────────
         opsec_ok = False
+        original_macs: dict[str, str] = {}  # iface -> original MAC for restore
         try:
-            out = await self._call("opsec", "pre_scan_setup", {"interfaces": "wlan0,eth0"})
+            out = await self._call("opsec", "pre_scan_setup", {"interfaces": ["wlan0", "eth0"]})
             opsec_ok = "original" in out.lower() or "randomized" in out.lower() or "mac" in out.lower()
-            logger.info("Opsec pre-flight: %s", out[:120])
+            # Parse "  iface: AA:BB:CC:DD:EE:FF → 11:22:33:44:55:66 ✓" lines
+            import re as _re
+            _MAC = r'[0-9A-Fa-f]{2}(?:[:\-][0-9A-Fa-f]{2}){5}'
+            for m in _re.finditer(rf'(\w+):\s+({_MAC})\s+[→>]\s+{_MAC}', out):
+                original_macs[m.group(1)] = m.group(2)
+            logger.info("Opsec pre-flight: %s (saved %d original MACs)", out[:80], len(original_macs))
         except Exception as e:
             logger.warning("Opsec pre-flight skipped: %s", e)
 
@@ -209,11 +215,14 @@ class EngagementOrchestratorTool(Tool):
         report_path = f"{workspace}/report.md" if workspace else "(in-memory)"
 
         # 6 ── Opsec cleanup ─────────────────────────────────────────────────
-        if opsec_ok:
-            try:
-                await self._call("opsec", "mac_restore", {})
-            except Exception as e:
-                logger.warning("MAC restore failed: %s", e)
+        if opsec_ok and original_macs:
+            for iface, orig_mac in original_macs.items():
+                try:
+                    await self._call("opsec", "mac_restore", {
+                        "interface": iface, "original_mac": orig_mac,
+                    })
+                except Exception as e:
+                    logger.warning("MAC restore failed for %s: %s", iface, e)
 
         # 7 ── End engagement ─────────────────────────────────────────────────
         await self._call("engagement", "end", {})

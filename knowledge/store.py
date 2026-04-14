@@ -16,7 +16,8 @@ from typing import Any, Optional
 import httpx
 
 _EMBED_URL = os.environ.get("EMBED_URL", os.environ.get("API_BASE", "http://ava:4000"))
-_EMBED_MODEL = os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B")
+_EMBED_MODEL = os.environ.get("EMBED_MODEL", "qwen3-embedding")
+_EMBED_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 _EMBED_TIMEOUT = 20
 _EMBED_DIM = 1024
 _DB_PATH = Path("/sandbox/knowledge/security.db")
@@ -87,8 +88,11 @@ class KnowledgeStore:
 
     def _embed(self, text: str) -> Optional[list[float]]:
         try:
+            api_key = _EMBED_API_KEY or os.environ.get("OPENAI_API_KEY", "")
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
             resp = httpx.post(
                 f"{self.embed_url}/v1/embeddings",
+                headers=headers,
                 json={"model": self.model, "input": text[:2000]},
                 timeout=_EMBED_TIMEOUT,
             )

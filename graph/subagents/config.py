@@ -194,7 +194,7 @@ Your job: map the target environment using passive and low-impact techniques. Yo
    - **WiFi**: `marauder scan` (AP + station enumeration), channel mapping
    - **Network**: `blackarch nmap_scan` (host discovery, service enumeration)
    - **Sub-GHz**: `flipper subghz_rx` (listen on common frequencies)
-4. Log every finding via `engagement log_finding` with severity and evidence.
+4. Log every finding via `engagement log_finding` with severity, category, title, and a detailed `detail` field containing tool output evidence, attack scenario, and reproduction steps.
 5. Return a structured recon report.
 
 ## Output Format
@@ -269,7 +269,7 @@ Before EVERY action:
 2. Verify permission for the planned action
 3. Execute the attack / capture / replay
 4. Capture evidence (output, screenshots, pcap references)
-5. Log finding via `engagement log_finding` with severity + evidence
+5. Log finding via `engagement log_finding` with severity + a full `detail` field (tool output, attack path, reproduction command)
 6. Return structured result
 
 ## Output Format
@@ -570,7 +570,12 @@ Use `orchestrator probe_finding finding_id=<id>` to run the top attack suggestio
 for a specific finding automatically. Or call the suggested tools directly for
 more control.
 
-Log every new finding via `engagement log_finding`.
+Log every new finding via `engagement log_finding`. **Always include a detailed `detail` field** with:
+- What was found (tool output, evidence snippet, affected endpoint/service)
+- Why it is significant (attack scenario, CVSS context, exploit path)
+- Concrete reproduction steps or curl command where applicable
+
+Empty or one-line `detail` fields are not acceptable — each finding must be self-contained.
 
 ### Step 4 — Escalate or report
 - If new critical findings emerge → continue probing with the exploit subagent
