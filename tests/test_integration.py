@@ -27,12 +27,14 @@ needs_langchain = pytest.mark.skipif(
 
 def _tool_name(t) -> str:
     """Return tool name — compatible with LangChain 0.x StructuredTool and 1.x wrappers."""
-    return getattr(t, "name", None) or getattr(t, "__name__", repr(t))
+    name = getattr(t, "name", None)
+    return name if name is not None else getattr(t, "__name__", repr(t))
 
 
 def _tool_desc(t) -> str:
     """Return tool description — falls back to docstring for LangChain 1.x wrappers."""
-    return getattr(t, "description", None) or (t.__doc__ or "").strip()
+    desc = getattr(t, "description", None)
+    return desc if desc is not None else (t.__doc__ or "").strip()
 
 
 # ─── Tool Registration ────────────────────────────────────────────────────────
