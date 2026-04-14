@@ -185,24 +185,35 @@ class BlackArchTool(Tool):
             output += f"\n[stderr] {stderr.decode(errors='replace')}"
         return output.strip()
 
+    # Opsec nmap flags applied to every scan:
+    #   --spoof-mac 0      random MAC in packet headers
+    #   -T2                polite timing — avoids most IDS rate-limit triggers
+    #   --randomize-hosts  randomize scan order
+    #   --data-length 25   random packet padding to break signature matching
+    _NMAP_OPSEC = ["--spoof-mac", "0", "-T2", "--randomize-hosts", "--data-length", "25"]
+
     async def nmap_scan(self, target: str, ports: Optional[str] = None, timeout: int = 120) -> str:
-        args = ["nmap", "-sV", "-oX", "-"]
+        args = ["nmap", "-sV", "-oX", "-"] + self._NMAP_OPSEC
         if ports:
             args.extend(["-p", ports])
         args.append(target)
         return await self._run(*args, timeout=timeout)
 
     async def nmap_vuln_scan(self, target: str, timeout: int = 300) -> str:
-        return await self._run("nmap", "-sV", "--script", "vuln", "-oX", "-", target, timeout=timeout)
+        return await self._run(
+            "nmap", "-sV", "--script", "vuln", "-oX", "-", *self._NMAP_OPSEC, target, timeout=timeout,
+        )
 
     async def nmap_os_detect(self, target: str, timeout: int = 300) -> str:
         """OS detection scan (-O flag, requires root)."""
-        return await self._run("nmap", "-O", "-sV", "-oX", "-", target, timeout=timeout)
+        return await self._run(
+            "nmap", "-O", "-sV", "-oX", "-", *self._NMAP_OPSEC, target, timeout=timeout,
+        )
 
     async def nmap_udp_scan(self, target: str, ports: Optional[str] = None,
                             timeout: int = 300) -> str:
         """UDP scan (-sU flag, requires root)."""
-        args = ["nmap", "-sU", "-sV", "-oX", "-"]
+        args = ["nmap", "-sU", "-sV", "-oX", "-"] + self._NMAP_OPSEC
         if ports:
             args.extend(["-p", ports])
         args.append(target)

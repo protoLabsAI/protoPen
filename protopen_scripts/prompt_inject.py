@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 import requests
+from protopen_scripts._common import make_headers, make_session
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ def main() -> None:
     try:
         session = requests.Session()
         session.headers.update({
-            "User-Agent": "protopen-prompt-inject/1.0",
+            "User-Agent": make_headers()["User-Agent"],
             "Content-Type": "application/json",
         })
 

@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -200,8 +201,7 @@ def main() -> None:
     result: dict[str, Any] = {"findings": []}
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-oidc-token/1.0"})
+        session = make_session()
 
         # Check server-side algorithm support
         server_findings = check_server_algorithm_support(session, args.url)

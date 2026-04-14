@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -125,8 +126,7 @@ def main() -> None:
     result: dict[str, Any] = {"findings": []}
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-saml-inject/1.0"})
+        session = make_session()
 
         # Find SAML endpoints
         endpoints = check_saml_endpoints(session, args.url)

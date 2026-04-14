@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +134,7 @@ def main() -> None:
 
     try:
         typosquats = _generate_typosquats(args.package)
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-typosquat/1.0"})
+        session = make_session()
 
         def _check(variant: str) -> dict[str, Any] | None:
             meta = _check_npm_package(session, args.registry, variant)

@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ S3_PAYLOAD = {
 # Generic webhook test payload
 GENERIC_PAYLOAD = {
     "event": "test",
-    "data": {"test": True, "source": "protopen"},
+    "data": {"test": True, "source": "aws-lambda"},
 }
 
 
@@ -104,8 +105,7 @@ def main() -> None:
     result: dict[str, Any] = {"triggers": []}
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-event-trigger/1.0"})
+        session = make_session()
 
         parsed = urlparse(args.function_url)
         origin = f"{parsed.scheme}://{parsed.netloc}"

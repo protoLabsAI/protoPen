@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import requests
+from protopen_scripts._common import make_headers, make_session
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ def _probe_url(url: str, timeout: int = 10) -> dict[str, Any]:
     """Probe a single URL for liveness."""
     entry: dict[str, Any] = {"url": url, "status": "unknown", "path": "", "http_status": None}
     try:
-        resp = requests.head(url, timeout=timeout, allow_redirects=True, headers={"User-Agent": "protopen-screenshot/1.0"})
+        resp = requests.head(url, timeout=timeout, allow_redirects=True, headers=make_headers())
         entry["http_status"] = resp.status_code
         entry["status"] = "live" if resp.status_code < 500 else "error"
         entry["final_url"] = resp.url

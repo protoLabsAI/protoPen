@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,7 @@ def main() -> None:
     wk_url = urljoin(origin, "/.well-known/openid-configuration")
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-oidc-discover/1.0"})
+        session = make_session()
         resp = session.get(wk_url, timeout=15)
 
         if resp.status_code == 200:

@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,7 @@ def main() -> None:
     result: dict[str, Any] = {"url": args.url, "exposed_state": []}
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-spa-state/1.0"})
+        session = make_session()
         resp = session.get(args.url, timeout=15)
         html = resp.text
 

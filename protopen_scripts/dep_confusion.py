@@ -18,6 +18,7 @@ from typing import Any
 from urllib.parse import urljoin
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +125,7 @@ def main() -> None:
         with open(args.packages_file) as fh:
             packages = [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
 
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-dep-confusion/1.0"})
+        session = make_session()
 
         def _check(pkg: str) -> dict[str, Any] | None:
             if not _looks_internal(pkg):

@@ -54,6 +54,7 @@ from tools.lateral_move import LateralMoveTool
 from tools.data_exfil import DataExfilTool
 from tools.persistence import PersistenceTool
 from tools.cleanup import CleanupTool
+from tools.opsec import OpsecTool
 from tools.jwt_tool import JwtTool
 from tools.ssrf_detect import SsrfDetectTool
 from tools.auth_test import AuthTestTool
@@ -132,6 +133,7 @@ _lateral_move: LateralMoveTool | None = None
 _data_exfil: DataExfilTool | None = None
 _persistence: PersistenceTool | None = None
 _cleanup: CleanupTool | None = None
+_opsec: OpsecTool | None = None
 _jwt_tool: JwtTool | None = None
 _ssrf_detect: SsrfDetectTool | None = None
 _auth_test: AuthTestTool | None = None
@@ -484,6 +486,8 @@ def _init_pentest_singletons():
     _persistence._target_store = _target_store
     _cleanup = CleanupTool()
     _cleanup._target_store = _target_store
+    global _opsec
+    _opsec = OpsecTool()
 
     global _jwt_tool, _ssrf_detect, _auth_test, _rate_limit, _graphql_test, _technique_library
     _jwt_tool = JwtTool()
@@ -1107,6 +1111,33 @@ async def cleanup(
     return await _cleanup.execute(
         action=action, key_fingerprint=key_fingerprint,
         pattern=pattern, file_paths=file_paths, timeout=timeout,
+    )
+
+
+@tool
+async def opsec(
+    action: str,
+    interface: str = "",
+    original_mac: str = "",
+    interfaces: list = [],
+    mode: str = "active",
+) -> str:
+    """Opsec management — MAC randomization, interface fingerprint control, nmap opsec profiles.
+
+    - mac_randomize: Randomize MAC address on a network interface before scanning
+    - mac_restore: Restore original MAC after engagement (pass interface + original_mac)
+    - mac_status: Show current MAC and whether it's randomized or hardware
+    - pre_scan_setup: Randomize MAC on all engagement interfaces + print nmap opsec flags
+    - post_scan_cleanup: Report MAC state on all interfaces for cleanup
+    - nmap_flags: Return opsec-hardened nmap flags for passive/active/redteam mode
+
+    Always run mac_randomize or pre_scan_setup before active scanning.
+    Always run mac_restore or post_scan_cleanup after the engagement ends.
+    """
+    _init_pentest_singletons()
+    return await _opsec.execute(
+        action=action, interface=interface, original_mac=original_mac,
+        interfaces=interfaces, mode=mode,
     )
 
 
@@ -2236,6 +2267,7 @@ def get_pentest_tools():
         blackarch,
         engagement,
         target_intel,
+        opsec,
         # Phase 2 — Recon
         dns_enum,
         subdomain_discovery,

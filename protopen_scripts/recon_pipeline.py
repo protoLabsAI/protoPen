@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import requests
+from protopen_scripts._common import make_headers, make_session
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ def probe_subdomain(subdomain: str, domain: str, timeout: int = 8) -> dict[str, 
         try:
             resp = requests.get(
                 url, timeout=timeout, allow_redirects=True,
-                headers={"User-Agent": "protopen-recon/1.0"},
+                headers=make_headers(),
             )
             info["status"] = resp.status_code
             info["https"] = scheme == "https"

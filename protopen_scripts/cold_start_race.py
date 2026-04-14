@@ -16,6 +16,7 @@ import time
 from typing import Any
 
 import requests
+from protopen_scripts._common import make_headers, make_session
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ def main() -> None:
 
     try:
         headers = {
-            "User-Agent": "protopen-cold-start-race/1.0",
+            "User-Agent": make_headers()["User-Agent"],
             "Content-Type": "application/json",
         }
         payload = {"test": True, "timestamp": time.time()}

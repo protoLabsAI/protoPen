@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse, parse_qs
 
 import requests
+from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +145,7 @@ def main() -> None:
     result: dict[str, Any] = {"url": args.url, "leaks": []}
 
     try:
-        session = requests.Session()
-        session.headers.update({"User-Agent": "protopen-token-leakage/1.0"})
+        session = make_session()
 
         resp = session.get(args.url, timeout=15)
         html = resp.text
