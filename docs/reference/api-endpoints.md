@@ -118,6 +118,17 @@ Lists available models.
 
 ## Agent-to-Agent (A2A)
 
+All A2A tasks are fully async. `message/send` and `POST /message:send` return `submitted` in under a second; the LangGraph agent runs in the background. See the [A2A Integration guide](../guides/a2a-integration.md) for full workflow examples.
+
+**Common headers:**
+
+| Header | Required | Description |
+|---|---|---|
+| `Content-Type` | yes | `application/json` |
+| `x-api-key` | conditional | Required when `PROTOPEN_API_KEY` is set |
+
+---
+
 ### `GET /.well-known/agent.json`
 
 Returns the A2A agent card describing protoPen's capabilities and skills.
@@ -131,7 +142,7 @@ Returns the A2A agent card describing protoPen's capabilities and skills.
   "url": "http://steamdeck:7870",
   "provider": {"organization": "protoLabsAI"},
   "version": "2.0",
-  "capabilities": {"streaming": true, "pushNotifications": false},
+  "capabilities": {"streaming": true, "pushNotifications": true},
   "skills": [
     {"id": "passive_recon", "name": "Passive Reconnaissance", "...": "..."},
     {"id": "active_pentest", "name": "Active Penetration Test", "...": "..."},
@@ -142,25 +153,88 @@ Returns the A2A agent card describing protoPen's capabilities and skills.
 }
 ```
 
+---
+
 ### `POST /a2a`
 
-JSON-RPC 2.0 endpoint for agent-to-agent communication.
+JSON-RPC 2.0 envelope. Dispatches to the method named in `"method"`.
 
 **Methods:**
 
 | Method | Description |
 |---|---|
-| `message/send` | Synchronous -- waits for full response |
-| `message/sendStream` | SSE streaming -- returns incremental progress events |
+| `message/send` | Submit task — returns `submitted` immediately, runs in background |
+| `message/sendStream` | Submit task and stream SSE events; first frame is always `submitted` |
 
-See the [A2A Integration guide](../guides/a2a-integration.md) for curl examples.
+---
 
-**Headers:**
+### `POST /message:send`
 
-| Header | Required | Description |
-|---|---|---|
-| `Content-Type` | yes | `application/json` |
-| `x-api-key` | conditional | Required when `PROTOPEN_API_KEY` is set |
+REST alias for `message/send`. Returns `HTTP 202 Accepted` with the task record (no JSON-RPC wrapper).
+
+**Request body:**
+
+```json
+{
+  "message": {"parts": [{"kind": "text", "text": "your prompt"}]},
+  "contextId": "optional-session-id",
+  "pushNotification": {"url": "https://...", "token": "optional-bearer-token"}
+}
+```
+
+---
+
+### `POST /message:stream`
+
+REST alias for `message/sendStream`. Returns `text/event-stream`. First SSE frame carries `submitted` state + task ID.
+
+---
+
+### `GET /tasks/{id}`
+
+Poll task status and retrieve artifacts once complete.
+
+**Response:**
+
+```json
+{
+  "id": "3f8a1c2d-...",
+  "contextId": "engagement-001",
+  "status": {"state": "completed"},
+  "artifacts": [{"parts": [{"kind": "text", "text": "..."}]}]
+}
+```
+
+**Status codes:** `200 OK`, `404 Not Found`
+
+---
+
+### `GET /tasks/{id}:subscribe`
+
+Subscribe to a running task's SSE stream. Replays current state on connect and streams updates until the task reaches a terminal state. Use this to reconnect after a dropped stream.
+
+---
+
+### `POST /tasks/{id}:cancel`
+
+Request cancellation of a running task.
+
+**Status codes:**
+- `200 OK` — canceled
+- `409 Conflict` — task already in terminal state
+- `404 Not Found` — unknown task ID
+
+---
+
+### `POST /tasks/{id}/pushNotificationConfigs`
+
+Register a webhook URL to receive state-change POSTs (working, completed, failed). Delivery retried up to 3× with exponential backoff.
+
+**Request body:**
+
+```json
+{"url": "https://your-server.example.com/hook", "token": "optional-bearer-token"}
+```
 
 ---
 

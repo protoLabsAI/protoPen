@@ -2,6 +2,8 @@
 
 protoPen exposes an [Agent-to-Agent (A2A)](https://google.github.io/A2A/) JSON-RPC 2.0 endpoint that other agents (e.g. protoWorkstacean) can call to request pen testing or threat intelligence tasks.
 
+Tasks are **fully asynchronous** — `message/send` returns a `submitted` task ID in under a second regardless of how long the underlying operation takes. Long-running LangGraph workflows (recon, audits, multi-step exploits) run in the background while callers poll or subscribe for results.
+
 ## Agent Card
 
 The agent card is served at the well-known URL:
@@ -14,7 +16,7 @@ GET /.well-known/agent.json
 curl http://steamdeck:7870/.well-known/agent.json | jq
 ```
 
-The card advertises the agent name (`protopen`), capabilities, and available skills.
+The card advertises the agent name (`protopen`), capabilities (`streaming: true`, `pushNotifications: true`), and available skills.
 
 ## Skills
 
@@ -26,11 +28,21 @@ The card advertises the agent name (`protopen`), capabilities, and available ski
 | `threat_intel` | Threat Intelligence | Search CVE databases, security feeds, GitHub, web, and internal knowledge store. Returns structured findings. |
 | `summarize` | Summarize | Summarize recent advisories, threat intel, or exploits from the knowledge store. |
 
+## Task Lifecycle
+
+```
+submitted → working → completed
+                    ↘ failed
+                    ↘ canceled
+```
+
+Every task transitions through these states. `submitted` is set the moment `message/send` returns. `working` is set when the LangGraph agent begins executing. Terminal states (`completed`, `failed`, `canceled`) are set when the background task finishes.
+
 ## Sending a Message
 
-### Synchronous (message/send)
+### JSON-RPC (POST /a2a)
 
-Sends a message and waits for the full response:
+Submit a task and get back a task ID immediately:
 
 ```bash
 curl -X POST http://steamdeck:7870/a2a \
@@ -50,26 +62,67 @@ curl -X POST http://steamdeck:7870/a2a \
   }'
 ```
 
-Response:
+Response (immediate, <1s):
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "id": "<task-uuid>",
+    "id": "3f8a1c2d-...",
     "contextId": "engagement-001",
-    "status": {"state": "completed"},
-    "artifacts": [
-      {"parts": [{"kind": "text", "text": "## Scan Results\n\n..."}]}
-    ]
+    "status": {"state": "submitted"},
+    "artifacts": []
   }
 }
 ```
 
-### Streaming (message/sendStream)
+### REST alias (POST /message:send)
 
-Returns Server-Sent Events with incremental progress:
+Same behavior, no JSON-RPC wrapper:
+
+```bash
+curl -X POST http://steamdeck:7870/message:send \
+  -H "Content-Type: application/json" \
+  -d '{"message":{"parts":[{"kind":"text","text":"Scan 192.168.1.0/24"}]},"contextId":"eng-001"}'
+```
+
+Returns `HTTP 202 Accepted` with the task record.
+
+## Polling for Results
+
+After submitting, poll `GET /tasks/{id}` until the state is terminal:
+
+```bash
+TASK_ID="3f8a1c2d-..."
+
+while true; do
+  STATE=$(curl -s http://steamdeck:7870/tasks/$TASK_ID | jq -r '.status.state')
+  echo "State: $STATE"
+  [[ "$STATE" == "completed" || "$STATE" == "failed" || "$STATE" == "canceled" ]] && break
+  sleep 5
+done
+
+# Fetch the result
+curl -s http://steamdeck:7870/tasks/$TASK_ID | jq '.artifacts[0].parts[0].text'
+```
+
+**Response shape:**
+
+```json
+{
+  "id": "3f8a1c2d-...",
+  "contextId": "engagement-001",
+  "status": {"state": "completed"},
+  "artifacts": [
+    {"parts": [{"kind": "text", "text": "## Scan Results\n\n..."}]}
+  ]
+}
+```
+
+## Streaming (SSE)
+
+### JSON-RPC stream (POST /a2a, method: message/sendStream)
 
 ```bash
 curl -N -X POST http://steamdeck:7870/a2a \
@@ -89,17 +142,97 @@ curl -N -X POST http://steamdeck:7870/a2a \
   }'
 ```
 
-Events arrive as SSE:
+### REST stream alias (POST /message:stream)
+
+```bash
+curl -N -X POST http://steamdeck:7870/message:stream \
+  -H "Content-Type: application/json" \
+  -d '{"message":{"parts":[{"kind":"text","text":"Passive recon 192.168.1.0/24"}]},"contextId":"eng-001"}'
+```
+
+### SSE event sequence
+
+The **first frame is always `submitted`** — clients can extract the task ID from it and use polling as a fallback if the stream drops:
 
 ```
-data: {"jsonrpc":"2.0","id":2,"result":{"id":"<task-uuid>","status":{"state":"working"},...}}
+data: {"jsonrpc":"2.0","id":2,"result":{"id":"<task-uuid>","status":{"state":"submitted"},"artifacts":[]}}
 
-data: {"jsonrpc":"2.0","id":2,"result":{"id":"<task-uuid>","status":{"state":"completed"},"artifacts":[...]}}
+data: {"jsonrpc":"2.0","id":2,"result":{"id":"<task-uuid>","status":{"state":"working"}}}
+
+data: {"jsonrpc":"2.0","id":2,"result":{"artifact":{"parts":[{"kind":"text","text":"Scanning..."}]},"append":true,"lastChunk":false}}
+
+data: {"jsonrpc":"2.0","id":2,"result":{"artifact":{"parts":[{"kind":"text","text":"## Results\n\n..."}]},"append":true,"lastChunk":true}}
+
+data: {"jsonrpc":"2.0","id":2,"result":{"id":"<task-uuid>","status":{"state":"completed"}}}
 ```
 
-::: tip
-Streaming requires the LangGraph backend (`AGENT_BACKEND=langgraph`). If nanobot is active, `message/sendStream` falls back to a single completed event.
-:::
+## Reconnecting to a Running Task
+
+If the SSE stream drops, reconnect via the subscribe endpoint — it will replay the current state and continue streaming:
+
+```bash
+curl -N http://steamdeck:7870/tasks/3f8a1c2d-...:subscribe
+```
+
+The subscribe stream closes automatically when the task reaches a terminal state.
+
+## Canceling a Task
+
+```bash
+curl -X POST http://steamdeck:7870/tasks/3f8a1c2d-...:cancel
+```
+
+- `200 OK` — task was canceled
+- `409 Conflict` — task already in a terminal state (completed/failed)
+- `404 Not Found` — unknown task ID
+
+## Push Notifications (Webhooks)
+
+Register a webhook to receive state change events without polling. The server POSTs to your URL on each state transition (working, completed, failed).
+
+### Register a webhook
+
+```bash
+curl -X POST "http://steamdeck:7870/tasks/3f8a1c2d-.../pushNotificationConfigs" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://your-server.example.com/hooks/protopen", "token": "YOUR_SECRET_TOKEN"}'
+```
+
+Or include `pushNotification` in the initial `message/send` params:
+
+```bash
+curl -X POST http://steamdeck:7870/a2a \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "message/send",
+    "params": {
+      "message": {"role": "user", "parts": [{"kind": "text", "text": "Run audit"}]},
+      "pushNotification": {
+        "url": "https://your-server.example.com/hooks/protopen",
+        "token": "YOUR_SECRET_TOKEN"
+      }
+    }
+  }'
+```
+
+### Webhook payload
+
+```json
+{
+  "task_id": "3f8a1c2d-...",
+  "context_id": "engagement-001",
+  "status": {"state": "completed"},
+  "artifact": {
+    "parts": [{"kind": "text", "text": "## Results\n\n..."}]
+  }
+}
+```
+
+The `artifact` field is only included for `completed` tasks. The `Authorization: Bearer <token>` header is set if a token was provided.
+
+Delivery is retried up to 3 times with exponential backoff on non-2xx responses.
 
 ## Conversation Continuity
 
@@ -133,6 +266,18 @@ If no API key is configured, the A2A endpoint is open to anyone who can reach th
 
 ## Best Practices
 
+### Use streaming or webhooks for long tasks
+
+Recon, audits, and multi-step exploits can take 5–10 minutes. Rather than polling every few seconds, use one of:
+
+- **SSE streaming** (`message/sendStream` or `POST /message:stream`) — get incremental output as the agent works
+- **Webhooks** — register a push notification config and receive a POST when the task completes
+- **Subscribe endpoint** (`GET /tasks/{id}:subscribe`) — reconnect to a running task's SSE stream at any point
+
+### Extract task ID from the first SSE frame
+
+The first SSE frame always carries state `submitted` with the task ID. Extract it before consuming the rest of the stream — you can use it as a fallback polling handle if the connection drops.
+
 ### Prefer Tailscale over SSH
 
 Use `http://steamdeck:7870/a2a` directly over the Tailscale network instead of SSH tunneling. Benefits:
@@ -147,11 +292,3 @@ Use `http://steamdeck:7870/a2a` directly over the Tailscale network instead of S
 Always provide a meaningful `contextId` to maintain conversation state. If omitted, the server generates a random UUID — fine for one-shot calls, but you lose the ability to send follow-up messages in the same conversation.
 
 Avoid reusing generic context IDs across sessions. The LangGraph checkpointer persists conversation state in SQLite, so a corrupted session on one context ID will poison all future requests on that same ID.
-
-### Timeout guidance
-
-- Simple queries (ping, status): 15–30s
-- Tool execution (nmap, tshark, CIS audit): 2–5 min
-- Multi-tool workflows (purple team exercise): 5–10 min
-
-Set `curl --max-time` accordingly, or use `message/sendStream` for long-running tasks to get incremental progress.

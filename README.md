@@ -244,8 +244,11 @@ curl http://localhost:7872/v1/chat/completions \
 
 ### A2A (Agent-to-Agent)
 
+`message/send` returns immediately with a `submitted` task — long-running ops run in the background.
+
 ```bash
-curl -X POST http://steamdeck:7870/a2a \
+# Submit a task (returns in <1s)
+TASK=$(curl -s -X POST http://steamdeck:7870/a2a \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -257,8 +260,21 @@ curl -X POST http://steamdeck:7870/a2a \
         "parts": [{"kind": "text", "text": "Run a passive recon of 192.168.1.0/24"}]
       }
     }
-  }'
+  }' | jq -r '.result.id')
+
+# Poll until completed
+curl http://steamdeck:7870/tasks/$TASK | jq '.status.state,.artifacts[0].parts[0].text'
 ```
+
+Or stream progress in real-time via SSE (first frame is always `submitted`):
+
+```bash
+curl -N -X POST http://steamdeck:7870/message:stream \
+  -H "Content-Type: application/json" \
+  -d '{"message":{"parts":[{"kind":"text","text":"Passive recon 192.168.1.0/24"}]}}'
+```
+
+See the [A2A Integration guide](docs/guides/a2a-integration.md) for full details: polling, streaming, push notifications, and task cancellation.
 
 ## Knowledge Search
 
