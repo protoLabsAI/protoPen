@@ -92,6 +92,54 @@ _RED_RULES: dict[tuple[str, str], list[dict]] = {
     ("ad_attack", "secretsdump"): [
         {"technique_id": "T1003", "technique_name": "OS Credential Dumping"},
     ],
+    # Tier 3 — LLM
+    ("llm_audit", "prompt_inject_test"): [
+        {"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter"},
+    ],
+    ("llm_audit", "jailbreak_test"): [
+        {"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter"},
+    ],
+    # Tier 3 — Telecom
+    ("telecom_attack", "gtp_scan"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("telecom_attack", "sip_crack"): [
+        {"technique_id": "T1110", "technique_name": "Brute Force"},
+    ],
+    ("telecom_attack", "imsi_detect"): [
+        {"technique_id": "T1040", "technique_name": "Network Sniffing"},
+    ],
+    # Tier 3 — Evasion
+    ("evasion", "msfvenom_generate"): [
+        {"technique_id": "T1027", "technique_name": "Obfuscated Files or Information"},
+    ],
+    ("evasion", "scarecrow_generate"): [
+        {"technique_id": "T1027", "technique_name": "Obfuscated Files or Information"},
+    ],
+    # Tier 3 — Phishing
+    ("phishing", "gophish_create_campaign"): [
+        {"technique_id": "T1566", "technique_name": "Phishing"},
+    ],
+    ("phishing", "smtp_relay_test"): [
+        {"technique_id": "T1566", "technique_name": "Phishing"},
+    ],
+    # Tier 3 — gRPC
+    ("grpc_audit", "grpc_reflection"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("grpc_audit", "grpc_auth_test"): [
+        {"technique_id": "T1550", "technique_name": "Use Alternate Authentication Material"},
+    ],
+    # Tier 3 — Auth
+    ("auth_audit", "jwt_scan"): [
+        {"technique_id": "T1550", "technique_name": "Use Alternate Authentication Material"},
+    ],
+    ("auth_audit", "oauth_redirect_test"): [
+        {"technique_id": "T1078", "technique_name": "Valid Accounts"},
+    ],
+    ("auth_audit", "session_fixation"): [
+        {"technique_id": "T1550", "technique_name": "Use Alternate Authentication Material"},
+    ],
 }
 
 _BLUE_RULES: dict[tuple[str, str], list[dict]] = {
@@ -238,6 +286,26 @@ _HEURISTIC: dict[tuple[str, str], callable] = {
     ("ad_attack", "kerberoast"): _prose_has_results,
     ("ad_attack", "asreproast"): _prose_has_results,
     ("ad_attack", "secretsdump"): _prose_has_results,
+    # Tier 3 — LLM
+    ("llm_audit", "prompt_inject_test"): _json_has_issues,
+    ("llm_audit", "jailbreak_test"): _json_has_issues,
+    # Tier 3 — Telecom
+    ("telecom_attack", "gtp_scan"): _json_has_issues,
+    ("telecom_attack", "sip_crack"): _json_has_issues,
+    ("telecom_attack", "imsi_detect"): _prose_has_results,
+    # Tier 3 — Evasion
+    ("evasion", "msfvenom_generate"): _prose_has_results,
+    ("evasion", "scarecrow_generate"): _prose_has_results,
+    # Tier 3 — Phishing
+    ("phishing", "gophish_create_campaign"): _json_has_issues,
+    ("phishing", "smtp_relay_test"): _prose_has_results,
+    # Tier 3 — gRPC
+    ("grpc_audit", "grpc_reflection"): _prose_has_results,
+    ("grpc_audit", "grpc_auth_test"): _prose_has_results,
+    # Tier 3 — Auth
+    ("auth_audit", "jwt_scan"): _json_has_issues,
+    ("auth_audit", "oauth_redirect_test"): _json_has_issues,
+    ("auth_audit", "session_fixation"): _json_has_issues,
 }
 
 

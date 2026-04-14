@@ -76,3 +76,13 @@ from tools.parsers import cicd_audit        # noqa: E402,F401
 from tools.parsers import ipv6_attack       # noqa: E402,F401
 from tools.parsers import iot_protocol      # noqa: E402,F401
 from tools.parsers import ad_attack         # noqa: E402,F401
+# Tier 3 — LLM, Telecom, Evasion, Phishing, gRPC, Auth
+from tools.parsers import llm_audit         # noqa: E402,F401
+from tools.parsers import telecom_attack    # noqa: E402,F401
+from tools.parsers import evasion           # noqa: E402,F401
+from tools.parsers import phishing          # noqa: E402,F401
+from tools.parsers import grpc_audit        # noqa: E402,F401
+from tools.parsers import auth_audit        # noqa: E402,F401
+from tools.parsers import sdn_attack       # noqa: E402,F401
+from tools.parsers import mobile_audit     # noqa: E402,F401
+from tools.parsers import serverless_audit # noqa: E402,F401

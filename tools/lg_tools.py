@@ -80,6 +80,22 @@ from tools.ipv6_attack import IPv6AttackTool
 from tools.iot_protocol import IoTProtocolTool
 from tools.ad_attack import ADAttackTool
 
+# Tier 3 — LLM, Telecom, Evasion, Phishing, gRPC, Auth
+from tools.llm_audit import LLMAuditTool
+from tools.telecom_attack import TelecomAttackTool
+from tools.evasion import EvasionTool
+from tools.phishing import PhishingTool
+from tools.grpc_audit import GRPCAuditTool
+from tools.auth_audit import AuthAuditTool
+
+# Tier 4 — Mobile, Supply Chain, Serverless, SPA, SDN, Recon
+from tools.mobile_audit import MobileAuditTool
+from tools.supply_chain import SupplyChainTool
+from tools.serverless_audit import ServerlessAuditTool
+from tools.spa_test import SPATestTool
+from tools.sdn_attack import SDNAttackTool
+from tools.recon_pipeline import ReconPipelineTool
+
 
 # Rabbit Hole bridge — only loaded when RABBIT_HOLE_URL is set
 _rabbit_hole_bridge = None
@@ -147,6 +163,22 @@ _cicd_audit: CICDAuditTool | None = None
 _ipv6_attack: IPv6AttackTool | None = None
 _iot_protocol: IoTProtocolTool | None = None
 _ad_attack: ADAttackTool | None = None
+
+# Tier 3 singletons
+_llm_audit: LLMAuditTool | None = None
+_telecom_attack: TelecomAttackTool | None = None
+_evasion: EvasionTool | None = None
+_phishing: PhishingTool | None = None
+_grpc_audit: GRPCAuditTool | None = None
+_auth_audit: AuthAuditTool | None = None
+
+# Tier 4 singletons
+_mobile_audit: MobileAuditTool | None = None
+_supply_chain: SupplyChainTool | None = None
+_serverless_audit: ServerlessAuditTool | None = None
+_spa_test: SPATestTool | None = None
+_sdn_attack: SDNAttackTool | None = None
+_recon_pipeline: ReconPipelineTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -554,6 +586,42 @@ def _init_pentest_singletons():
 
     global _ad_attack
     _ad_attack = ADAttackTool()
+
+    global _llm_audit
+    _llm_audit = LLMAuditTool()
+
+    global _telecom_attack
+    _telecom_attack = TelecomAttackTool()
+
+    global _evasion
+    _evasion = EvasionTool()
+
+    global _phishing
+    _phishing = PhishingTool()
+
+    global _grpc_audit
+    _grpc_audit = GRPCAuditTool()
+
+    global _auth_audit
+    _auth_audit = AuthAuditTool()
+
+    global _mobile_audit
+    _mobile_audit = MobileAuditTool()
+
+    global _supply_chain
+    _supply_chain = SupplyChainTool()
+
+    global _serverless_audit
+    _serverless_audit = ServerlessAuditTool()
+
+    global _spa_test
+    _spa_test = SPATestTool()
+
+    global _sdn_attack
+    _sdn_attack = SDNAttackTool()
+
+    global _recon_pipeline
+    _recon_pipeline = ReconPipelineTool()
 
 
 @tool
@@ -1839,6 +1907,383 @@ async def ad_attack(
     )
 
 
+@tool
+async def llm_audit(
+    action: str,
+    target: str = "",
+    probe: str = "all",
+    config_path: str = "",
+    output_dir: str = "/tmp/llm_audit",
+    payload_set: str = "default",
+    corpus_path: str = "",
+    num_queries: int = 100,
+    technique: str = "all",
+    timeout: int = 300,
+) -> str:
+    """AI/LLM security testing — prompt injection, model abuse, RAG poisoning.
+
+    - garak_scan: Full garak vulnerability scan against LLM endpoint
+    - garak_probe: Run specific garak probe
+    - promptfoo_eval: Evaluate LLM against red-team test cases
+    - promptfoo_redteam: Automated red-team testing of LLM endpoint
+    - prompt_inject_test: Test for direct/indirect prompt injection
+    - rag_poison_check: Detect RAG poisoning in knowledge base
+    - model_extract_test: Test for model weight extraction via API
+    - jailbreak_test: Test jailbreak techniques against LLM
+    """
+    _init_pentest_singletons()
+    return await _llm_audit.execute(
+        action=action, target=target, probe=probe, config_path=config_path,
+        output_dir=output_dir, payload_set=payload_set, corpus_path=corpus_path,
+        num_queries=num_queries, technique=technique, timeout=timeout,
+    )
+
+
+@tool
+async def telecom_attack(
+    action: str,
+    target: str = "",
+    port: int = 2123,
+    count: int = 1000,
+    username: str = "admin",
+    device_args: str = "rtl=0",
+    extension_range: str = "100-999",
+    call_id: str = "",
+    timeout: int = 60,
+) -> str:
+    """5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI.
+
+    - gtp_scan: Scan for GTP-C/GTP-U endpoints
+    - gtp_fuzzer: Fuzz GTP protocol
+    - sip_enum: SIP device enumeration
+    - sip_crack: SIP credential cracking
+    - ss7_scan: SS7 network element scanning
+    - diameter_audit: Diameter protocol security audit
+    - imsi_detect: Scan for GSM base stations / IMSI catchers
+    - sip_flood_test: SIP extension enumeration
+    - stir_shaken_verify: Verify STIR/SHAKEN caller ID
+    """
+    _init_pentest_singletons()
+    return await _telecom_attack.execute(
+        action=action, target=target, port=port, count=count,
+        username=username, device_args=device_args,
+        extension_range=extension_range, call_id=call_id, timeout=timeout,
+    )
+
+
+@tool
+async def evasion(
+    action: str,
+    payload: str = "windows/meterpreter/reverse_tcp",
+    lhost: str = "0.0.0.0",
+    lport: int = 4444,
+    format: str = "exe",
+    encoder: str = "x86/shikata_ga_nai",
+    iterations: int = 5,
+    output_path: str = "/tmp/payload",
+    target_pe: str = "",
+    input_file: str = "",
+    arch: int = 2,
+    loader: str = "binary",
+    domain: str = "",
+    payload_path: str = "",
+    timeout: int = 60,
+) -> str:
+    """Payload evasion and AV bypass — encoding, obfuscation, detection testing.
+
+    - msfvenom_generate: Generate encoded payload with msfvenom
+    - veil_generate: AV-evasive payload with Veil-Framework
+    - shellter_inject: Inject shellcode into PE files
+    - donut_generate: Position-independent shellcode from PE/.NET
+    - scarecrow_generate: EDR-evasive loader generation
+    - amsi_test: Test payload against AMSI bypass
+    - defender_check: Check if Defender detects payload
+    - entropy_analysis: Analyze payload entropy
+    """
+    _init_pentest_singletons()
+    return await _evasion.execute(
+        action=action, payload=payload, lhost=lhost, lport=lport,
+        format=format, encoder=encoder, iterations=iterations,
+        output_path=output_path, target_pe=target_pe, input_file=input_file,
+        arch=arch, loader=loader, domain=domain,
+        payload_path=payload_path, timeout=timeout,
+    )
+
+
+@tool
+async def phishing(
+    action: str,
+    target: str = "",
+    campaign_name: str = "",
+    template: str = "",
+    api_key: str = "",
+    campaign_id: str = "",
+    phishlet: str = "",
+    domain: str = "",
+    email_file: str = "",
+    dkim_selector: str = "default",
+    recipient: str = "",
+    sender: str = "",
+    ehlo_domain: str = "test.local",
+    timeout: int = 30,
+) -> str:
+    """Phishing simulation — GoPhish, Evilginx, email security.
+
+    - gophish_create_campaign: Create GoPhish phishing campaign
+    - gophish_results: Get campaign results
+    - evilginx_phishlet: Configure Evilginx phishlet
+    - evilginx_lures: Create phishing lure URL
+    - email_header_analyze: Analyze email headers for spoofing
+    - spf_check: Check SPF records
+    - dkim_check: Check DKIM records
+    - dmarc_check: Check DMARC policy
+    - smtp_relay_test: Test SMTP open relay
+    """
+    _init_pentest_singletons()
+    return await _phishing.execute(
+        action=action, target=target, campaign_name=campaign_name,
+        template=template, api_key=api_key, campaign_id=campaign_id,
+        phishlet=phishlet, domain=domain, email_file=email_file,
+        dkim_selector=dkim_selector, recipient=recipient,
+        sender=sender, ehlo_domain=ehlo_domain, timeout=timeout,
+    )
+
+
+@tool
+async def grpc_audit(
+    action: str,
+    target: str = "",
+    service: str = "",
+    method: str = "",
+    data: str = "{}",
+    auth_header: str = "",
+    proto_path: str = ".",
+    proto_file: str = "",
+    count: int = 1000,
+    timeout: int = 30,
+) -> str:
+    """gRPC and protobuf security testing.
+
+    - grpc_reflection: List services via server reflection
+    - grpc_describe: Describe service methods
+    - grpc_call: Call a gRPC method with data
+    - grpc_fuzz: Fuzz gRPC service methods
+    - grpc_auth_test: Test auth bypass on gRPC methods
+    - grpc_tls_check: Check TLS enforcement
+    - grpc_web_test: Test gRPC-Web endpoint
+    - protoscan: Scan for exposed protobuf/gRPC endpoints
+    """
+    _init_pentest_singletons()
+    return await _grpc_audit.execute(
+        action=action, target=target, service=service, method=method,
+        data=data, auth_header=auth_header, proto_path=proto_path,
+        proto_file=proto_file, count=count, timeout=timeout,
+    )
+
+
+@tool
+async def auth_audit(
+    action: str,
+    target: str = "",
+    client_id: str = "",
+    redirect_uri: str = "",
+    token: str = "",
+    saml_response: str = "",
+    wordlist: str = "/usr/share/wordlists/rockyou.txt",
+    rp_id: str = "",
+    timeout: int = 30,
+) -> str:
+    """Modern authentication security testing.
+
+    - oauth_redirect_test: Test OAuth redirect_uri validation
+    - oauth_device_code: Test device code flow phishing
+    - oidc_discovery: Enumerate OIDC provider config
+    - oidc_token_test: Test OIDC token confusion
+    - saml_decode: Decode/analyze SAML response
+    - saml_inject: Test SAML signature wrapping
+    - jwt_scan: JWT vulnerability scan
+    - jwt_crack: Crack JWT HMAC secret
+    - webauthn_test: Test WebAuthn/passkey relay
+    - session_fixation: Test session fixation
+    """
+    _init_pentest_singletons()
+    return await _auth_audit.execute(
+        action=action, target=target, client_id=client_id,
+        redirect_uri=redirect_uri, token=token,
+        saml_response=saml_response, wordlist=wordlist,
+        rp_id=rp_id, timeout=timeout,
+    )
+
+
+@tool
+async def mobile_audit(
+    action: str,
+    target: str = "",
+    package_name: str = "",
+    script_path: str = "",
+    output_dir: str = "/tmp/mobile_audit",
+    timeout: int = 120,
+) -> str:
+    """Mobile app security testing — APK decompilation, static/dynamic analysis.
+
+    - apk_decompile: Decompile APK with apktool
+    - static_analysis: Static analysis via MobSF
+    - jadx_decompile: Decompile APK to Java source with jadx
+    - drozer_scan: Scan app attack surface with drozer
+    - frida_hook: Dynamic instrumentation with Frida
+    - ssl_pinning_bypass: Bypass SSL pinning with objection
+    - ipc_audit: Audit exported IPC components
+    - keychain_dump: Dump Android keystore entries
+    """
+    _init_pentest_singletons()
+    return await _mobile_audit.execute(
+        action=action, target=target, package_name=package_name,
+        script_path=script_path, output_dir=output_dir, timeout=timeout,
+    )
+
+
+@tool
+async def supply_chain(
+    action: str,
+    target: str = "",
+    package_name: str = "",
+    registry: str = "https://registry.npmjs.org",
+    packages_file: str = "",
+    scan_type: str = "nodejs",
+    timeout: int = 120,
+) -> str:
+    """Supply chain attack testing — dependency confusion, typosquatting, secrets.
+
+    - dependency_confusion_test: Test for dependency confusion attacks
+    - typosquat_scan: Scan for typosquatting packages
+    - package_provenance_audit: Audit package provenance and integrity
+    - postinstall_audit: Audit postinstall scripts for malicious code
+    - trufflehog_scan: Scan git repo for leaked secrets
+    - gitleaks_scan: Detect hardcoded secrets with gitleaks
+    - depscan: Dependency vulnerability scan
+    """
+    _init_pentest_singletons()
+    return await _supply_chain.execute(
+        action=action, target=target, package_name=package_name,
+        registry=registry, packages_file=packages_file,
+        scan_type=scan_type, timeout=timeout,
+    )
+
+
+@tool
+async def serverless_audit(
+    action: str,
+    target: str = "",
+    event_type: str = "http",
+    provider: str = "aws",
+    trigger_type: str = "s3",
+    profile: str = "default",
+    region: str = "us-east-1",
+    concurrency: int = 50,
+    timeout: int = 120,
+) -> str:
+    """Serverless/edge function security testing.
+
+    - lambda_inject_test: Test Lambda event injection
+    - edge_function_audit: Audit edge function security
+    - event_trigger_abuse: Test event trigger abuse vectors
+    - tfstate_scan: Scan Terraform state for exposed secrets
+    - iac_security_scan: IaC security scan with checkov
+    - serverless_misconfig: Detect serverless misconfigurations
+    - cold_start_race: Test cold start race conditions
+    """
+    _init_pentest_singletons()
+    return await _serverless_audit.execute(
+        action=action, target=target, event_type=event_type,
+        provider=provider, trigger_type=trigger_type,
+        profile=profile, region=region,
+        concurrency=concurrency, timeout=timeout,
+    )
+
+
+@tool
+async def spa_test(
+    action: str,
+    target: str = "",
+    routes_file: str = "",
+    store_type: str = "redux",
+    timeout: int = 60,
+) -> str:
+    """SPA client-side security testing.
+
+    - route_bypass: Test client-side route authorization bypass
+    - state_inspect: Inspect exposed client-side state
+    - postmessage_scan: Scan for insecure postMessage handlers
+    - token_leakage_audit: Audit for token leakage in storage/URLs
+    - dom_xss_scan: Scan for DOM-based XSS sinks
+    - js_source_map_check: Check for exposed JavaScript source maps
+    """
+    _init_pentest_singletons()
+    return await _spa_test.execute(
+        action=action, target=target, routes_file=routes_file,
+        store_type=store_type, timeout=timeout,
+    )
+
+
+@tool
+async def sdn_attack(
+    action: str,
+    target: str = "",
+    port: int = 8181,
+    netconf_port: int = 830,
+    openflow_port: int = 6653,
+    username: str = "admin",
+    password: str = "",
+    api_key: str = "",
+    timeout: int = 60,
+) -> str:
+    """SDN/network automation security testing.
+
+    - sdn_controller_enum: Enumerate SDN controllers
+    - netconf_exploit: Audit NETCONF for vulnerabilities
+    - network_policy_audit: Audit SDN network policies
+    - yang_model_enum: Enumerate YANG models
+    - restconf_test: Test RESTCONF API security
+    - openflow_audit: Audit OpenFlow protocol
+    """
+    _init_pentest_singletons()
+    return await _sdn_attack.execute(
+        action=action, target=target, port=port,
+        netconf_port=netconf_port, openflow_port=openflow_port,
+        username=username, password=password,
+        api_key=api_key, timeout=timeout,
+    )
+
+
+@tool
+async def recon_pipeline(
+    action: str,
+    domain: str = "",
+    target: str = "",
+    targets_file: str = "",
+    output_dir: str = "/tmp/recon_pipeline",
+    threads: int = 50,
+    severity: str = "medium,high,critical",
+    timeout: int = 300,
+) -> str:
+    """Automated recon pipeline — chained reconnaissance orchestration.
+
+    - full_pipeline: Full recon: subdomains -> probing -> scanning
+    - subdomain_httpx: Subdomain discovery + HTTP probing
+    - nuclei_scan: Nuclei vulnerability scan
+    - screenshot_capture: Capture screenshots of web assets
+    - asset_correlate: Correlate and deduplicate assets
+    - attack_graph_build: Build attack graph from recon data
+    - tech_detect: Technology detection on endpoints
+    """
+    _init_pentest_singletons()
+    return await _recon_pipeline.execute(
+        action=action, domain=domain, target=target,
+        targets_file=targets_file, output_dir=output_dir,
+        threads=threads, severity=severity, timeout=timeout,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -1906,6 +2351,20 @@ def get_pentest_tools():
         ipv6_attack,
         iot_protocol,
         ad_attack,
+        # Tier 3 — LLM, Telecom, Evasion, Phishing, gRPC, Auth
+        llm_audit,
+        telecom_attack,
+        evasion,
+        phishing,
+        grpc_audit,
+        auth_audit,
+        # Tier 4 — Mobile, Supply Chain, Serverless, SPA, SDN, Recon
+        mobile_audit,
+        supply_chain,
+        serverless_audit,
+        spa_test,
+        sdn_attack,
+        recon_pipeline,
     ]
 
 
