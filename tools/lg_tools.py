@@ -51,6 +51,7 @@ from knowledge.target_profile import TargetProfile
 from playbooks.tool import execute_playbook_action
 from tools.priv_esc import PrivEscTool
 from tools.lateral_move import LateralMoveTool
+from tools.lan_scan import LanScanTool
 from tools.data_exfil import DataExfilTool
 from tools.persistence import PersistenceTool
 from tools.cleanup import CleanupTool
@@ -131,6 +132,7 @@ _credential_attack: CredentialAttackTool | None = None
 _hashcat_rules: HashcatRulesTool | None = None
 _priv_esc: PrivEscTool | None = None
 _lateral_move: LateralMoveTool | None = None
+_lan_scan: LanScanTool | None = None
 _data_exfil: DataExfilTool | None = None
 _persistence: PersistenceTool | None = None
 _cleanup: CleanupTool | None = None
@@ -484,6 +486,9 @@ def _init_pentest_singletons():
     _priv_esc._target_store = _target_store
     _lateral_move = LateralMoveTool()
     _lateral_move._target_store = _target_store
+    global _lan_scan
+    _lan_scan = LanScanTool()
+    _lan_scan._target_store = _target_store
     _data_exfil = DataExfilTool()
     _data_exfil._target_store = _target_store
     _persistence = PersistenceTool()
@@ -982,6 +987,30 @@ async def service_enum(
 
 
 @tool
+async def lan_scan(
+    action: str,
+    network: str = "192.168.1.0/24",
+    interface: str = "eth0",
+    timeout: int = 0,
+) -> str:
+    """LAN discovery and enumeration (risk level 1 — active probing).
+
+    - arp_sweep: Fast L2 host discovery via ARP (IP, MAC, vendor)
+    - netdiscover: Passive/active ARP recon with IP/MAC/vendor table
+    - nbtscan: NetBIOS name scan — finds Windows hosts and workgroup names
+    - snmp_sweep: UDP/161 sweep with SNMP community string probing
+    - mdns_enum: Enumerate mDNS/Bonjour services via avahi-browse
+    - smb_discovery: Find SMB hosts, OS fingerprint, SMBv1/v2 security mode
+    - full_lan_sweep: Combined ARP discovery + nmap -sV -O --top-ports 100
+    """
+    _init_pentest_singletons()
+    kw: dict = {"action": action, "network": network, "interface": interface}
+    if timeout:
+        kw["timeout"] = timeout
+    return await _lan_scan.execute(**kw)
+
+
+@tool
 async def ssl_audit(
     action: str,
     target: str = "",
@@ -1314,19 +1343,39 @@ async def credential_attack(
     combolist: str = "",
     threads: int = 4,
     timeout: int = 600,
+    # Responder params
+    interface: str = "eth0",
+    duration: int = 300,
+    # CME / NTLM relay params
+    network: str = "",
+    targets: str = "",
+    hash: str = "",
 ) -> str:
-    """Credential attacks — hydra brute force, password spraying, combo lists.
+    """Credential attacks — hydra brute force, password spraying, combo lists,
+    Responder LLMNR/NBT-NS poisoning, CrackMapExec SMB enumeration/spraying/PTH,
+    and NTLM relay attacks.
 
     - hydra_brute: Brute force a single user with a password list
     - hydra_spray: Password spray a single password across user list
     - hydra_combo: Combo list attack (user:pass format)
+    - responder: Poison LLMNR/NBT-NS/mDNS and capture NetNTLM hashes
+      (interface, duration)
+    - crackmapexec_enum: Enumerate SMB hosts, users, shares, groups across a subnet
+      (network)
+    - crackmapexec_spray: Password spray a target via SMB
+      (target, userlist as comma-sep or file path, password)
+    - ntlm_relay: Relay NTLM authentications to targets [REDTEAM]
+      (targets as comma-sep IPs, duration)
+    - crackmapexec_pth: Pass-the-hash via CrackMapExec [REDTEAM]
+      (target, username, hash)
     """
     _init_pentest_singletons()
     return await _credential_attack.execute(
         action=action, target=target, service=service,
         username=username, password=password, wordlist=wordlist,
         userlist=userlist, combolist=combolist, threads=threads,
-        timeout=timeout,
+        timeout=timeout, interface=interface, duration=duration,
+        network=network, targets=targets, hash=hash,
     )
 
 
@@ -1657,6 +1706,7 @@ async def net_monitor(
     baseline_services: str = "[]",
     expected_ports: str = "[22,80,443]",
     allowed_protocols: str = '["eth","ip","tcp","udp","dns","http","tls"]',
+    known_dhcp_servers: str = "[]",
     timeout: int = 120,
 ) -> str:
     """Network monitoring — traffic baselines, host anomaly detection, DNS monitoring.
@@ -1666,6 +1716,9 @@ async def net_monitor(
     - service_diff: Compare current services against baseline, flag changes
     - dns_monitor: Monitor DNS traffic for exfiltration, tunneling, suspicious queries
     - protocol_anomaly: Detect unexpected protocols on the network
+    - arp_watch: Detect ARP spoofing/poisoning — duplicate IP-MAC mappings and gratuitous ARP floods
+    - responder_detect: Detect Responder/LLMNR poisoning — flag hosts sending LLMNR/NBT-NS responses
+    - rogue_dhcp_detect: Detect rogue DHCP servers not in known_dhcp_servers trusted list
     """
     _init_pentest_singletons()
     return await _net_monitor.execute(
@@ -1673,6 +1726,7 @@ async def net_monitor(
         interface=interface, duration=duration,
         known_hosts=known_hosts, baseline_services=baseline_services,
         expected_ports=expected_ports, allowed_protocols=allowed_protocols,
+        known_dhcp_servers=known_dhcp_servers,
         timeout=timeout,
     )
 
@@ -2329,6 +2383,7 @@ def get_pentest_tools():
         # Phase 2 — Enumeration
         web_enum,
         service_enum,
+        lan_scan,
         ssl_audit,
         api_enum,
         # Phase 2 — Vuln Assessment

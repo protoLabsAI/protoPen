@@ -86,3 +86,4 @@ from tools.parsers import auth_audit        # noqa: E402,F401
 from tools.parsers import sdn_attack       # noqa: E402,F401
 from tools.parsers import mobile_audit     # noqa: E402,F401
 from tools.parsers import serverless_audit # noqa: E402,F401
+from tools.parsers import lan_scan        # noqa: E402,F401

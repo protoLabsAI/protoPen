@@ -1,0 +1,142 @@
+name: lan_discovery
+description: >
+  Full passive + active LAN reconnaissance sweep — Layer 2 host discovery,
+  NetBIOS/mDNS/SNMP enumeration, SMB detection, traffic baseline, DNS monitoring,
+  and top-100 service fingerprinting with CVE correlation. Covers the entire
+  visible broadcast domain without destructive actions.
+tags: [recon, lan, discovery, passive, network]
+variables:
+  network: ""          # Target CIDR (e.g. 192.168.1.0/24)
+  interface: "eth0"    # Capture/injection interface
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_discovery
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: lan_discovery
+    on_fail: continue
+
+  # ── Layer 2 / ARP discovery ──────────────────────────────────────────────────
+  # Fastest method — sends ARP requests across the subnet
+  - name: arp_sweep
+    tool: lan_scan
+    action: arp_sweep
+    params:
+      network: "${network}"
+      interface: "${interface}"
+    timeout: 60
+    on_fail: continue
+
+  # Passive ARP listener — no active probes, watches gratuitous ARPs
+  - name: netdiscover
+    tool: lan_scan
+    action: netdiscover
+    params:
+      network: "${network}"
+      interface: "${interface}"
+    timeout: 60
+    on_fail: continue
+
+  # ── ICMP / nmap ping sweep ───────────────────────────────────────────────────
+  - name: host_discovery
+    tool: net_monitor
+    action: host_discovery
+    params:
+      network: "${network}"
+      known_hosts: []
+    timeout: 120
+    on_fail: continue
+
+  # ── Windows / NetBIOS ────────────────────────────────────────────────────────
+  # Returns NetBIOS names, workgroup membership, and MAC prefixes
+  - name: nbtscan
+    tool: lan_scan
+    action: nbtscan
+    params:
+      network: "${network}"
+    timeout: 60
+    on_fail: continue
+
+  # ── mDNS / Bonjour ───────────────────────────────────────────────────────────
+  # Enumerate Apple/Linux service advertisements (printers, media, SSH)
+  - name: mdns_enum
+    tool: lan_scan
+    action: mdns_enum
+    params:
+      interface: "${interface}"
+    timeout: 60
+    on_fail: continue
+
+  # ── SNMP device fingerprinting ───────────────────────────────────────────────
+  - name: snmp_sweep
+    tool: lan_scan
+    action: snmp_sweep
+    params:
+      network: "${network}"
+    timeout: 90
+    on_fail: continue
+
+  # ── SMB host enumeration ─────────────────────────────────────────────────────
+  # Identifies SMB hosts, OS version via SMB negotiation, signing status
+  - name: smb_discovery
+    tool: lan_scan
+    action: smb_discovery
+    params:
+      network: "${network}"
+    timeout: 90
+    on_fail: continue
+
+  # ── Passive traffic baseline ─────────────────────────────────────────────────
+  # Captures 60 s of traffic — host counts, protocol distribution, top ports
+  - name: traffic_baseline
+    tool: net_monitor
+    action: traffic_baseline
+    params:
+      interface: "${interface}"
+      duration: 60
+    timeout: 90
+    on_fail: continue
+
+  # ── DNS traffic monitoring ───────────────────────────────────────────────────
+  # 60 s window — top queried domains, exfil/tunneling heuristics
+  - name: dns_monitor
+    tool: net_monitor
+    action: dns_monitor
+    params:
+      interface: "${interface}"
+      duration: 60
+    timeout: 90
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enum
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: service_enum
+    on_fail: continue
+
+  # ── Service fingerprinting ───────────────────────────────────────────────────
+  # Slow timing (-T3) to reduce noise; version detect on top 100 ports
+  - name: service_fingerprint
+    tool: blackarch
+    action: nmap_scan
+    params:
+      target: "${network}"
+      flags: "-sV --top-ports 100 -T3"
+    timeout: 300
+    on_fail: continue
+
+  # ── CVE correlation ──────────────────────────────────────────────────────────
+  # Runs nmap NSE vuln scripts against top-100 ports and correlates CVEs
+  - name: cve_check
+    tool: cve_match
+    action: cve_nmap
+    params:
+      target: "${network}"
+      ports: "top-100"
+    timeout: 300
+    on_fail: continue

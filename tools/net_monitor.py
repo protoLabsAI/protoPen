@@ -154,6 +154,118 @@ class NetMonitorTool(BasePentestTool):
             "timeout": 120,
             "description": "Detect unexpected protocols on the network",
         },
+        "arp_watch": {
+            "cmd": [
+                "python3", "-c",
+                "import subprocess,json,collections; "
+                "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
+                "'-f','arp','-T','fields',"
+                "'-e','arp.src.proto_ipv4','-e','arp.src.hw_mac',"
+                "'-e','arp.opcode','-e','frame.time_epoch'],"
+                "capture_output=True,text=True,timeout={duration}+10); "
+                "ip_to_macs=collections.defaultdict(set); "
+                "mac_reply_times=collections.defaultdict(list); "
+                "arp_events=[]; "
+                "for line in r.stdout.splitlines():\n"
+                "  fields=line.split('\\t')\n"
+                "  if len(fields)<4: continue\n"
+                "  src_ip,src_mac,opcode,ts=fields[0],fields[1],fields[2],fields[3]\n"
+                "  if not src_ip or not src_mac: continue\n"
+                "  ip_to_macs[src_ip].add(src_mac)\n"
+                "  if opcode=='2':\n"
+                "    try: mac_reply_times[src_mac].append(float(ts))\n"
+                "    except: pass\n"
+                "suspicious=[]; "
+                "for ip,macs in ip_to_macs.items():\n"
+                "  count=len(macs)\n"
+                "  arp_events.append({{'ip':ip,'mac':','.join(sorted(macs)),'event_type':'ip_mac_mapping','count':count}})\n"
+                "  if count>1:\n"
+                "    suspicious.append({{'ip':ip,'mac':','.join(sorted(macs)),'event_type':'duplicate_ip_mac','count':count}})\n"
+                "for mac,times in mac_reply_times.items():\n"
+                "  if len(times)>10:\n"
+                "    times_sorted=sorted(times)\n"
+                "    window=times_sorted[-1]-times_sorted[0] if len(times_sorted)>1 else 1\n"
+                "    rate=len(times)/max(window,1)\n"
+                "    if rate>2:\n"
+                "      suspicious.append({{'ip':'','mac':mac,'event_type':'gratuitous_arp_flood','count':len(times)}})\n"
+                "anomaly=len(suspicious)>0; "
+                "print(json.dumps({{'interface':'{interface}','duration_sec':{duration},"
+                "'arp_events':arp_events,'suspicious':suspicious,'anomaly':anomaly}}))",
+            ],
+            "timeout": 120,
+            "description": "Detect ARP spoofing/poisoning — duplicate IP-MAC mappings and gratuitous ARP floods",
+        },
+        "responder_detect": {
+            "cmd": [
+                "python3", "-c",
+                "import subprocess,json,collections; "
+                "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
+                "'-f','udp port 5355 or udp port 137 or udp port 5353',"
+                "'-T','fields',"
+                "'-e','ip.src','-e','udp.dstport',"
+                "'-e','llmnr.qry.name','-e','nbns.name',"
+                "'-e','dns.qry.name','-e','llmnr.type',"
+                "'-e','nbns.flags.response','-e','dns.flags.response',"
+                "'-e','dns.ptr.domain_name'],"
+                "capture_output=True,text=True,timeout={duration}+10); "
+                "llmnr_resp=collections.Counter(); "
+                "nbns_resp=collections.Counter(); "
+                "mdns_ptr=collections.Counter(); "
+                "for line in r.stdout.splitlines():\n"
+                "  fields=(line.split('\\t')+['','','','','','','','',''])[:9]\n"
+                "  src_ip,dstport,llmnr_name,nbns_name,dns_name,llmnr_type,nbns_flag,dns_flag,ptr=fields\n"
+                "  if dstport=='5355' and llmnr_type=='32800':\n"
+                "    key=(src_ip,llmnr_name or dns_name)\n"
+                "    llmnr_resp[key]+=1\n"
+                "  if dstport=='137' and nbns_flag=='1':\n"
+                "    key=(src_ip,nbns_name)\n"
+                "    nbns_resp[key]+=1\n"
+                "  if dstport=='5353' and dns_flag=='1' and ptr:\n"
+                "    key=(src_ip,ptr)\n"
+                "    mdns_ptr[key]+=1\n"
+                "llmnr_responses=[{{'src_ip':k[0],'domain':k[1],'count':v}} for k,v in llmnr_resp.items()]; "
+                "nbns_responses=[{{'src_ip':k[0],'domain':k[1],'count':v}} for k,v in nbns_resp.items()]; "
+                "suspicious_hosts=list({{r['src_ip'] for r in llmnr_responses+nbns_responses}}); "
+                "anomaly=len(suspicious_hosts)>0; "
+                "print(json.dumps({{'interface':'{interface}','duration_sec':{duration},"
+                "'llmnr_responses':llmnr_responses,'nbns_responses':nbns_responses,"
+                "'suspicious_hosts':suspicious_hosts,'anomaly':anomaly}}))",
+            ],
+            "timeout": 120,
+            "description": "Detect Responder/LLMNR poisoning — flag hosts sending LLMNR/NBT-NS responses",
+        },
+        "rogue_dhcp_detect": {
+            "cmd": [
+                "python3", "-c",
+                "import subprocess,json,collections; "
+                "r=subprocess.run(['tshark','-i','{interface}','-a','duration:{duration}',"
+                "'-f','udp port 67 or udp port 68',"
+                "'-T','fields',"
+                "'-e','ip.src','-e','eth.src',"
+                "'-e','bootp.option.dhcp','-e','bootp.ip.server'],"
+                "capture_output=True,text=True,timeout={duration}+10); "
+                "server_counts=collections.Counter(); "
+                "server_macs=dict(); "
+                "for line in r.stdout.splitlines():\n"
+                "  fields=(line.split('\\t')+['','','',''])[:4]\n"
+                "  src_ip,src_mac,dhcp_type,srv_ip=fields\n"
+                "  if dhcp_type in ('2','5'):\n"
+                "    key=src_ip or srv_ip\n"
+                "    if not key: continue\n"
+                "    server_counts[key]+=1\n"
+                "    if key not in server_macs and src_mac:\n"
+                "      server_macs[key]=src_mac\n"
+                "dhcp_servers=[{{'ip':ip,'mac':server_macs.get(ip,''),'count':cnt}} for ip,cnt in server_counts.items()]; "
+                "known={known_dhcp_servers}; "
+                "known_set=set(known) if isinstance(known,list) else set(); "
+                "rogue_servers=[{{'ip':s['ip'],'mac':s['mac']}} for s in dhcp_servers if s['ip'] not in known_set]; "
+                "anomaly=len(rogue_servers)>0; "
+                "print(json.dumps({{'interface':'{interface}','duration_sec':{duration},"
+                "'dhcp_servers':dhcp_servers,'rogue_servers':rogue_servers,'anomaly':anomaly}}))",
+            ],
+            "timeout": 120,
+            "description": "Detect rogue DHCP servers — flag any DHCP OFFER/ACK source not in the trusted list",
+        },
     }
 
     async def execute(
@@ -167,6 +279,7 @@ class NetMonitorTool(BasePentestTool):
         baseline_services: str = "[]",
         expected_ports: str = "[22,80,443]",
         allowed_protocols: str = '["eth","ip","tcp","udp","dns","http","tls"]',
+        known_dhcp_servers: str = "[]",
         timeout: int = 120,
     ) -> str:
         if action not in self.ACTIONS:
@@ -180,6 +293,7 @@ class NetMonitorTool(BasePentestTool):
                 baseline_services=baseline_services,
                 expected_ports=expected_ports,
                 allowed_protocols=allowed_protocols,
+                known_dhcp_servers=known_dhcp_servers,
                 timeout=timeout,
             )
             for c in spec["cmd"]
