@@ -6,12 +6,15 @@ and classifies them for the research pipeline (arxiv, HF, GitHub, blogs).
 Requires DISCORD_BOT_TOKEN env var. Channel IDs configured in security-config.json.
 """
 
+import logging
 import os
 import re
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from tools._tool_base import Tool
 
