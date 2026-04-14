@@ -1,0 +1,157 @@
+name: automated_assessment
+description: >
+  Full automated security assessment — hardened nmap scan, subdomain/DNS enumeration,
+  SSL audit, directory brute-force, Nuclei vulnerability scan, web vulnerability testing,
+  and OSINT gathering. All steps run with on_fail: continue so a single tool failure
+  does not abort the pipeline.
+tags: [automated, web, network, recon, vuln-scan]
+variables:
+  target: ""
+  # Wordlist for directory enumeration — override per engagement
+  wordlist: /usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt
+
+steps:
+
+  # ── Phase 1: Engagement setup ────────────────────────────────────────────────
+  - name: phase_recon
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: recon
+    on_fail: continue
+
+  # ── Phase 2: Network discovery ────────────────────────────────────────────────
+  # Hardened nmap: spoof MAC, slow timing, randomize hosts, pad packets
+  - name: nmap_discovery
+    tool: blackarch
+    action: nmap_scan
+    params:
+      target: "${target}"
+      flags: "-sV -sC -O -T2 --spoof-mac 0 --randomize-hosts --data-length 25 -oX /tmp/nmap_${target}.xml"
+      timeout: 600
+    on_fail: continue
+
+  # ── Phase 3: DNS / Subdomain ──────────────────────────────────────────────────
+  - name: dns_records
+    tool: dns_enum
+    action: dig_query
+    params:
+      target: "${target}"
+      record_type: ANY
+    on_fail: continue
+
+  - name: subdomain_discovery
+    tool: subdomain_discovery
+    action: subfinder
+    params:
+      target: "${target}"
+      timeout: 120
+    on_fail: continue
+
+  # ── Phase 4: SSL / TLS ────────────────────────────────────────────────────────
+  - name: ssl_audit
+    tool: ssl_audit
+    action: ssl_full_audit
+    params:
+      target: "${target}"
+      timeout: 300
+    on_fail: continue
+
+  # ── Phase 5: Web enumeration ──────────────────────────────────────────────────
+  - name: web_directories
+    tool: web_enum
+    action: gobuster_dir
+    params:
+      url: "https://${target}"
+      wordlist: "${wordlist}"
+      threads: 10
+      timeout: 300
+    on_fail: continue
+
+  - name: web_directories_http
+    tool: web_enum
+    action: gobuster_dir
+    params:
+      url: "http://${target}"
+      wordlist: "${wordlist}"
+      threads: 10
+      timeout: 300
+    on_fail: continue
+
+  # ── Phase 6: API and service enumeration ──────────────────────────────────────
+  - name: api_discovery
+    tool: api_enum
+    action: run
+    params:
+      target: "https://${target}"
+      timeout: 120
+    on_fail: continue
+
+  # ── Phase 7: Vulnerability scanning ──────────────────────────────────────────
+  - name: nuclei_scan
+    tool: vuln_scan
+    action: nuclei_scan
+    params:
+      target: "${target}"
+      severity: medium,high,critical
+      timeout: 600
+    on_fail: continue
+
+  - name: nikto_scan
+    tool: vuln_scan
+    action: nikto_scan
+    params:
+      target: "https://${target}"
+      timeout: 300
+    on_fail: continue
+
+  # ── Phase 8: Web application testing ─────────────────────────────────────────
+  - name: phase_active
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: active_testing
+    on_fail: continue
+
+  - name: web_vuln_scan
+    tool: web_vuln
+    action: scan
+    params:
+      target: "https://${target}"
+      timeout: 300
+    on_fail: continue
+
+  - name: auth_test
+    tool: auth_test
+    action: run
+    params:
+      target: "https://${target}"
+      timeout: 180
+    on_fail: continue
+
+  - name: ssl_header_check
+    tool: web_vuln
+    action: header_check
+    params:
+      target: "https://${target}"
+    on_fail: continue
+
+  # ── Phase 9: CVE correlation ──────────────────────────────────────────────────
+  - name: cve_correlation
+    tool: cve_match
+    action: lookup
+    params:
+      target: "${target}"
+      timeout: 60
+    on_fail: continue
+
+  # ── Phase 10: OSINT ───────────────────────────────────────────────────────────
+  - name: osint_harvest
+    tool: osint_recon
+    action: theharvester
+    params:
+      target: "${target}"
+      source: all
+      limit: 100
+      timeout: 180
+    on_fail: continue

@@ -20,6 +20,7 @@ async def run_playbook(
     dispatch: ToolDispatcher,
     *,
     on_step_complete: Callable[[PlaybookStep], None] | None = None,
+    engagement_mgr=None,
 ) -> Playbook:
     """Execute all steps in a playbook sequentially.
 
@@ -27,13 +28,15 @@ async def run_playbook(
         playbook: The playbook to execute.
         dispatch: Async callable (tool_name, action, params) -> output.
         on_step_complete: Optional callback fired after each step.
+        engagement_mgr: Optional EngagementManager for finding-based conditions
+                        (enables ``findings.critical``, ``findings.high``, etc.).
 
     Returns:
         The playbook with updated step statuses and outputs.
     """
     for step in playbook.steps:
         # Evaluate condition if present
-        if step.condition and not _evaluate_condition(step.condition, playbook):
+        if step.condition and not _evaluate_condition(step.condition, playbook, engagement_mgr):
             step.status = StepStatus.SKIPPED
             logger.info("Skipped step '%s' — condition not met", step.name)
             if on_step_complete:
@@ -138,9 +141,30 @@ def _resolve_step_refs(
     return resolved
 
 
-def _evaluate_condition(condition: str, playbook: Playbook) -> bool:
-    """Simple condition evaluation — check if a named step completed."""
-    # Format: "step_name.completed" or "step_name.failed"
+def _evaluate_condition(
+    condition: str,
+    playbook: Playbook,
+    engagement_mgr=None,
+) -> bool:
+    """Evaluate a step condition.
+
+    Supported formats:
+        step_name.completed / step_name.failed / step_name.skipped
+            — check prior step outcome
+
+        findings.critical / findings.high / findings.medium / findings.any
+            — check active engagement finding counts (requires engagement_mgr)
+
+        findings.critical.count > N
+            — numeric comparison against finding count
+    """
+    condition = condition.strip()
+
+    # ── findings.* conditions ─────────────────────────────────────────────
+    if condition.startswith("findings."):
+        return _evaluate_findings_condition(condition, engagement_mgr)
+
+    # ── step outcome conditions ───────────────────────────────────────────
     parts = condition.split(".")
     if len(parts) != 2:
         return True  # Unknown format — proceed
@@ -155,3 +179,59 @@ def _evaluate_condition(condition: str, playbook: Playbook) -> bool:
             elif attr == "skipped":
                 return step.status == StepStatus.SKIPPED
     return True  # Step not found — proceed
+
+
+def _evaluate_findings_condition(condition: str, engagement_mgr) -> bool:
+    """Evaluate a findings.* condition against the active engagement.
+
+    Supported:
+        findings.any            — True if any findings exist
+        findings.critical       — True if any critical findings
+        findings.high           — True if any high or critical findings
+        findings.medium         — True if any medium+ findings
+        findings.critical.count > N  — numeric comparison
+        findings.high.count > N
+    """
+    if engagement_mgr is None:
+        return True  # No engagement manager — allow step to run
+
+    findings = getattr(engagement_mgr, "findings", [])
+    if not findings:
+        return "any" not in condition  # findings.any → False; others → True (proceed)
+
+    sev_counts: dict[str, int] = {}
+    for f in findings:
+        s = f.get("severity", "info")
+        sev_counts[s] = sev_counts.get(s, 0) + 1
+
+    # Normalize: findings.high includes critical
+    counts = {
+        "any":      len(findings),
+        "critical": sev_counts.get("critical", 0),
+        "high":     sev_counts.get("critical", 0) + sev_counts.get("high", 0),
+        "medium":   sev_counts.get("critical", 0) + sev_counts.get("high", 0) + sev_counts.get("medium", 0),
+        "low":      len(findings),
+    }
+
+    # findings.critical.count > N
+    import re as _re
+    m = _re.match(r"findings\.(\w+)\.count\s*([><=!]+)\s*(\d+)", condition)
+    if m:
+        sev, op, threshold_str = m.group(1), m.group(2), m.group(3)
+        threshold = int(threshold_str)
+        count = counts.get(sev, 0)
+        if op == ">":  return count > threshold
+        if op == ">=": return count >= threshold
+        if op == "<":  return count < threshold
+        if op == "<=": return count <= threshold
+        if op in ("==", "="): return count == threshold
+        if op in ("!=", "<>"): return count != threshold
+        return True
+
+    # findings.critical / findings.high / findings.any
+    parts = condition.split(".")
+    if len(parts) >= 2:
+        sev = parts[1]
+        return counts.get(sev, 0) > 0
+
+    return True

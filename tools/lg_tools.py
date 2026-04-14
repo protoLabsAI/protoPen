@@ -96,6 +96,7 @@ from tools.serverless_audit import ServerlessAuditTool
 from tools.spa_test import SPATestTool
 from tools.sdn_attack import SDNAttackTool
 from tools.recon_pipeline import ReconPipelineTool
+from tools.orchestrator import EngagementOrchestratorTool
 
 
 # Instantiate underlying tool classes (stateless singletons)
@@ -175,6 +176,9 @@ _serverless_audit: ServerlessAuditTool | None = None
 _spa_test: SPATestTool | None = None
 _sdn_attack: SDNAttackTool | None = None
 _recon_pipeline: ReconPipelineTool | None = None
+
+# Orchestrator singleton
+_orchestrator_tool: EngagementOrchestratorTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -562,6 +566,22 @@ def _init_pentest_singletons():
 
     global _recon_pipeline
     _recon_pipeline = ReconPipelineTool()
+
+    # Orchestrator — wired with engagement manager and a dispatch closure
+    global _orchestrator_tool
+
+    async def _orchestrator_dispatch(tool_name: str, action_name: str, params: dict) -> str:
+        """Dispatch tool calls from the orchestrator pipeline."""
+        from tools.lg_tools import get_pentest_tools
+        for t in get_pentest_tools():
+            if t.name == tool_name:
+                return await t.ainvoke({"action": action_name, **params})
+        return f"Error: Tool '{tool_name}' not found in pentest tools"
+
+    _orchestrator_tool = EngagementOrchestratorTool(
+        engagement_mgr=_engagement,
+        dispatch_fn=_orchestrator_dispatch,
+    )
 
 
 @tool
@@ -1166,6 +1186,40 @@ async def playbook(
     return await execute_playbook_action(
         action=action, name=name, variables=variables,
         dispatch_fn=_dispatch,
+    )
+
+
+@tool
+async def orchestrator(
+    action: str,
+    name: str = "",
+    scope: str = "",
+    targets: str = "",
+    mode: str = "active",
+    scope_type: str = "web",
+    playbook: str = "",
+    finding_id: str = "",
+) -> str:
+    """Automated engagement orchestrator — scripted pen test pipeline with agent hand-off.
+
+    Actions:
+      run           — Run full automated assessment (recon → scoring → report).
+                      Returns scored findings + attack suggestions for agent follow-up.
+      probe_finding — Execute attack suggestions for a specific scored finding (finding_id required).
+      status        — Current pipeline state and finding counts.
+
+    Typical flow:
+      1. orchestrator run  name="audit" targets="app.example.com" mode="active"
+      2. Review scored findings — note finding IDs for HIGH/CRITICAL entries
+      3. orchestrator probe_finding  finding_id="a3f9c12b"
+      4. Log new findings via engagement log_finding
+    """
+    _init_pentest_singletons()
+    return await _orchestrator_tool.execute(
+        action=action, name=name, scope=scope, targets=targets,
+        mode=mode, scope_type=scope_type,
+        **{"playbook": playbook} if playbook else {},
+        finding_id=finding_id,
     )
 
 
@@ -2292,8 +2346,9 @@ def get_pentest_tools():
         data_exfil,
         persistence,
         cleanup,
-        # Phase 2 — Playbook system
+        # Phase 2 — Playbook system + orchestration
         playbook,
+        orchestrator,
         # Phase 2 — Intelligence
         chain_planner,
         # Phase 3 — Web App Testing
