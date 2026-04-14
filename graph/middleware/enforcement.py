@@ -12,6 +12,7 @@ Checks (in order):
 Must be placed FIRST in the middleware chain (before AuditMiddleware)
 so that blocked calls are still logged by audit but never executed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,18 +30,36 @@ logger = logging.getLogger(__name__)
 # Pentest tool prefixes — mirrored from guardrails._PENTEST_TOOL_PREFIXES
 # to avoid importing guardrails.py (which uses Python 3.10+ syntax locally).
 _PENTEST_TOOL_PREFIXES = {
-    "portapack", "flipper", "marauder", "blackarch", "engagement",
+    "portapack",
+    "flipper",
+    "marauder",
+    "blackarch",
+    "engagement",
     "device_manager",
     # Phase 2 — Recon
-    "dns_enum", "subdomain_discovery", "osint_recon",
+    "dns_enum",
+    "subdomain_discovery",
+    "osint_recon",
     # Phase 2 — Enumeration
-    "web_enum", "service_enum", "ssl_audit", "api_enum",
+    "web_enum",
+    "service_enum",
+    "ssl_audit",
+    "api_enum",
     # Phase 2 — Vuln Assessment
-    "vuln_scan", "sql_test", "web_vuln", "cve_match",
+    "vuln_scan",
+    "sql_test",
+    "web_vuln",
+    "cve_match",
     # Phase 2 — Exploitation
-    "msf_exploit", "credential_attack", "hashcat_rules",
+    "msf_exploit",
+    "credential_attack",
+    "hashcat_rules",
     # Phase 2 — Post-Exploitation + Lateral Movement
-    "priv_esc", "lateral_move", "data_exfil", "persistence", "cleanup",
+    "priv_esc",
+    "lateral_move",
+    "data_exfil",
+    "persistence",
+    "cleanup",
 }
 
 # The engagement tool itself must be exempt — otherwise you can't
@@ -125,7 +144,9 @@ class EnforcementMiddleware(AgentMiddleware):
             risk = getattr(mgr, "_tool_risk", {}).get(action, "?")
             logger.warning(
                 "BLOCKED %s: mode %s insufficient (risk=%s)",
-                action, mgr.mode.name, risk,
+                action,
+                mgr.mode.name,
+                risk,
             )
             return (
                 f"[BLOCKED] Tool '{action}' denied by mode enforcement. "
@@ -138,10 +159,7 @@ class EnforcementMiddleware(AgentMiddleware):
             target = self._scope_validator.extract_target(action, args)
             if target and not self._scope_validator.is_in_scope(target):
                 logger.warning("BLOCKED %s: target '%s' out of scope", action, target)
-                return (
-                    f"[BLOCKED] Target '{target}' is outside engagement scope. "
-                    f"Tool '{action}' denied."
-                )
+                return f"[BLOCKED] Target '{target}' is outside engagement scope. Tool '{action}' denied."
 
         # ── Check 6: Phase ceiling ──
         if self._max_phase is not None:
@@ -149,7 +167,9 @@ class EnforcementMiddleware(AgentMiddleware):
             if tool_phase is not None and tool_phase > self._max_phase:
                 logger.warning(
                     "BLOCKED %s: phase %s exceeds ceiling %s",
-                    action, tool_phase.name, self._max_phase.name,
+                    action,
+                    tool_phase.name,
+                    self._max_phase.name,
                 )
                 return (
                     f"[BLOCKED] Tool '{action}' is phase {tool_phase.name} "

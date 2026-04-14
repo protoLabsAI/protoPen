@@ -5,6 +5,7 @@ Optionally uses boto3 to list Lambda functions and check for overly permissive
 resource policies. If boto3 is not installed or credentials are absent, returns
 an informational message.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -64,11 +65,13 @@ def run_boto3_checks(profile: str, region: str) -> list[dict[str, Any]]:
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError
     except ImportError:
-        return [{
-            "function_name": "N/A",
-            "severity": "info",
-            "description": "boto3 not installed — skipping AWS credential-based checks",
-        }]
+        return [
+            {
+                "function_name": "N/A",
+                "severity": "info",
+                "description": "boto3 not installed — skipping AWS credential-based checks",
+            }
+        ]
 
     misconfigs: list[dict[str, Any]] = []
 
@@ -82,11 +85,13 @@ def run_boto3_checks(profile: str, region: str) -> list[dict[str, Any]]:
         for page in paginator.paginate():
             functions.extend(page.get("Functions", []))
 
-        misconfigs.append({
-            "function_name": "summary",
-            "severity": "info",
-            "description": f"Found {len(functions)} Lambda function(s) in {region}",
-        })
+        misconfigs.append(
+            {
+                "function_name": "summary",
+                "severity": "info",
+                "description": f"Found {len(functions)} Lambda function(s) in {region}",
+            }
+        )
 
         for func in functions:
             func_name = func.get("FunctionName", "unknown")
@@ -97,11 +102,13 @@ def run_boto3_checks(profile: str, region: str) -> list[dict[str, Any]]:
                 url_config = lambda_client.get_function_url_config(FunctionName=func_name)
                 auth_type = url_config.get("AuthType", "AWS_IAM")
                 if auth_type == "NONE":
-                    misconfigs.append({
-                        "function_name": func_name,
-                        "severity": "high",
-                        "description": f"Lambda '{func_name}' has public Function URL with no auth (AuthType=NONE)",
-                    })
+                    misconfigs.append(
+                        {
+                            "function_name": func_name,
+                            "severity": "high",
+                            "description": f"Lambda '{func_name}' has public Function URL with no auth (AuthType=NONE)",
+                        }
+                    )
             except ClientError:
                 pass
 
@@ -112,46 +119,59 @@ def run_boto3_checks(profile: str, region: str) -> list[dict[str, Any]]:
                 for stmt in policy.get("Statement", []):
                     issues = _check_policy_statement(stmt)
                     for issue in issues:
-                        misconfigs.append({
-                            "function_name": func_name,
-                            "severity": "high",
-                            "description": f"Overly permissive resource policy: {issue}",
-                        })
+                        misconfigs.append(
+                            {
+                                "function_name": func_name,
+                                "severity": "high",
+                                "description": f"Overly permissive resource policy: {issue}",
+                            }
+                        )
             except ClientError:
                 pass
 
             # Check environment variables for secrets
             env = func.get("Environment", {}).get("Variables", {})
-            secret_keys = {k for k in env if any(
-                s in k.lower() for s in ('password', 'secret', 'key', 'token', 'credential')
-            )}
+            secret_keys = {
+                k for k in env if any(s in k.lower() for s in ("password", "secret", "key", "token", "credential"))
+            }
             if secret_keys:
-                misconfigs.append({
-                    "function_name": func_name,
-                    "severity": "medium",
-                    "description": f"Lambda '{func_name}' has potentially sensitive environment variables: {', '.join(sorted(secret_keys))} — prefer AWS Secrets Manager",
-                })
+                misconfigs.append(
+                    {
+                        "function_name": func_name,
+                        "severity": "medium",
+                        "description": f"Lambda '{func_name}' has potentially sensitive environment variables: {', '.join(sorted(secret_keys))} — prefer AWS Secrets Manager",
+                    }
+                )
 
             # Check for deprecated runtime
             runtime = func.get("Runtime", "")
             deprecated_runtimes = {
-                "nodejs8.10", "nodejs10.x", "nodejs12.x",
-                "python2.7", "python3.6", "python3.7",
-                "ruby2.5", "java8",
+                "nodejs8.10",
+                "nodejs10.x",
+                "nodejs12.x",
+                "python2.7",
+                "python3.6",
+                "python3.7",
+                "ruby2.5",
+                "java8",
             }
             if runtime in deprecated_runtimes:
-                misconfigs.append({
-                    "function_name": func_name,
-                    "severity": "medium",
-                    "description": f"Lambda '{func_name}' uses deprecated runtime: {runtime}",
-                })
+                misconfigs.append(
+                    {
+                        "function_name": func_name,
+                        "severity": "medium",
+                        "description": f"Lambda '{func_name}' uses deprecated runtime: {runtime}",
+                    }
+                )
 
     except Exception as exc:  # NoCredentialsError, etc.
-        misconfigs.append({
-            "function_name": "N/A",
-            "severity": "info",
-            "description": f"AWS credentials check failed: {type(exc).__name__}: {exc}",
-        })
+        misconfigs.append(
+            {
+                "function_name": "N/A",
+                "severity": "info",
+                "description": f"AWS credentials check failed: {type(exc).__name__}: {exc}",
+            }
+        )
 
     return misconfigs
 
@@ -171,11 +191,13 @@ def main() -> None:
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["misconfigs"].append({
-            "function_name": "N/A",
-            "severity": "error",
-            "description": f"Scan failed: {exc}",
-        })
+        result["misconfigs"].append(
+            {
+                "function_name": "N/A",
+                "severity": "error",
+                "description": f"Scan failed: {exc}",
+            }
+        )
         logger.error("serverless_misconfig error: %s", exc)
 
     print(json.dumps(result))

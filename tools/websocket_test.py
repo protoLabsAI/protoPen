@@ -1,4 +1,5 @@
 """WebSocket security testing — auth bypass, CSWSH, message injection."""
+
 from __future__ import annotations
 
 import logging
@@ -27,7 +28,9 @@ class WebSocketTestTool(BasePentestTool):
             "cmd": [
                 "python3",
                 os.path.join(_SCRIPTS_DIR, "ws_auth_bypass.py"),
-                "{url}", "{origin}", "{auth_token}",
+                "{url}",
+                "{origin}",
+                "{auth_token}",
             ],
             "timeout": 30,
             "description": "Test WebSocket endpoint for authentication bypass",
@@ -36,7 +39,8 @@ class WebSocketTestTool(BasePentestTool):
             "cmd": [
                 "python3",
                 os.path.join(_SCRIPTS_DIR, "ws_cswsh.py"),
-                "{url}", "{origin}",
+                "{url}",
+                "{origin}",
             ],
             "timeout": 60,
             "description": "Test for Cross-Site WebSocket Hijacking via Origin validation",
@@ -45,7 +49,9 @@ class WebSocketTestTool(BasePentestTool):
             "cmd": [
                 "python3",
                 os.path.join(_SCRIPTS_DIR, "ws_injection.py"),
-                "{url}", "{origin}", "{categories}",
+                "{url}",
+                "{origin}",
+                "{categories}",
             ],
             "timeout": 120,
             "description": "Test WebSocket messages for injection vulnerabilities",

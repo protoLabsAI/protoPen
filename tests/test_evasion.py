@@ -1,4 +1,5 @@
 """Tests for evasion — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,9 +21,14 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "msfvenom_generate", "veil_generate", "shellter_inject",
-            "donut_generate", "scarecrow_generate", "amsi_test",
-            "defender_check", "entropy_analysis",
+            "msfvenom_generate",
+            "veil_generate",
+            "shellter_inject",
+            "donut_generate",
+            "scarecrow_generate",
+            "amsi_test",
+            "defender_check",
+            "entropy_analysis",
         }
         assert set(tool.ACTIONS.keys()) == expected
 

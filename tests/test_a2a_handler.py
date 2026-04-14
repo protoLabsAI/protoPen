@@ -1,4 +1,5 @@
 """Tests for a2a_handler — task store, background runner, webhook delivery, routes."""
+
 from __future__ import annotations
 
 import asyncio
@@ -30,6 +31,7 @@ from a2a_handler import (
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 def _make_record(**kwargs) -> TaskRecord:
     now = _now_iso()
     defaults = dict(
@@ -50,6 +52,7 @@ def store() -> A2ATaskStore:
 
 
 # ── Task store ────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_store_create_and_get(store):
@@ -114,6 +117,7 @@ async def test_store_cancel_missing(store):
 
 # ── Background task runner ────────────────────────────────────────────────────
 
+
 async def _mock_stream(*events):
     """Helper: yields (event_type, payload) tuples."""
     for event in events:
@@ -151,6 +155,7 @@ async def test_background_runner_error():
     await store.create(record)
 
     push_calls = []
+
     async def _push(r):
         push_calls.append(r.state)
 
@@ -187,6 +192,7 @@ async def test_background_runner_cancel():
 
 
 # ── Webhook delivery ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_webhook_delivery_success():
@@ -236,6 +242,7 @@ async def test_webhook_delivery_no_token():
 
 # ── Event builders ────────────────────────────────────────────────────────────
 
+
 def test_build_status_event():
     record = _make_record(state=WORKING)
     evt = _build_status_event(record)
@@ -253,6 +260,7 @@ def test_build_artifact_event():
 
 
 # ── Route integration (FastAPI ASGI test client) ──────────────────────────────
+
 
 def _make_test_app():
     """Create a minimal FastAPI app with A2A routes wired in."""
@@ -291,13 +299,16 @@ async def test_message_send_returns_submitted():
     """message/send must return submitted state immediately (not block)."""
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.post("/a2a", json={
-            "jsonrpc": "2.0", "id": 1, "method": "message/send",
-            "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
-        })
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/a2a",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "message/send",
+                "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
+            },
+        )
 
     assert resp.status_code == 200
     data = resp.json()
@@ -309,9 +320,7 @@ async def test_message_send_returns_submitted():
 async def test_get_task_unknown_returns_404():
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/tasks/no-such-id")
 
     assert resp.status_code == 404
@@ -322,13 +331,16 @@ async def test_get_task_after_submit():
     """After message/send, GET /tasks/{id} returns the task record."""
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        send_resp = await client.post("/a2a", json={
-            "jsonrpc": "2.0", "id": 1, "method": "message/send",
-            "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
-        })
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        send_resp = await client.post(
+            "/a2a",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "message/send",
+                "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
+            },
+        )
         task_id = send_resp.json()["result"]["id"]
 
         # Poll until completed (fake stream is instant in tests)
@@ -346,13 +358,16 @@ async def test_get_task_after_submit():
 async def test_cancel_task():
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        send_resp = await client.post("/a2a", json={
-            "jsonrpc": "2.0", "id": 1, "method": "message/send",
-            "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
-        })
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        send_resp = await client.post(
+            "/a2a",
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "message/send",
+                "params": {"message": {"parts": [{"kind": "text", "text": "hi"}]}},
+            },
+        )
         task_id = send_resp.json()["result"]["id"]
         cancel_resp = await client.post(f"/tasks/{task_id}:cancel")
 
@@ -364,12 +379,13 @@ async def test_cancel_task():
 async def test_rest_send_returns_202():
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        resp = await client.post("/message:send", json={
-            "message": {"parts": [{"kind": "text", "text": "hello"}]},
-        })
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/message:send",
+            json={
+                "message": {"parts": [{"kind": "text", "text": "hello"}]},
+            },
+        )
 
     assert resp.status_code == 202
     assert resp.json()["status"]["state"] == SUBMITTED
@@ -380,12 +396,14 @@ async def test_stream_first_event_is_submitted():
     """SSE stream must emit submitted as the very first frame."""
     app, _ = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        async with client.stream("POST", "/message:stream", json={
-            "message": {"parts": [{"kind": "text", "text": "hello"}]},
-        }) as resp:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        async with client.stream(
+            "POST",
+            "/message:stream",
+            json={
+                "message": {"parts": [{"kind": "text", "text": "hello"}]},
+            },
+        ) as resp:
             assert resp.status_code == 200
             first_line = None
             async for line in resp.aiter_lines():
@@ -394,7 +412,7 @@ async def test_stream_first_event_is_submitted():
                     break
 
     assert first_line is not None
-    first_event = json.loads(first_line[len("data:"):].strip())
+    first_event = json.loads(first_line[len("data:") :].strip())
     # REST stream returns plain result dict (no jsonrpc wrapper for rpc_id=None)
     result = first_event.get("result", first_event)
     assert result["status"]["state"] == SUBMITTED
@@ -404,9 +422,7 @@ async def test_stream_first_event_is_submitted():
 async def test_agent_card_route():
     app, card = _make_test_app()
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/.well-known/agent.json")
 
     assert resp.status_code == 200

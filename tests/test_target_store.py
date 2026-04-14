@@ -1,4 +1,5 @@
 """Tests for the TargetStore — CRUD, upsert, query, diff."""
+
 import pytest
 
 from knowledge.target_store import TargetStore

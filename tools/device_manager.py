@@ -4,6 +4,7 @@ Manages connections to PortaPack H4M, Flipper Zero, ESP32 Marauder,
 and WiFi adapter. Uses USB serial numbers for stable device identification
 when available, falls back to configured port paths.
 """
+
 from __future__ import annotations
 
 import logging
@@ -110,9 +111,7 @@ class DeviceManager:
             logger.info("Connected to %s on %s", device_name, port)
             return conn
         except serial.SerialException as exc:
-            raise ConnectionError(
-                f"Failed to connect to {device_name} on {port}: {exc}"
-            )
+            raise ConnectionError(f"Failed to connect to {device_name} on {port}: {exc}")
 
     def _resolve_port(self, name: str, cfg: dict) -> str:
         sn = cfg.get("serial_number", "")
@@ -122,13 +121,16 @@ class DeviceManager:
                 return port
             logger.warning(
                 "Device %s serial number %s not found, falling back to %s",
-                name, sn, cfg.get("fallback_port"),
+                name,
+                sn,
+                cfg.get("fallback_port"),
             )
         return cfg.get("fallback_port", "/dev/ttyACM0")
 
     def _find_port_by_serial(self, serial_number: str) -> Optional[str]:
         try:
             from serial.tools.list_ports import comports
+
             for port_info in comports():
                 if port_info.serial_number == serial_number:
                     return port_info.device

@@ -31,8 +31,11 @@ def init():
 
     try:
         from langfuse import Langfuse
+
         _langfuse = Langfuse(
-            public_key=public_key, secret_key=secret_key, host=host,
+            public_key=public_key,
+            secret_key=secret_key,
+            host=host,
         )
         _enabled = True
         print(f"[tracing] Langfuse initialized -> {host}")
@@ -53,6 +56,7 @@ def start_trace(session_id: str, name: str = "researcher-chat", metadata: dict |
 
     try:
         from langfuse import Langfuse
+
         trace_id = Langfuse.create_trace_id(seed=session_id)
         _trace_id_ctx.set(trace_id)
 
@@ -83,11 +87,16 @@ def end_trace():
 
 
 def trace_llm_call(
-    model: str, messages: list[dict], response_content: str | None,
+    model: str,
+    messages: list[dict],
+    response_content: str | None,
     response_tool_calls: list | None = None,
-    tokens_input: int = 0, tokens_output: int = 0,
-    duration_ms: int = 0, finish_reason: str = "",
-    error: str | None = None, metadata: dict | None = None,
+    tokens_input: int = 0,
+    tokens_output: int = 0,
+    duration_ms: int = 0,
+    finish_reason: str = "",
+    error: str | None = None,
+    metadata: dict | None = None,
 ):
     """Log an LLM call as a generation observation."""
     if not _enabled:
@@ -120,8 +129,12 @@ def trace_llm_call(
 
 
 def trace_tool_call(
-    tool_name: str, args: dict, result: str,
-    duration_ms: int, success: bool, session_id: str = "",
+    tool_name: str,
+    args: dict,
+    result: str,
+    duration_ms: int,
+    success: bool,
+    session_id: str = "",
 ):
     """Log a tool execution as a span observation."""
     if not _enabled:
@@ -157,7 +170,9 @@ def score_trace(name: str, value: float, comment: str = ""):
         return
     try:
         _langfuse.score_current_trace(
-            name=name, value=value, comment=comment,
+            name=name,
+            value=value,
+            comment=comment,
         )
     except Exception:
         pass

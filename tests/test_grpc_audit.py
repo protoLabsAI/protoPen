@@ -1,4 +1,5 @@
 """Tests for grpc_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,14 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "grpc_reflection", "grpc_describe", "grpc_call", "grpc_fuzz",
-            "grpc_auth_test", "grpc_tls_check", "grpc_web_test", "protoscan",
+            "grpc_reflection",
+            "grpc_describe",
+            "grpc_call",
+            "grpc_fuzz",
+            "grpc_auth_test",
+            "grpc_tls_check",
+            "grpc_web_test",
+            "protoscan",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -96,7 +103,9 @@ class TestAuth:
         proc.communicate.return_value = (b'{"id":"1"}', b"")
         proc.returncode = 0
         mock_exec.return_value = proc
-        await tool.execute("grpc_auth_test", target="localhost:50051", method="my.Api/GetUser", auth_header="Bearer tok123")
+        await tool.execute(
+            "grpc_auth_test", target="localhost:50051", method="my.Api/GetUser", auth_header="Bearer tok123"
+        )
         cmd = mock_exec.call_args[0]
         assert "Authorization: Bearer tok123" in cmd
 

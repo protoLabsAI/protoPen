@@ -39,9 +39,7 @@ class ExperimentRunner:
     # Init
     # ------------------------------------------------------------------
 
-    def init_experiment(
-        self, name: str, template: str = "dpo_qwen_0.8b"
-    ) -> str:
+    def init_experiment(self, name: str, template: str = "dpo_qwen_0.8b") -> str:
         """Create a new experiment workspace from a template."""
         workspace = self.lab_root / name
         if workspace.exists():
@@ -66,16 +64,15 @@ class ExperimentRunner:
 
         # Init results.tsv
         results_path = workspace / "results.tsv"
-        results_path.write_text(
-            "commit\teval_loss\ttrain_loss\tpeak_vram_mb\tsteps\tstatus\tdescription\n"
-        )
+        results_path.write_text("commit\teval_loss\ttrain_loss\tpeak_vram_mb\tsteps\tstatus\tdescription\n")
 
         # Init git repo
         subprocess.run(["git", "init"], cwd=workspace, capture_output=True)
         subprocess.run(["git", "add", "."], cwd=workspace, capture_output=True)
         subprocess.run(
             ["git", "commit", "-m", "init: baseline from template " + template],
-            cwd=workspace, capture_output=True,
+            cwd=workspace,
+            capture_output=True,
         )
 
         # Create output dir
@@ -141,7 +138,9 @@ class ExperimentRunner:
         subprocess.run(["git", "add", "config.yaml"], cwd=workspace, capture_output=True)
         result = subprocess.run(
             ["git", "commit", "-m", f"experiment: {description}"],
-            cwd=workspace, capture_output=True, text=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             if "nothing to commit" in result.stdout + result.stderr:
@@ -150,7 +149,9 @@ class ExperimentRunner:
 
         commit = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=workspace, capture_output=True, text=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         return f"Committed as `{commit}`: {description}"
@@ -160,8 +161,11 @@ class ExperimentRunner:
     # ------------------------------------------------------------------
 
     async def run_experiment(
-        self, name: str, description: str = "",
-        gpu: str = _DEFAULT_GPU, time_budget: int = _DEFAULT_TIME_BUDGET,
+        self,
+        name: str,
+        description: str = "",
+        gpu: str = _DEFAULT_GPU,
+        time_budget: int = _DEFAULT_TIME_BUDGET,
     ) -> str:
         """Run a training experiment with LLaMA-Factory."""
         workspace = self._get_workspace(name)
@@ -176,19 +180,24 @@ class ExperimentRunner:
         # Commit current state if there are changes
         subprocess.run(["git", "add", "config.yaml"], cwd=workspace, capture_output=True)
         status = subprocess.run(
-            ["git", "status", "--porcelain"], cwd=workspace,
-            capture_output=True, text=True,
+            ["git", "status", "--porcelain"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
         if status:
             msg = description or "experiment run"
             subprocess.run(
                 ["git", "commit", "-m", f"experiment: {msg}"],
-                cwd=workspace, capture_output=True,
+                cwd=workspace,
+                capture_output=True,
             )
 
         commit = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=workspace, capture_output=True, text=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         # Build environment
@@ -201,7 +210,10 @@ class ExperimentRunner:
 
         # Run LLaMA-Factory training
         cmd = [
-            "python", "-m", "llamafactory.cli", "train",
+            "python",
+            "-m",
+            "llamafactory.cli",
+            "train",
             str(config_path),
         ]
 
@@ -213,9 +225,7 @@ class ExperimentRunner:
                 env=env,
                 cwd=str(workspace),
             )
-            stdout, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=time_budget + 120
-            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=time_budget + 120)
             log_text = stdout.decode(errors="replace")
             log_path.write_text(log_text)
         except asyncio.TimeoutError:
@@ -237,7 +247,8 @@ class ExperimentRunner:
         # Parse metrics from log
         metrics = self._parse_metrics(log_text)
         self._log_result(
-            workspace, commit,
+            workspace,
+            commit,
             eval_loss=metrics.get("eval_loss", ""),
             train_loss=metrics.get("train_loss", ""),
             peak_vram_mb=metrics.get("peak_vram_mb", ""),
@@ -282,14 +293,18 @@ class ExperimentRunner:
         # Reset to previous commit
         result = subprocess.run(
             ["git", "reset", "--hard", "HEAD~1"],
-            cwd=workspace, capture_output=True, text=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             return f"Error reverting: {result.stderr}"
 
         commit = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=workspace, capture_output=True, text=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
         ).stdout.strip()
 
         return f"Discarded. Reverted to `{commit}`."
@@ -430,17 +445,30 @@ class ExperimentRunner:
         return metrics
 
     def _log_result(
-        self, workspace: Path, commit: str,
-        eval_loss: str = "", train_loss: str = "", peak_vram_mb: str = "",
-        steps: str = "", status: str = "", description: str = "",
+        self,
+        workspace: Path,
+        commit: str,
+        eval_loss: str = "",
+        train_loss: str = "",
+        peak_vram_mb: str = "",
+        steps: str = "",
+        status: str = "",
+        description: str = "",
     ):
         """Append a row to results.tsv."""
         results_path = workspace / "results.tsv"
         with results_path.open("a") as f:
-            row = "\t".join([
-                commit, eval_loss, train_loss, peak_vram_mb,
-                steps, status, description,
-            ])
+            row = "\t".join(
+                [
+                    commit,
+                    eval_loss,
+                    train_loss,
+                    peak_vram_mb,
+                    steps,
+                    status,
+                    description,
+                ]
+            )
             f.write(row + "\n")
 
     def _update_last_status(self, workspace: Path, new_status: str) -> str:

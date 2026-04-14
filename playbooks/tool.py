@@ -1,4 +1,5 @@
 """LangGraph tool wrapper for the playbook system."""
+
 from __future__ import annotations
 
 import json
@@ -37,9 +38,7 @@ async def execute_playbook_action(
         lines = ["Available playbooks:"]
         for pb in playbooks:
             tags = ", ".join(pb.get("tags", []))
-            lines.append(
-                f"  • {pb['name']} ({pb['steps']} steps) [{tags}] — {pb['description']}"
-            )
+            lines.append(f"  • {pb['name']} ({pb['steps']} steps) [{tags}] — {pb['description']}")
         return "\n".join(lines)
 
     elif action == "run":

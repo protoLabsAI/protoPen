@@ -1,4 +1,5 @@
 """SPA security testing — route bypass, state inspection, postMessage, DOM XSS, source maps."""
+
 from __future__ import annotations
 
 import logging
@@ -22,9 +23,13 @@ class SPATestTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "route_bypass": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.spa_route_bypass",
-                "--url", "{target}",
-                "--routes-file", "{routes_file}",
+                "python3",
+                "-m",
+                "protopen_scripts.spa_route_bypass",
+                "--url",
+                "{target}",
+                "--routes-file",
+                "{routes_file}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -32,9 +37,13 @@ class SPATestTool(BasePentestTool):
         },
         "state_inspect": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.spa_state",
-                "--url", "{target}",
-                "--store-type", "{store_type}",
+                "python3",
+                "-m",
+                "protopen_scripts.spa_state",
+                "--url",
+                "{target}",
+                "--store-type",
+                "{store_type}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -42,8 +51,11 @@ class SPATestTool(BasePentestTool):
         },
         "postmessage_scan": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.postmessage_scan",
-                "--url", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.postmessage_scan",
+                "--url",
+                "{target}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -51,8 +63,11 @@ class SPATestTool(BasePentestTool):
         },
         "token_leakage_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.token_leakage",
-                "--url", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.token_leakage",
+                "--url",
+                "{target}",
                 "--check-localstorage",
                 "--check-url-fragments",
                 "--output-json",
@@ -62,8 +77,11 @@ class SPATestTool(BasePentestTool):
         },
         "dom_xss_scan": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.dom_xss",
-                "--url", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.dom_xss",
+                "--url",
+                "{target}",
                 "--output-json",
             ],
             "timeout": 60,
@@ -71,8 +89,11 @@ class SPATestTool(BasePentestTool):
         },
         "js_source_map_check": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.sourcemap_check",
-                "--url", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.sourcemap_check",
+                "--url",
+                "{target}",
                 "--output-json",
             ],
             "timeout": 60,

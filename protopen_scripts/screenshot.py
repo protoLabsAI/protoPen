@@ -5,6 +5,7 @@ For each URL in the targets file, makes a HEAD/GET request to verify
 liveness. Since no headless browser is available, records live/dead status
 and saves a placeholder file. This is a pure-HTTP implementation.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,7 +27,7 @@ def _load_targets(path: str) -> list[str]:
     """Load URLs from a newline-delimited file."""
     try:
         with open(path) as fh:
-            return [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
+            return [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
     except OSError as exc:
         logger.error("Could not read targets file %s: %s", path, exc)
         return []
@@ -55,11 +56,11 @@ def _probe_url(url: str, timeout: int = 10) -> dict[str, Any]:
 
 def _save_placeholder(output_dir: str, url: str, entry: dict[str, Any]) -> str:
     """Save a JSON placeholder for the screenshot."""
-    safe_name = re.sub(r'[^\w\-.]', '_', url.replace('://', '_'))[:100]
+    safe_name = re.sub(r"[^\w\-.]", "_", url.replace("://", "_"))[:100]
     filename = f"{safe_name}.json"
     filepath = os.path.join(output_dir, filename)
     try:
-        with open(filepath, 'w') as fh:
+        with open(filepath, "w") as fh:
             json.dump(entry, fh, indent=2)
     except OSError as exc:
         logger.warning("Could not save placeholder for %s: %s", url, exc)
@@ -97,12 +98,14 @@ def main() -> None:
                         entry["path"] = placeholder_path
                     result["screenshots"].append(entry)
                 except Exception as exc:
-                    result["screenshots"].append({
-                        "url": url,
-                        "status": "error",
-                        "path": "",
-                        "error": str(exc),
-                    })
+                    result["screenshots"].append(
+                        {
+                            "url": url,
+                            "status": "error",
+                            "path": "",
+                            "error": str(exc),
+                        }
+                    )
 
         # Sort by URL for deterministic output
         result["screenshots"].sort(key=lambda x: x.get("url", ""))

@@ -1,4 +1,5 @@
 """SSL/TLS analysis via testssl.sh."""
+
 from __future__ import annotations
 
 import asyncio
@@ -37,8 +38,11 @@ class SslAuditTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "ssl_full_audit", "ssl_protocols", "ssl_ciphers",
-                        "ssl_vulnerabilities", "ssl_certificates",
+                        "ssl_full_audit",
+                        "ssl_protocols",
+                        "ssl_ciphers",
+                        "ssl_vulnerabilities",
+                        "ssl_certificates",
                     ],
                 },
                 "target": {"type": "string", "description": "host:port or URL"},
@@ -72,11 +76,15 @@ class SslAuditTool(Tool):
     async def _run(self, *args: str, timeout: int = 180) -> str:
         logger.info("Running: %s", " ".join(args))
         import os
+
         env = os.environ.copy()
         # Use system openssl — testssl.sh's bundled binary crashes on SteamOS (glibc mismatch)
         env.setdefault("OPENSSL", "/usr/bin/openssl")
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -90,25 +98,54 @@ class SslAuditTool(Tool):
 
     async def full_audit(self, target: str, timeout: int = 180) -> str:
         return await self._run(
-            "testssl.sh", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+            "testssl.sh",
+            "--jsonfile",
+            "-",
+            "--overwrite",
+            target,
+            timeout=timeout,
         )
 
     async def protocols(self, target: str, timeout: int = 60) -> str:
         return await self._run(
-            "testssl.sh", "-p", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+            "testssl.sh",
+            "-p",
+            "--jsonfile",
+            "-",
+            "--overwrite",
+            target,
+            timeout=timeout,
         )
 
     async def ciphers(self, target: str, timeout: int = 60) -> str:
         return await self._run(
-            "testssl.sh", "-E", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+            "testssl.sh",
+            "-E",
+            "--jsonfile",
+            "-",
+            "--overwrite",
+            target,
+            timeout=timeout,
         )
 
     async def vulnerabilities(self, target: str, timeout: int = 120) -> str:
         return await self._run(
-            "testssl.sh", "-U", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+            "testssl.sh",
+            "-U",
+            "--jsonfile",
+            "-",
+            "--overwrite",
+            target,
+            timeout=timeout,
         )
 
     async def certificates(self, target: str, timeout: int = 60) -> str:
         return await self._run(
-            "testssl.sh", "-S", "--jsonfile", "-", "--overwrite", target, timeout=timeout,
+            "testssl.sh",
+            "-S",
+            "--jsonfile",
+            "-",
+            "--overwrite",
+            target,
+            timeout=timeout,
         )

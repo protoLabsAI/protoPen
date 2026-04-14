@@ -5,6 +5,7 @@ Reads package names from a file and checks whether each exists as a public
 package on the given registry. Internal packages (no dots, short names) with
 a public counterpart are flagged as potential dependency confusion targets.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -26,25 +27,70 @@ logger = logging.getLogger(__name__)
 def _looks_internal(name: str) -> bool:
     """Heuristic: package name looks like an internal/private package."""
     # Scoped packages with @company/ prefix are common internal indicators
-    if name.startswith('@') and '/' in name:
-        scope = name.split('/')[0]
+    if name.startswith("@") and "/" in name:
+        scope = name.split("/")[0]
         # Known public scopes are not internal
-        public_scopes = {'@angular', '@babel', '@types', '@vue', '@nuxt', '@nestjs',
-                         '@aws-sdk', '@google-cloud', '@microsoft', '@emotion', '@mui',
-                         '@chakra-ui', '@testing-library', '@storybook', '@jest',
-                         '@rollup', '@eslint', '@prettier', '@jest-community'}
+        public_scopes = {
+            "@angular",
+            "@babel",
+            "@types",
+            "@vue",
+            "@nuxt",
+            "@nestjs",
+            "@aws-sdk",
+            "@google-cloud",
+            "@microsoft",
+            "@emotion",
+            "@mui",
+            "@chakra-ui",
+            "@testing-library",
+            "@storybook",
+            "@jest",
+            "@rollup",
+            "@eslint",
+            "@prettier",
+            "@jest-community",
+        }
         if scope.lower() not in public_scopes:
             return True
 
     # Short names without dots/hyphens, or names matching common internal patterns
-    if re.match(r'^[a-z][a-z0-9]{1,12}$', name) and '.' not in name:
+    if re.match(r"^[a-z][a-z0-9]{1,12}$", name) and "." not in name:
         # Exclude very common public packages
         common_public = {
-            'lodash', 'express', 'react', 'webpack', 'babel', 'axios', 'moment',
-            'jquery', 'chalk', 'debug', 'yargs', 'commander', 'glob', 'async',
-            'jest', 'mocha', 'eslint', 'prettier', 'typescript', 'nodemon',
-            'dotenv', 'cors', 'helmet', 'morgan', 'uuid', 'bcrypt', 'jsonwebtoken',
-            'sequelize', 'mongoose', 'redis', 'mysql', 'postgres', 'pg',
+            "lodash",
+            "express",
+            "react",
+            "webpack",
+            "babel",
+            "axios",
+            "moment",
+            "jquery",
+            "chalk",
+            "debug",
+            "yargs",
+            "commander",
+            "glob",
+            "async",
+            "jest",
+            "mocha",
+            "eslint",
+            "prettier",
+            "typescript",
+            "nodemon",
+            "dotenv",
+            "cors",
+            "helmet",
+            "morgan",
+            "uuid",
+            "bcrypt",
+            "jsonwebtoken",
+            "sequelize",
+            "mongoose",
+            "redis",
+            "mysql",
+            "postgres",
+            "pg",
         }
         if name not in common_public:
             return True
@@ -55,21 +101,21 @@ def _looks_internal(name: str) -> bool:
 def _check_npm_registry(session: requests.Session, registry: str, package_name: str) -> dict[str, Any] | None:
     """Check if package exists on npm registry. Return metadata or None."""
     # Handle scoped packages
-    encoded = package_name.replace('/', '%2F') if package_name.startswith('@') else package_name
-    url = urljoin(registry.rstrip('/') + '/', encoded)
+    encoded = package_name.replace("/", "%2F") if package_name.startswith("@") else package_name
+    url = urljoin(registry.rstrip("/") + "/", encoded)
     try:
         resp = session.get(url, timeout=15)
         if resp.status_code == 200:
             try:
                 data = resp.json()
-                latest = data.get('dist-tags', {}).get('latest', '')
-                versions = list(data.get('versions', {}).keys())
+                latest = data.get("dist-tags", {}).get("latest", "")
+                versions = list(data.get("versions", {}).keys())
                 return {
                     "exists": True,
                     "latest": latest,
                     "versions": versions[-3:] if versions else [],
-                    "description": data.get('description', ''),
-                    "author": str(data.get('author', '')),
+                    "description": data.get("description", ""),
+                    "author": str(data.get("author", "")),
                 }
             except Exception:
                 return {"exists": True, "latest": "unknown", "versions": [], "description": "", "author": ""}
@@ -86,13 +132,13 @@ def _check_pypi(session: requests.Session, package_name: str) -> dict[str, Any] 
         resp = session.get(url, timeout=15)
         if resp.status_code == 200:
             data = resp.json()
-            info = data.get('info', {})
+            info = data.get("info", {})
             return {
                 "exists": True,
-                "latest": info.get('version', 'unknown'),
+                "latest": info.get("version", "unknown"),
                 "versions": [],
-                "description": info.get('summary', ''),
-                "author": info.get('author', ''),
+                "description": info.get("summary", ""),
+                "author": info.get("author", ""),
             }
         return None
     except requests.RequestException:
@@ -101,7 +147,7 @@ def _check_pypi(session: requests.Session, package_name: str) -> dict[str, Any] 
 
 def check_package(session: requests.Session, registry: str, package_name: str) -> dict[str, Any] | None:
     """Check if package exists on public registry."""
-    is_pypi = 'pypi.org' in registry
+    is_pypi = "pypi.org" in registry
     if is_pypi:
         return _check_pypi(session, package_name)
     return _check_npm_registry(session, registry, package_name)
@@ -123,7 +169,7 @@ def main() -> None:
             return
 
         with open(args.packages_file) as fh:
-            packages = [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
+            packages = [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
 
         session = make_session()
 

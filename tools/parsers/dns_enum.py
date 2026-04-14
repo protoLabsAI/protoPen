@@ -1,4 +1,5 @@
 """Parser for DNS enumeration output — dig, zone transfer."""
+
 from __future__ import annotations
 
 import re

@@ -1,4 +1,5 @@
 """Serverless & IaC security testing — Lambda injection, edge function auditing, IaC scanning."""
+
 from __future__ import annotations
 
 import logging
@@ -22,9 +23,13 @@ class ServerlessAuditTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "lambda_inject_test": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.lambda_inject",
-                "--function-url", "{target}",
-                "--event-type", "{event_type}",
+                "python3",
+                "-m",
+                "protopen_scripts.lambda_inject",
+                "--function-url",
+                "{target}",
+                "--event-type",
+                "{event_type}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -32,9 +37,13 @@ class ServerlessAuditTool(BasePentestTool):
         },
         "edge_function_audit": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.edge_audit",
-                "--url", "{target}",
-                "--provider", "{provider}",
+                "python3",
+                "-m",
+                "protopen_scripts.edge_audit",
+                "--url",
+                "{target}",
+                "--provider",
+                "{provider}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -42,9 +51,13 @@ class ServerlessAuditTool(BasePentestTool):
         },
         "event_trigger_abuse": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.event_trigger",
-                "--function-url", "{target}",
-                "--trigger-type", "{trigger_type}",
+                "python3",
+                "-m",
+                "protopen_scripts.event_trigger",
+                "--function-url",
+                "{target}",
+                "--trigger-type",
+                "{trigger_type}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -52,8 +65,11 @@ class ServerlessAuditTool(BasePentestTool):
         },
         "tfstate_scan": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.tfstate_scan",
-                "--path", "{target}",
+                "python3",
+                "-m",
+                "protopen_scripts.tfstate_scan",
+                "--path",
+                "{target}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -66,9 +82,13 @@ class ServerlessAuditTool(BasePentestTool):
         },
         "serverless_misconfig": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.serverless_misconfig",
-                "--profile", "{profile}",
-                "--region", "{region}",
+                "python3",
+                "-m",
+                "protopen_scripts.serverless_misconfig",
+                "--profile",
+                "{profile}",
+                "--region",
+                "{region}",
                 "--output-json",
             ],
             "timeout": 120,
@@ -76,9 +96,13 @@ class ServerlessAuditTool(BasePentestTool):
         },
         "cold_start_race": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.cold_start_race",
-                "--function-url", "{target}",
-                "--concurrency", "{concurrency}",
+                "python3",
+                "-m",
+                "protopen_scripts.cold_start_race",
+                "--function-url",
+                "{target}",
+                "--concurrency",
+                "{concurrency}",
                 "--output-json",
             ],
             "timeout": 120,

@@ -1,4 +1,5 @@
 """Parser for SSL/TLS audit output — testssl.sh JSON."""
+
 from __future__ import annotations
 
 import json
@@ -17,12 +18,14 @@ def parse_testssl(raw: str, store: "TargetStore") -> list[dict]:
         data = json.loads(raw)
         if isinstance(data, list):
             for entry in data:
-                entities.append({
-                    "type": "ssl_finding",
-                    "id": entry.get("id", ""),
-                    "severity": entry.get("severity", ""),
-                    "finding": entry.get("finding", ""),
-                })
+                entities.append(
+                    {
+                        "type": "ssl_finding",
+                        "id": entry.get("id", ""),
+                        "severity": entry.get("severity", ""),
+                        "finding": entry.get("finding", ""),
+                    }
+                )
     except json.JSONDecodeError:
         pass
     return entities

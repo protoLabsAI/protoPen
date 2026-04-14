@@ -4,6 +4,7 @@
 Sends N probe queries to an LLM API and measures response consistency
 and predictability to estimate extraction risk.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -99,8 +100,10 @@ def _analyze_consistency(responses: list[tuple[str, str]]) -> dict[str, Any]:
         "Respond with only the number 42.": "42",
     }
 
-    model_name_pattern = re.compile(r'\b(?:GPT-4|GPT-3\.5|gpt|claude|llama|mistral|palm|gemini|bard|falcon|vicuna)\b', re.IGNORECASE)
-    system_leak_pattern = re.compile(r'(?:system|instruction|guideline|rule|configuration)', re.IGNORECASE)
+    model_name_pattern = re.compile(
+        r"\b(?:GPT-4|GPT-3\.5|gpt|claude|llama|mistral|palm|gemini|bard|falcon|vicuna)\b", re.IGNORECASE
+    )
+    system_leak_pattern = re.compile(r"(?:system|instruction|guideline|rule|configuration)", re.IGNORECASE)
 
     for query, response in responses:
         if response is None:
@@ -147,13 +150,15 @@ def main() -> None:
 
     try:
         session = requests.Session()
-        session.headers.update({
-            "User-Agent": make_headers()["User-Agent"],
-            "Content-Type": "application/json",
-        })
+        session.headers.update(
+            {
+                "User-Agent": make_headers()["User-Agent"],
+                "Content-Type": "application/json",
+            }
+        )
 
         # Select queries up to the requested count
-        probes_to_run = EXTRACTION_PROBES[:min(args.queries, len(EXTRACTION_PROBES))]
+        probes_to_run = EXTRACTION_PROBES[: min(args.queries, len(EXTRACTION_PROBES))]
         probe_responses: list[tuple[str, str]] = []
 
         for query in probes_to_run:
@@ -166,39 +171,45 @@ def main() -> None:
         analysis = _analyze_consistency(probe_responses)
 
         # Build result entries
-        result["probes"].append({
-            "method": "consistency_analysis",
-            "severity": "high" if analysis["extractable"] else "low",
-            "description": (
-                f"Model shows high response consistency across {len(probe_responses)} probes — "
-                "extraction risk elevated"
-                if analysis["extractable"] else
-                f"Model response consistency moderate — extraction risk low based on {len(probe_responses)} probes"
-            ),
-            "similarity_score": analysis["avg_similarity_score"],
-            "queries_used": len(probe_responses),
-            "extractable": analysis["extractable"],
-        })
+        result["probes"].append(
+            {
+                "method": "consistency_analysis",
+                "severity": "high" if analysis["extractable"] else "low",
+                "description": (
+                    f"Model shows high response consistency across {len(probe_responses)} probes — "
+                    "extraction risk elevated"
+                    if analysis["extractable"]
+                    else f"Model response consistency moderate — extraction risk low based on {len(probe_responses)} probes"
+                ),
+                "similarity_score": analysis["avg_similarity_score"],
+                "queries_used": len(probe_responses),
+                "extractable": analysis["extractable"],
+            }
+        )
 
         if analysis["model_revealed"]:
-            result["probes"].append({
-                "method": "model_identification",
-                "severity": "medium",
-                "description": "Model name or type revealed in probe responses — architecture disclosure",
-                "similarity_score": 0,
-                "queries_used": len(probe_responses),
-                "extractable": True,
-            })
+            result["probes"].append(
+                {
+                    "method": "model_identification",
+                    "severity": "medium",
+                    "description": "Model name or type revealed in probe responses — architecture disclosure",
+                    "similarity_score": 0,
+                    "queries_used": len(probe_responses),
+                    "extractable": True,
+                }
+            )
 
         if analysis["system_prompt_leaked"]:
-            result["probes"].append({
-                "method": "system_prompt_inference",
-                "severity": "high",
-                "description": "System prompt or instruction references detected in model responses",
-                "similarity_score": 0,
-                "queries_used": len(probe_responses),
-                "extractable": True,
-            })
+            result["probes"].append(
+                {
+                    "method": "system_prompt_inference",
+                    "severity": "high",
+                    "description": "System prompt or instruction references detected in model responses",
+                    "similarity_score": 0,
+                    "queries_used": len(probe_responses),
+                    "extractable": True,
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)

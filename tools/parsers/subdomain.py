@@ -1,4 +1,5 @@
 """Parser for subdomain discovery output — subfinder and amass."""
+
 from __future__ import annotations
 
 import json

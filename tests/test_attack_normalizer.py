@@ -1,4 +1,5 @@
 """Tests for tools.parsers.attack_normalizer."""
+
 from __future__ import annotations
 
 import json
@@ -127,6 +128,7 @@ class TestProseHeuristic:
 
 # ── normalize_red tests ──────────────────────────────────────────────
 
+
 class TestNormalizeRed:
     def test_nmap_scan_with_results(self):
         results = normalize_red("blackarch", "nmap_scan", NMAP_XML_WITH_PORTS)
@@ -152,14 +154,17 @@ class TestNormalizeRed:
 
 # ── normalize_blue tests ─────────────────────────────────────────────
 
+
 class TestNormalizeBlue:
     def test_ssh_audit_with_issues(self):
-        data = json.dumps({
-            "target": "192.168.4.1",
-            "checks_run": 5,
-            "issues": [{"severity": "high", "check": "PasswordAuthentication"}],
-            "fail_count": 1,
-        })
+        data = json.dumps(
+            {
+                "target": "192.168.4.1",
+                "checks_run": 5,
+                "issues": [{"severity": "high", "check": "PasswordAuthentication"}],
+                "fail_count": 1,
+            }
+        )
         results = normalize_blue("cis_audit", "ssh_audit", data)
         assert len(results) == 2
         assert results[0]["technique_id"] == "T1021"
@@ -168,12 +173,14 @@ class TestNormalizeBlue:
         assert results[1]["detected"] is True
 
     def test_ssh_audit_clean(self):
-        data = json.dumps({
-            "target": "192.168.4.1",
-            "checks_run": 5,
-            "issues": [],
-            "fail_count": 0,
-        })
+        data = json.dumps(
+            {
+                "target": "192.168.4.1",
+                "checks_run": 5,
+                "issues": [],
+                "fail_count": 0,
+            }
+        )
         results = normalize_blue("cis_audit", "ssh_audit", data)
         assert len(results) == 2
         assert results[0]["detected"] is False
@@ -183,11 +190,14 @@ class TestNormalizeBlue:
 
     def test_tls_audit_connection_error(self):
         """TLS audit that returns JSON with 'error' → detected: false."""
-        data = json.dumps({
-            "target": "192.168.4.1", "port": 443,
-            "error": "[Errno 61] Connection refused",
-            "issues": [{"severity": "info", "check": "TLS Connection"}],
-        })
+        data = json.dumps(
+            {
+                "target": "192.168.4.1",
+                "port": 443,
+                "error": "[Errno 61] Connection refused",
+                "issues": [{"severity": "info", "check": "TLS Connection"}],
+            }
+        )
         results = normalize_blue("cis_audit", "tls_audit", data)
         assert len(results) == 1
         assert results[0]["technique_id"] == "T1557"
@@ -195,11 +205,16 @@ class TestNormalizeBlue:
 
     def test_hardening_with_failures_detected(self):
         """Hardening tool that finds misconfigurations → detected: true."""
-        data = json.dumps({
-            "service": "ssh", "target": "x",
-            "total_checks": 8, "passed": 2, "failed": 6,
-            "checks": [{"check": "PermitRootLogin", "passed": False}],
-        })
+        data = json.dumps(
+            {
+                "service": "ssh",
+                "target": "x",
+                "total_checks": 8,
+                "passed": 2,
+                "failed": 6,
+                "checks": [{"check": "PermitRootLogin", "passed": False}],
+            }
+        )
         results = normalize_blue("hardening_check", "ssh_harden", data)
         assert all(r["detected"] is True for r in results)
 
@@ -211,11 +226,13 @@ class TestNormalizeBlue:
 
 # ── normalize_red error handling ─────────────────────────────────────
 
+
 class TestNormalizeRedErrors:
     def test_dig_not_found(self):
         """dns_enum when dig is missing → success: false."""
         results = normalize_red(
-            "dns_enum", "dig_query",
+            "dns_enum",
+            "dig_query",
             "dns_enum error (dig_query): [Errno 2] No such file or directory: 'dig'",
         )
         assert len(results) == 1
@@ -230,7 +247,8 @@ class TestNormalizeRedErrors:
 
     def test_nikto_not_installed(self):
         results = normalize_red(
-            "vuln_scan", "nikto_scan",
+            "vuln_scan",
+            "nikto_scan",
             "[stderr] bash: nikto: command not found",
         )
         assert len(results) == 1
@@ -239,7 +257,8 @@ class TestNormalizeRedErrors:
     def test_base_tool_not_found_json(self):
         """BasePentestTool returns JSON error when binary missing."""
         results = normalize_red(
-            "vuln_scan", "nikto_scan",
+            "vuln_scan",
+            "nikto_scan",
             json.dumps({"error": "nikto not found", "tool": "vuln_scan", "action": "nikto_scan"}),
         )
         assert len(results) == 1
@@ -247,6 +266,7 @@ class TestNormalizeRedErrors:
 
 
 # ── normalize_step dispatch ──────────────────────────────────────────
+
 
 class TestNormalizeStep:
     def test_red_dispatch(self):

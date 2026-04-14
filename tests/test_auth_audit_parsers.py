@@ -1,4 +1,5 @@
 """Tests for auth_audit parsers."""
+
 from __future__ import annotations
 
 import json
@@ -27,9 +28,17 @@ def store():
 
 class TestParseOAuthRedirect:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"severity": "high", "vulnerability_type": "open_redirect", "message": "Redirect accepted to attacker domain"},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "severity": "high",
+                        "vulnerability_type": "open_redirect",
+                        "message": "Redirect accepted to attacker domain",
+                    },
+                ]
+            }
+        )
         entities = parse_oauth_redirect(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "auth_finding"
@@ -54,12 +63,14 @@ class TestParseOAuthDeviceCode:
 
 class TestParseOIDCDiscovery:
     def test_oidc_config(self, store):
-        raw = json.dumps({
-            "issuer": "https://auth.example.com",
-            "authorization_endpoint": "https://auth.example.com/authorize",
-            "token_endpoint": "https://auth.example.com/token",
-            "grant_types_supported": ["authorization_code", "refresh_token"],
-        })
+        raw = json.dumps(
+            {
+                "issuer": "https://auth.example.com",
+                "authorization_endpoint": "https://auth.example.com/authorize",
+                "token_endpoint": "https://auth.example.com/token",
+                "grant_types_supported": ["authorization_code", "refresh_token"],
+            }
+        )
         entities = parse_oidc_discovery(raw, store)
         assert len(entities) == 1
         assert "auth.example.com" in entities[0]["details"]
@@ -75,7 +86,9 @@ class TestParseOIDCDiscovery:
 
 class TestParseOIDCToken:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [{"severity": "critical", "message": "Token accepted without audience validation"}]})
+        raw = json.dumps(
+            {"findings": [{"severity": "critical", "message": "Token accepted without audience validation"}]}
+        )
         entities = parse_oidc_token(raw, store)
         assert len(entities) == 1
         assert entities[0]["severity"] == "critical"
@@ -102,9 +115,17 @@ class TestParseSAML:
 
 class TestParseJWT:
     def test_scan_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"severity": "critical", "vulnerability_type": "alg_confusion", "message": "RS256 to HS256 downgrade"},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "severity": "critical",
+                        "vulnerability_type": "alg_confusion",
+                        "message": "RS256 to HS256 downgrade",
+                    },
+                ]
+            }
+        )
         entities = parse_jwt(raw, store)
         assert len(entities) == 1
         assert entities[0]["vulnerability_type"] == "alg_confusion"
@@ -130,9 +151,17 @@ class TestParseWebAuthn:
 
 class TestParseSessionFixation:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"severity": "high", "vulnerability_type": "session_fixation", "message": "Session ID not rotated after login"},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "severity": "high",
+                        "vulnerability_type": "session_fixation",
+                        "message": "Session ID not rotated after login",
+                    },
+                ]
+            }
+        )
         entities = parse_session_fixation(raw, store)
         assert len(entities) == 1
         assert entities[0]["vulnerability_type"] == "session_fixation"

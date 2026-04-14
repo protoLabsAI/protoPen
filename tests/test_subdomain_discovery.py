@@ -1,4 +1,5 @@
 """Tests for subdomain discovery tool — mocked subprocess."""
+
 import pytest
 from unittest.mock import patch, AsyncMock
 
@@ -16,7 +17,8 @@ class TestSubfinder:
     async def test_subfinder(self, mock_proc, tool):
         proc = AsyncMock()
         proc.communicate.return_value = (
-            b'{"host":"sub.example.com","ip":"1.2.3.4"}', b"",
+            b'{"host":"sub.example.com","ip":"1.2.3.4"}',
+            b"",
         )
         mock_proc.return_value = proc
         result = await tool.subfinder("example.com")

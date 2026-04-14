@@ -3,6 +3,7 @@
 In-memory only — resets on process restart (by design: rate limits are
 per-engagement, not persistent). For persistent audit, use EngagementStore.
 """
+
 from __future__ import annotations
 
 import time
@@ -43,10 +44,7 @@ class RateLimiter:
         self._windows[action] = [t for t in timestamps if t > cutoff]
 
         if len(self._windows[action]) >= max_calls:
-            return False, (
-                f"Rate limit exceeded for '{action}': "
-                f"{max_calls} calls per {window_secs}s window"
-            )
+            return False, (f"Rate limit exceeded for '{action}': {max_calls} calls per {window_secs}s window")
 
         self._windows[action].append(now)
         return True, None

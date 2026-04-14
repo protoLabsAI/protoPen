@@ -1,4 +1,5 @@
 """Subdomain enumeration via subfinder and amass passive mode."""
+
 from __future__ import annotations
 
 import asyncio
@@ -48,10 +49,12 @@ class SubdomainDiscoveryTool(Tool):
         action = kwargs.get("action", "")
         dispatch = {
             "subfinder": lambda: self.subfinder(
-                kwargs.get("target", ""), kwargs.get("timeout", 120),
+                kwargs.get("target", ""),
+                kwargs.get("timeout", 120),
             ),
             "amass_passive": lambda: self.amass_passive(
-                kwargs.get("target", ""), kwargs.get("timeout", 300),
+                kwargs.get("target", ""),
+                kwargs.get("timeout", 300),
             ),
         }
         fn = dispatch.get(action)
@@ -67,7 +70,9 @@ class SubdomainDiscoveryTool(Tool):
     async def _run(self, *args: str, timeout: int = 120) -> str:
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)

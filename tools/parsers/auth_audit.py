@@ -1,4 +1,5 @@
 """Parser for modern auth audit output — OAuth, OIDC, SAML, JWT, WebAuthn."""
+
 from __future__ import annotations
 
 import json
@@ -19,13 +20,15 @@ def _parse_auth_json(raw: str, store: "TargetStore", check: str) -> list[dict]:
         return entities
     results = data if isinstance(data, list) else data.get("findings", data.get("results", [data]))
     for r in results:
-        entities.append({
-            "type": "auth_finding",
-            "check": check,
-            "severity": r.get("severity", "medium"),
-            "vulnerability_type": r.get("vulnerability_type", r.get("type", check)),
-            "details": r.get("message", r.get("description", str(r)[:200])),
-        })
+        entities.append(
+            {
+                "type": "auth_finding",
+                "check": check,
+                "severity": r.get("severity", "medium"),
+                "vulnerability_type": r.get("vulnerability_type", r.get("type", check)),
+                "details": r.get("message", r.get("description", str(r)[:200])),
+            }
+        )
     return entities
 
 
@@ -46,16 +49,18 @@ def parse_oidc_discovery(raw: str, store: "TargetStore") -> list[dict]:
         return entities
     # If it's a direct OIDC config (has issuer), summarize it
     if "issuer" in data:
-        entities.append({
-            "type": "auth_finding",
-            "check": "oidc_discovery",
-            "severity": "info",
-            "vulnerability_type": "oidc_config",
-            "details": f"Issuer: {data.get('issuer', '')}, "
-                       f"auth: {data.get('authorization_endpoint', 'N/A')}, "
-                       f"token: {data.get('token_endpoint', 'N/A')}, "
-                       f"grants: {data.get('grant_types_supported', [])}",
-        })
+        entities.append(
+            {
+                "type": "auth_finding",
+                "check": "oidc_discovery",
+                "severity": "info",
+                "vulnerability_type": "oidc_config",
+                "details": f"Issuer: {data.get('issuer', '')}, "
+                f"auth: {data.get('authorization_endpoint', 'N/A')}, "
+                f"token: {data.get('token_endpoint', 'N/A')}, "
+                f"grants: {data.get('grant_types_supported', [])}",
+            }
+        )
     else:
         return _parse_auth_json(raw, store, "oidc_discovery")
     return entities

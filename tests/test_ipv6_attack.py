@@ -1,4 +1,5 @@
 """Tests for ipv6_attack — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,19 +17,28 @@ def tool():
 
 # ── Instantiation ────────────────────────────────────────────────────────────
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "ipv6_attack"
 
     def test_actions_defined(self, tool):
         expected = {
-            "alive6", "detect_sniffer6", "dos_new_ip6", "fake_router6",
-            "flood_router6", "parasite6", "redir6", "nmap_ipv6", "thcping6",
+            "alive6",
+            "detect_sniffer6",
+            "dos_new_ip6",
+            "fake_router6",
+            "flood_router6",
+            "parasite6",
+            "redir6",
+            "nmap_ipv6",
+            "thcping6",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -38,6 +48,7 @@ class TestDispatch:
 
 
 # ── alive6 ───────────────────────────────────────────────────────────────────
+
 
 class TestAlive6:
     @pytest.mark.asyncio
@@ -55,6 +66,7 @@ class TestAlive6:
 
 # ── detect-sniffer6 ──────────────────────────────────────────────────────────
 
+
 class TestDetectSniffer6:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -69,6 +81,7 @@ class TestDetectSniffer6:
 
 
 # ── fake_router6 ─────────────────────────────────────────────────────────────
+
 
 class TestFakeRouter6:
     @pytest.mark.asyncio
@@ -86,6 +99,7 @@ class TestFakeRouter6:
 
 # ── redir6 ───────────────────────────────────────────────────────────────────
 
+
 class TestRedir6:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -95,8 +109,11 @@ class TestRedir6:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "redir6", interface="eth0", target="fe80::1",
-            router="fe80::ff", new_router="fe80::evil",
+            "redir6",
+            interface="eth0",
+            target="fe80::1",
+            router="fe80::ff",
+            new_router="fe80::evil",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "redir6"
@@ -105,6 +122,7 @@ class TestRedir6:
 
 
 # ── nmap_ipv6 ────────────────────────────────────────────────────────────────
+
 
 class TestNmapIPv6:
     @pytest.mark.asyncio
@@ -124,6 +142,7 @@ class TestNmapIPv6:
 
 # ── thcping6 ─────────────────────────────────────────────────────────────────
 
+
 class TestThcping6:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -139,6 +158,7 @@ class TestThcping6:
 
 
 # ── Binary not found ─────────────────────────────────────────────────────────
+
 
 class TestBinaryNotFound:
     @pytest.mark.asyncio

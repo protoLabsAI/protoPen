@@ -20,9 +20,11 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("discord_bot")
 log.setLevel(logging.INFO)
 
+
 def _log(msg):
     """Print + log for visibility in Docker logs."""
     print(f"[discord-bot] {msg}", flush=True)
+
 
 TRIGGER_EMOJI = "🔒"
 _CHAT_URL = "http://127.0.0.1:7870/api/chat"
@@ -44,6 +46,7 @@ def _display_name() -> str:
 # We only need: reaction_add, message_create events
 # Using raw WebSocket instead of discord.py to avoid heavy dependency
 # ---------------------------------------------------------------------------
+
 
 async def _api_request(method: str, path: str, json: dict | None = None) -> dict | None:
     """Make an authenticated Discord API request."""
@@ -68,10 +71,14 @@ async def _react(channel_id: str, message_id: str, emoji: str):
 
 async def _create_thread(channel_id: str, message_id: str, name: str) -> dict | None:
     """Create a thread from a message."""
-    return await _api_request("POST", f"/channels/{channel_id}/messages/{message_id}/threads", json={
-        "name": name[:100],
-        "auto_archive_duration": 1440,  # 24 hours
-    })
+    return await _api_request(
+        "POST",
+        f"/channels/{channel_id}/messages/{message_id}/threads",
+        json={
+            "name": name[:100],
+            "auto_archive_duration": 1440,  # 24 hours
+        },
+    )
 
 
 async def _send_to_thread(thread_id: str, content: str):
@@ -190,6 +197,7 @@ async def _send_typing(channel_id: str):
 # Security analysis handler
 # ---------------------------------------------------------------------------
 
+
 async def _do_analysis(channel_id: str, message_id: str, content: str, context: str = ""):
     """React with 👀, do security analysis via /api/chat, create thread with synthesis."""
 
@@ -227,9 +235,11 @@ async def _do_analysis(channel_id: str, message_id: str, content: str, context: 
             result = resp.json().get("response", "")
 
         if not result:
-            await _reply(channel_id, message_id,
-                         "🔒 Couldn't produce a useful analysis. "
-                         "Try @mentioning me with a specific question.")
+            await _reply(
+                channel_id,
+                message_id,
+                "🔒 Couldn't produce a useful analysis. Try @mentioning me with a specific question.",
+            )
             return
 
         # Step 2: React with 🔒 to confirm analysis is done
@@ -268,6 +278,7 @@ async def _keep_typing(channel_id: str):
 # ---------------------------------------------------------------------------
 # Gateway WebSocket connection
 # ---------------------------------------------------------------------------
+
 
 async def _run_gateway():
     """Connect to Discord Gateway and listen for events."""
@@ -316,19 +327,23 @@ async def _run_gateway():
                     if op == 10:
                         heartbeat_interval = d["heartbeat_interval"] / 1000
                         # Identify
-                        await ws.send(json_mod.dumps({
-                            "op": 2,
-                            "d": {
-                                "token": _BOT_TOKEN,
-                                "intents": (1 << 0) | (1 << 9) | (1 << 10) | (1 << 15),
-                                # GUILDS | GUILD_MESSAGES | GUILD_MESSAGE_REACTIONS | MESSAGE_CONTENT
-                                "properties": {
-                                    "os": "linux",
-                                    "browser": _display_name(),
-                                    "device": _display_name(),
-                                },
-                            },
-                        }))
+                        await ws.send(
+                            json_mod.dumps(
+                                {
+                                    "op": 2,
+                                    "d": {
+                                        "token": _BOT_TOKEN,
+                                        "intents": (1 << 0) | (1 << 9) | (1 << 10) | (1 << 15),
+                                        # GUILDS | GUILD_MESSAGES | GUILD_MESSAGE_REACTIONS | MESSAGE_CONTENT
+                                        "properties": {
+                                            "os": "linux",
+                                            "browser": _display_name(),
+                                            "device": _display_name(),
+                                        },
+                                    },
+                                }
+                            )
+                        )
                         # Start heartbeat loop
                         asyncio.create_task(_heartbeat_loop(ws, heartbeat_interval, lambda: sequence))
 
@@ -366,6 +381,7 @@ async def _run_gateway():
 async def _heartbeat_loop(ws, interval: float, get_sequence):
     """Send heartbeats at the required interval."""
     import json as json_mod
+
     try:
         while True:
             await asyncio.sleep(interval)
@@ -408,7 +424,11 @@ async def _handle_reaction(data: dict, bot_id: str):
             content += f"\n{embed['description'][:500]}"
 
     if not content.strip():
-        await _reply(channel_id, message_id, "🔒 This message doesn't have content I can analyze. Try @mentioning me with a question instead.")
+        await _reply(
+            channel_id,
+            message_id,
+            "🔒 This message doesn't have content I can analyze. Try @mentioning me with a question instead.",
+        )
         return
 
     # Queue analysis in background
@@ -434,7 +454,7 @@ async def _handle_message(data: dict, bot_id: str):
         return
 
     # Strip the @mention from the content
-    clean_content = re.sub(r'<@!?' + bot_id + r'>', '', content).strip()
+    clean_content = re.sub(r"<@!?" + bot_id + r">", "", content).strip()
 
     _log(f"🔒 Mention trigger: channel={channel_id} from={author.get('username')}")
 
@@ -477,12 +497,15 @@ async def _handle_message(data: dict, bot_id: str):
     context_content = "\n\n".join(context_parts)
 
     if not clean_content and not context_content:
-        await _reply(channel_id, message_id,
-                     "🔒 What would you like me to analyze? "
-                     "You can:\n"
-                     "- React with 🔒 to any message with links\n"
-                     "- @mention me with a question\n"
-                     "- Reply to a message and @mention me for context")
+        await _reply(
+            channel_id,
+            message_id,
+            "🔒 What would you like me to analyze? "
+            "You can:\n"
+            "- React with 🔒 to any message with links\n"
+            "- @mention me with a question\n"
+            "- Reply to a message and @mention me for context",
+        )
         return
 
     # Build the analysis input with all available context
@@ -499,6 +522,7 @@ async def _handle_message(data: dict, bot_id: str):
 # ---------------------------------------------------------------------------
 # Public API — called from server.py
 # ---------------------------------------------------------------------------
+
 
 def start_bot():
     """Start the Discord bot in a background thread."""

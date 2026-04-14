@@ -4,6 +4,7 @@
 Generates common typosquat variants of a package name and checks
 each against the given registry, returning matches that exist.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,60 +29,81 @@ def _generate_typosquats(name: str) -> set[str]:
     # Handle scoped packages
     scope = ""
     base_name = name
-    if name.startswith('@') and '/' in name:
-        scope, base_name = name.split('/', 1)
+    if name.startswith("@") and "/" in name:
+        scope, base_name = name.split("/", 1)
 
     # 1. Character transpositions
     for i in range(len(base_name) - 1):
         swapped = list(base_name)
         swapped[i], swapped[i + 1] = swapped[i + 1], swapped[i]
-        candidates.add(''.join(swapped))
+        candidates.add("".join(swapped))
 
     # 2. Character substitutions (common keyboard neighbors)
     neighbors = {
-        'a': 'sq', 'b': 'vn', 'c': 'xv', 'd': 'sf', 'e': 'wr', 'f': 'dg',
-        'g': 'fh', 'h': 'gj', 'i': 'uo', 'j': 'hk', 'k': 'jl', 'l': 'k',
-        'm': 'n', 'n': 'mb', 'o': 'ip', 'p': 'o', 'q': 'w', 'r': 'et',
-        's': 'ad', 't': 'ry', 'u': 'yi', 'v': 'bc', 'w': 'qe', 'x': 'zc',
-        'y': 'tu', 'z': 'x',
+        "a": "sq",
+        "b": "vn",
+        "c": "xv",
+        "d": "sf",
+        "e": "wr",
+        "f": "dg",
+        "g": "fh",
+        "h": "gj",
+        "i": "uo",
+        "j": "hk",
+        "k": "jl",
+        "l": "k",
+        "m": "n",
+        "n": "mb",
+        "o": "ip",
+        "p": "o",
+        "q": "w",
+        "r": "et",
+        "s": "ad",
+        "t": "ry",
+        "u": "yi",
+        "v": "bc",
+        "w": "qe",
+        "x": "zc",
+        "y": "tu",
+        "z": "x",
     }
     for i, ch in enumerate(base_name):
         if ch in neighbors:
             for sub in neighbors[ch]:
-                variant = base_name[:i] + sub + base_name[i + 1:]
+                variant = base_name[:i] + sub + base_name[i + 1 :]
                 candidates.add(variant)
 
     # 3. Character omissions
     for i in range(len(base_name)):
-        candidates.add(base_name[:i] + base_name[i + 1:])
+        candidates.add(base_name[:i] + base_name[i + 1 :])
 
     # 4. Character duplications
     for i, ch in enumerate(base_name):
         candidates.add(base_name[:i] + ch + base_name[i:])
 
     # 5. Hyphen/underscore substitution
-    if '-' in base_name:
-        candidates.add(base_name.replace('-', '_'))
-        candidates.add(base_name.replace('-', ''))
-    if '_' in base_name:
-        candidates.add(base_name.replace('_', '-'))
-        candidates.add(base_name.replace('_', ''))
+    if "-" in base_name:
+        candidates.add(base_name.replace("-", "_"))
+        candidates.add(base_name.replace("-", ""))
+    if "_" in base_name:
+        candidates.add(base_name.replace("_", "-"))
+        candidates.add(base_name.replace("_", ""))
 
     # 6. Common prefix/suffix additions
-    for affix in ('js', 'ts', 'node', 'npm', 'pkg', '-js', '-ts', '-node', '-lib', 'lib'):
+    for affix in ("js", "ts", "node", "npm", "pkg", "-js", "-ts", "-node", "-lib", "lib"):
         if not base_name.endswith(affix):
-            candidates.add(base_name + '-' + affix)
+            candidates.add(base_name + "-" + affix)
         if not base_name.startswith(affix):
-            candidates.add(affix + '-' + base_name)
+            candidates.add(affix + "-" + base_name)
 
     # 7. Common misspellings of 'lib', 'util', 'helper'
-    for orig, repl in [('lib', 'libs'), ('util', 'utils'), ('helper', 'helpers'), ('react', 'reakt')]:
+    for orig, repl in [("lib", "libs"), ("util", "utils"), ("helper", "helpers"), ("react", "reakt")]:
         if orig in base_name:
             candidates.add(base_name.replace(orig, repl))
 
     # Remove the original name and empty strings
     candidates.discard(base_name)
-    candidates.discard('')
+    candidates.discard("")
     candidates.discard(name)
 
     # Re-apply scope if present
@@ -105,16 +127,16 @@ def _similarity(a: str, b: str) -> float:
 
 def _check_npm_package(session: requests.Session, registry: str, package_name: str) -> dict[str, Any] | None:
     """Check if package exists on npm registry."""
-    encoded = package_name.replace('/', '%2F') if package_name.startswith('@') else package_name
-    url = urljoin(registry.rstrip('/') + '/', encoded)
+    encoded = package_name.replace("/", "%2F") if package_name.startswith("@") else package_name
+    url = urljoin(registry.rstrip("/") + "/", encoded)
     try:
         resp = session.get(url, timeout=12)
         if resp.status_code == 200:
             try:
                 data = resp.json()
-                latest = data.get('dist-tags', {}).get('latest', 'unknown')
-                dl_data = data.get('downloads', {})
-                downloads = dl_data.get('monthly', 0) if isinstance(dl_data, dict) else 0
+                latest = data.get("dist-tags", {}).get("latest", "unknown")
+                dl_data = data.get("downloads", {})
+                downloads = dl_data.get("monthly", 0) if isinstance(dl_data, dict) else 0
                 return {"exists": True, "latest": latest, "downloads": downloads}
             except Exception:
                 return {"exists": True, "latest": "unknown", "downloads": 0}

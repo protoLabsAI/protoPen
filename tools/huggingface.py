@@ -188,9 +188,7 @@ class HuggingFaceTool(Tool):
             return "Error: 'model_id' is required."
 
         try:
-            resp = await self._api_get(
-                f"https://huggingface.co/{model_id}/raw/main/README.md"
-            )
+            resp = await self._api_get(f"https://huggingface.co/{model_id}/raw/main/README.md")
             content = resp.text
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -229,9 +227,6 @@ class HuggingFaceTool(Tool):
             paper_id = p.get("id", "?")
             upvotes = p.get("upvotes", 0)
             published = p.get("publishedAt", "")[:10]
-            lines.append(
-                f"{i}. **{title}**\n"
-                f"   ID: {paper_id} | Upvotes: {upvotes} | Published: {published}"
-            )
+            lines.append(f"{i}. **{title}**\n   ID: {paper_id} | Upvotes: {upvotes} | Published: {published}")
 
         return "\n\n".join(lines)

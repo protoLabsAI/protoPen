@@ -1,4 +1,5 @@
 """Parser for IPv6 attack output — THC-IPv6 tools, nmap IPv6."""
+
 from __future__ import annotations
 
 import re
@@ -21,13 +22,15 @@ def parse_alive6(raw: str, store: "TargetStore") -> list[dict]:
         # Lines containing IPv6 addresses (with colons)
         match = re.search(r"([0-9a-fA-F:]{3,})", line)
         if match:
-            entities.append({
-                "type": "ipv6_finding",
-                "target": match.group(1),
-                "check": "alive6",
-                "severity": "info",
-                "value": f"Alive IPv6 host: {match.group(1)}",
-            })
+            entities.append(
+                {
+                    "type": "ipv6_finding",
+                    "target": match.group(1),
+                    "check": "alive6",
+                    "severity": "info",
+                    "value": f"Alive IPv6 host: {match.group(1)}",
+                }
+            )
     return entities
 
 
@@ -39,13 +42,15 @@ def parse_detect_sniffer6(raw: str, store: "TargetStore") -> list[dict]:
         if not line:
             continue
         if "found" in line.lower() or "sniffer" in line.lower() or "detected" in line.lower():
-            entities.append({
-                "type": "ipv6_finding",
-                "target": "",
-                "check": "detect_sniffer6",
-                "severity": "high",
-                "value": line,
-            })
+            entities.append(
+                {
+                    "type": "ipv6_finding",
+                    "target": "",
+                    "check": "detect_sniffer6",
+                    "severity": "high",
+                    "value": line,
+                }
+            )
     return entities
 
 
@@ -56,13 +61,15 @@ def parse_thc_text(raw: str, store: "TargetStore") -> list[dict]:
         line = line.strip()
         if not line:
             continue
-        entities.append({
-            "type": "ipv6_finding",
-            "target": "",
-            "check": "thc_ipv6",
-            "severity": "info",
-            "value": line,
-        })
+        entities.append(
+            {
+                "type": "ipv6_finding",
+                "target": "",
+                "check": "thc_ipv6",
+                "severity": "info",
+                "value": line,
+            }
+        )
     return entities
 
 
@@ -89,17 +96,19 @@ def parse_nmap_ipv6(raw: str, store: "TargetStore") -> list[dict]:
             service = service_el.get("name", "") if service_el is not None else ""
             version = service_el.get("version", "") if service_el is not None else ""
 
-            entities.append({
-                "type": "ipv6_finding",
-                "target": addr,
-                "check": "nmap_ipv6",
-                "severity": "info",
-                "value": f"{port_id}/{protocol} {state} {service} {version}".strip(),
-                "port": port_id,
-                "protocol": protocol,
-                "state": state,
-                "service": service,
-            })
+            entities.append(
+                {
+                    "type": "ipv6_finding",
+                    "target": addr,
+                    "check": "nmap_ipv6",
+                    "severity": "info",
+                    "value": f"{port_id}/{protocol} {state} {service} {version}".strip(),
+                    "port": port_id,
+                    "protocol": protocol,
+                    "state": state,
+                    "service": service,
+                }
+            )
     return entities
 
 

@@ -1,4 +1,5 @@
 """Parser for service enumeration output — enum4linux, rpc."""
+
 from __future__ import annotations
 
 import re

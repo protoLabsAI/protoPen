@@ -1,4 +1,5 @@
 """Authentication & authorization testing — BOLA/IDOR, privilege escalation, session management."""
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,8 @@ class AuthTestTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "idor_check": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "results=[]; ids={test_ids}; "
                 "[results.append({{'id':i,'status':r.status_code,'length':len(r.text),'accessible':r.status_code==200}}) "
@@ -35,7 +37,8 @@ class AuthTestTool(BasePentestTool):
         },
         "privesc_horizontal": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "r1=requests.get('{url}',headers={user_a_headers},timeout=5); "
                 "r2=requests.get('{url}',headers={user_b_headers},timeout=5); "
@@ -50,7 +53,8 @@ class AuthTestTool(BasePentestTool):
         },
         "privesc_vertical": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "r=requests.get('{admin_url}',headers={low_priv_headers},timeout=5); "
                 "print(json.dumps({{'admin_url':'{admin_url}',"
@@ -63,7 +67,8 @@ class AuthTestTool(BasePentestTool):
         },
         "session_fixation": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "s=requests.Session(); "
                 "r1=s.get('{url}',timeout=5); "
@@ -79,7 +84,8 @@ class AuthTestTool(BasePentestTool):
         },
         "token_replay": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json,time; "
                 "r1=requests.get('{url}',headers={headers},timeout=5); "
                 "time.sleep({delay}); "
@@ -115,10 +121,16 @@ class AuthTestTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                url=url, admin_url=admin_url, login_url=login_url,
-                headers=headers, user_a_headers=user_a_headers,
-                user_b_headers=user_b_headers, low_priv_headers=low_priv_headers,
-                login_data=login_data, test_ids=test_ids, id_param=id_param,
+                url=url,
+                admin_url=admin_url,
+                login_url=login_url,
+                headers=headers,
+                user_a_headers=user_a_headers,
+                user_b_headers=user_b_headers,
+                low_priv_headers=low_priv_headers,
+                login_data=login_data,
+                test_ids=test_ids,
+                id_param=id_param,
                 delay=delay,
             )
             for c in spec["cmd"]

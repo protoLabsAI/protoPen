@@ -112,9 +112,7 @@ class BrowserTool(Tool):
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
             )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=self._TIMEOUT
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._TIMEOUT)
         except asyncio.TimeoutError:
             proc.kill()
             return f"Error: browser action '{action}' timed out after {self._TIMEOUT}s."

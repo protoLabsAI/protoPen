@@ -1,4 +1,5 @@
 """Parser for CVE matching output — searchsploit, nuclei CVE, nmap vulners."""
+
 from __future__ import annotations
 
 import json
@@ -16,13 +17,15 @@ def parse_searchsploit(raw: str, store: "TargetStore") -> list[dict]:
     try:
         data = json.loads(raw)
         for exploit in data.get("RESULTS_EXPLOIT", []):
-            entities.append({
-                "type": "exploit",
-                "title": exploit.get("Title", ""),
-                "edb_id": exploit.get("EDB-ID", ""),
-                "platform": exploit.get("Platform", ""),
-                "path": exploit.get("Path", ""),
-            })
+            entities.append(
+                {
+                    "type": "exploit",
+                    "title": exploit.get("Title", ""),
+                    "edb_id": exploit.get("EDB-ID", ""),
+                    "platform": exploit.get("Platform", ""),
+                    "path": exploit.get("Path", ""),
+                }
+            )
     except json.JSONDecodeError:
         pass
     return entities
@@ -38,14 +41,16 @@ def parse_cve_nuclei(raw: str, store: "TargetStore") -> list[dict]:
         try:
             entry = json.loads(line)
             info = entry.get("info", {})
-            entities.append({
-                "type": "cve",
-                "template_id": entry.get("template-id", ""),
-                "name": info.get("name", ""),
-                "severity": info.get("severity", ""),
-                "cve_id": info.get("classification", {}).get("cve-id", []),
-                "matched_at": entry.get("matched-at", ""),
-            })
+            entities.append(
+                {
+                    "type": "cve",
+                    "template_id": entry.get("template-id", ""),
+                    "name": info.get("name", ""),
+                    "severity": info.get("severity", ""),
+                    "cve_id": info.get("classification", {}).get("cve-id", []),
+                    "matched_at": entry.get("matched-at", ""),
+                }
+            )
         except json.JSONDecodeError:
             continue
     return entities

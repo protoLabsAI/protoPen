@@ -1,4 +1,5 @@
 """Playbook runner — execute playbook steps sequentially via tool dispatch."""
+
 from __future__ import annotations
 
 import json
@@ -45,7 +46,10 @@ async def run_playbook(
 
         step.status = StepStatus.RUNNING
         logger.info(
-            "Running step '%s' — %s.%s", step.name, step.tool, step.action,
+            "Running step '%s' — %s.%s",
+            step.name,
+            step.tool,
+            step.action,
         )
 
         try:
@@ -66,7 +70,7 @@ async def run_playbook(
             elif step.on_fail == "skip_remaining":
                 if on_step_complete:
                     on_step_complete(step)
-                for remaining in playbook.steps[playbook.steps.index(step) + 1:]:
+                for remaining in playbook.steps[playbook.steps.index(step) + 1 :]:
                     remaining.status = StepStatus.SKIPPED
                 break
 
@@ -80,7 +84,8 @@ _STEP_REF_RE = re.compile(r"\$\{steps\.([a-zA-Z0-9_]+)\.output\}")
 
 
 def _resolve_step_refs(
-    params: dict[str, Any], playbook: Playbook,
+    params: dict[str, Any],
+    playbook: Playbook,
 ) -> dict[str, Any]:
     """Resolve ${steps.<name>.output} references in step params.
 
@@ -109,18 +114,20 @@ def _resolve_step_refs(
         # Multi-ref merge: if there are 2+ refs and ALL resolve to
         # phase-tagged steps, merge their normalized arrays.
         if len(ref_names) >= 2:
-            all_phased = all(
-                ref in step_map and step_map[ref].phase
-                for ref in ref_names
-            )
+            all_phased = all(ref in step_map and step_map[ref].phase for ref in ref_names)
             if all_phased:
                 merged: list[dict] = []
                 for ref in ref_names:
                     step = step_map[ref]
                     if step.output:
-                        merged.extend(normalize_step(
-                            step.tool, step.action, step.output, step.phase,
-                        ))
+                        merged.extend(
+                            normalize_step(
+                                step.tool,
+                                step.action,
+                                step.output,
+                                step.phase,
+                            )
+                        )
                 resolved[key] = json.dumps(merged)
                 continue
 
@@ -131,9 +138,14 @@ def _resolve_step_refs(
             if step is None:
                 return match.group(0)  # leave unresolved
             if step.phase and step.output:
-                return json.dumps(normalize_step(
-                    step.tool, step.action, step.output, step.phase,
-                ))
+                return json.dumps(
+                    normalize_step(
+                        step.tool,
+                        step.action,
+                        step.output,
+                        step.phase,
+                    )
+                )
             return step.output  # "" if failed/not run
 
         resolved[key] = _STEP_REF_RE.sub(_replace, value)
@@ -206,26 +218,33 @@ def _evaluate_findings_condition(condition: str, engagement_mgr) -> bool:
 
     # Normalize: findings.high includes critical
     counts = {
-        "any":      len(findings),
+        "any": len(findings),
         "critical": sev_counts.get("critical", 0),
-        "high":     sev_counts.get("critical", 0) + sev_counts.get("high", 0),
-        "medium":   sev_counts.get("critical", 0) + sev_counts.get("high", 0) + sev_counts.get("medium", 0),
-        "low":      len(findings),
+        "high": sev_counts.get("critical", 0) + sev_counts.get("high", 0),
+        "medium": sev_counts.get("critical", 0) + sev_counts.get("high", 0) + sev_counts.get("medium", 0),
+        "low": len(findings),
     }
 
     # findings.critical.count > N
     import re as _re
+
     m = _re.match(r"findings\.(\w+)\.count\s*([><=!]+)\s*(\d+)", condition)
     if m:
         sev, op, threshold_str = m.group(1), m.group(2), m.group(3)
         threshold = int(threshold_str)
         count = counts.get(sev, 0)
-        if op == ">":  return count > threshold
-        if op == ">=": return count >= threshold
-        if op == "<":  return count < threshold
-        if op == "<=": return count <= threshold
-        if op in ("==", "="): return count == threshold
-        if op in ("!=", "<>"): return count != threshold
+        if op == ">":
+            return count > threshold
+        if op == ">=":
+            return count >= threshold
+        if op == "<":
+            return count < threshold
+        if op == "<=":
+            return count <= threshold
+        if op in ("==", "="):
+            return count == threshold
+        if op in ("!=", "<>"):
+            return count != threshold
         return True
 
     # findings.critical / findings.high / findings.any

@@ -1,4 +1,5 @@
 """Tests for cicd_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,20 +17,27 @@ def tool():
 
 # ── Instantiation ────────────────────────────────────────────────────────────
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "cicd_audit"
 
     def test_actions_defined(self, tool):
         expected = {
-            "trufflehog_scan", "trufflehog_filesystem", "gitleaks_detect",
-            "gitleaks_protect", "github_actions_audit", "dependency_check",
-            "semgrep_ci", "checkov_iac",
+            "trufflehog_scan",
+            "trufflehog_filesystem",
+            "gitleaks_detect",
+            "gitleaks_protect",
+            "github_actions_audit",
+            "dependency_check",
+            "semgrep_ci",
+            "checkov_iac",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -39,6 +47,7 @@ class TestDispatch:
 
 
 # ── truffleHog ───────────────────────────────────────────────────────────────
+
 
 class TestTrufflehog:
     @pytest.mark.asyncio
@@ -71,6 +80,7 @@ class TestTrufflehog:
 
 # ── gitleaks ─────────────────────────────────────────────────────────────────
 
+
 class TestGitleaks:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -101,6 +111,7 @@ class TestGitleaks:
 
 # ── actionlint ───────────────────────────────────────────────────────────────
 
+
 class TestActionlint:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -116,6 +127,7 @@ class TestActionlint:
 
 
 # ── dependency-check ─────────────────────────────────────────────────────────
+
 
 class TestDependencyCheck:
     @pytest.mark.asyncio
@@ -134,6 +146,7 @@ class TestDependencyCheck:
 
 # ── semgrep ──────────────────────────────────────────────────────────────────
 
+
 class TestSemgrep:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -151,6 +164,7 @@ class TestSemgrep:
 
 # ── checkov ──────────────────────────────────────────────────────────────────
 
+
 class TestCheckov:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -167,6 +181,7 @@ class TestCheckov:
 
 
 # ── Binary not found ─────────────────────────────────────────────────────────
+
 
 class TestBinaryNotFound:
     @pytest.mark.asyncio

@@ -18,6 +18,7 @@ Supported operations
   POST /tasks/{id}/pushNotificationConfigs   Register webhook after task creation
   GET  /.well-known/agent.json         Agent card
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,14 +38,15 @@ logger = logging.getLogger(__name__)
 # ── Task state constants ──────────────────────────────────────────────────────
 
 SUBMITTED = "submitted"
-WORKING   = "working"
+WORKING = "working"
 COMPLETED = "completed"
-FAILED    = "failed"
-CANCELED  = "canceled"
+FAILED = "failed"
+CANCELED = "canceled"
 
 _TERMINAL = {COMPLETED, FAILED, CANCELED}
 
 # ── Data types ────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class PushNotificationConfig:
@@ -60,6 +62,7 @@ class TaskRecord:
     The asyncio primitives (_cancel_event, _update_event, _bg_task) are never
     serialised — _task_to_response() reads only primitive fields.
     """
+
     id: str
     context_id: str
     state: str
@@ -76,6 +79,7 @@ class TaskRecord:
 
 
 # ── Task store ────────────────────────────────────────────────────────────────
+
 
 class A2ATaskStore:
     """Asyncio-safe in-memory task store.
@@ -137,6 +141,7 @@ _store = A2ATaskStore()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -192,8 +197,7 @@ def _extract_text_and_context(message: dict, context_id: str = "") -> tuple[str,
 
 
 def _parse_push_config(configuration: dict) -> PushNotificationConfig | None:
-    cfg = (configuration or {}).get("pushNotificationConfig") or \
-          (configuration or {}).get("taskPushNotificationConfig")
+    cfg = (configuration or {}).get("pushNotificationConfig") or (configuration or {}).get("taskPushNotificationConfig")
     if not cfg or not cfg.get("url"):
         return None
     auth = cfg.get("authentication") or {}
@@ -205,6 +209,7 @@ def _parse_push_config(configuration: dict) -> PushNotificationConfig | None:
 
 
 # ── Webhook delivery ──────────────────────────────────────────────────────────
+
 
 async def _deliver_webhook(record: TaskRecord, push_config: PushNotificationConfig) -> None:
     """POST a TaskStatusUpdateEvent to the configured webhook URL.
@@ -245,10 +250,12 @@ def _make_push_fn(push_config: PushNotificationConfig | None):
     async def _push(record: TaskRecord) -> None:
         if push_config and record.state in _TERMINAL | {WORKING}:
             asyncio.create_task(_deliver_webhook(record, push_config))
+
     return _push
 
 
 # ── Background task runner ────────────────────────────────────────────────────
+
 
 async def _run_task_background(
     task_id: str,
@@ -281,7 +288,8 @@ async def _run_task_background(
 
             elif event_type == "done":
                 record = await _store.update_state(
-                    task_id, COMPLETED,
+                    task_id,
+                    COMPLETED,
                     accumulated_text=payload or accumulated,
                 )
                 await push_fn(record)
@@ -316,6 +324,7 @@ def _sse_rpc(rpc_id: Any, result: dict) -> str:
 
 # ── Auth helper ───────────────────────────────────────────────────────────────
 
+
 def _check_auth(request: Request, api_key: str) -> None:
     if api_key and request.headers.get("x-api-key") != api_key:
         raise HTTPException(status_code=401, detail="Unauthorized")
@@ -323,10 +332,11 @@ def _check_auth(request: Request, api_key: str) -> None:
 
 # ── Route factory ─────────────────────────────────────────────────────────────
 
+
 def register_a2a_routes(
     app: FastAPI,
     chat_stream_fn_factory: Callable[[str, str], AsyncGenerator],
-    chat_fn: Callable,          # kept for potential future use / testing
+    chat_fn: Callable,  # kept for potential future use / testing
     api_key: str,
     agent_card: dict,
 ) -> None:
@@ -399,10 +409,14 @@ def register_a2a_routes(
         await _store.create(record)
 
         # Frame 0: submitted — client gets task_id before LangGraph starts
-        yield _sse_rpc(rpc_id, {
-            "id": task_id, "contextId": context_id,
-            "status": {"state": SUBMITTED, "timestamp": now},
-        })
+        yield _sse_rpc(
+            rpc_id,
+            {
+                "id": task_id,
+                "contextId": context_id,
+                "status": {"state": SUBMITTED, "timestamp": now},
+            },
+        )
 
         push_fn = _make_push_fn(push_config)
         accumulated = ""
@@ -412,19 +426,27 @@ def register_a2a_routes(
             await _store.update_state(task_id, WORKING)
             await push_fn(await _store.get(task_id))
 
-            yield _sse_rpc(rpc_id, {
-                "id": task_id, "contextId": context_id,
-                "status": {"state": WORKING, "timestamp": _now_iso()},
-            })
+            yield _sse_rpc(
+                rpc_id,
+                {
+                    "id": task_id,
+                    "contextId": context_id,
+                    "status": {"state": WORKING, "timestamp": _now_iso()},
+                },
+            )
 
             async for event_type, payload in chat_stream_fn_factory(text, context_id):
                 r = await _store.get(task_id)
                 if r and r._cancel_event.is_set():
                     await _store.update_state(task_id, CANCELED)
-                    yield _sse_rpc(rpc_id, {
-                        "id": task_id, "contextId": context_id,
-                        "status": {"state": CANCELED, "timestamp": _now_iso()},
-                    })
+                    yield _sse_rpc(
+                        rpc_id,
+                        {
+                            "id": task_id,
+                            "contextId": context_id,
+                            "status": {"state": CANCELED, "timestamp": _now_iso()},
+                        },
+                    )
                     return
 
                 if event_type == "text":
@@ -433,56 +455,83 @@ def register_a2a_routes(
                     # Only emit artifact frame when text actually grew
                     if len(accumulated) > last_emitted_len:
                         last_emitted_len = len(accumulated)
-                        yield _sse_rpc(rpc_id, {
-                            "id": task_id, "contextId": context_id,
-                            "status": {"state": WORKING},
-                            "artifacts": [{"parts": [{"kind": "text", "text": payload}], "append": True, "last_chunk": False}],
-                        })
+                        yield _sse_rpc(
+                            rpc_id,
+                            {
+                                "id": task_id,
+                                "contextId": context_id,
+                                "status": {"state": WORKING},
+                                "artifacts": [
+                                    {"parts": [{"kind": "text", "text": payload}], "append": True, "last_chunk": False}
+                                ],
+                            },
+                        )
 
                 elif event_type in ("tool_start", "tool_end"):
                     await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
-                    yield _sse_rpc(rpc_id, {
-                        "id": task_id, "contextId": context_id,
-                        "status": {
-                            "state": WORKING,
-                            "timestamp": _now_iso(),
-                            "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
+                    yield _sse_rpc(
+                        rpc_id,
+                        {
+                            "id": task_id,
+                            "contextId": context_id,
+                            "status": {
+                                "state": WORKING,
+                                "timestamp": _now_iso(),
+                                "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
+                            },
                         },
-                    })
+                    )
 
                 elif event_type == "done":
                     final_text = payload or accumulated
                     r = await _store.update_state(task_id, COMPLETED, accumulated_text=final_text)
                     await push_fn(r)
-                    yield _sse_rpc(rpc_id, {
-                        "id": task_id, "contextId": context_id,
-                        "status": {"state": COMPLETED, "timestamp": _now_iso()},
-                        "artifacts": [{"parts": [{"kind": "text", "text": final_text}], "append": False, "last_chunk": True}],
-                    })
+                    yield _sse_rpc(
+                        rpc_id,
+                        {
+                            "id": task_id,
+                            "contextId": context_id,
+                            "status": {"state": COMPLETED, "timestamp": _now_iso()},
+                            "artifacts": [
+                                {"parts": [{"kind": "text", "text": final_text}], "append": False, "last_chunk": True}
+                            ],
+                        },
+                    )
                     return
 
                 elif event_type == "error":
                     r = await _store.update_state(task_id, FAILED, error=payload)
                     await push_fn(r)
-                    yield _sse_rpc(rpc_id, {
-                        "id": task_id, "contextId": context_id,
-                        "status": {
-                            "state": FAILED,
-                            "timestamp": _now_iso(),
-                            "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
+                    yield _sse_rpc(
+                        rpc_id,
+                        {
+                            "id": task_id,
+                            "contextId": context_id,
+                            "status": {
+                                "state": FAILED,
+                                "timestamp": _now_iso(),
+                                "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
+                            },
                         },
-                    })
+                    )
                     return
 
         except Exception as exc:
             logger.exception("[a2a] stream task %s crashed", task_id)
             r = await _store.update_state(task_id, FAILED, error=str(exc))
             await push_fn(r)
-            yield _sse_rpc(rpc_id, {
-                "id": task_id, "contextId": context_id,
-                "status": {"state": FAILED, "timestamp": _now_iso(),
-                           "message": {"role": "agent", "parts": [{"kind": "text", "text": str(exc)}]}},
-            })
+            yield _sse_rpc(
+                rpc_id,
+                {
+                    "id": task_id,
+                    "contextId": context_id,
+                    "status": {
+                        "state": FAILED,
+                        "timestamp": _now_iso(),
+                        "message": {"role": "agent", "parts": [{"kind": "text", "text": str(exc)}]},
+                    },
+                },
+            )
 
     # ── POST /a2a  (JSON-RPC 2.0 — legacy, backwards-compat) ─────────────────
 
@@ -505,8 +554,7 @@ def register_a2a_routes(
             text = next((p.get("text", "") for p in parts), "")
 
         if not text:
-            return {"jsonrpc": "2.0", "id": rpc_id,
-                    "error": {"code": -32600, "message": "No text content in message"}}
+            return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32600, "message": "No text content in message"}}
 
         context_id = context_id or f"a2a-{uuid4()}"
         push_config = _parse_push_config(configuration)
@@ -533,7 +581,8 @@ def register_a2a_routes(
             }
 
         return {
-            "jsonrpc": "2.0", "id": rpc_id,
+            "jsonrpc": "2.0",
+            "id": rpc_id,
             "error": {"code": -32601, "message": f"Method not found: {method}"},
         }
 

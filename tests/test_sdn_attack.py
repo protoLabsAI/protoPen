@@ -1,4 +1,5 @@
 """Tests for sdn_attack — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,12 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "sdn_controller_enum", "netconf_exploit", "network_policy_audit",
-            "yang_model_enum", "restconf_test", "openflow_audit",
+            "sdn_controller_enum",
+            "netconf_exploit",
+            "network_policy_audit",
+            "yang_model_enum",
+            "restconf_test",
+            "openflow_audit",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -68,8 +73,11 @@ class TestNETCONFExploit:
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute(
-            "netconf_exploit", target="10.0.0.2", netconf_port=830,
-            username="admin", password="secret",
+            "netconf_exploit",
+            target="10.0.0.2",
+            netconf_port=830,
+            username="admin",
+            password="secret",
         )
         cmd = mock_exec.call_args[0]
         assert "protopen_scripts.netconf_audit" in cmd
@@ -122,8 +130,10 @@ class TestRESTCONFTest:
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute(
-            "restconf_test", target="https://10.0.0.4:8181",
-            username="admin", password="pass123",
+            "restconf_test",
+            target="https://10.0.0.4:8181",
+            username="admin",
+            password="pass123",
         )
         cmd = mock_exec.call_args[0]
         assert "protopen_scripts.restconf_audit" in cmd
@@ -173,6 +183,7 @@ class TestTimeout:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_timeout_returns_message(self, mock_exec, tool):
         import asyncio
+
         proc = AsyncMock()
         proc.communicate.side_effect = asyncio.TimeoutError
         proc.kill = AsyncMock()

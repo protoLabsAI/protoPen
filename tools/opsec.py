@@ -4,6 +4,7 @@ Handles pre/post engagement interface preparation to reduce blue team detectabil
 during authorized penetration tests. Also provides nmap flag profiles for each
 engagement mode (passive/active/redteam).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -44,8 +45,14 @@ class OpsecTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["mac_randomize", "mac_restore", "mac_status",
-                             "pre_scan_setup", "post_scan_cleanup", "nmap_flags"],
+                    "enum": [
+                        "mac_randomize",
+                        "mac_restore",
+                        "mac_status",
+                        "pre_scan_setup",
+                        "post_scan_cleanup",
+                        "nmap_flags",
+                    ],
                     "description": "Opsec action to perform.",
                 },
                 "interface": {
@@ -145,6 +152,7 @@ class OpsecTool(Tool):
 
         # Fallback: generate a random MAC manually (locally administered, unicast)
         import random
+
         octets = [random.randint(0, 255) for _ in range(6)]
         octets[0] = (octets[0] & 0xFE) | 0x02  # unicast, locally administered
         new_mac = ":".join(f"{b:02x}" for b in octets)
@@ -201,8 +209,7 @@ class OpsecTool(Tool):
         if not interfaces:
             return (
                 "No interfaces specified. Pass the list of interfaces you want randomized "
-                "(e.g. ['wlan0', 'eth0']). Skipping MAC randomization.\n\n"
-                + self._nmap_flags("active")
+                "(e.g. ['wlan0', 'eth0']). Skipping MAC randomization.\n\n" + self._nmap_flags("active")
             )
         lines = ["## Pre-scan Opsec Setup\n"]
         for iface in interfaces:
@@ -237,10 +244,7 @@ class OpsecTool(Tool):
 
     def _nmap_flags(self, mode: str) -> str:
         """Return opsec-hardened nmap flags for each engagement mode."""
-        base = (
-            "## Nmap Opsec Flags\n\n"
-            "Add these to every nmap invocation to reduce your scan's detectability:\n\n"
-        )
+        base = "## Nmap Opsec Flags\n\nAdd these to every nmap invocation to reduce your scan's detectability:\n\n"
         if mode == "passive":
             flags = [
                 "--spoof-mac 0          # random MAC in packet headers",

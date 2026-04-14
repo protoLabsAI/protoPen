@@ -1,4 +1,5 @@
 """Tests for nmap XML output parser."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.nmap_xml import parse

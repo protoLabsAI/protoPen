@@ -4,6 +4,7 @@
 Checks for algorithm confusion vectors using OIDC discovery.
 If a token is provided, decodes it without verification and inspects claims.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,16 +29,16 @@ ALG_CONFUSION_RISK = {"RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS2
 
 def _b64_decode_padding(s: str) -> bytes:
     """Base64 URL decode with padding correction."""
-    s = s.replace('-', '+').replace('_', '/')
+    s = s.replace("-", "+").replace("_", "/")
     padding = 4 - len(s) % 4
     if padding != 4:
-        s += '=' * padding
+        s += "=" * padding
     return base64.b64decode(s)
 
 
 def decode_jwt_unsafe(token: str) -> tuple[dict, dict, str] | None:
     """Decode JWT without verification. Returns (header, payload, signature_b64)."""
-    parts = token.strip().split('.')
+    parts = token.strip().split(".")
     if len(parts) != 3:
         return None
     try:
@@ -55,11 +56,13 @@ def analyze_token(token: str) -> list[dict[str, Any]]:
 
     decoded = decode_jwt_unsafe(token)
     if decoded is None:
-        findings.append({
-            "severity": "info",
-            "vulnerability_type": "token_parse_error",
-            "message": "Could not decode provided token — may not be a valid JWT",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "vulnerability_type": "token_parse_error",
+                "message": "Could not decode provided token — may not be a valid JWT",
+            }
+        )
         return findings
 
     header, payload, sig = decoded
@@ -67,92 +70,115 @@ def analyze_token(token: str) -> list[dict[str, Any]]:
     # Check algorithm
     alg = header.get("alg", "").upper()
     if alg == "NONE" or alg == "":
-        findings.append({
-            "severity": "critical",
-            "vulnerability_type": "alg_none",
-            "message": "Token uses 'alg: none' — signature verification bypassed",
-        })
+        findings.append(
+            {
+                "severity": "critical",
+                "vulnerability_type": "alg_none",
+                "message": "Token uses 'alg: none' — signature verification bypassed",
+            }
+        )
     elif alg in ("HS256", "HS384", "HS512"):
-        findings.append({
-            "severity": "medium",
-            "vulnerability_type": "hmac_algorithm",
-            "message": f"Token uses HMAC algorithm {alg} — if server is RS256, algorithm confusion attack may be possible",
-        })
+        findings.append(
+            {
+                "severity": "medium",
+                "vulnerability_type": "hmac_algorithm",
+                "message": f"Token uses HMAC algorithm {alg} — if server is RS256, algorithm confusion attack may be possible",
+            }
+        )
     elif alg in ALG_CONFUSION_RISK:
-        findings.append({
-            "severity": "info",
-            "vulnerability_type": "asymmetric_algorithm",
-            "message": f"Token uses {alg} — check if server also accepts HS256 (algorithm confusion vector)",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "vulnerability_type": "asymmetric_algorithm",
+                "message": f"Token uses {alg} — check if server also accepts HS256 (algorithm confusion vector)",
+            }
+        )
 
     # Check key ID (kid) for injection
     kid = header.get("kid", "")
     if kid:
-        if re.search(r'[/\\]', kid) or '..' in kid:
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": "kid_path_traversal",
-                "message": f"Token 'kid' header contains path traversal characters: {kid!r}",
-            })
+        if re.search(r"[/\\]", kid) or ".." in kid:
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": "kid_path_traversal",
+                    "message": f"Token 'kid' header contains path traversal characters: {kid!r}",
+                }
+            )
         if re.search(r"['\";]|--|\bOR\b|\bAND\b|\bSELECT\b", kid, re.IGNORECASE):
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": "kid_injection",
-                "message": f"Token 'kid' header may contain injection payload: {kid!r}",
-            })
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": "kid_injection",
+                    "message": f"Token 'kid' header may contain injection payload: {kid!r}",
+                }
+            )
 
     # Check 'jku' or 'x5u' for SSRF/hijack
     for claim in ("jku", "x5u", "jwks_uri"):
         val = header.get(claim)
         if val:
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": f"{claim}_injection_vector",
-                "message": f"Token header contains '{claim}': {val!r} — attacker-controlled key URL possible if server follows it",
-            })
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": f"{claim}_injection_vector",
+                    "message": f"Token header contains '{claim}': {val!r} — attacker-controlled key URL possible if server follows it",
+                }
+            )
 
     # Check expiry
     import time
+
     exp = payload.get("exp")
     if exp is not None:
         if exp < time.time():
-            findings.append({
-                "severity": "info",
-                "vulnerability_type": "token_expired",
-                "message": f"Token is expired (exp={exp})",
-            })
+            findings.append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "token_expired",
+                    "message": f"Token is expired (exp={exp})",
+                }
+            )
         elif exp - time.time() > 86400 * 7:
-            findings.append({
-                "severity": "low",
-                "vulnerability_type": "long_lived_token",
-                "message": "Token expires far in the future — long-lived tokens increase blast radius on compromise",
-            })
+            findings.append(
+                {
+                    "severity": "low",
+                    "vulnerability_type": "long_lived_token",
+                    "message": "Token expires far in the future — long-lived tokens increase blast radius on compromise",
+                }
+            )
 
     # Check for sensitive claims
     sensitive_keys = {"password", "secret", "api_key", "apikey", "private_key"}
     for key in payload:
         if key.lower() in sensitive_keys:
-            findings.append({
-                "severity": "high",
-                "vulnerability_type": "sensitive_claim_in_token",
-                "message": f"Sensitive claim '{key}' found in token payload",
-            })
+            findings.append(
+                {
+                    "severity": "high",
+                    "vulnerability_type": "sensitive_claim_in_token",
+                    "message": f"Sensitive claim '{key}' found in token payload",
+                }
+            )
 
     # Audience check
     aud = payload.get("aud")
     if not aud:
-        findings.append({
-            "severity": "medium",
-            "vulnerability_type": "missing_audience",
-            "message": "Token has no 'aud' (audience) claim — may be accepted by unintended services",
-        })
+        findings.append(
+            {
+                "severity": "medium",
+                "vulnerability_type": "missing_audience",
+                "message": "Token has no 'aud' (audience) claim — may be accepted by unintended services",
+            }
+        )
 
     if not findings:
-        findings.append({
-            "severity": "info",
-            "vulnerability_type": "token_ok",
-            "message": f"Token decoded successfully. alg={alg}, sub={payload.get('sub', 'N/A')}, aud={payload.get('aud', 'N/A')}",
-        })
+        findings.append(
+            {
+                "severity": "info",
+                "vulnerability_type": "token_ok",
+                "message": f"Token decoded successfully. alg={alg}, sub={payload.get('sub', 'N/A')}, aud={payload.get('aud', 'N/A')}",
+            }
+        )
 
     return findings
 
@@ -171,20 +197,24 @@ def check_server_algorithm_support(session: requests.Session, base_url: str) -> 
             # Check if server advertises 'none' algorithm support
             id_token_algs = config.get("id_token_signing_alg_values_supported", [])
             if "none" in id_token_algs:
-                findings.append({
-                    "severity": "critical",
-                    "vulnerability_type": "server_supports_alg_none",
-                    "message": "OIDC server advertises 'none' as a supported signing algorithm",
-                })
+                findings.append(
+                    {
+                        "severity": "critical",
+                        "vulnerability_type": "server_supports_alg_none",
+                        "message": "OIDC server advertises 'none' as a supported signing algorithm",
+                    }
+                )
             # Check for both HS and RS support (confusion vector)
             has_hs = any(a.startswith("HS") for a in id_token_algs)
             has_rs = any(a.startswith("RS") or a.startswith("ES") for a in id_token_algs)
             if has_hs and has_rs:
-                findings.append({
-                    "severity": "medium",
-                    "vulnerability_type": "mixed_algorithm_support",
-                    "message": f"Server supports both HMAC and asymmetric algorithms: {id_token_algs} — algorithm confusion possible",
-                })
+                findings.append(
+                    {
+                        "severity": "medium",
+                        "vulnerability_type": "mixed_algorithm_support",
+                        "message": f"Server supports both HMAC and asymmetric algorithms: {id_token_algs} — algorithm confusion possible",
+                    }
+                )
     except Exception as exc:
         logger.debug("Algorithm check failed: %s", exc)
 
@@ -212,19 +242,23 @@ def main() -> None:
             token_findings = analyze_token(args.token)
             result["findings"].extend(token_findings)
         else:
-            result["findings"].append({
-                "severity": "info",
-                "vulnerability_type": "no_token_provided",
-                "message": "No token provided — only server-side algorithm discovery performed",
-            })
+            result["findings"].append(
+                {
+                    "severity": "info",
+                    "vulnerability_type": "no_token_provided",
+                    "message": "No token provided — only server-side algorithm discovery performed",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)
-        result["findings"].append({
-            "severity": "error",
-            "vulnerability_type": "scan_error",
-            "message": f"Scan failed: {exc}",
-        })
+        result["findings"].append(
+            {
+                "severity": "error",
+                "vulnerability_type": "scan_error",
+                "message": f"Scan failed: {exc}",
+            }
+        )
         logger.error("oidc_token error: %s", exc)
 
     print(json.dumps(result))

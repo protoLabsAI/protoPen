@@ -3,6 +3,7 @@
 Tracks hosts, WiFi networks/stations, RF signals, BLE devices, RFID/NFC tags,
 open ports, and credentials across all sensor platforms.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,7 +31,7 @@ def _normalize_mac(mac: str) -> str:
     # Handle Cisco-style aabb.ccdd.eeff
     if len(clean) == 14 and ":" not in mac and "." in mac:
         h = clean.replace(":", "")
-        clean = ":".join(h[i:i+2] for i in range(0, 12, 2))
+        clean = ":".join(h[i : i + 2] for i in range(0, 12, 2))
     return clean
 
 
@@ -56,12 +57,15 @@ class TargetStore:
     # ── Scan Sessions ──────────────────────────────────────────────
 
     def create_scan_session(
-        self, tool: str, action: str, engagement: str = "", notes: str = "",
+        self,
+        tool: str,
+        action: str,
+        engagement: str = "",
+        notes: str = "",
     ) -> int:
         db = self._get_db()
         cur = db.execute(
-            "INSERT INTO scan_sessions (engagement, tool, action, started_at, notes) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO scan_sessions (engagement, tool, action, started_at, notes) VALUES (?, ?, ?, ?, ?)",
             (engagement, tool, action, _now(), notes),
         )
         db.commit()
@@ -102,15 +106,18 @@ class TargetStore:
         existing = None
         if ip and mac:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE ip = ? AND mac = ?", (ip, mac),
+                "SELECT id FROM hosts WHERE ip = ? AND mac = ?",
+                (ip, mac),
             ).fetchone()
         elif ip:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE ip = ? AND (mac = '' OR mac IS NULL)", (ip,),
+                "SELECT id FROM hosts WHERE ip = ? AND (mac = '' OR mac IS NULL)",
+                (ip,),
             ).fetchone()
         elif mac:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE mac = ? AND (ip = '' OR ip IS NULL)", (mac,),
+                "SELECT id FROM hosts WHERE mac = ? AND (ip = '' OR ip IS NULL)",
+                (mac,),
             ).fetchone()
 
         if existing:
@@ -155,9 +162,19 @@ class TargetStore:
             "device_type = CASE WHEN excluded.device_type != 'unknown' "
             "  THEN excluded.device_type ELSE hosts.device_type END, "
             "scan_session_id = COALESCE(excluded.scan_session_id, hosts.scan_session_id)",
-            (ip, mac, hostname, os, vendor, device_type,
-             json.dumps(tags or []), now, now,
-             scan_session_id or None, notes),
+            (
+                ip,
+                mac,
+                hostname,
+                os,
+                vendor,
+                device_type,
+                json.dumps(tags or []),
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -231,8 +248,7 @@ class TargetStore:
         cur = db.execute(
             "INSERT INTO ports (host_id, port, protocol, state, service, banner, "
             "first_seen, last_seen, scan_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (host_id, port, protocol, state, service, banner, now, now,
-             scan_session_id or None),
+            (host_id, port, protocol, state, service, banner, now, now, scan_session_id or None),
         )
         db.commit()
         return cur.lastrowid
@@ -240,7 +256,8 @@ class TargetStore:
     def get_ports(self, host_id: int) -> list[dict]:
         db = self._get_db()
         rows = db.execute(
-            "SELECT * FROM ports WHERE host_id = ? ORDER BY port", (host_id,),
+            "SELECT * FROM ports WHERE host_id = ? ORDER BY port",
+            (host_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -262,7 +279,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM wifi_networks WHERE bssid = ?", (bssid,),
+            "SELECT id FROM wifi_networks WHERE bssid = ?",
+            (bssid,),
         ).fetchone()
         if existing:
             nid = existing["id"]
@@ -291,8 +309,19 @@ class TargetStore:
             "INSERT INTO wifi_networks (bssid, ssid, channel, rssi, encryption, wps, "
             "host_id, first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (bssid, ssid, channel, rssi, encryption, int(wps),
-             host_id or None, now, now, scan_session_id or None, notes),
+            (
+                bssid,
+                ssid,
+                channel,
+                rssi,
+                encryption,
+                int(wps),
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -312,7 +341,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM wifi_stations WHERE mac = ?", (mac,),
+            "SELECT id FROM wifi_stations WHERE mac = ?",
+            (mac,),
         ).fetchone()
         if existing:
             sid = existing["id"]
@@ -337,8 +367,16 @@ class TargetStore:
         cur = db.execute(
             "INSERT INTO wifi_stations (mac, network_id, rssi, probed_ssids, host_id, "
             "first_seen, last_seen, scan_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (mac, network_id or None, rssi, json.dumps(probed_ssids or []),
-             host_id or None, now, now, scan_session_id or None),
+            (
+                mac,
+                network_id or None,
+                rssi,
+                json.dumps(probed_ssids or []),
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -365,9 +403,20 @@ class TargetStore:
             "signal_strength, source_device, capture_file, decoded_text, "
             "first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (frequency_hz, modulation, protocol, data_hex, signal_strength,
-             source_device, capture_file, decoded_text, now, now,
-             scan_session_id or None, notes),
+            (
+                frequency_hz,
+                modulation,
+                protocol,
+                data_hex,
+                signal_strength,
+                source_device,
+                capture_file,
+                decoded_text,
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -389,7 +438,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM ble_devices WHERE mac = ?", (mac,),
+            "SELECT id FROM ble_devices WHERE mac = ?",
+            (mac,),
         ).fetchone()
         if existing:
             bid = existing["id"]
@@ -415,8 +465,18 @@ class TargetStore:
             "INSERT INTO ble_devices (mac, name, address_type, rssi, services, "
             "manufacturer_data, host_id, first_seen, last_seen, scan_session_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (mac, name, address_type, rssi, json.dumps(services or []),
-             manufacturer_data, host_id or None, now, now, scan_session_id or None),
+            (
+                mac,
+                name,
+                address_type,
+                rssi,
+                json.dumps(services or []),
+                manufacturer_data,
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -465,8 +525,7 @@ class TargetStore:
             "INSERT INTO rfid_nfc_tags (tag_type, uid, protocol, atqa, sak, data_hex, "
             "label, first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (tag_type, uid, protocol, atqa, sak, data_hex, label,
-             now, now, scan_session_id or None, notes),
+            (tag_type, uid, protocol, atqa, sak, data_hex, label, now, now, scan_session_id or None, notes),
         )
         db.commit()
         return cur.lastrowid
@@ -491,9 +550,18 @@ class TargetStore:
             "INSERT INTO credentials (username, password, hash_type, cracked, source, "
             "host_id, wifi_network_id, first_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (username, password, hash_type, int(cracked), source,
-             host_id or None, wifi_network_id or None, now,
-             scan_session_id or None, notes),
+            (
+                username,
+                password,
+                hash_type,
+                int(cracked),
+                source,
+                host_id or None,
+                wifi_network_id or None,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -503,8 +571,15 @@ class TargetStore:
     def get_stats(self) -> dict:
         db = self._get_db()
         tables = [
-            "hosts", "ports", "wifi_networks", "wifi_stations",
-            "rf_signals", "ble_devices", "rfid_nfc_tags", "credentials", "scan_sessions",
+            "hosts",
+            "ports",
+            "wifi_networks",
+            "wifi_stations",
+            "rf_signals",
+            "ble_devices",
+            "rfid_nfc_tags",
+            "credentials",
+            "scan_sessions",
         ]
         stats = {}
         for table in tables:
@@ -517,13 +592,18 @@ class TargetStore:
         db = self._get_db()
         diff = {}
         for table, col in [
-            ("hosts", "first_seen"), ("ports", "first_seen"),
-            ("wifi_networks", "first_seen"), ("wifi_stations", "first_seen"),
-            ("rf_signals", "first_seen"), ("ble_devices", "first_seen"),
-            ("rfid_nfc_tags", "first_seen"), ("credentials", "first_seen"),
+            ("hosts", "first_seen"),
+            ("ports", "first_seen"),
+            ("wifi_networks", "first_seen"),
+            ("wifi_stations", "first_seen"),
+            ("rf_signals", "first_seen"),
+            ("ble_devices", "first_seen"),
+            ("rfid_nfc_tags", "first_seen"),
+            ("credentials", "first_seen"),
         ]:
             row = db.execute(
-                f"SELECT COUNT(*) as cnt FROM {table} WHERE {col} >= ?", (since,),
+                f"SELECT COUNT(*) as cnt FROM {table} WHERE {col} >= ?",
+                (since,),
             ).fetchone()
             diff[f"new_{table}"] = row["cnt"]
         return diff

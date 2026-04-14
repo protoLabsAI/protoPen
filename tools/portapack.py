@@ -7,6 +7,7 @@ and transmission.
 Protocol: text commands over USB CDC virtual serial port.
 Prompt: 'ch>'
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,11 +57,19 @@ class PortaPackTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "list_apps", "start_app", "set_frequency",
-                        "radio_info", "read_screen", "screenshot",
-                        "tap", "press_button", "system_info",
-                        "send_pocsag", "send_command",
-                        "file_list", "reboot",
+                        "list_apps",
+                        "start_app",
+                        "set_frequency",
+                        "radio_info",
+                        "read_screen",
+                        "screenshot",
+                        "tap",
+                        "press_button",
+                        "system_info",
+                        "send_pocsag",
+                        "send_command",
+                        "file_list",
+                        "reboot",
                     ],
                 },
                 "app_name": {"type": "string", "description": "App short name (from list_apps)"},
@@ -91,9 +100,7 @@ class PortaPackTool(Tool):
             "tap": lambda: self.tap(kwargs.get("x", 0), kwargs.get("y", 0)),
             "press_button": lambda: self.press_button(kwargs.get("button", BTN_SELECT)),
             "system_info": lambda: self.system_info(),
-            "send_pocsag": lambda: self.send_pocsag(
-                kwargs.get("address", 0), kwargs.get("message", "")
-            ),
+            "send_pocsag": lambda: self.send_pocsag(kwargs.get("address", 0), kwargs.get("message", "")),
             "send_command": lambda: self.send_command(kwargs.get("command", "")),
             "file_list": lambda: self.file_list(kwargs.get("path", "/")),
             "reboot": lambda: self.send_command("reboot"),

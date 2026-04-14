@@ -3,6 +3,7 @@
 Provides subprocess execution, timeout handling, and a standard interface
 for action-based tools that delegate to CLI binaries.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,9 +49,13 @@ class BasePentestTool:
         process environment is used as the base when *env* is provided.
         """
         import os
+
         logger.info(
             "[%s] %s → %s (timeout=%ds)",
-            self.name, action, target_hint or "n/a", timeout,
+            self.name,
+            action,
+            target_hint or "n/a",
+            timeout,
         )
         merged_env: dict[str, str] | None = None
         if env is not None:
@@ -69,7 +74,8 @@ class BasePentestTool:
             return json.dumps({"error": f"{binary} not found", "tool": self.name, "action": action})
         try:
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout,
+                proc.communicate(),
+                timeout=timeout,
             )
         except asyncio.TimeoutError:
             proc.kill()

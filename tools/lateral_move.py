@@ -1,4 +1,5 @@
 """Lateral movement tool — psexec, wmi, evil-winrm, ssh pivoting."""
+
 from __future__ import annotations
 
 import logging
@@ -13,10 +14,7 @@ class LateralMoveTool(BasePentestTool):
     """Wrapper for lateral movement tools."""
 
     name = "lateral_move"
-    description = (
-        "Lateral movement — psexec, evil-winrm, SSH pivoting, "
-        "pass-the-hash attacks."
-    )
+    description = "Lateral movement — psexec, evil-winrm, SSH pivoting, pass-the-hash attacks."
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "psexec": {
@@ -38,9 +36,12 @@ class LateralMoveTool(BasePentestTool):
         "evil_winrm": {
             "cmd": [
                 "evil-winrm",
-                "-i", "{target}",
-                "-u", "{username}",
-                "-p", "{password}",
+                "-i",
+                "{target}",
+                "-u",
+                "{username}",
+                "-p",
+                "{password}",
             ],
             "timeout": 60,
             "description": "Evil-WinRM shell",
@@ -48,17 +49,23 @@ class LateralMoveTool(BasePentestTool):
         "pth_winrm": {
             "cmd": [
                 "evil-winrm",
-                "-i", "{target}",
-                "-u", "{username}",
-                "-H", "{hash}",
+                "-i",
+                "{target}",
+                "-u",
+                "{username}",
+                "-H",
+                "{hash}",
             ],
             "timeout": 60,
             "description": "Pass-the-hash via evil-winrm",
         },
         "ssh_pivot": {
             "cmd": [
-                "ssh", "-D", "{socks_port}",
-                "-N", "-f",
+                "ssh",
+                "-D",
+                "{socks_port}",
+                "-N",
+                "-f",
                 "{username}@{target}",
             ],
             "timeout": 30,
@@ -83,8 +90,12 @@ class LateralMoveTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                target=target, username=username, password=password,
-                domain=domain, hash=hash, socks_port=socks_port,
+                target=target,
+                username=username,
+                password=password,
+                domain=domain,
+                hash=hash,
+                socks_port=socks_port,
             )
             for c in spec["cmd"]
         ]

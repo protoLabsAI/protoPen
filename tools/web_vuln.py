@@ -1,4 +1,5 @@
 """Web vulnerability testing tool — XSS, SSRF, open redirect, CORS."""
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,8 @@ class WebVulnTool(BasePentestTool):
         },
         "cors_check": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "r=requests.get('{url}',headers={{'Origin':'https://evil.com'}}); "
                 "print(json.dumps({{'url':'{url}',"
@@ -39,7 +41,8 @@ class WebVulnTool(BasePentestTool):
         },
         "redirect_check": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "r=requests.get('{url}',allow_redirects=False); "
                 "print(json.dumps({{'url':'{url}','status':r.status_code,"

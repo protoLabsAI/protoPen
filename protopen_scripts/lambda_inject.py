@@ -4,6 +4,7 @@
 Tests an accessible Lambda function URL for HTTP parameter injection,
 SSRF via event payload, and oversized payload handling.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,18 +69,25 @@ def test_ssrf(session: requests.Session, url: str, event_type: str) -> list[dict
 
         # Metadata service responses contain known strings
         metadata_indicators = [
-            'ami-id', 'instance-type', 'security-credentials',
-            'computeMetadata', 'project-id', 'accessKeyId',
-            'SecretAccessKey', 'Token',
+            "ami-id",
+            "instance-type",
+            "security-credentials",
+            "computeMetadata",
+            "project-id",
+            "accessKeyId",
+            "SecretAccessKey",
+            "Token",
         ]
         if any(ind in body for ind in metadata_indicators):
-            findings.append({
-                "function_url": url,
-                "severity": "critical",
-                "description": f"SSRF via event payload — cloud metadata service responded: {body[:200]}",
-                "payload": ssrf_url,
-                "vulnerability_type": "ssrf",
-            })
+            findings.append(
+                {
+                    "function_url": url,
+                    "severity": "critical",
+                    "description": f"SSRF via event payload — cloud metadata service responded: {body[:200]}",
+                    "payload": ssrf_url,
+                    "vulnerability_type": "ssrf",
+                }
+            )
 
     return findings
 
@@ -93,21 +101,25 @@ def test_http_injection(session: requests.Session, url: str) -> list[dict[str, A
         status, body, elapsed = _send_payload(session, url, payload)
 
         if "X-Injected" in body or "pwned" in body:
-            findings.append({
-                "function_url": url,
-                "severity": "high",
-                "description": f"HTTP header injection via '{inject['key']}' parameter — injected header reflected in response",
-                "payload": inject["value"],
-                "vulnerability_type": "http_header_injection",
-            })
+            findings.append(
+                {
+                    "function_url": url,
+                    "severity": "high",
+                    "description": f"HTTP header injection via '{inject['key']}' parameter — injected header reflected in response",
+                    "payload": inject["value"],
+                    "vulnerability_type": "http_header_injection",
+                }
+            )
         elif status == 200 and inject["value"] in body:
-            findings.append({
-                "function_url": url,
-                "severity": "medium",
-                "description": f"Injection value reflected in response for parameter '{inject['key']}'",
-                "payload": inject["value"],
-                "vulnerability_type": "reflection",
-            })
+            findings.append(
+                {
+                    "function_url": url,
+                    "severity": "medium",
+                    "description": f"Injection value reflected in response for parameter '{inject['key']}'",
+                    "payload": inject["value"],
+                    "vulnerability_type": "reflection",
+                }
+            )
 
     return findings
 
@@ -122,19 +134,23 @@ def test_oversized_payload(session: requests.Session, url: str) -> list[dict[str
     status, body, elapsed = _send_payload(session, url, large_payload, timeout=30)
 
     if status == 200:
-        findings.append({
-            "function_url": url,
-            "severity": "low",
-            "description": "Lambda accepted 1MB payload without rejection — verify resource limits are appropriate",
-            "vulnerability_type": "oversized_payload_accepted",
-        })
+        findings.append(
+            {
+                "function_url": url,
+                "severity": "low",
+                "description": "Lambda accepted 1MB payload without rejection — verify resource limits are appropriate",
+                "vulnerability_type": "oversized_payload_accepted",
+            }
+        )
     elif status == -1:
-        findings.append({
-            "function_url": url,
-            "severity": "low",
-            "description": "Lambda timed out on 1MB payload — possible DoS vector via oversized payloads",
-            "vulnerability_type": "oversized_payload_timeout",
-        })
+        findings.append(
+            {
+                "function_url": url,
+                "severity": "low",
+                "description": "Lambda timed out on 1MB payload — possible DoS vector via oversized payloads",
+                "vulnerability_type": "oversized_payload_timeout",
+            }
+        )
 
     return findings
 
@@ -150,10 +166,12 @@ def main() -> None:
 
     try:
         session = requests.Session()
-        session.headers.update({
-            "User-Agent": make_headers()["User-Agent"],
-            "Content-Type": "application/json",
-        })
+        session.headers.update(
+            {
+                "User-Agent": make_headers()["User-Agent"],
+                "Content-Type": "application/json",
+            }
+        )
 
         # Probe endpoint liveness first
         try:
@@ -162,12 +180,14 @@ def main() -> None:
             result["accessible"] = True
         except requests.RequestException:
             result["accessible"] = False
-            result["injections"].append({
-                "function_url": args.function_url,
-                "severity": "info",
-                "description": "Lambda function URL not accessible — skipping injection tests",
-                "vulnerability_type": "unreachable",
-            })
+            result["injections"].append(
+                {
+                    "function_url": args.function_url,
+                    "severity": "info",
+                    "description": "Lambda function URL not accessible — skipping injection tests",
+                    "vulnerability_type": "unreachable",
+                }
+            )
             print(json.dumps(result))
             return
 
@@ -182,12 +202,14 @@ def main() -> None:
         result["injections"].extend(oversize_findings)
 
         if not result["injections"]:
-            result["injections"].append({
-                "function_url": args.function_url,
-                "severity": "info",
-                "description": "No injection vulnerabilities detected in tested payloads",
-                "vulnerability_type": "none_found",
-            })
+            result["injections"].append(
+                {
+                    "function_url": args.function_url,
+                    "severity": "info",
+                    "description": "No injection vulnerabilities detected in tested payloads",
+                    "vulnerability_type": "none_found",
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)

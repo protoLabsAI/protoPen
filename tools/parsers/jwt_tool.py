@@ -1,4 +1,5 @@
 """Parser for JWT tool output."""
+
 from __future__ import annotations
 
 import json
@@ -17,20 +18,24 @@ def parse_jwt_decode(raw: str, store: "TargetStore") -> list[dict]:
         data = json.loads(raw)
         header = data.get("header", {})
         payload = data.get("payload", {})
-        entities.append({
-            "type": "jwt_info",
-            "algorithm": header.get("alg", ""),
-            "claims": list(payload.keys()),
-            "analysis": data.get("analysis", []),
-        })
+        entities.append(
+            {
+                "type": "jwt_info",
+                "algorithm": header.get("alg", ""),
+                "claims": list(payload.keys()),
+                "analysis": data.get("analysis", []),
+            }
+        )
     except json.JSONDecodeError:
         if "FOUND:" in raw:
             for line in raw.splitlines():
                 if line.startswith("FOUND:"):
-                    entities.append({
-                        "type": "jwt_secret",
-                        "secret": line.split("FOUND:", 1)[1].strip(),
-                    })
+                    entities.append(
+                        {
+                            "type": "jwt_secret",
+                            "secret": line.split("FOUND:", 1)[1].strip(),
+                        }
+                    )
     return entities
 
 

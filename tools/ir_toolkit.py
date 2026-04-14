@@ -1,4 +1,5 @@
 """Incident response toolkit — log correlation, IOC matching, timeline reconstruction."""
+
 from __future__ import annotations
 
 import json
@@ -22,7 +23,8 @@ class IrToolkitTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "log_search": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,subprocess,re; "
                 "r=subprocess.run(['grep','-rn','-i','{pattern}','{log_path}','--include=*.log','--include=*.txt'],capture_output=True,text=True,timeout=30); "
                 "lines=r.stdout.strip().splitlines()[:100]; "
@@ -37,7 +39,8 @@ class IrToolkitTool(BasePentestTool):
         },
         "ioc_scan": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,re,os; "
                 "iocs={iocs}; "
                 "findings=[]; "
@@ -60,7 +63,8 @@ class IrToolkitTool(BasePentestTool):
         },
         "auth_log_analyze": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,re,collections; "
                 "failed=collections.Counter(); success=collections.Counter(); "
                 "brute_force=[]; "
@@ -86,7 +90,8 @@ class IrToolkitTool(BasePentestTool):
         },
         "timeline_build": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import json,re,os,heapq; "
                 "log_path='{log_path}'; keyword='{keyword}'; "
                 "events=[]; "
@@ -138,8 +143,11 @@ class IrToolkitTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                log_path=log_path, pattern=pattern, keyword=keyword,
-                iocs=iocs, timeout=timeout,
+                log_path=log_path,
+                pattern=pattern,
+                keyword=keyword,
+                iocs=iocs,
+                timeout=timeout,
             )
             for c in spec["cmd"]
         ]
@@ -166,11 +174,13 @@ class IrToolkitTool(BasePentestTool):
         }
 
         # Universal immediate actions
-        recommendations["immediate"].extend([
-            "Isolate compromised hosts from the network (VLAN quarantine or firewall block)",
-            "Preserve volatile evidence: memory dumps, running processes, network connections",
-            "Rotate all credentials that may have been exposed",
-        ])
+        recommendations["immediate"].extend(
+            [
+                "Isolate compromised hosts from the network (VLAN quarantine or firewall block)",
+                "Preserve volatile evidence: memory dumps, running processes, network connections",
+                "Rotate all credentials that may have been exposed",
+            ]
+        )
 
         attack_playbooks = {
             "brute_force": {
@@ -246,11 +256,15 @@ class IrToolkitTool(BasePentestTool):
                 recommendations[phase].extend(playbook.get(phase, []))
 
         if hosts:
-            recommendations["immediate"].insert(0,
-                f"Priority hosts to isolate: {', '.join(str(h) for h in hosts[:10])}")
+            recommendations["immediate"].insert(
+                0, f"Priority hosts to isolate: {', '.join(str(h) for h in hosts[:10])}"
+            )
 
-        return json.dumps({
-            "attack_type": attack_type or "generic",
-            "compromised_hosts": hosts,
-            "recommendations": recommendations,
-        }, indent=2)
+        return json.dumps(
+            {
+                "attack_type": attack_type or "generic",
+                "compromised_hosts": hosts,
+                "recommendations": recommendations,
+            },
+            indent=2,
+        )

@@ -4,6 +4,7 @@
 Tests whether protected SPA routes are accessible without authentication
 by probing them directly without session cookies.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,17 +21,17 @@ from protopen_scripts._common import make_session
 logger = logging.getLogger(__name__)
 
 PROTECTED_PATTERNS = re.compile(
-    r'(?:dashboard|admin|settings|profile|account|portal|manage|console|'
-    r'user|member|secure|private|internal|staff|panel|config|billing|orders|'
-    r'reports|analytics|workspace|org|team)',
+    r"(?:dashboard|admin|settings|profile|account|portal|manage|console|"
+    r"user|member|secure|private|internal|staff|panel|config|billing|orders|"
+    r"reports|analytics|workspace|org|team)",
     re.IGNORECASE,
 )
 
-LOGIN_PATTERNS = re.compile(r'(?:login|signin|sign-in|logout|sign-out)', re.IGNORECASE)
+LOGIN_PATTERNS = re.compile(r"(?:login|signin|sign-in|logout|sign-out)", re.IGNORECASE)
 
 # JS route patterns: look for route definitions like path: '/admin'
 ROUTE_PATTERN = re.compile(
-    r'''(?:path|route|href|to)\s*[=:]\s*['"`](/[a-z0-9_\-/]+)['"`]''',
+    r"""(?:path|route|href|to)\s*[=:]\s*['"`](/[a-z0-9_\-/]+)['"`]""",
     re.IGNORECASE,
 )
 
@@ -47,7 +48,7 @@ def extract_routes_from_html(html: str, base_url: str) -> list[str]:
 
     for href in HREF_PATTERN.findall(html):
         href = href.strip()
-        if href.startswith('/') and not href.startswith('//'):
+        if href.startswith("/") and not href.startswith("//"):
             routes.add(href)
         elif href.startswith(base_origin):
             path = urlparse(href).path
@@ -56,7 +57,7 @@ def extract_routes_from_html(html: str, base_url: str) -> list[str]:
 
     for m in ROUTE_PATTERN.finditer(html):
         path = m.group(1)
-        if path and path != '/':
+        if path and path != "/":
             routes.add(path)
 
     return list(routes)
@@ -66,7 +67,7 @@ def load_routes_from_file(path: str) -> list[str]:
     """Load routes from a newline-delimited file."""
     try:
         with open(path) as fh:
-            return [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
+            return [ln.strip() for ln in fh if ln.strip() and not ln.startswith("#")]
     except OSError as exc:
         logger.warning("Could not read routes file %s: %s", path, exc)
         return []
@@ -82,7 +83,7 @@ def classify_response(resp: requests.Response, base_url: str) -> str | None:
         return "bypassed"
     # 302/301 redirect to login is expected — not bypassed
     if resp.status_code in (301, 302, 303, 307, 308):
-        loc = resp.headers.get('Location', '')
+        loc = resp.headers.get("Location", "")
         if LOGIN_PATTERNS.search(loc):
             return None
         # redirect away from expected auth flow
@@ -134,11 +135,11 @@ def main() -> None:
         base_origin = f"{parsed_base.scheme}://{parsed_base.netloc}"
 
         for src in script_src_re.findall(html):
-            if src.startswith('http'):
+            if src.startswith("http"):
                 js_urls.append(src)
-            elif src.startswith('//'):
+            elif src.startswith("//"):
                 js_urls.append(f"{parsed_base.scheme}:{src}")
-            elif src.startswith('/'):
+            elif src.startswith("/"):
                 js_urls.append(f"{base_origin}{src}")
 
         combined = html

@@ -1,4 +1,5 @@
 """End-to-end: tool output → parser → TargetStore → query back."""
+
 import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
@@ -41,6 +42,7 @@ class TestE2EPipeline:
     def test_nmap_full_pipeline(self, store):
         """nmap XML → parse → store → query hosts and ports."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 
@@ -68,6 +70,7 @@ class TestE2EPipeline:
     def test_multi_tool_convergence(self, store):
         """nmap discovers host, bettercap rediscovers same host — single row, enriched."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 
@@ -78,10 +81,7 @@ class TestE2EPipeline:
               <service name="ssh"/></port></ports></host>
         </nmaprun>"""
 
-        bettercap_out = (
-            "│ 10.0.0.1       │ DE:AD:BE:EF:00:01 │ router           "
-            "│ Cisco            │  10k │   20k │"
-        )
+        bettercap_out = "│ 10.0.0.1       │ DE:AD:BE:EF:00:01 │ router           │ Cisco            │  10k │   20k │"
 
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=nmap_xml):
             asyncio.run(tool.execute(action="nmap_scan", target="10.0.0.1"))
@@ -97,6 +97,7 @@ class TestE2EPipeline:
     def test_diff_after_scans(self, store):
         """diff_since shows new entities from scans."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 
@@ -110,6 +111,7 @@ class TestE2EPipeline:
     def test_stats_after_scans(self, store):
         """get_stats reflects ingested entities."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 

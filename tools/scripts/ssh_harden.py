@@ -4,6 +4,7 @@
 Usage: python3 ssh_harden.py <target>
 Outputs: JSON with per-check pass/fail, severity, and remediation.
 """
+
 import json
 import subprocess
 import sys
@@ -27,18 +28,24 @@ def main() -> None:
     try:
         r = subprocess.run(
             ["ssh", "-G", target],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
     except FileNotFoundError:
-        print(json.dumps({
-            "service": "ssh",
-            "target": target,
-            "error": "ssh not found",
-            "total_checks": 0,
-            "passed": 0,
-            "failed": 0,
-            "checks": [],
-        }))
+        print(
+            json.dumps(
+                {
+                    "service": "ssh",
+                    "target": target,
+                    "error": "ssh not found",
+                    "total_checks": 0,
+                    "passed": 0,
+                    "failed": 0,
+                    "checks": [],
+                }
+            )
+        )
         return
 
     cfg: dict[str, str] = {}
@@ -51,24 +58,30 @@ def main() -> None:
     for setting, expected, severity, fix in RULES:
         actual = cfg.get(setting.lower(), "unset")
         passed = actual == expected
-        checks.append({
-            "check": setting,
-            "expected": expected,
-            "actual": actual,
-            "passed": passed,
-            "severity": severity,
-            "remediation": f"Set in /etc/ssh/sshd_config: {fix}",
-        })
+        checks.append(
+            {
+                "check": setting,
+                "expected": expected,
+                "actual": actual,
+                "passed": passed,
+                "severity": severity,
+                "remediation": f"Set in /etc/ssh/sshd_config: {fix}",
+            }
+        )
 
     passed_count = sum(1 for c in checks if c["passed"])
-    print(json.dumps({
-        "service": "ssh",
-        "target": target,
-        "total_checks": len(checks),
-        "passed": passed_count,
-        "failed": len(checks) - passed_count,
-        "checks": checks,
-    }))
+    print(
+        json.dumps(
+            {
+                "service": "ssh",
+                "target": target,
+                "total_checks": len(checks),
+                "passed": passed_count,
+                "failed": len(checks) - passed_count,
+                "checks": checks,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

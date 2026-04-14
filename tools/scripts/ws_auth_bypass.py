@@ -4,6 +4,7 @@ Connects to a WebSocket endpoint without credentials or with manipulated
 auth tokens and checks whether the server accepts the connection and
 responds to messages.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,33 +32,40 @@ async def main(url: str, origin: str, auth_token: str) -> None:
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         async with websockets.connect(
-            url, additional_headers=extra_headers,
+            url,
+            additional_headers=extra_headers,
             ssl=ctx if url.startswith("wss://") else None,
             open_timeout=10,
         ) as ws:
             await ws.send('{"type":"ping"}')
             try:
                 resp = await asyncio.wait_for(ws.recv(), timeout=5)
-                results["tests"].append({
-                    "test": "no_auth_connect",
-                    "vulnerable": True,
-                    "severity": "high",
-                    "detail": f"Server accepted unauthenticated connection and responded: {resp[:200]}",
-                })
+                results["tests"].append(
+                    {
+                        "test": "no_auth_connect",
+                        "vulnerable": True,
+                        "severity": "high",
+                        "detail": f"Server accepted unauthenticated connection and responded: {resp[:200]}",
+                    }
+                )
             except asyncio.TimeoutError:
-                results["tests"].append({
-                    "test": "no_auth_connect",
-                    "vulnerable": True,
-                    "severity": "medium",
-                    "detail": "Server accepted unauthenticated connection but no response to message",
-                })
+                results["tests"].append(
+                    {
+                        "test": "no_auth_connect",
+                        "vulnerable": True,
+                        "severity": "medium",
+                        "detail": "Server accepted unauthenticated connection but no response to message",
+                    }
+                )
     except Exception as e:
-        results["tests"].append({
-            "test": "no_auth_connect",
-            "vulnerable": False,
-            "severity": "info",
-            "detail": f"Connection rejected: {type(e).__name__}: {e}",
-        })
+        results["tests"].append(
+            {
+                "test": "no_auth_connect",
+                "vulnerable": False,
+                "severity": "info",
+                "detail": f"Connection rejected: {type(e).__name__}: {e}",
+            }
+        )
 
     # Test 2: Connect with manipulated token (if provided)
     if auth_token:
@@ -67,33 +75,40 @@ async def main(url: str, origin: str, auth_token: str) -> None:
             if origin:
                 extra_headers["Origin"] = origin
             async with websockets.connect(
-                url, additional_headers=extra_headers,
+                url,
+                additional_headers=extra_headers,
                 ssl=ctx if url.startswith("wss://") else None,
                 open_timeout=10,
             ) as ws:
                 await ws.send('{"type":"ping"}')
                 try:
                     resp = await asyncio.wait_for(ws.recv(), timeout=5)
-                    results["tests"].append({
-                        "test": "mangled_token",
-                        "vulnerable": True,
-                        "severity": "high",
-                        "detail": f"Server accepted mangled auth token: {resp[:200]}",
-                    })
+                    results["tests"].append(
+                        {
+                            "test": "mangled_token",
+                            "vulnerable": True,
+                            "severity": "high",
+                            "detail": f"Server accepted mangled auth token: {resp[:200]}",
+                        }
+                    )
                 except asyncio.TimeoutError:
-                    results["tests"].append({
-                        "test": "mangled_token",
-                        "vulnerable": True,
-                        "severity": "medium",
-                        "detail": "Server accepted mangled token but no response",
-                    })
+                    results["tests"].append(
+                        {
+                            "test": "mangled_token",
+                            "vulnerable": True,
+                            "severity": "medium",
+                            "detail": "Server accepted mangled token but no response",
+                        }
+                    )
         except Exception as e:
-            results["tests"].append({
-                "test": "mangled_token",
-                "vulnerable": False,
-                "severity": "info",
-                "detail": f"Mangled token rejected: {type(e).__name__}: {e}",
-            })
+            results["tests"].append(
+                {
+                    "test": "mangled_token",
+                    "vulnerable": False,
+                    "severity": "info",
+                    "detail": f"Mangled token rejected: {type(e).__name__}: {e}",
+                }
+            )
 
     print(json.dumps(results))
 

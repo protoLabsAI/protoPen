@@ -4,6 +4,7 @@
 Usage: python3 tls_audit.py <target> [port]
 Outputs: JSON with protocol, cipher, cert info, and issues.
 """
+
 import datetime
 import json
 import socket
@@ -27,12 +28,14 @@ def main() -> None:
             cipher = s.cipher()
 
             if ver and ("TLSv1.0" in ver or "TLSv1.1" in ver or "SSLv" in ver):
-                issues.append({
-                    "severity": "critical",
-                    "check": "Protocol Version",
-                    "value": ver,
-                    "recommendation": "Use TLS 1.2+ only",
-                })
+                issues.append(
+                    {
+                        "severity": "critical",
+                        "check": "Protocol Version",
+                        "value": ver,
+                        "recommendation": "Use TLS 1.2+ only",
+                    }
+                )
 
             not_after = cert.get("notAfter", "") if cert else ""
             exp = None
@@ -40,49 +43,63 @@ def main() -> None:
                 exp = datetime.datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z")
 
             if exp and exp < datetime.datetime.utcnow():
-                issues.append({
-                    "severity": "critical",
-                    "check": "Certificate Expiry",
-                    "value": not_after,
-                    "recommendation": "Renew certificate",
-                })
+                issues.append(
+                    {
+                        "severity": "critical",
+                        "check": "Certificate Expiry",
+                        "value": not_after,
+                        "recommendation": "Renew certificate",
+                    }
+                )
             elif exp and (exp - datetime.datetime.utcnow()).days < 30:
                 days_left = (exp - datetime.datetime.utcnow()).days
-                issues.append({
-                    "severity": "high",
-                    "check": "Certificate Expiry",
-                    "value": f"Expires in {days_left} days",
-                    "recommendation": "Renew soon",
-                })
+                issues.append(
+                    {
+                        "severity": "high",
+                        "check": "Certificate Expiry",
+                        "value": f"Expires in {days_left} days",
+                        "recommendation": "Renew soon",
+                    }
+                )
 
             if cipher and cipher[2] < 128:
-                issues.append({
-                    "severity": "high",
-                    "check": "Cipher Strength",
-                    "value": f"{cipher[0]} ({cipher[2]} bits)",
-                    "recommendation": "Use 128-bit+ ciphers",
-                })
+                issues.append(
+                    {
+                        "severity": "high",
+                        "check": "Cipher Strength",
+                        "value": f"{cipher[0]} ({cipher[2]} bits)",
+                        "recommendation": "Use 128-bit+ ciphers",
+                    }
+                )
 
             cert_subject = {}
             if cert and cert.get("subject"):
                 cert_subject = dict(x[0] for x in cert["subject"])
 
-            print(json.dumps({
-                "target": target,
-                "port": port,
-                "protocol": ver,
-                "cipher": cipher[0] if cipher else "",
-                "cert_subject": cert_subject,
-                "issues": issues,
-            }))
+            print(
+                json.dumps(
+                    {
+                        "target": target,
+                        "port": port,
+                        "protocol": ver,
+                        "cipher": cipher[0] if cipher else "",
+                        "cert_subject": cert_subject,
+                        "issues": issues,
+                    }
+                )
+            )
 
     except Exception as e:
-        print(json.dumps({
-            "target": target,
-            "port": port,
-            "error": str(e),
-            "issues": [{"severity": "info", "check": "TLS Connection", "value": str(e)}],
-        }))
+        print(
+            json.dumps(
+                {
+                    "target": target,
+                    "port": port,
+                    "error": str(e),
+                    "issues": [{"severity": "info", "check": "TLS Connection", "value": str(e)}],
+                }
+            )
+        )
 
 
 if __name__ == "__main__":

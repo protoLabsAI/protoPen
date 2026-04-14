@@ -1,4 +1,5 @@
 """Web content enumeration — enhanced gobuster/ffuf with recursive mode."""
+
 from __future__ import annotations
 
 import asyncio
@@ -81,7 +82,9 @@ class WebEnumTool(Tool):
     async def _run(self, *args: str, timeout: int = 120) -> str:
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -93,36 +96,50 @@ class WebEnumTool(Tool):
             output += f"\n[stderr] {stderr.decode(errors='replace')}"
         return output.strip()
 
-    async def gobuster_dir(self, url: str, wordlist: str, extensions: str = "",
-                           threads: int = 10, timeout: int = 120) -> str:
+    async def gobuster_dir(
+        self, url: str, wordlist: str, extensions: str = "", threads: int = 10, timeout: int = 120
+    ) -> str:
         args = [
-            "gobuster", "dir", "-u", url, "-w", wordlist,
-            "-t", str(threads), "-q",
-            "--follow-redirect", "--no-error",
-            "-b", "301,302,404",
+            "gobuster",
+            "dir",
+            "-u",
+            url,
+            "-w",
+            wordlist,
+            "-t",
+            str(threads),
+            "-q",
+            "--follow-redirect",
+            "--no-error",
+            "-b",
+            "301,302,404",
         ]
         if extensions:
             args.extend(["-x", extensions])
         return await self._run(*args, timeout=timeout)
 
-    async def gobuster_vhost(self, url: str, wordlist: str,
-                             timeout: int = 120) -> str:
+    async def gobuster_vhost(self, url: str, wordlist: str, timeout: int = 120) -> str:
         args = ["gobuster", "vhost", "-u", url, "-w", wordlist, "-q"]
         return await self._run(*args, timeout=timeout)
 
-    async def ffuf_fuzz(self, url: str, wordlist: str, extensions: str = "",
-                        threads: int = 10, recursive: bool = False,
-                        depth: int = 2, timeout: int = 120) -> str:
+    async def ffuf_fuzz(
+        self,
+        url: str,
+        wordlist: str,
+        extensions: str = "",
+        threads: int = 10,
+        recursive: bool = False,
+        depth: int = 2,
+        timeout: int = 120,
+    ) -> str:
         fuzz_url = url.rstrip("/") + "/FUZZ"
-        args = ["ffuf", "-u", fuzz_url, "-w", wordlist, "-t", str(threads),
-                "-of", "json", "-o", "-"]
+        args = ["ffuf", "-u", fuzz_url, "-w", wordlist, "-t", str(threads), "-of", "json", "-o", "-"]
         if extensions:
             args.extend(["-e", extensions])
         if recursive:
             args.extend(["-recursion", "-recursion-depth", str(depth)])
         return await self._run(*args, timeout=timeout)
 
-    async def ffuf_param(self, url: str, wordlist: str,
-                         timeout: int = 120) -> str:
+    async def ffuf_param(self, url: str, wordlist: str, timeout: int = 120) -> str:
         args = ["ffuf", "-u", url, "-w", wordlist, "-of", "json", "-o", "-"]
         return await self._run(*args, timeout=timeout)

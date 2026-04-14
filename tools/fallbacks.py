@@ -10,6 +10,7 @@ from typing import Callable
 
 def with_fallback(fallback_msg: str = ""):
     """Decorator: catches exceptions in tool actions, returns graceful error with context."""
+
     def decorator(func: Callable):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
@@ -28,5 +29,7 @@ def with_fallback(fallback_msg: str = ""):
                     f"_Error: {error_type}: {error_msg}_\n\n"
                     f"_Tip: Try a different query or check if the service is available._"
                 )
+
         return wrapper
+
     return decorator

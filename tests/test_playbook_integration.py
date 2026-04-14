@@ -1,4 +1,5 @@
 """Integration tests for the playbook system — loader, runner, schema."""
+
 from __future__ import annotations
 
 import json
@@ -50,10 +51,13 @@ class TestPlaybookLoader:
         assert len(pb.steps) == 5
 
     def test_variable_override(self):
-        pb = load_playbook("incident_response", {
-            "log_path": "/tmp/test-logs",
-            "pattern": "segfault",
-        })
+        pb = load_playbook(
+            "incident_response",
+            {
+                "log_path": "/tmp/test-logs",
+                "pattern": "segfault",
+            },
+        )
         log_step = pb.steps[0]
         assert log_step.params["log_path"] == "/tmp/test-logs"
         assert log_step.params["pattern"] == "segfault"
@@ -147,14 +151,17 @@ class TestPlaybookRunner:
 
     @pytest.mark.asyncio
     async def test_run_incident_response(self):
-        pb = load_playbook("incident_response", {
-            "log_path": "/var/log",
-            "pattern": "sshd",
-            "keyword": "failed",
-            "iocs": "[]",
-            "attack_type": "brute_force",
-            "compromised_hosts": "[]",
-        })
+        pb = load_playbook(
+            "incident_response",
+            {
+                "log_path": "/var/log",
+                "pattern": "sshd",
+                "keyword": "failed",
+                "iocs": "[]",
+                "attack_type": "brute_force",
+                "compromised_hosts": "[]",
+            },
+        )
         call_log = []
 
         async def mock_dispatch(tool: str, action: str, params: dict) -> str:
@@ -426,16 +433,22 @@ NMAP_XML_SAMPLE = """\
 </nmaprun>
 """
 
-SSH_AUDIT_SAMPLE = json.dumps({
-    "target": "10.0.0.1",
-    "checks_run": 5,
-    "issues": [
-        {"severity": "high", "check": "PasswordAuthentication",
-         "value": "yes", "recommendation": "Disable password auth"},
-    ],
-    "pass_count": 4,
-    "fail_count": 1,
-})
+SSH_AUDIT_SAMPLE = json.dumps(
+    {
+        "target": "10.0.0.1",
+        "checks_run": 5,
+        "issues": [
+            {
+                "severity": "high",
+                "check": "PasswordAuthentication",
+                "value": "yes",
+                "recommendation": "Disable password auth",
+            },
+        ],
+        "pass_count": 4,
+        "fail_count": 1,
+    }
+)
 
 
 class TestATTACKNormalization:
@@ -448,11 +461,16 @@ class TestATTACKNormalization:
             name="norm-test",
             steps=[
                 PlaybookStep(
-                    name="nmap", tool="blackarch", action="nmap_scan",
-                    phase="red", on_fail="continue",
+                    name="nmap",
+                    tool="blackarch",
+                    action="nmap_scan",
+                    phase="red",
+                    on_fail="continue",
                 ),
                 PlaybookStep(
-                    name="consumer", tool="t", action="a",
+                    name="consumer",
+                    tool="t",
+                    action="a",
                     params={"red_results": "${steps.nmap.output}"},
                     on_fail="continue",
                 ),
@@ -479,15 +497,23 @@ class TestATTACKNormalization:
             name="merge-test",
             steps=[
                 PlaybookStep(
-                    name="nmap", tool="blackarch", action="nmap_scan",
-                    phase="red", on_fail="continue",
+                    name="nmap",
+                    tool="blackarch",
+                    action="nmap_scan",
+                    phase="red",
+                    on_fail="continue",
                 ),
                 PlaybookStep(
-                    name="nikto", tool="vuln_scan", action="nikto_scan",
-                    phase="red", on_fail="continue",
+                    name="nikto",
+                    tool="vuln_scan",
+                    action="nikto_scan",
+                    phase="red",
+                    on_fail="continue",
                 ),
                 PlaybookStep(
-                    name="correlate", tool="t", action="a",
+                    name="correlate",
+                    tool="t",
+                    action="a",
                     params={
                         "red_results": "${steps.nmap.output},${steps.nikto.output}",
                     },
@@ -519,11 +545,16 @@ class TestATTACKNormalization:
             name="blue-norm",
             steps=[
                 PlaybookStep(
-                    name="ssh", tool="cis_audit", action="ssh_audit",
-                    phase="blue", on_fail="continue",
+                    name="ssh",
+                    tool="cis_audit",
+                    action="ssh_audit",
+                    phase="blue",
+                    on_fail="continue",
                 ),
                 PlaybookStep(
-                    name="consumer", tool="t", action="a",
+                    name="consumer",
+                    tool="t",
+                    action="a",
                     params={"blue_results": "${steps.ssh.output}"},
                     on_fail="continue",
                 ),
@@ -549,11 +580,15 @@ class TestATTACKNormalization:
             name="raw-test",
             steps=[
                 PlaybookStep(
-                    name="producer", tool="t", action="a",
+                    name="producer",
+                    tool="t",
+                    action="a",
                     on_fail="continue",
                 ),
                 PlaybookStep(
-                    name="consumer", tool="t", action="b",
+                    name="consumer",
+                    tool="t",
+                    action="b",
                     params={"data": "${steps.producer.output}"},
                     on_fail="continue",
                 ),

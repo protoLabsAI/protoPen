@@ -23,27 +23,35 @@ def init():
         from prometheus_client import Counter, Histogram, Gauge
 
         _llm_calls = Counter(
-            "protopen_llm_calls_total", "Total LLM API calls",
+            "protopen_llm_calls_total",
+            "Total LLM API calls",
             ["model", "finish_reason"],
         )
         _llm_latency = Histogram(
-            "protopen_llm_latency_seconds", "LLM call latency",
-            ["model"], buckets=[0.5, 1, 2, 5, 10, 20, 30, 60, 120],
+            "protopen_llm_latency_seconds",
+            "LLM call latency",
+            ["model"],
+            buckets=[0.5, 1, 2, 5, 10, 20, 30, 60, 120],
         )
         _llm_tokens = Counter(
-            "protopen_llm_tokens_total", "Total LLM tokens consumed",
+            "protopen_llm_tokens_total",
+            "Total LLM tokens consumed",
             ["model", "direction"],
         )
         _tool_calls = Counter(
-            "protopen_tool_calls_total", "Total tool executions",
+            "protopen_tool_calls_total",
+            "Total tool executions",
             ["tool_name", "success"],
         )
         _tool_latency = Histogram(
-            "protopen_tool_latency_seconds", "Tool execution latency",
-            ["tool_name"], buckets=[0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
+            "protopen_tool_latency_seconds",
+            "Tool execution latency",
+            ["tool_name"],
+            buckets=[0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30],
         )
         _active_sessions = Gauge(
-            "protopen_active_sessions", "Active chat sessions",
+            "protopen_active_sessions",
+            "Active chat sessions",
         )
         _enabled = True
         print("[metrics] Prometheus metrics initialized")
@@ -55,8 +63,7 @@ def is_enabled() -> bool:
     return _enabled
 
 
-def record_llm_call(model: str, finish_reason: str, latency_s: float,
-                     tokens_input: int = 0, tokens_output: int = 0):
+def record_llm_call(model: str, finish_reason: str, latency_s: float, tokens_input: int = 0, tokens_output: int = 0):
     if not _enabled:
         return
     _llm_calls.labels(model=model, finish_reason=finish_reason).inc()

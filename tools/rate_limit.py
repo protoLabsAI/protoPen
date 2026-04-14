@@ -1,4 +1,5 @@
 """Rate limit testing tool — detect and test bypass for rate limiting."""
+
 from __future__ import annotations
 
 import logging
@@ -21,7 +22,8 @@ class RateLimitTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "rate_detect": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json,time; "
                 "results=[]; "
                 "for i in range({count}): "
@@ -40,7 +42,8 @@ class RateLimitTool(BasePentestTool):
         },
         "rate_bypass_headers": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "bypass_headers=['X-Forwarded-For','X-Real-IP','X-Originating-IP',"
                 "'X-Client-IP','X-Remote-IP','X-Remote-Addr','True-Client-IP',"
@@ -60,7 +63,8 @@ class RateLimitTool(BasePentestTool):
         },
         "rate_bypass_path": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "variants=['{url}','{url}/','{url}/.','{url}/./','%2f'.join('{url}'.rsplit('/',1)),"
                 "'{url}?_=1','{url}#x']; "
@@ -91,8 +95,11 @@ class RateLimitTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                url=url, headers=headers, count=count,
-                interval=interval, spoof_ip=spoof_ip,
+                url=url,
+                headers=headers,
+                count=count,
+                interval=interval,
+                spoof_ip=spoof_ip,
             )
             for c in spec["cmd"]
         ]

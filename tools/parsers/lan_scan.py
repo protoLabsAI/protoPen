@@ -1,4 +1,5 @@
 """Parser for lan_scan tool output — ARP sweep, NetBIOS, SNMP, mDNS, SMB."""
+
 from __future__ import annotations
 
 import json
@@ -14,9 +15,7 @@ if TYPE_CHECKING:
 # ── ARP sweep (arp-scan) ────────────────────────────────────────────────────
 
 # arp-scan line:  192.168.1.1\t00:11:22:33:44:55\tCisco Systems, Inc
-_ARP_LINE_RE = re.compile(
-    r"^(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-fA-F:]{17})\s*(.*)?$"
-)
+_ARP_LINE_RE = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-fA-F:]{17})\s*(.*)?$")
 
 
 def parse_arp_sweep(raw: str, store: "TargetStore") -> list[dict]:
@@ -44,9 +43,7 @@ def parse_arp_sweep(raw: str, store: "TargetStore") -> list[dict]:
 # netdiscover -P line examples:
 #   192.168.1.1  00:11:22:33:44:55    1    60  Cisco Systems, Inc
 # or tab-separated variants — try both
-_NETDISC_TAB_RE = re.compile(
-    r"^(\d{1,3}(?:\.\d{1,3}){3})[\s\t]+([0-9a-fA-F:]{17})[\s\t]+\d+[\s\t]+\d+[\s\t]*(.*)?$"
-)
+_NETDISC_TAB_RE = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){3})[\s\t]+([0-9a-fA-F:]{17})[\s\t]+\d+[\s\t]+\d+[\s\t]*(.*)?$")
 
 
 def parse_netdiscover(raw: str, store: "TargetStore") -> list[dict]:
@@ -82,9 +79,7 @@ def parse_netdiscover(raw: str, store: "TargetStore") -> list[dict]:
 #   192.168.1.10    WORKGROUP\DESKTOP-ABC    SHARING
 # or:
 #   192.168.1.10    DESKTOP-ABC<00>    UNIQUE    WORKGROUP
-_NBTSCAN_RE = re.compile(
-    r"^(\d{1,3}(?:\.\d{1,3}){3})\s+(\S+)"
-)
+_NBTSCAN_RE = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){3})\s+(\S+)")
 _WORKGROUP_RE = re.compile(r"^([^\\]+)\\(.+)$")
 
 
@@ -109,7 +104,7 @@ def parse_nbtscan(raw: str, store: "TargetStore") -> list[dict]:
             hostname = wg_m.group(2)
         else:
             # Try to extract workgroup from remainder of line
-            rest = line[m.end():].strip()
+            rest = line[m.end() :].strip()
             parts = rest.split()
             if parts:
                 workgroup = parts[-1]
@@ -289,9 +284,7 @@ def parse_smb_discovery(raw: str, store: "TargetStore") -> list[dict]:
 # avahi-browse -p semicolon-separated line:
 #   =;eth0;IPv4;Device Name;_http._tcp;local;hostname.local;192.168.1.5;80;
 # Fields: sign ; iface ; proto ; name ; type ; domain ; hostname ; addr ; port ; txt
-_AVAHI_RE = re.compile(
-    r"^[=+]\s*;([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);(\d*);?(.*)?$"
-)
+_AVAHI_RE = re.compile(r"^[=+]\s*;([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);([^;]*);(\d*);?(.*)?$")
 
 
 def parse_mdns_enum(raw: str, store: "TargetStore") -> list[dict]:

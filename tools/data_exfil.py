@@ -1,4 +1,5 @@
 """Data exfiltration tool — controlled extraction for evidence collection."""
+
 from __future__ import annotations
 
 import logging
@@ -14,30 +15,37 @@ class DataExfilTool(BasePentestTool):
 
     name = "data_exfil"
     description = (
-        "Data exfiltration — controlled extraction of files and data for "
-        "evidence collection during engagements."
+        "Data exfiltration — controlled extraction of files and data for evidence collection during engagements."
     )
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "scp_download": {
             "cmd": [
-                "scp", "{username}@{target}:{remote_path}", "{local_path}",
+                "scp",
+                "{username}@{target}:{remote_path}",
+                "{local_path}",
             ],
             "timeout": 120,
             "description": "Download file via SCP",
         },
         "smb_download": {
             "cmd": [
-                "smbclient", "//{target}/{share}",
-                "-U", "{username}%{password}",
-                "-c", "get {remote_path} {local_path}",
+                "smbclient",
+                "//{target}/{share}",
+                "-U",
+                "{username}%{password}",
+                "-c",
+                "get {remote_path} {local_path}",
             ],
             "timeout": 120,
             "description": "Download file from SMB share",
         },
         "http_exfil": {
             "cmd": [
-                "curl", "-s", "-o", "{local_path}",
+                "curl",
+                "-s",
+                "-o",
+                "{local_path}",
                 "{url}",
             ],
             "timeout": 60,
@@ -63,9 +71,13 @@ class DataExfilTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                target=target, username=username, password=password,
-                share=share, remote_path=remote_path,
-                local_path=local_path, url=url,
+                target=target,
+                username=username,
+                password=password,
+                share=share,
+                remote_path=remote_path,
+                local_path=local_path,
+                url=url,
             )
             for c in spec["cmd"]
         ]

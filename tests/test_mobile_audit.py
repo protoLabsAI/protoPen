@@ -1,4 +1,5 @@
 """Tests for mobile_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,9 +21,14 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "apk_decompile", "static_analysis", "jadx_decompile",
-            "drozer_scan", "frida_hook", "ssl_pinning_bypass",
-            "ipc_audit", "keychain_dump",
+            "apk_decompile",
+            "static_analysis",
+            "jadx_decompile",
+            "drozer_scan",
+            "frida_hook",
+            "ssl_pinning_bypass",
+            "ipc_audit",
+            "keychain_dump",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -182,6 +188,7 @@ class TestTimeout:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_timeout_returns_message(self, mock_exec, tool):
         import asyncio
+
         proc = AsyncMock()
         proc.communicate.side_effect = asyncio.TimeoutError
         proc.kill = AsyncMock()

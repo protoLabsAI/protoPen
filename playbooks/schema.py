@@ -1,4 +1,5 @@
 """Playbook schema — data classes for playbook definitions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,14 +18,15 @@ class StepStatus(str, Enum):
 @dataclass
 class PlaybookStep:
     """A single step in a playbook — maps to one tool action."""
+
     name: str
     tool: str
     action: str
     params: dict[str, Any] = field(default_factory=dict)
     condition: str | None = None  # Jinja2-like condition
-    on_fail: str = "stop"         # stop | continue | skip_remaining
+    on_fail: str = "stop"  # stop | continue | skip_remaining
     timeout: int = 300
-    phase: str | None = None      # "red" or "blue" — enables ATT&CK normalization
+    phase: str | None = None  # "red" or "blue" — enables ATT&CK normalization
     status: StepStatus = StepStatus.PENDING
     output: str = ""
     error: str = ""
@@ -44,6 +46,7 @@ class PlaybookStep:
 @dataclass
 class Playbook:
     """A playbook — an ordered sequence of tool steps."""
+
     name: str
     description: str = ""
     steps: list[PlaybookStep] = field(default_factory=list)
@@ -52,10 +55,7 @@ class Playbook:
 
     @property
     def completed(self) -> bool:
-        return all(
-            s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
-            for s in self.steps
-        )
+        return all(s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED) for s in self.steps)
 
     @property
     def failed(self) -> bool:
@@ -63,10 +63,7 @@ class Playbook:
 
     @property
     def progress(self) -> str:
-        done = sum(
-            1 for s in self.steps
-            if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
-        )
+        done = sum(1 for s in self.steps if s.status in (StepStatus.COMPLETED, StepStatus.SKIPPED))
         return f"{done}/{len(self.steps)}"
 
     def to_dict(self) -> dict:

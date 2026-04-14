@@ -9,6 +9,7 @@ Examples:
     python run_playbook.py web_vuln_assessment --target mush.bike --var url=https://mush.bike
     python run_playbook.py purple_team_exercise --target mush.bike
 """
+
 from __future__ import annotations
 
 import argparse
@@ -36,25 +37,25 @@ def _get_tool(tool_name: str):
 
     # Map playbook tool names → module.class
     TOOL_MAP = {
-        "blackarch":           ("tools.blackarch",           "BlackArchTool"),
-        "dns_enum":            ("tools.dns_enum",            "DnsEnumTool"),
+        "blackarch": ("tools.blackarch", "BlackArchTool"),
+        "dns_enum": ("tools.dns_enum", "DnsEnumTool"),
         "subdomain_discovery": ("tools.subdomain_discovery", "SubdomainDiscoveryTool"),
-        "osint_recon":         ("tools.osint_recon",         "OsintReconTool"),
-        "web_enum":            ("tools.web_enum",            "WebEnumTool"),
-        "ssl_audit":           ("tools.ssl_audit",           "SslAuditTool"),
-        "vuln_scan":           ("tools.vuln_scan",           "VulnScanTool"),
-        "web_vuln":            ("tools.web_vuln",            "WebVulnTool"),
-        "sql_test":            ("tools.sql_test",            "SqlTestTool"),
-        "cve_match":           ("tools.cve_match",           "CveMatchTool"),
-        "cis_audit":           ("tools.cis_audit",           "CisAuditTool"),
-        "hardening_check":     ("tools.hardening_check",     "HardeningCheckTool"),
-        "purple_team":         ("tools.purple_team",         "PurpleTeamTool"),
-        "api_enum":            ("tools.api_enum",            "ApiEnumTool"),
-        "ssrf_detect":         ("tools.ssrf_detect",         "SsrfDetectTool"),
-        "jwt_tool":            ("tools.jwt_tool",            "JwtTool"),
-        "graphql_test":        ("tools.graphql_test",        "GraphqlTestTool"),
-        "auth_test":           ("tools.auth_test",           "AuthTestTool"),
-        "rate_limit":          ("tools.rate_limit",          "RateLimitTool"),
+        "osint_recon": ("tools.osint_recon", "OsintReconTool"),
+        "web_enum": ("tools.web_enum", "WebEnumTool"),
+        "ssl_audit": ("tools.ssl_audit", "SslAuditTool"),
+        "vuln_scan": ("tools.vuln_scan", "VulnScanTool"),
+        "web_vuln": ("tools.web_vuln", "WebVulnTool"),
+        "sql_test": ("tools.sql_test", "SqlTestTool"),
+        "cve_match": ("tools.cve_match", "CveMatchTool"),
+        "cis_audit": ("tools.cis_audit", "CisAuditTool"),
+        "hardening_check": ("tools.hardening_check", "HardeningCheckTool"),
+        "purple_team": ("tools.purple_team", "PurpleTeamTool"),
+        "api_enum": ("tools.api_enum", "ApiEnumTool"),
+        "ssrf_detect": ("tools.ssrf_detect", "SsrfDetectTool"),
+        "jwt_tool": ("tools.jwt_tool", "JwtTool"),
+        "graphql_test": ("tools.graphql_test", "GraphqlTestTool"),
+        "auth_test": ("tools.auth_test", "AuthTestTool"),
+        "rate_limit": ("tools.rate_limit", "RateLimitTool"),
     }
 
     if tool_name not in TOOL_MAP:
@@ -62,6 +63,7 @@ def _get_tool(tool_name: str):
 
     module_path, class_name = TOOL_MAP[tool_name]
     import importlib
+
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
     instance = cls()
@@ -87,11 +89,11 @@ async def run(playbook_name: str, variables: dict[str, str]) -> None:
     total = len(pb.steps)
     start = time.time()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"▶ Playbook: {pb.name}")
     print(f"  Target:   {variables.get('target', 'n/a')}")
     print(f"  Steps:    {total}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     def on_step(step):
         icon = "✅" if step.status == StepStatus.COMPLETED else "❌"
@@ -106,15 +108,15 @@ async def run(playbook_name: str, variables: dict[str, str]) -> None:
     completed = sum(1 for s in pb.steps if s.status == StepStatus.COMPLETED)
     failed = sum(1 for s in pb.steps if s.status == StepStatus.FAILED)
 
-    print(f"\n{'─'*60}")
+    print(f"\n{'─' * 60}")
     print(f"  Done in {elapsed:.1f}s — {completed}/{total} passed, {failed} failed")
-    print(f"{'─'*60}\n")
+    print(f"{'─' * 60}\n")
 
     # Dump step outputs
     for step in pb.steps:
-        print(f"\n{'━'*60}")
+        print(f"\n{'━' * 60}")
         print(f"📋 {step.name} ({step.tool}.{step.action}) — {step.status.value}")
-        print(f"{'━'*60}")
+        print(f"{'━' * 60}")
         if step.output:
             # Truncate very long outputs for readability
             out = step.output
@@ -131,8 +133,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run a protoPen playbook directly")
     parser.add_argument("playbook", help="Playbook name (e.g. full_recon)")
     parser.add_argument("--target", required=True, help="Target host/domain")
-    parser.add_argument("--var", action="append", default=[],
-                        help="Extra variables as key=value")
+    parser.add_argument("--var", action="append", default=[], help="Extra variables as key=value")
     args = parser.parse_args()
 
     variables = {"target": args.target}

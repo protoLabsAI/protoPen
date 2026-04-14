@@ -1,4 +1,5 @@
 """Tests for phishing parsers."""
+
 from __future__ import annotations
 
 import json
@@ -28,10 +29,14 @@ class TestParseGoPhish:
         assert "Campaign created" in entities[0]["details"]
 
     def test_campaign_results(self, store):
-        raw = json.dumps({"results": [
-            {"email": "user@test.com", "status": "clicked"},
-            {"email": "admin@test.com", "status": "submitted"},
-        ]})
+        raw = json.dumps(
+            {
+                "results": [
+                    {"email": "user@test.com", "status": "clicked"},
+                    {"email": "admin@test.com", "status": "submitted"},
+                ]
+            }
+        )
         entities = parse_gophish_json(raw, store)
         assert len(entities) == 2
 
@@ -56,9 +61,13 @@ class TestParseEvilginx:
 
 class TestParseEmailHeader:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"severity": "high", "message": "SPF softfail for sender domain"},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {"severity": "high", "message": "SPF softfail for sender domain"},
+                ]
+            }
+        )
         entities = parse_email_header(raw, store)
         assert len(entities) == 1
         assert entities[0]["severity"] == "high"

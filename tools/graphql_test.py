@@ -1,4 +1,5 @@
 """GraphQL testing tool — introspection, schema extraction, query fuzzing."""
+
 from __future__ import annotations
 
 import json
@@ -43,7 +44,8 @@ class GraphqlTestTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "gql_introspect": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "r=requests.post('{url}',json={{'query':'''{introspection_query}'''}},"
                 "headers={headers},timeout=10); "
@@ -59,7 +61,8 @@ class GraphqlTestTool(BasePentestTool):
         },
         "gql_depth_test": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "def nested(field,depth):\n"
                 "  if depth<=0: return field\n"
@@ -80,7 +83,8 @@ class GraphqlTestTool(BasePentestTool):
         },
         "gql_batch": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "batch=[{{'query':'{query}'}} for _ in range({batch_size})]; "
                 "r=requests.post('{url}',json=batch,headers={headers},timeout=10); "
@@ -93,7 +97,8 @@ class GraphqlTestTool(BasePentestTool):
         },
         "gql_field_suggest": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "typos=['pasword','emial','usrname','adres','phne','tken','secrt','admn']; "
                 "results=[]; "
@@ -132,8 +137,12 @@ class GraphqlTestTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                url=url, headers=headers, query=query, field=field,
-                type_name=type_name, max_depth=max_depth,
+                url=url,
+                headers=headers,
+                query=query,
+                field=field,
+                type_name=type_name,
+                max_depth=max_depth,
                 batch_size=batch_size,
                 introspection_query=_INTROSPECTION_QUERY.replace("'", "\\'"),
             )

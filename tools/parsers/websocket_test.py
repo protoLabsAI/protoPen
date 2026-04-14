@@ -1,4 +1,5 @@
 """Parser for WebSocket security test output — auth_bypass, cswsh, injection."""
+
 from __future__ import annotations
 
 import json
@@ -20,13 +21,15 @@ def parse_ws_auth_bypass(raw: str, store: "TargetStore") -> list[dict]:
 
     for test in data.get("tests", []):
         if test.get("vulnerable"):
-            entities.append({
-                "type": "ws_finding",
-                "target": data.get("url", ""),
-                "check": f"ws_auth_bypass:{test.get('test', '')}",
-                "severity": test.get("severity", "medium"),
-                "value": test.get("detail", ""),
-            })
+            entities.append(
+                {
+                    "type": "ws_finding",
+                    "target": data.get("url", ""),
+                    "check": f"ws_auth_bypass:{test.get('test', '')}",
+                    "severity": test.get("severity", "medium"),
+                    "value": test.get("detail", ""),
+                }
+            )
     return entities
 
 
@@ -40,13 +43,15 @@ def parse_ws_cswsh(raw: str, store: "TargetStore") -> list[dict]:
 
     for test in data.get("tests", []):
         if test.get("vulnerable"):
-            entities.append({
-                "type": "ws_finding",
-                "target": data.get("url", ""),
-                "check": f"cswsh:{test.get('origin', '')}",
-                "severity": test.get("severity", "high"),
-                "value": test.get("detail", ""),
-            })
+            entities.append(
+                {
+                    "type": "ws_finding",
+                    "target": data.get("url", ""),
+                    "check": f"cswsh:{test.get('origin', '')}",
+                    "severity": test.get("severity", "high"),
+                    "value": test.get("detail", ""),
+                }
+            )
     return entities
 
 
@@ -60,16 +65,18 @@ def parse_ws_injection(raw: str, store: "TargetStore") -> list[dict]:
 
     for test in data.get("tests", []):
         if test.get("reflected") or test.get("error_leak"):
-            entities.append({
-                "type": "ws_finding",
-                "target": data.get("url", ""),
-                "check": f"ws_injection:{test.get('category', '')}",
-                "severity": test.get("severity", "medium"),
-                "value": test.get("payload", ""),
-                "reflected": test.get("reflected", False),
-                "error_leak": test.get("error_leak", False),
-                "response_preview": test.get("response_preview", ""),
-            })
+            entities.append(
+                {
+                    "type": "ws_finding",
+                    "target": data.get("url", ""),
+                    "check": f"ws_injection:{test.get('category', '')}",
+                    "severity": test.get("severity", "medium"),
+                    "value": test.get("payload", ""),
+                    "reflected": test.get("reflected", False),
+                    "error_leak": test.get("error_leak", False),
+                    "response_preview": test.get("response_preview", ""),
+                }
+            )
     return entities
 
 

@@ -71,10 +71,7 @@ def generate_report(
 
     avg_a = sum_a.get("avg_elapsed_ms", 0)
     avg_b = sum_b.get("avg_elapsed_ms", 0)
-    lines.append(
-        f"| Avg response time | {avg_a}ms | {avg_b}ms "
-        f"| {_winner_label(avg_a, avg_b, lower_is_better=True)} |"
-    )
+    lines.append(f"| Avg response time | {avg_a}ms | {avg_b}ms | {_winner_label(avg_a, avg_b, lower_is_better=True)} |")
 
     total_ms_a = sum_a.get("total_elapsed_ms", 0)
     total_ms_b = sum_b.get("total_elapsed_ms", 0)
@@ -85,18 +82,14 @@ def generate_report(
 
     tools_a = sum_a.get("total_tool_calls", 0)
     tools_b = sum_b.get("total_tool_calls", 0)
-    lines.append(
-        f"| Total tool calls | {tools_a} | {tools_b} | - |"
-    )
+    lines.append(f"| Total tool calls | {tools_a} | {tools_b} | - |")
     lines.append("")
 
     # --- Per-category breakdown ---
     lines.append("## Performance by Category")
     lines.append("")
 
-    categories = sorted(
-        set(list(sum_a.get("by_category", {}).keys()) + list(sum_b.get("by_category", {}).keys()))
-    )
+    categories = sorted(set(list(sum_a.get("by_category", {}).keys()) + list(sum_b.get("by_category", {}).keys())))
 
     for cat in categories:
         cat_a = sum_a.get("by_category", {}).get(cat, {})
@@ -110,18 +103,20 @@ def generate_report(
         cb_pass = cat_b.get("passed", 0)
         ca_count = cat_a.get("count", 0)
         cb_count = cat_b.get("count", 0)
-        lines.append(f"| Passed | {ca_pass}/{ca_count} | {cb_pass}/{cb_count} "
-                      f"| {_winner_label(ca_pass, cb_pass, lower_is_better=False)} |")
+        lines.append(
+            f"| Passed | {ca_pass}/{ca_count} | {cb_pass}/{cb_count} "
+            f"| {_winner_label(ca_pass, cb_pass, lower_is_better=False)} |"
+        )
 
         ca_ms = cat_a.get("avg_elapsed_ms", 0)
         cb_ms = cat_b.get("avg_elapsed_ms", 0)
-        lines.append(f"| Avg time | {ca_ms}ms | {cb_ms}ms "
-                      f"| {_winner_label(ca_ms, cb_ms, lower_is_better=True)} |")
+        lines.append(f"| Avg time | {ca_ms}ms | {cb_ms}ms | {_winner_label(ca_ms, cb_ms, lower_is_better=True)} |")
 
         ca_len = cat_a.get("avg_response_length", 0)
         cb_len = cat_b.get("avg_response_length", 0)
-        lines.append(f"| Avg response length | {ca_len} | {cb_len} "
-                      f"| {_winner_label(ca_len, cb_len, lower_is_better=False)} |")
+        lines.append(
+            f"| Avg response length | {ca_len} | {cb_len} | {_winner_label(ca_len, cb_len, lower_is_better=False)} |"
+        )
 
         ca_tools = cat_a.get("avg_tool_calls", 0)
         cb_tools = cat_b.get("avg_tool_calls", 0)
@@ -239,7 +234,8 @@ def main():
     parser.add_argument("file_a", help="Path to first results JSON (backend A)")
     parser.add_argument("file_b", help="Path to second results JSON (backend B)")
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         default=None,
         help="Output path for markdown report (default: stdout)",

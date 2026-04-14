@@ -1,4 +1,5 @@
 """Parser for incident response toolkit output — log search, IOC, auth, timeline."""
+
 from __future__ import annotations
 
 import json
@@ -19,15 +20,17 @@ def parse_log_search(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     if data.get("match_count", 0) > 0:
-        entities.append({
-            "type": "ir_finding",
-            "finding_type": "log_match",
-            "severity": "info",
-            "pattern": data.get("pattern", ""),
-            "log_path": data.get("log_path", ""),
-            "match_count": data.get("match_count", 0),
-            "sample_matches": data.get("matches", [])[:5],
-        })
+        entities.append(
+            {
+                "type": "ir_finding",
+                "finding_type": "log_match",
+                "severity": "info",
+                "pattern": data.get("pattern", ""),
+                "log_path": data.get("log_path", ""),
+                "match_count": data.get("match_count", 0),
+                "sample_matches": data.get("matches", [])[:5],
+            }
+        )
     return entities
 
 
@@ -40,16 +43,18 @@ def parse_ioc_scan(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     for finding in data.get("findings", []):
-        entities.append({
-            "type": "ir_finding",
-            "finding_type": "ioc_hit",
-            "severity": "critical",
-            "ioc_type": finding.get("ioc_type", "unknown"),
-            "ioc_value": finding.get("ioc_value", ""),
-            "file": finding.get("file", ""),
-            "line": finding.get("line", 0),
-            "context": finding.get("context", ""),
-        })
+        entities.append(
+            {
+                "type": "ir_finding",
+                "finding_type": "ioc_hit",
+                "severity": "critical",
+                "ioc_type": finding.get("ioc_type", "unknown"),
+                "ioc_value": finding.get("ioc_value", ""),
+                "file": finding.get("file", ""),
+                "line": finding.get("line", 0),
+                "context": finding.get("context", ""),
+            }
+        )
     return entities
 
 
@@ -62,23 +67,27 @@ def parse_auth_log(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     for bf in data.get("brute_force_detected", []):
-        entities.append({
-            "type": "ir_finding",
-            "finding_type": "brute_force",
-            "severity": bf.get("severity", "high"),
-            "ip": bf.get("ip", ""),
-            "attempts": bf.get("attempts", 0),
-        })
+        entities.append(
+            {
+                "type": "ir_finding",
+                "finding_type": "brute_force",
+                "severity": bf.get("severity", "high"),
+                "ip": bf.get("ip", ""),
+                "attempts": bf.get("attempts", 0),
+            }
+        )
 
     if data.get("compromised_likely"):
         for ip in data.get("success_after_brute_force", []):
-            entities.append({
-                "type": "ir_finding",
-                "finding_type": "compromised_account",
-                "severity": "critical",
-                "ip": ip,
-                "note": "Successful auth after brute-force attempts",
-            })
+            entities.append(
+                {
+                    "type": "ir_finding",
+                    "finding_type": "compromised_account",
+                    "severity": "critical",
+                    "ip": ip,
+                    "note": "Successful auth after brute-force attempts",
+                }
+            )
     return entities
 
 
@@ -92,16 +101,18 @@ def parse_timeline(raw: str, store: "TargetStore") -> list[dict]:
 
     event_count = data.get("event_count", 0)
     if event_count > 0:
-        entities.append({
-            "type": "ir_finding",
-            "finding_type": "timeline",
-            "severity": "info",
-            "keyword": data.get("keyword", ""),
-            "log_path": data.get("log_path", ""),
-            "event_count": event_count,
-            "first_event": data.get("timeline", [{}])[0].get("timestamp", "") if data.get("timeline") else "",
-            "last_event": data.get("timeline", [{}])[-1].get("timestamp", "") if data.get("timeline") else "",
-        })
+        entities.append(
+            {
+                "type": "ir_finding",
+                "finding_type": "timeline",
+                "severity": "info",
+                "keyword": data.get("keyword", ""),
+                "log_path": data.get("log_path", ""),
+                "event_count": event_count,
+                "first_event": data.get("timeline", [{}])[0].get("timestamp", "") if data.get("timeline") else "",
+                "last_event": data.get("timeline", [{}])[-1].get("timestamp", "") if data.get("timeline") else "",
+            }
+        )
     return entities
 
 
@@ -115,14 +126,16 @@ def parse_containment(raw: str, store: "TargetStore") -> list[dict]:
 
     recs = data.get("recommendations", {})
     for action in recs.get("immediate", []):
-        entities.append({
-            "type": "ir_finding",
-            "finding_type": "containment_action",
-            "severity": "critical",
-            "phase": "immediate",
-            "action": action,
-            "attack_type": data.get("attack_type", "generic"),
-        })
+        entities.append(
+            {
+                "type": "ir_finding",
+                "finding_type": "containment_action",
+                "severity": "critical",
+                "phase": "immediate",
+                "action": action,
+                "attack_type": data.get("attack_type", "generic"),
+            }
+        )
     return entities
 
 

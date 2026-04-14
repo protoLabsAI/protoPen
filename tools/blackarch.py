@@ -3,6 +3,7 @@
 Provides structured interfaces to common pen testing CLI tools with
 parsed output, plus a shell_exec fallback with command filtering.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,28 +18,66 @@ from tools._tool_base import Tool
 logger = logging.getLogger(__name__)
 
 _BLOCKED_COMMANDS = {
-    "rm", "rmdir", "mkfs", "dd", "fdisk", "parted",
-    "shutdown", "reboot", "poweroff", "halt", "init",
-    "chmod", "chown", "chgrp",
-    "systemctl", "service",
-    "useradd", "userdel", "passwd", "usermod",
-    "iptables", "ip6tables", "nft",
+    "rm",
+    "rmdir",
+    "mkfs",
+    "dd",
+    "fdisk",
+    "parted",
+    "shutdown",
+    "reboot",
+    "poweroff",
+    "halt",
+    "init",
+    "chmod",
+    "chown",
+    "chgrp",
+    "systemctl",
+    "service",
+    "useradd",
+    "userdel",
+    "passwd",
+    "usermod",
+    "iptables",
+    "ip6tables",
+    "nft",
 }
 
 _SAFE_COMMANDS = {
-    "nmap", "tshark", "tcpdump", "wireshark",
-    "kismet", "hcxdumptool", "hcxpcapngtool",
-    "airodump-ng", "airmon-ng",
-    "nikto", "gobuster", "dirb", "ffuf",
-    "sqlmap", "wpscan",
-    "hashcat", "john",
+    "nmap",
+    "tshark",
+    "tcpdump",
+    "wireshark",
+    "kismet",
+    "hcxdumptool",
+    "hcxpcapngtool",
+    "airodump-ng",
+    "airmon-ng",
+    "nikto",
+    "gobuster",
+    "dirb",
+    "ffuf",
+    "sqlmap",
+    "wpscan",
+    "hashcat",
+    "john",
     "bettercap",
-    "dig", "nslookup", "whois", "host",
-    "ping", "traceroute", "mtr",
-    "curl", "wget",
-    "arp-scan", "netdiscover",
-    "enum4linux", "smbclient", "rpcclient",
-    "hydra", "medusa",
+    "dig",
+    "nslookup",
+    "whois",
+    "host",
+    "ping",
+    "traceroute",
+    "mtr",
+    "curl",
+    "wget",
+    "arp-scan",
+    "netdiscover",
+    "enum4linux",
+    "smbclient",
+    "rpcclient",
+    "hydra",
+    "medusa",
 }
 
 
@@ -80,11 +119,19 @@ class BlackArchTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "nmap_scan", "nmap_vuln_scan", "nmap_os_detect", "nmap_udp_scan",
-                        "airmon_start", "airmon_stop", "airodump_scan",
-                        "bettercap_recon", "bettercap_mitm",
-                        "hashcat_crack", "hashcat_rules",
-                        "nikto_scan", "gobuster_scan",
+                        "nmap_scan",
+                        "nmap_vuln_scan",
+                        "nmap_os_detect",
+                        "nmap_udp_scan",
+                        "airmon_start",
+                        "airmon_stop",
+                        "airodump_scan",
+                        "bettercap_recon",
+                        "bettercap_mitm",
+                        "hashcat_crack",
+                        "hashcat_rules",
+                        "nikto_scan",
+                        "gobuster_scan",
                         "tshark_capture",
                         "shell_exec",
                     ],
@@ -108,42 +155,55 @@ class BlackArchTool(Tool):
         action = kwargs.get("action", "")
         dispatch = {
             "nmap_scan": lambda: self.nmap_scan(
-                kwargs.get("target", ""), kwargs.get("ports"), kwargs.get("timeout", 120),
+                kwargs.get("target", ""),
+                kwargs.get("ports"),
+                kwargs.get("timeout", 120),
             ),
             "nmap_vuln_scan": lambda: self.nmap_vuln_scan(
-                kwargs.get("target", ""), kwargs.get("timeout", 300),
+                kwargs.get("target", ""),
+                kwargs.get("timeout", 300),
             ),
             "nmap_os_detect": lambda: self.nmap_os_detect(
-                kwargs.get("target", ""), kwargs.get("timeout", 300),
+                kwargs.get("target", ""),
+                kwargs.get("timeout", 300),
             ),
             "nmap_udp_scan": lambda: self.nmap_udp_scan(
-                kwargs.get("target", ""), kwargs.get("ports"), kwargs.get("timeout", 300),
+                kwargs.get("target", ""),
+                kwargs.get("ports"),
+                kwargs.get("timeout", 300),
             ),
             "airmon_start": lambda: self.airmon_start(kwargs.get("interface")),
             "airmon_stop": lambda: self.airmon_stop(kwargs.get("interface")),
             "airodump_scan": lambda: self.airodump_scan(
-                kwargs.get("interface"), kwargs.get("timeout", 30), kwargs.get("output_file"),
+                kwargs.get("interface"),
+                kwargs.get("timeout", 30),
+                kwargs.get("output_file"),
             ),
             "bettercap_recon": lambda: self.bettercap_recon(
-                kwargs.get("interface", "eth0"), kwargs.get("timeout", 30),
+                kwargs.get("interface", "eth0"),
+                kwargs.get("timeout", 30),
             ),
             "bettercap_mitm": lambda: self.bettercap_mitm(
-                kwargs.get("target", ""), kwargs.get("interface", "eth0"),
+                kwargs.get("target", ""),
+                kwargs.get("interface", "eth0"),
                 kwargs.get("timeout", 60),
             ),
             "hashcat_crack": lambda: self.hashcat_crack(
-                kwargs.get("hash_file", ""), kwargs.get("hash_type", 22000),
+                kwargs.get("hash_file", ""),
+                kwargs.get("hash_type", 22000),
                 kwargs.get("wordlist", "/usr/share/wordlists/rockyou.txt"),
                 kwargs.get("timeout", 600),
             ),
             "hashcat_rules": lambda: self.hashcat_rules(
-                kwargs.get("hash_file", ""), kwargs.get("hash_type", 22000),
+                kwargs.get("hash_file", ""),
+                kwargs.get("hash_type", 22000),
                 kwargs.get("wordlist", "/usr/share/wordlists/rockyou.txt"),
                 kwargs.get("rules", "/usr/share/hashcat/rules/best64.rule"),
                 kwargs.get("timeout", 600),
             ),
             "nikto_scan": lambda: self.nikto_scan(
-                kwargs.get("url", ""), kwargs.get("timeout", 120),
+                kwargs.get("url", ""),
+                kwargs.get("timeout", 120),
             ),
             "gobuster_scan": lambda: self.gobuster_scan(
                 kwargs.get("url", ""),
@@ -151,10 +211,13 @@ class BlackArchTool(Tool):
                 kwargs.get("timeout", 120),
             ),
             "tshark_capture": lambda: self.tshark_capture(
-                kwargs.get("interface"), kwargs.get("count", 100), kwargs.get("timeout", 30),
+                kwargs.get("interface"),
+                kwargs.get("count", 100),
+                kwargs.get("timeout", 30),
             ),
             "shell_exec": lambda: self.shell_exec(
-                kwargs.get("command", ""), kwargs.get("timeout", 120),
+                kwargs.get("command", ""),
+                kwargs.get("timeout", 120),
                 kwargs.get("force", False),
             ),
         }
@@ -201,17 +264,31 @@ class BlackArchTool(Tool):
 
     async def nmap_vuln_scan(self, target: str, timeout: int = 300) -> str:
         return await self._run(
-            "nmap", "-sV", "--script", "vuln", "-oX", "-", *self._NMAP_OPSEC, target, timeout=timeout,
+            "nmap",
+            "-sV",
+            "--script",
+            "vuln",
+            "-oX",
+            "-",
+            *self._NMAP_OPSEC,
+            target,
+            timeout=timeout,
         )
 
     async def nmap_os_detect(self, target: str, timeout: int = 300) -> str:
         """OS detection scan (-O flag, requires root)."""
         return await self._run(
-            "nmap", "-O", "-sV", "-oX", "-", *self._NMAP_OPSEC, target, timeout=timeout,
+            "nmap",
+            "-O",
+            "-sV",
+            "-oX",
+            "-",
+            *self._NMAP_OPSEC,
+            target,
+            timeout=timeout,
         )
 
-    async def nmap_udp_scan(self, target: str, ports: Optional[str] = None,
-                            timeout: int = 300) -> str:
+    async def nmap_udp_scan(self, target: str, ports: Optional[str] = None, timeout: int = 300) -> str:
         """UDP scan (-sU flag, requires root)."""
         args = ["nmap", "-sU", "-sV", "-oX", "-"] + self._NMAP_OPSEC
         if ports:
@@ -226,12 +303,20 @@ class BlackArchTool(Tool):
         return await self._run("airmon-ng", "stop", interface or self._mon)
 
     async def airodump_scan(
-        self, interface: Optional[str] = None, timeout: int = 30, output_file: Optional[str] = None,
+        self,
+        interface: Optional[str] = None,
+        timeout: int = 30,
+        output_file: Optional[str] = None,
     ) -> str:
         out = output_file or str(self._workspace / "airodump")
         return await self._run(
-            "airodump-ng", "--write", out, "--output-format", "csv",
-            interface or self._mon, timeout=timeout,
+            "airodump-ng",
+            "--write",
+            out,
+            "--output-format",
+            "csv",
+            interface or self._mon,
+            timeout=timeout,
         )
 
     async def bettercap_recon(self, interface: str = "eth0", timeout: int = 30) -> str:
@@ -247,28 +332,53 @@ class BlackArchTool(Tool):
             f"sleep {timeout}; net.show; quit"
         )
         return await self._run(
-            "bettercap", "-iface", interface, "-eval", caplet, timeout=timeout + 10,
+            "bettercap",
+            "-iface",
+            interface,
+            "-eval",
+            caplet,
+            timeout=timeout + 10,
         )
 
     async def hashcat_crack(
-        self, hash_file: str, hash_type: int = 22000,
-        wordlist: str = "/usr/share/wordlists/rockyou.txt", timeout: int = 600,
+        self,
+        hash_file: str,
+        hash_type: int = 22000,
+        wordlist: str = "/usr/share/wordlists/rockyou.txt",
+        timeout: int = 600,
     ) -> str:
         return await self._run(
-            "hashcat", "-m", str(hash_type), "-a", "0", hash_file, wordlist, "--force",
+            "hashcat",
+            "-m",
+            str(hash_type),
+            "-a",
+            "0",
+            hash_file,
+            wordlist,
+            "--force",
             timeout=timeout,
         )
 
     async def hashcat_rules(
-        self, hash_file: str, hash_type: int = 22000,
+        self,
+        hash_file: str,
+        hash_type: int = 22000,
         wordlist: str = "/usr/share/wordlists/rockyou.txt",
         rules: str = "/usr/share/hashcat/rules/best64.rule",
         timeout: int = 600,
     ) -> str:
         """Rule-based hashcat attack (-a 0 with rules)."""
         return await self._run(
-            "hashcat", "-m", str(hash_type), "-a", "0",
-            hash_file, wordlist, "-r", rules, "--force",
+            "hashcat",
+            "-m",
+            str(hash_type),
+            "-a",
+            "0",
+            hash_file,
+            wordlist,
+            "-r",
+            rules,
+            "--force",
             timeout=timeout,
         )
 
@@ -276,7 +386,10 @@ class BlackArchTool(Tool):
         return await self._run("nikto", "-h", url, timeout=timeout)
 
     async def gobuster_scan(
-        self, url: str, wordlist: str = "/usr/share/wordlists/dirb/common.txt", timeout: int = 120,
+        self,
+        url: str,
+        wordlist: str = "/usr/share/wordlists/dirb/common.txt",
+        timeout: int = 120,
     ) -> str:
         return await self._run("gobuster", "dir", "-u", url, "-w", wordlist, "-q", timeout=timeout)
 

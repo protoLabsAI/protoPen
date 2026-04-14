@@ -1,4 +1,5 @@
 """Hash cracking tool — hashcat and john the ripper."""
+
 from __future__ import annotations
 
 import logging
@@ -13,10 +14,7 @@ class HashcatRulesTool(BasePentestTool):
     """Wrapper for hash cracking — hashcat, john the ripper."""
 
     name = "hashcat_rules"
-    description = (
-        "Hash cracking — hashcat rule-based attacks, john the ripper, "
-        "hash identification."
-    )
+    description = "Hash cracking — hashcat rule-based attacks, john the ripper, hash identification."
 
     ACTIONS: dict[str, dict[str, Any]] = {
         "hash_identify": {
@@ -27,10 +25,12 @@ class HashcatRulesTool(BasePentestTool):
         "hashcat_dict": {
             "cmd": [
                 "hashcat",
-                "-m", "{mode}",
+                "-m",
+                "{mode}",
                 "{hashfile}",
                 "{wordlist}",
-                "--force", "--quiet",
+                "--force",
+                "--quiet",
             ],
             "timeout": 600,
             "description": "Dictionary attack with hashcat",
@@ -38,11 +38,14 @@ class HashcatRulesTool(BasePentestTool):
         "hashcat_rules": {
             "cmd": [
                 "hashcat",
-                "-m", "{mode}",
+                "-m",
+                "{mode}",
                 "{hashfile}",
                 "{wordlist}",
-                "-r", "{rulefile}",
-                "--force", "--quiet",
+                "-r",
+                "{rulefile}",
+                "--force",
+                "--quiet",
             ],
             "timeout": 600,
             "description": "Rule-based attack with hashcat",
@@ -81,8 +84,12 @@ class HashcatRulesTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             c.format(
-                hash=hash, hashfile=hashfile, wordlist=wordlist,
-                rulefile=rulefile, mode=mode, format=format,
+                hash=hash,
+                hashfile=hashfile,
+                wordlist=wordlist,
+                rulefile=rulefile,
+                mode=mode,
+                format=format,
             )
             for c in spec["cmd"]
         ]

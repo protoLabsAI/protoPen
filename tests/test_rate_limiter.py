@@ -1,4 +1,5 @@
 """Tests for RateLimiter — sliding window rate limiting for tool calls."""
+
 import time
 import pytest
 
@@ -56,19 +57,23 @@ class TestSlidingWindow:
 
 class TestMultipleActions:
     def test_independent_counters(self):
-        rl = RateLimiter({
-            "action_a": {"max": 1, "window_seconds": 3600},
-            "action_b": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "action_a": {"max": 1, "window_seconds": 3600},
+                "action_b": {"max": 1, "window_seconds": 3600},
+            }
+        )
         rl.check("action_a")
         allowed, _ = rl.check("action_b")
         assert allowed is True
 
     def test_different_limits(self):
-        rl = RateLimiter({
-            "fast": {"max": 10, "window_seconds": 3600},
-            "slow": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "fast": {"max": 10, "window_seconds": 3600},
+                "slow": {"max": 1, "window_seconds": 3600},
+            }
+        )
         for _ in range(10):
             rl.check("fast")
         allowed_fast, _ = rl.check("fast")
@@ -88,10 +93,12 @@ class TestReset:
         assert allowed is True
 
     def test_reset_single_action(self):
-        rl = RateLimiter({
-            "a": {"max": 1, "window_seconds": 3600},
-            "b": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "a": {"max": 1, "window_seconds": 3600},
+                "b": {"max": 1, "window_seconds": 3600},
+            }
+        )
         rl.check("a")
         rl.check("b")
         rl.reset("a")

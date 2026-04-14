@@ -67,10 +67,7 @@ def _score_response(
     pattern_misses = [p for p in expected_patterns if p.lower() not in text_lower]
 
     has_content = len(response_text.strip()) > 0
-    has_structure = any(
-        marker in response_text
-        for marker in ["**", "##", "- ", "1.", "| ", "```"]
-    )
+    has_structure = any(marker in response_text for marker in ["**", "##", "- ", "1.", "| ", "```"])
 
     return {
         "has_content": has_content,
@@ -78,11 +75,7 @@ def _score_response(
         "has_structure": has_structure,
         "pattern_hits": pattern_hits,
         "pattern_misses": pattern_misses,
-        "pattern_score": (
-            len(pattern_hits) / len(expected_patterns)
-            if expected_patterns
-            else 1.0
-        ),
+        "pattern_score": (len(pattern_hits) / len(expected_patterns) if expected_patterns else 1.0),
         "elapsed_ms": elapsed_ms,
     }
 
@@ -199,10 +192,10 @@ async def run_eval(
         print("No tasks to run.")
         return {}
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"protoPen Eval — backend: {backend}")
     print(f"Tasks: {len(tasks)} | Dry run: {dry_run}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     results = []
     for i, task in enumerate(tasks):
@@ -220,11 +213,7 @@ async def run_eval(
         "passed": sum(1 for r in non_dry if r.get("passed")),
         "failed": sum(1 for r in non_dry if not r.get("passed")),
         "total_elapsed_ms": sum(r["elapsed_ms"] for r in results),
-        "avg_elapsed_ms": (
-            sum(r["elapsed_ms"] for r in non_dry) // max(len(non_dry), 1)
-            if non_dry
-            else 0
-        ),
+        "avg_elapsed_ms": (sum(r["elapsed_ms"] for r in non_dry) // max(len(non_dry), 1) if non_dry else 0),
         "total_tool_calls": sum(len(r["tool_calls"]) for r in results),
         "by_category": {},
     }
@@ -254,12 +243,12 @@ async def run_eval(
     with open(outfile, "w") as f:
         json.dump(output, f, indent=2, default=str)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Results saved to: {outfile}")
     print(f"Passed: {summary['passed']}/{summary['total_tasks']}")
     print(f"Avg response time: {summary['avg_elapsed_ms']}ms")
     print(f"Total tool calls: {summary['total_tool_calls']}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     return output
 

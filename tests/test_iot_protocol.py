@@ -1,4 +1,5 @@
 """Tests for iot_protocol — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,20 +17,29 @@ def tool():
 
 # ── Instantiation ────────────────────────────────────────────────────────────
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "iot_protocol"
 
     def test_actions_defined(self, tool):
         expected = {
-            "mqtt_discover", "mqtt_pub_test", "mqtt_bruteforce",
-            "coap_discover", "coap_get", "modbus_scan", "modbus_read",
-            "bacnet_scan", "upnp_discover", "zigbee_sniff",
+            "mqtt_discover",
+            "mqtt_pub_test",
+            "mqtt_bruteforce",
+            "coap_discover",
+            "coap_get",
+            "modbus_scan",
+            "modbus_read",
+            "bacnet_scan",
+            "upnp_discover",
+            "zigbee_sniff",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -39,6 +49,7 @@ class TestDispatch:
 
 
 # ── MQTT ─────────────────────────────────────────────────────────────────────
+
 
 class TestMQTT:
     @pytest.mark.asyncio
@@ -81,6 +92,7 @@ class TestMQTT:
 
 # ── CoAP ─────────────────────────────────────────────────────────────────────
 
+
 class TestCoAP:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -107,6 +119,7 @@ class TestCoAP:
 
 
 # ── Modbus ───────────────────────────────────────────────────────────────────
+
 
 class TestModbus:
     @pytest.mark.asyncio
@@ -136,6 +149,7 @@ class TestModbus:
 
 # ── BACnet / UPnP ───────────────────────────────────────────────────────────
 
+
 class TestBACnetUPnP:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -163,6 +177,7 @@ class TestBACnetUPnP:
 
 # ── Zigbee ───────────────────────────────────────────────────────────────────
 
+
 class TestZigbee:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -178,6 +193,7 @@ class TestZigbee:
 
 
 # ── Binary not found ─────────────────────────────────────────────────────────
+
 
 class TestBinaryNotFound:
     @pytest.mark.asyncio

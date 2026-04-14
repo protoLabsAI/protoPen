@@ -1,4 +1,5 @@
 """Parser for hydra credential attack output, Responder hash capture, and CrackMapExec SMB enum."""
+
 from __future__ import annotations
 
 import re
@@ -9,9 +10,7 @@ from tools.parsers import PARSER_MAP
 if TYPE_CHECKING:
     from knowledge.target_store import TargetStore
 
-_HYDRA_SUCCESS_RE = re.compile(
-    r"\[(\d+)\]\[(\w+)\]\s+host:\s+(\S+)\s+login:\s+(\S+)\s+password:\s+(\S+)"
-)
+_HYDRA_SUCCESS_RE = re.compile(r"\[(\d+)\]\[(\w+)\]\s+host:\s+(\S+)\s+login:\s+(\S+)\s+password:\s+(\S+)")
 
 # Responder NTLMv2-SSP hash line example:
 # [SMB] NTLMv2-SSP Hash     : WORKGROUP\alice::WORKGROUP:aabbcc...:...
@@ -22,9 +21,7 @@ _RESPONDER_HASH_RE = re.compile(
 )
 # Source IP line:
 # [SMB] NTLMv2-SSP Client   : 192.168.1.50
-_RESPONDER_CLIENT_RE = re.compile(
-    r"\[.*?NTLMv2-SSP Client\s*[:\-]\s*(?P<ip>\S+)"
-)
+_RESPONDER_CLIENT_RE = re.compile(r"\[.*?NTLMv2-SSP Client\s*[:\-]\s*(?P<ip>\S+)")
 
 # CrackMapExec output patterns:
 # SMB  192.168.1.5  445  WINHOST  [+] Enumerated shares
@@ -57,14 +54,16 @@ def parse_hydra(raw: str, store: "TargetStore") -> list[dict]:
     """Parse hydra output for successful logins."""
     entities: list[dict] = []
     for m in _HYDRA_SUCCESS_RE.finditer(raw):
-        entities.append({
-            "type": "credential",
-            "port": int(m.group(1)),
-            "service": m.group(2),
-            "host": m.group(3),
-            "username": m.group(4),
-            "password": m.group(5),
-        })
+        entities.append(
+            {
+                "type": "credential",
+                "port": int(m.group(1)),
+                "service": m.group(2),
+                "host": m.group(3),
+                "username": m.group(4),
+                "password": m.group(5),
+            }
+        )
     return entities
 
 
@@ -90,14 +89,16 @@ def parse_responder(raw: str, store: "TargetStore") -> list[dict]:
             domain = hash_match.group("domain").strip()
             user = hash_match.group("username").strip()
             full_hash = f"{domain}\\{user}::{hash_match.group('rest')}"
-            entities.append({
-                "type": "credential_capture",
-                "username": user,
-                "domain": domain,
-                "hash": full_hash,
-                "source_ip": last_client_ip,
-                "hash_type": "NTLMv2-SSP",
-            })
+            entities.append(
+                {
+                    "type": "credential_capture",
+                    "username": user,
+                    "domain": domain,
+                    "hash": full_hash,
+                    "source_ip": last_client_ip,
+                    "hash_type": "NTLMv2-SSP",
+                }
+            )
 
     return entities
 
@@ -118,37 +119,43 @@ def parse_crackmapexec_enum(raw: str, store: "TargetStore") -> list[dict]:
         # Groups (check before user to avoid false-positive username matches)
         gm = _CME_GROUP_RE.search(line)
         if gm:
-            entities.append({
-                "type": "smb_enum",
-                "host": gm.group("host"),
-                "subtype": "group",
-                "group": gm.group("group").strip(),
-                "member_count": int(gm.group("count")),
-            })
+            entities.append(
+                {
+                    "type": "smb_enum",
+                    "host": gm.group("host"),
+                    "subtype": "group",
+                    "group": gm.group("group").strip(),
+                    "member_count": int(gm.group("count")),
+                }
+            )
             continue
 
         # Shares
         sm = _CME_SHARE_RE.search(line)
         if sm:
-            entities.append({
-                "type": "smb_enum",
-                "host": sm.group("host"),
-                "subtype": "share",
-                "share": sm.group("share"),
-                "permissions": sm.group("perms").strip(),
-                "remark": sm.group("remark").strip(),
-            })
+            entities.append(
+                {
+                    "type": "smb_enum",
+                    "host": sm.group("host"),
+                    "subtype": "share",
+                    "share": sm.group("share"),
+                    "permissions": sm.group("perms").strip(),
+                    "remark": sm.group("remark").strip(),
+                }
+            )
             continue
 
         # Users (lines with a datestamp after username)
         um = _CME_USER_RE.search(line)
         if um:
-            entities.append({
-                "type": "smb_enum",
-                "host": um.group("host"),
-                "subtype": "user",
-                "username": um.group("username"),
-            })
+            entities.append(
+                {
+                    "type": "smb_enum",
+                    "host": um.group("host"),
+                    "subtype": "user",
+                    "username": um.group("username"),
+                }
+            )
             continue
 
         # General [+] host status messages
@@ -157,14 +164,16 @@ def parse_crackmapexec_enum(raw: str, store: "TargetStore") -> list[dict]:
             host_key = f"{hm.group('host')}:{hm.group('hostname')}"
             if host_key not in seen_hosts and hm.group("status") == "+":
                 seen_hosts.add(host_key)
-                entities.append({
-                    "type": "smb_enum",
-                    "host": hm.group("host"),
-                    "subtype": "host",
-                    "hostname": hm.group("hostname"),
-                    "port": int(hm.group("port")),
-                    "message": hm.group("msg").strip(),
-                })
+                entities.append(
+                    {
+                        "type": "smb_enum",
+                        "host": hm.group("host"),
+                        "subtype": "host",
+                        "hostname": hm.group("hostname"),
+                        "port": int(hm.group("port")),
+                        "message": hm.group("msg").strip(),
+                    }
+                )
 
     return entities
 

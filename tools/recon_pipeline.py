@@ -1,4 +1,5 @@
 """Recon pipeline — subdomain enumeration, nuclei scanning, screenshots, attack graphs."""
+
 from __future__ import annotations
 
 import logging
@@ -22,10 +23,15 @@ class ReconPipelineTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "full_pipeline": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.recon_pipeline",
-                "--domain", "{domain}",
-                "--output-dir", "{output_dir}",
-                "--threads", "{threads}",
+                "python3",
+                "-m",
+                "protopen_scripts.recon_pipeline",
+                "--domain",
+                "{domain}",
+                "--output-dir",
+                "{output_dir}",
+                "--threads",
+                "{threads}",
                 "--output-json",
             ],
             "timeout": 300,
@@ -33,7 +39,8 @@ class ReconPipelineTool(BasePentestTool):
         },
         "subdomain_httpx": {
             "cmd": [
-                "bash", "-c",
+                "bash",
+                "-c",
                 "subfinder -d {domain} -silent | httpx -json -o /dev/stdout",
             ],
             "timeout": 300,
@@ -42,19 +49,26 @@ class ReconPipelineTool(BasePentestTool):
         "nuclei_scan": {
             "cmd": [
                 "nuclei",
-                "-target", "{target}",
-                "-severity", "{severity}",
+                "-target",
+                "{target}",
+                "-severity",
+                "{severity}",
                 "-json",
-                "-o", "/dev/stdout",
+                "-o",
+                "/dev/stdout",
             ],
             "timeout": 300,
             "description": "Run nuclei vulnerability templates against target",
         },
         "screenshot_capture": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.screenshot",
-                "--targets-file", "{targets_file}",
-                "--output-dir", "{output_dir}",
+                "python3",
+                "-m",
+                "protopen_scripts.screenshot",
+                "--targets-file",
+                "{targets_file}",
+                "--output-dir",
+                "{output_dir}",
                 "--output-json",
             ],
             "timeout": 300,
@@ -62,8 +76,11 @@ class ReconPipelineTool(BasePentestTool):
         },
         "asset_correlate": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.asset_correlate",
-                "--input-dir", "{output_dir}",
+                "python3",
+                "-m",
+                "protopen_scripts.asset_correlate",
+                "--input-dir",
+                "{output_dir}",
                 "--output-json",
             ],
             "timeout": 300,
@@ -71,9 +88,13 @@ class ReconPipelineTool(BasePentestTool):
         },
         "attack_graph_build": {
             "cmd": [
-                "python3", "-m", "protopen_scripts.attack_graph",
-                "--input-dir", "{output_dir}",
-                "--domain", "{domain}",
+                "python3",
+                "-m",
+                "protopen_scripts.attack_graph",
+                "--input-dir",
+                "{output_dir}",
+                "--domain",
+                "{domain}",
                 "--output-json",
             ],
             "timeout": 300,
@@ -82,10 +103,12 @@ class ReconPipelineTool(BasePentestTool):
         "tech_detect": {
             "cmd": [
                 "httpx",
-                "-target", "{target}",
+                "-target",
+                "{target}",
                 "-tech-detect",
                 "-json",
-                "-o", "/dev/stdout",
+                "-o",
+                "/dev/stdout",
             ],
             "timeout": 300,
             "description": "Detect technologies used by target web application",

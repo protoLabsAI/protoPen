@@ -1,4 +1,5 @@
 """Parser for auth testing output."""
+
 from __future__ import annotations
 
 import json
@@ -16,17 +17,21 @@ def parse_auth_test(raw: str, store: "TargetStore") -> list[dict]:
     try:
         data = json.loads(raw)
         if data.get("vulnerable") or data.get("potential_vuln"):
-            entities.append({
-                "type": "auth_vulnerability",
-                "url": data.get("url", ""),
-                "vuln_type": "IDOR/BOLA" if "results" in data else "privilege_escalation",
-            })
+            entities.append(
+                {
+                    "type": "auth_vulnerability",
+                    "url": data.get("url", ""),
+                    "vuln_type": "IDOR/BOLA" if "results" in data else "privilege_escalation",
+                }
+            )
         if data.get("fixed_cookies"):
-            entities.append({
-                "type": "auth_vulnerability",
-                "vuln_type": "session_fixation",
-                "fixed_cookies": data.get("fixed_cookies", []),
-            })
+            entities.append(
+                {
+                    "type": "auth_vulnerability",
+                    "vuln_type": "session_fixation",
+                    "fixed_cookies": data.get("fixed_cookies", []),
+                }
+            )
     except json.JSONDecodeError:
         pass
     return entities

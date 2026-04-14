@@ -1,4 +1,5 @@
 """Credential attack tool — hydra brute force, password spraying, Responder/CrackMapExec/NTLM relay."""
+
 from __future__ import annotations
 
 import logging
@@ -27,11 +28,14 @@ class CredentialAttackTool(BasePentestTool):
         "hydra_brute": {
             "cmd": [
                 "hydra",
-                "-l", "{username}",
-                "-P", "{wordlist}",
+                "-l",
+                "{username}",
+                "-P",
+                "{wordlist}",
                 "{target}",
                 "{service}",
-                "-t", "{threads}",
+                "-t",
+                "{threads}",
                 "-f",
             ],
             "timeout": 600,
@@ -40,11 +44,14 @@ class CredentialAttackTool(BasePentestTool):
         "hydra_spray": {
             "cmd": [
                 "hydra",
-                "-L", "{userlist}",
-                "-p", "{password}",
+                "-L",
+                "{userlist}",
+                "-p",
+                "{password}",
                 "{target}",
                 "{service}",
-                "-t", "{threads}",
+                "-t",
+                "{threads}",
                 "-f",
             ],
             "timeout": 600,
@@ -53,10 +60,12 @@ class CredentialAttackTool(BasePentestTool):
         "hydra_combo": {
             "cmd": [
                 "hydra",
-                "-C", "{combolist}",
+                "-C",
+                "{combolist}",
                 "{target}",
                 "{service}",
-                "-t", "{threads}",
+                "-t",
+                "{threads}",
                 "-f",
             ],
             "timeout": 600,
@@ -64,8 +73,12 @@ class CredentialAttackTool(BasePentestTool):
         },
         "responder": {
             "cmd": [
-                "timeout", "{duration}",
-                "responder", "-I", "{interface}", "-rdwv",
+                "timeout",
+                "{duration}",
+                "responder",
+                "-I",
+                "{interface}",
+                "-rdwv",
             ],
             "timeout": 600,
             "description": (
@@ -75,17 +88,25 @@ class CredentialAttackTool(BasePentestTool):
         },
         "crackmapexec_enum": {
             "cmd": [
-                "crackmapexec", "smb", "{network}",
-                "--users", "--shares", "--groups",
+                "crackmapexec",
+                "smb",
+                "{network}",
+                "--users",
+                "--shares",
+                "--groups",
             ],
             "timeout": 120,
             "description": "Enumerate SMB hosts, users, shares, and groups across a subnet",
         },
         "crackmapexec_spray": {
             "cmd": [
-                "crackmapexec", "smb", "{target}",
-                "-u", "{userlist_file}",
-                "-p", "{password}",
+                "crackmapexec",
+                "smb",
+                "{target}",
+                "-u",
+                "{userlist_file}",
+                "-p",
+                "{password}",
                 "--continue-on-success",
             ],
             "timeout": 300,
@@ -94,9 +115,11 @@ class CredentialAttackTool(BasePentestTool):
         "ntlm_relay": {
             "cmd": [
                 "ntlmrelayx.py",
-                "-tf", "{targets_file}",
+                "-tf",
+                "{targets_file}",
                 "-smb2support",
-                "-l", "/tmp/protopen/relay_loot",
+                "-l",
+                "/tmp/protopen/relay_loot",
             ],
             "timeout": 600,
             "description": (
@@ -107,9 +130,13 @@ class CredentialAttackTool(BasePentestTool):
         },
         "crackmapexec_pth": {
             "cmd": [
-                "crackmapexec", "smb", "{target}",
-                "-u", "{username}",
-                "-H", "{hash}",
+                "crackmapexec",
+                "smb",
+                "{target}",
+                "-u",
+                "{username}",
+                "-H",
+                "{hash}",
                 "--shares",
             ],
             "timeout": 60,
@@ -175,10 +202,7 @@ class CredentialAttackTool(BasePentestTool):
             return result
 
         if action == "crackmapexec_enum":
-            cmd = [
-                c.format(network=network or target)
-                for c in spec["cmd"]
-            ]
+            cmd = [c.format(network=network or target) for c in spec["cmd"]]
             return await self._run(
                 action=action,
                 cmd=cmd,
@@ -192,9 +216,7 @@ class CredentialAttackTool(BasePentestTool):
             _tmp_userlist = None
             if "," in userlist or not os.path.isfile(userlist):
                 users = [u.strip() for u in userlist.split(",") if u.strip()]
-                _tmp_userlist = tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".txt", prefix="cme_users_", delete=False
-                )
+                _tmp_userlist = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", prefix="cme_users_", delete=False)
                 _tmp_userlist.write("\n".join(users))
                 _tmp_userlist.flush()
                 _tmp_userlist.close()
@@ -225,19 +247,14 @@ class CredentialAttackTool(BasePentestTool):
         if action == "ntlm_relay":
             os.makedirs(_LOOT_DIR, exist_ok=True)
             # targets may be comma-separated IPs — write to temp file
-            _tmp_targets = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", prefix="relay_targets_", delete=False
-            )
+            _tmp_targets = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", prefix="relay_targets_", delete=False)
             ip_list = [ip.strip() for ip in targets.split(",") if ip.strip()]
             _tmp_targets.write("\n".join(ip_list))
             _tmp_targets.flush()
             _tmp_targets.close()
 
             try:
-                cmd = [
-                    c.format(targets_file=_tmp_targets.name)
-                    for c in spec["cmd"]
-                ]
+                cmd = [c.format(targets_file=_tmp_targets.name) for c in spec["cmd"]]
                 relay_timeout = duration if duration > 0 else effective_timeout
                 return await self._run(
                     action=action,
@@ -270,9 +287,14 @@ class CredentialAttackTool(BasePentestTool):
         # ── default hydra actions ─────────────────────────────────────────────
         cmd = [
             c.format(
-                target=target, service=service, username=username,
-                password=password, wordlist=wordlist, userlist=userlist,
-                combolist=combolist, threads=str(threads),
+                target=target,
+                service=service,
+                username=username,
+                password=password,
+                wordlist=wordlist,
+                userlist=userlist,
+                combolist=combolist,
+                threads=str(threads),
             )
             for c in spec["cmd"]
         ]

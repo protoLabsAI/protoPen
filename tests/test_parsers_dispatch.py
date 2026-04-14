@@ -1,4 +1,5 @@
 """Tests for the parser dispatch layer."""
+
 import pytest
 from unittest.mock import MagicMock
 from knowledge.target_store import TargetStore
@@ -36,9 +37,12 @@ class TestDispatcher:
 
     def test_parser_error_returns_empty(self, store, monkeypatch):
         """A parser that raises should be caught; returns empty list."""
+
         def bad_parser(raw, s):
             raise ValueError("boom")
+
         from tools.parsers import PARSER_MAP
+
         monkeypatch.setitem(PARSER_MAP, ("blackarch", "nmap_scan"), bad_parser)
         result = ingest_output("blackarch", "nmap_scan", "<bad/>", store)
         assert result == []

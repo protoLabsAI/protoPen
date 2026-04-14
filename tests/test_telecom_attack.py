@@ -1,4 +1,5 @@
 """Tests for telecom_attack — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,9 +21,15 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "gtp_scan", "gtp_fuzzer", "sip_enum", "sip_crack",
-            "ss7_scan", "diameter_audit", "imsi_detect",
-            "sip_flood_test", "stir_shaken_verify",
+            "gtp_scan",
+            "gtp_fuzzer",
+            "sip_enum",
+            "sip_crack",
+            "ss7_scan",
+            "diameter_audit",
+            "imsi_detect",
+            "sip_flood_test",
+            "stir_shaken_verify",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -76,7 +83,7 @@ class TestSIP:
     @patch("tools.base.asyncio.create_subprocess_exec")
     async def test_sip_crack(self, mock_exec, tool):
         proc = AsyncMock()
-        proc.communicate.return_value = (b'[]', b"")
+        proc.communicate.return_value = (b"[]", b"")
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute("sip_crack", target="10.0.0.2", username="admin")

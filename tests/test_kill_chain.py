@@ -1,4 +1,5 @@
 """Tests for kill chain phase tagging."""
+
 import pytest
 
 from enforcement.phases import KillChainPhase, TOOL_PHASE_MAP, get_tool_phase
@@ -54,6 +55,7 @@ class TestToolPhaseMap:
     def test_all_engagement_config_tools_are_mapped(self):
         """Every tool in engagement-config.json tool_risk must be in TOOL_PHASE_MAP."""
         import json
+
         with open("config/engagement-config.json") as f:
             config = json.load(f)
         tool_risk = config.get("tool_risk", {})

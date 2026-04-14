@@ -1,4 +1,5 @@
 """Tests for PortaPack Mayhem serial bridge — mocked serial."""
+
 import pytest
 from unittest.mock import MagicMock
 

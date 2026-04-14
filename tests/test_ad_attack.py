@@ -1,4 +1,5 @@
 """Tests for ad_attack — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -16,21 +17,29 @@ def tool():
 
 # ── Instantiation ────────────────────────────────────────────────────────────
 
+
 class TestInstantiation:
     def test_has_name(self, tool):
         assert tool.name == "ad_attack"
 
     def test_actions_defined(self, tool):
         expected = {
-            "bloodhound_collect", "bloodhound_edges",
-            "certipy_find", "certipy_vuln", "certipy_req",
-            "enum4linux_ng", "ldapsearch",
-            "kerberoast", "asreproast", "secretsdump",
+            "bloodhound_collect",
+            "bloodhound_edges",
+            "certipy_find",
+            "certipy_vuln",
+            "certipy_req",
+            "enum4linux_ng",
+            "ldapsearch",
+            "kerberoast",
+            "asreproast",
+            "secretsdump",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
+
 
 class TestDispatch:
     @pytest.mark.asyncio
@@ -46,8 +55,11 @@ class TestDispatch:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "bloodhound_collect", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "bloodhound_collect",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         assert "users" in result or "Done" in result
         cmd = mock_exec.call_args[0]
@@ -63,6 +75,7 @@ class TestDispatch:
 
 # ── BloodHound ───────────────────────────────────────────────────────────────
 
+
 class TestBloodHound:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -72,8 +85,11 @@ class TestBloodHound:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "bloodhound_edges", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "bloodhound_edges",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "bloodhound-python"
@@ -81,6 +97,7 @@ class TestBloodHound:
 
 
 # ── Certipy ──────────────────────────────────────────────────────────────────
+
 
 class TestCertipy:
     @pytest.mark.asyncio
@@ -92,8 +109,11 @@ class TestCertipy:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "certipy_find", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "certipy_find",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "certipy"
@@ -110,8 +130,11 @@ class TestCertipy:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "certipy_vuln", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "certipy_vuln",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "certipy"
@@ -125,9 +148,13 @@ class TestCertipy:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "certipy_req", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
-            ca_name="CORP-CA", template="ESC1-Vuln",
+            "certipy_req",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
+            ca_name="CORP-CA",
+            template="ESC1-Vuln",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "certipy"
@@ -137,6 +164,7 @@ class TestCertipy:
 
 
 # ── enum4linux-ng ────────────────────────────────────────────────────────────
+
 
 class TestEnum4linux:
     @pytest.mark.asyncio
@@ -156,6 +184,7 @@ class TestEnum4linux:
 
 # ── ldapsearch ───────────────────────────────────────────────────────────────
 
+
 class TestLdapsearch:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -166,8 +195,11 @@ class TestLdapsearch:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "ldapsearch", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "ldapsearch",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
             base_dn="DC=corp,DC=local",
         )
         cmd = mock_exec.call_args[0]
@@ -183,15 +215,20 @@ class TestLdapsearch:
         proc.returncode = 0
         mock_exec.return_value = proc
         await tool.execute(
-            "ldapsearch", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
-            base_dn="DC=corp,DC=local", filter="(objectClass=user)",
+            "ldapsearch",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
+            base_dn="DC=corp,DC=local",
+            filter="(objectClass=user)",
         )
         cmd = mock_exec.call_args[0]
         assert "(objectClass=user)" in cmd
 
 
 # ── Kerberoast ───────────────────────────────────────────────────────────────
+
 
 class TestKerberoast:
     @pytest.mark.asyncio
@@ -203,8 +240,11 @@ class TestKerberoast:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "kerberoast", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "kerberoast",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "impacket-GetUserSPNs"
@@ -213,6 +253,7 @@ class TestKerberoast:
 
 
 # ── AS-REP Roast ─────────────────────────────────────────────────────────────
+
 
 class TestASREPRoast:
     @pytest.mark.asyncio
@@ -224,8 +265,10 @@ class TestASREPRoast:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "asreproast", target="10.0.0.1",
-            domain="corp.local", wordlist="/tmp/users.txt",
+            "asreproast",
+            target="10.0.0.1",
+            domain="corp.local",
+            wordlist="/tmp/users.txt",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "impacket-GetNPUsers"
@@ -238,6 +281,7 @@ class TestASREPRoast:
 
 # ── secretsdump ──────────────────────────────────────────────────────────────
 
+
 class TestSecretsdump:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec")
@@ -248,8 +292,11 @@ class TestSecretsdump:
         proc.returncode = 0
         mock_exec.return_value = proc
         result = await tool.execute(
-            "secretsdump", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "secretsdump",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "impacket-secretsdump"
@@ -258,13 +305,17 @@ class TestSecretsdump:
 
 # ── Binary not found ─────────────────────────────────────────────────────────
 
+
 class TestBinaryNotFound:
     @pytest.mark.asyncio
     @patch("tools.base.asyncio.create_subprocess_exec", side_effect=FileNotFoundError)
     async def test_missing_binary(self, mock_exec, tool):
         result = await tool.execute(
-            "bloodhound_collect", target="10.0.0.1",
-            domain="corp.local", username="admin", password="pass",
+            "bloodhound_collect",
+            target="10.0.0.1",
+            domain="corp.local",
+            username="admin",
+            password="pass",
         )
         data = json.loads(result)
         assert "error" in data

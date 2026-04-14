@@ -4,6 +4,7 @@
 Sends probe payloads to an LLM API endpoint to test for direct
 and indirect prompt injection vulnerabilities.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -124,7 +125,9 @@ def _check_success(response_text: str, success_pattern: str) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Prompt injection tester")
     parser.add_argument("--url", required=True, help="LLM API endpoint URL")
-    parser.add_argument("--payload-set", default="default", help="Payload set to use (default, jailbreak, extraction, all)")
+    parser.add_argument(
+        "--payload-set", default="default", help="Payload set to use (default, jailbreak, extraction, all)"
+    )
     parser.add_argument("--output-json", action="store_true", help="Always output JSON (default)")
     args = parser.parse_args()
 
@@ -132,10 +135,12 @@ def main() -> None:
 
     try:
         session = requests.Session()
-        session.headers.update({
-            "User-Agent": make_headers()["User-Agent"],
-            "Content-Type": "application/json",
-        })
+        session.headers.update(
+            {
+                "User-Agent": make_headers()["User-Agent"],
+                "Content-Type": "application/json",
+            }
+        )
 
         # Determine which payload sets to use
         if args.payload_set == "all":
@@ -153,27 +158,31 @@ def main() -> None:
             status, response_text = _send_to_api(session, args.url, payload_text)
 
             if status == -1:
-                result["injections"].append({
-                    "payload_name": payload_name,
-                    "success": False,
-                    "description": f"Request failed: {response_text}",
-                    "response": "",
-                })
+                result["injections"].append(
+                    {
+                        "payload_name": payload_name,
+                        "success": False,
+                        "description": f"Request failed: {response_text}",
+                        "response": "",
+                    }
+                )
                 continue
 
             succeeded = _check_success(response_text, success_pattern) if success_pattern else False
 
-            result["injections"].append({
-                "payload_name": payload_name,
-                "success": succeeded,
-                "description": (
-                    f"Prompt injection succeeded via '{payload_name}' — guardrail bypassed"
-                    if succeeded else
-                    f"Injection probe '{payload_name}' did not produce expected response (HTTP {status})"
-                ),
-                "response": response_text[:200] if response_text else "",
-                "http_status": status,
-            })
+            result["injections"].append(
+                {
+                    "payload_name": payload_name,
+                    "success": succeeded,
+                    "description": (
+                        f"Prompt injection succeeded via '{payload_name}' — guardrail bypassed"
+                        if succeeded
+                        else f"Injection probe '{payload_name}' did not produce expected response (HTTP {status})"
+                    ),
+                    "response": response_text[:200] if response_text else "",
+                    "http_status": status,
+                }
+            )
 
     except Exception as exc:
         result["error"] = str(exc)

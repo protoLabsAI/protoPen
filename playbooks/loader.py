@@ -1,4 +1,5 @@
 """Playbook loader — parse YAML playbook definitions."""
+
 from __future__ import annotations
 
 import logging
@@ -38,16 +39,18 @@ def load_playbook_file(path: Path, variables: dict[str, str] | None = None) -> P
         # Substitute variables into string params
         resolved_params = _resolve_params(params, merged_vars)
 
-        steps.append(PlaybookStep(
-            name=step_data.get("name", f"step_{i}"),
-            tool=step_data["tool"],
-            action=step_data["action"],
-            params=resolved_params,
-            condition=step_data.get("condition"),
-            on_fail=step_data.get("on_fail", "stop"),
-            timeout=step_data.get("timeout", 300),
-            phase=step_data.get("phase"),
-        ))
+        steps.append(
+            PlaybookStep(
+                name=step_data.get("name", f"step_{i}"),
+                tool=step_data["tool"],
+                action=step_data["action"],
+                params=resolved_params,
+                condition=step_data.get("condition"),
+                on_fail=step_data.get("on_fail", "stop"),
+                timeout=step_data.get("timeout", 300),
+                phase=step_data.get("phase"),
+            )
+        )
 
     return Playbook(
         name=data.get("name", path.stem),
@@ -67,12 +70,14 @@ def list_playbooks() -> list[dict[str, str]]:
         try:
             with open(path) as f:
                 data = yaml.safe_load(f)
-            playbooks.append({
-                "name": path.stem,
-                "description": data.get("description", ""),
-                "tags": data.get("tags", []),
-                "steps": len(data.get("steps", [])),
-            })
+            playbooks.append(
+                {
+                    "name": path.stem,
+                    "description": data.get("description", ""),
+                    "tags": data.get("tags", []),
+                    "steps": len(data.get("steps", [])),
+                }
+            )
         except Exception as e:
             logger.warning("Failed to parse playbook %s: %s", path, e)
     return playbooks

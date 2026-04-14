@@ -187,6 +187,7 @@ _orchestrator_tool: EngagementOrchestratorTool | None = None
 _discord_feed_tool = None
 if os.environ.get("DISCORD_BOT_TOKEN"):
     from tools.discord_feed import DiscordFeedTool
+
     _discord_feed_tool = DiscordFeedTool()
 
     @tool
@@ -212,8 +213,13 @@ if os.environ.get("DISCORD_BOT_TOKEN"):
           Just provide 'content' and optionally 'title'. The webhook is auto-configured.
         """
         return await _discord_feed_tool.execute(
-            action=action, channel_id=channel_id, guild_id=guild_id,
-            limit=limit, after=after, content=content, title=title,
+            action=action,
+            channel_id=channel_id,
+            guild_id=guild_id,
+            limit=limit,
+            after=after,
+            content=content,
+            title=title,
         )
 
 
@@ -234,8 +240,13 @@ async def cve_search(
     - recent: Get recently published/modified CVEs
     """
     return await _cve_search.execute(
-        action=action, query=query, cve_id=cve_id,
-        severity=severity, product=product, days=days, limit=limit,
+        action=action,
+        query=query,
+        cve_id=cve_id,
+        severity=severity,
+        product=product,
+        days=days,
+        limit=limit,
     )
 
 
@@ -253,7 +264,10 @@ async def security_feeds(
     - search: Search feed entries by keyword
     """
     return await _security_feeds.execute(
-        action=action, source=source, query=query, limit=limit,
+        action=action,
+        source=source,
+        query=query,
+        limit=limit,
     )
 
 
@@ -276,9 +290,15 @@ async def github_trending(
     - releases: Check latest releases for tracked repos
     """
     return await _github_trending.execute(
-        action=action, query=query, topic=topic, language=language,
-        min_stars=min_stars, created_after=created_after, repos=repos,
-        limit=limit, sort=sort,
+        action=action,
+        query=query,
+        topic=topic,
+        language=language,
+        min_stars=min_stars,
+        created_after=created_after,
+        repos=repos,
+        limit=limit,
+        sort=sort,
     )
 
 
@@ -296,13 +316,18 @@ async def browser(
     Use 'open' first, then 'snapshot' to read page content.
     """
     return await _browser.execute(
-        action=action, url=url, selector=selector, text=text, query=query,
+        action=action,
+        url=url,
+        selector=selector,
+        text=text,
+        query=query,
     )
 
 
 def create_security_memory_tool(store=None):
     """Factory: creates security_memory tool with injected KnowledgeStore."""
     from knowledge.store import KnowledgeStore
+
     _tool = SecurityMemoryTool(store or KnowledgeStore())
 
     @tool
@@ -353,21 +378,41 @@ def create_security_memory_tool(store=None):
         - stats: Show knowledge base statistics
         """
         return await _tool.execute(
-            action=action, query=query, cve_id=cve_id, title=title,
-            description=description, severity=severity, cvss_score=cvss_score,
-            cvss_vector=cvss_vector, affected_products=affected_products,
-            exploit_available=exploit_available, exploit_maturity=exploit_maturity,
-            tags=tags, source=source, source_url=source_url, platform=platform,
-            exploit_type=exploit_type, verified=verified, content=content,
-            source_type=source_type, topic=topic, intel_type=intel_type,
-            target_relevance=target_relevance, url=url, cve_ids=cve_ids,
-            published_at=published_at, notes=notes, name=name,
-            keywords=keywords, priority=priority, filter_table=filter_table,
-            k=k, search_mode=search_mode,
+            action=action,
+            query=query,
+            cve_id=cve_id,
+            title=title,
+            description=description,
+            severity=severity,
+            cvss_score=cvss_score,
+            cvss_vector=cvss_vector,
+            affected_products=affected_products,
+            exploit_available=exploit_available,
+            exploit_maturity=exploit_maturity,
+            tags=tags,
+            source=source,
+            source_url=source_url,
+            platform=platform,
+            exploit_type=exploit_type,
+            verified=verified,
+            content=content,
+            source_type=source_type,
+            topic=topic,
+            intel_type=intel_type,
+            target_relevance=target_relevance,
+            url=url,
+            cve_ids=cve_ids,
+            published_at=published_at,
+            notes=notes,
+            name=name,
+            keywords=keywords,
+            priority=priority,
+            filter_table=filter_table,
+            k=k,
+            search_mode=search_mode,
         )
 
     return security_memory
-
 
 
 @tool
@@ -389,11 +434,13 @@ async def lab_monitor(
     - changes_since: Get all changes to watched paths since a date
     """
     return await _lab_monitor.execute(
-        action=action, path=path, sha=sha,
-        days=days, since=since, limit=limit,
+        action=action,
+        path=path,
+        sha=sha,
+        days=days,
+        since=since,
+        limit=limit,
     )
-
-
 
 
 def get_security_tools(knowledge_store=None):
@@ -419,6 +466,7 @@ get_all_tools = get_security_tools
 # ─────────────────────────────────────────────────────────────────────────────
 # Pentest tool adapters
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _init_pentest_singletons():
     """Lazy-init pentest singletons from engagement-config.json."""
@@ -578,6 +626,7 @@ def _init_pentest_singletons():
     async def _orchestrator_dispatch(tool_name: str, action_name: str, params: dict) -> str:
         """Dispatch tool calls from the orchestrator pipeline."""
         from tools.lg_tools import get_pentest_tools
+
         for t in get_pentest_tools():
             if t.name == tool_name:
                 return await t.ainvoke({"action": action_name, **params})
@@ -660,9 +709,18 @@ async def portapack(
         _portapack = PortaPackTool(conn)
 
     return await _portapack.execute(
-        action=action, app=app, frequency=frequency, x=x, y=y,
-        button=button, command=command, path=path,
-        lat=lat, lon=lon, altitude=altitude, speed=speed,
+        action=action,
+        app=app,
+        frequency=frequency,
+        x=x,
+        y=y,
+        button=button,
+        command=command,
+        path=path,
+        lat=lat,
+        lon=lon,
+        altitude=altitude,
+        speed=speed,
     )
 
 
@@ -698,9 +756,15 @@ async def flipper(
         _flipper = FlipperTool(conn)
 
     return await _flipper.execute(
-        action=action, command=command, frequency=frequency,
-        modulation=modulation, path=path, key_type=key_type,
-        data=data, protocol=protocol, raw_data=raw_data,
+        action=action,
+        command=command,
+        frequency=frequency,
+        modulation=modulation,
+        path=path,
+        key_type=key_type,
+        data=data,
+        protocol=protocol,
+        raw_data=raw_data,
         timeout=timeout,
     )
 
@@ -738,10 +802,18 @@ async def marauder(
         _marauder = MarauderTool(conn)
 
     return await _marauder.execute(
-        action=action, scan_type=scan_type, indices=indices,
-        channel=channel, list_type=list_type, sniff_type=sniff_type,
-        use_deauth=use_deauth, spam_type=spam_type, ssid=ssid,
-        count=count, html_path=html_path, command=command,
+        action=action,
+        scan_type=scan_type,
+        indices=indices,
+        channel=channel,
+        list_type=list_type,
+        sniff_type=sniff_type,
+        use_deauth=use_deauth,
+        spam_type=spam_type,
+        ssid=ssid,
+        count=count,
+        html_path=html_path,
+        command=command,
     )
 
 
@@ -765,8 +837,13 @@ async def blackarch(
     """
     _init_pentest_singletons()
     return await _blackarch.execute(
-        action=action, target=target, ports=ports, scripts=scripts,
-        interface=interface, command=command, timeout=timeout,
+        action=action,
+        target=target,
+        ports=ports,
+        scripts=scripts,
+        interface=interface,
+        command=command,
+        timeout=timeout,
     )
 
 
@@ -794,9 +871,15 @@ async def engagement(
     """
     _init_pentest_singletons()
     return await _engagement.execute(
-        action=action, name=name, scope=scope, mode=mode,
-        tool_name=tool_name, severity=severity, category=category,
-        title=title, description=description,
+        action=action,
+        name=name,
+        scope=scope,
+        mode=mode,
+        tool_name=tool_name,
+        severity=severity,
+        category=category,
+        title=title,
+        description=description,
     )
 
 
@@ -861,18 +944,42 @@ async def target_intel(
     """
     _init_pentest_singletons()
     return await _target_intel.execute(
-        action=action, ip=ip, mac=mac, hostname=hostname,
-        os=os_fingerprint, vendor=vendor, device_type=device_type,
-        host_id=host_id, port=port, protocol=protocol,
-        service=service, banner=banner, bssid=bssid, ssid=ssid,
-        channel=channel, rssi=rssi, encryption=encryption,
-        frequency_hz=frequency_hz, modulation=modulation,
-        data_hex=data_hex, source_device=source_device,
-        decoded_text=decoded_text, name=name, tag_type=tag_type,
-        uid=uid, label=label, username=username, password=password,
-        hash_type=hash_type, source=source, tool=scan_tool,
-        scan_action=scan_action, scan_session_id=scan_session_id,
-        engagement=engagement_name, ip_prefix=ip_prefix, since=since,
+        action=action,
+        ip=ip,
+        mac=mac,
+        hostname=hostname,
+        os=os_fingerprint,
+        vendor=vendor,
+        device_type=device_type,
+        host_id=host_id,
+        port=port,
+        protocol=protocol,
+        service=service,
+        banner=banner,
+        bssid=bssid,
+        ssid=ssid,
+        channel=channel,
+        rssi=rssi,
+        encryption=encryption,
+        frequency_hz=frequency_hz,
+        modulation=modulation,
+        data_hex=data_hex,
+        source_device=source_device,
+        decoded_text=decoded_text,
+        name=name,
+        tag_type=tag_type,
+        uid=uid,
+        label=label,
+        username=username,
+        password=password,
+        hash_type=hash_type,
+        source=source,
+        tool=scan_tool,
+        scan_action=scan_action,
+        scan_session_id=scan_session_id,
+        engagement=engagement_name,
+        ip_prefix=ip_prefix,
+        since=since,
     )
 
 
@@ -895,8 +1002,12 @@ async def dns_enum(
     """
     _init_pentest_singletons()
     return await _dns_enum.execute(
-        action=action, target=target, record_type=record_type,
-        nameserver=nameserver, wordlist=wordlist, timeout=timeout,
+        action=action,
+        target=target,
+        record_type=record_type,
+        nameserver=nameserver,
+        wordlist=wordlist,
+        timeout=timeout,
     )
 
 
@@ -913,7 +1024,9 @@ async def subdomain_discovery(
     """
     _init_pentest_singletons()
     return await _subdomain_discovery.execute(
-        action=action, target=target, timeout=timeout,
+        action=action,
+        target=target,
+        timeout=timeout,
     )
 
 
@@ -932,8 +1045,11 @@ async def osint_recon(
     """
     _init_pentest_singletons()
     return await _osint_recon.execute(
-        action=action, target=target, source=source,
-        limit=limit, timeout=timeout,
+        action=action,
+        target=target,
+        source=source,
+        limit=limit,
+        timeout=timeout,
     )
 
 
@@ -957,8 +1073,14 @@ async def web_enum(
     """
     _init_pentest_singletons()
     return await _web_enum.execute(
-        action=action, url=url, wordlist=wordlist, extensions=extensions,
-        threads=threads, recursive=recursive, depth=depth, timeout=timeout,
+        action=action,
+        url=url,
+        wordlist=wordlist,
+        extensions=extensions,
+        threads=threads,
+        recursive=recursive,
+        depth=depth,
+        timeout=timeout,
     )
 
 
@@ -981,8 +1103,12 @@ async def service_enum(
     """
     _init_pentest_singletons()
     return await _service_enum.execute(
-        action=action, target=target, share=share,
-        username=username, password=password, timeout=timeout,
+        action=action,
+        target=target,
+        share=share,
+        username=username,
+        password=password,
+        timeout=timeout,
     )
 
 
@@ -1026,7 +1152,9 @@ async def ssl_audit(
     """
     _init_pentest_singletons()
     return await _ssl_audit.execute(
-        action=action, target=target, timeout=timeout,
+        action=action,
+        target=target,
+        timeout=timeout,
     )
 
 
@@ -1046,8 +1174,11 @@ async def api_enum(
     """
     _init_pentest_singletons()
     return await _api_enum.execute(
-        action=action, url=url, wordlist=wordlist,
-        methods=methods, timeout=timeout,
+        action=action,
+        url=url,
+        wordlist=wordlist,
+        methods=methods,
+        timeout=timeout,
     )
 
 
@@ -1088,9 +1219,14 @@ async def lateral_move(
     """
     _init_pentest_singletons()
     return await _lateral_move.execute(
-        action=action, target=target, username=username,
-        password=password, domain=domain, hash=hash,
-        socks_port=socks_port, timeout=timeout,
+        action=action,
+        target=target,
+        username=username,
+        password=password,
+        domain=domain,
+        hash=hash,
+        socks_port=socks_port,
+        timeout=timeout,
     )
 
 
@@ -1114,9 +1250,15 @@ async def data_exfil(
     """
     _init_pentest_singletons()
     return await _data_exfil.execute(
-        action=action, target=target, username=username,
-        password=password, share=share, remote_path=remote_path,
-        local_path=local_path, url=url, timeout=timeout,
+        action=action,
+        target=target,
+        username=username,
+        password=password,
+        share=share,
+        remote_path=remote_path,
+        local_path=local_path,
+        url=url,
+        timeout=timeout,
     )
 
 
@@ -1136,8 +1278,11 @@ async def persistence(
     """
     _init_pentest_singletons()
     return await _persistence.execute(
-        action=action, pubkey=pubkey, schedule=schedule,
-        command=command, timeout=timeout,
+        action=action,
+        pubkey=pubkey,
+        schedule=schedule,
+        command=command,
+        timeout=timeout,
     )
 
 
@@ -1158,8 +1303,11 @@ async def cleanup(
     """
     _init_pentest_singletons()
     return await _cleanup.execute(
-        action=action, key_fingerprint=key_fingerprint,
-        pattern=pattern, file_paths=file_paths, timeout=timeout,
+        action=action,
+        key_fingerprint=key_fingerprint,
+        pattern=pattern,
+        file_paths=file_paths,
+        timeout=timeout,
     )
 
 
@@ -1185,8 +1333,11 @@ async def opsec(
     """
     _init_pentest_singletons()
     return await _opsec.execute(
-        action=action, interface=interface, original_mac=original_mac,
-        interfaces=interfaces, mode=mode,
+        action=action,
+        interface=interface,
+        original_mac=original_mac,
+        interfaces=interfaces,
+        mode=mode,
     )
 
 
@@ -1207,13 +1358,16 @@ async def playbook(
     async def _dispatch(tool_name: str, action_name: str, params: dict) -> str:
         """Dispatch a tool call from the playbook runner."""
         from tools.lg_tools import get_pentest_tools
+
         for t in get_pentest_tools():
             if t.name == tool_name:
                 return await t.ainvoke({"action": action_name, **params})
         return f"Error: Tool '{tool_name}' not found"
 
     return await execute_playbook_action(
-        action=action, name=name, variables=variables,
+        action=action,
+        name=name,
+        variables=variables,
         dispatch_fn=_dispatch,
     )
 
@@ -1245,8 +1399,12 @@ async def orchestrator(
     """
     _init_pentest_singletons()
     return await _orchestrator_tool.execute(
-        action=action, name=name, scope=scope, targets=targets,
-        mode=mode, scope_type=scope_type,
+        action=action,
+        name=name,
+        scope=scope,
+        targets=targets,
+        mode=mode,
+        scope_type=scope_type,
         **{"playbook": playbook} if playbook else {},
         finding_id=finding_id,
     )
@@ -1325,9 +1483,16 @@ async def msf_exploit(
     """
     _init_pentest_singletons()
     return await _msf_exploit.execute(
-        action=action, target=target, query=query, module=module,
-        port=port, payload=payload, lhost=lhost, lport=lport,
-        format=format, timeout=timeout,
+        action=action,
+        target=target,
+        query=query,
+        module=module,
+        port=port,
+        payload=payload,
+        lhost=lhost,
+        lport=lport,
+        format=format,
+        timeout=timeout,
     )
 
 
@@ -1371,11 +1536,21 @@ async def credential_attack(
     """
     _init_pentest_singletons()
     return await _credential_attack.execute(
-        action=action, target=target, service=service,
-        username=username, password=password, wordlist=wordlist,
-        userlist=userlist, combolist=combolist, threads=threads,
-        timeout=timeout, interface=interface, duration=duration,
-        network=network, targets=targets, hash=hash,
+        action=action,
+        target=target,
+        service=service,
+        username=username,
+        password=password,
+        wordlist=wordlist,
+        userlist=userlist,
+        combolist=combolist,
+        threads=threads,
+        timeout=timeout,
+        interface=interface,
+        duration=duration,
+        network=network,
+        targets=targets,
+        hash=hash,
     )
 
 
@@ -1400,9 +1575,14 @@ async def hashcat_rules(
     """
     _init_pentest_singletons()
     return await _hashcat_rules.execute(
-        action=action, hash=hash, hashfile=hashfile,
-        wordlist=wordlist, rulefile=rulefile, mode=mode,
-        format=format, timeout=timeout,
+        action=action,
+        hash=hash,
+        hashfile=hashfile,
+        wordlist=wordlist,
+        rulefile=rulefile,
+        mode=mode,
+        format=format,
+        timeout=timeout,
     )
 
 
@@ -1423,8 +1603,11 @@ async def vuln_scan(
     """
     _init_pentest_singletons()
     return await _vuln_scan.execute(
-        action=action, target=target, ports=ports,
-        tags=tags, timeout=timeout,
+        action=action,
+        target=target,
+        ports=ports,
+        tags=tags,
+        timeout=timeout,
     )
 
 
@@ -1444,7 +1627,10 @@ async def sql_test(
     """
     _init_pentest_singletons()
     return await _sql_test.execute(
-        action=action, url=url, database=database, timeout=timeout,
+        action=action,
+        url=url,
+        database=database,
+        timeout=timeout,
     )
 
 
@@ -1462,7 +1648,9 @@ async def web_vuln(
     """
     _init_pentest_singletons()
     return await _web_vuln.execute(
-        action=action, url=url, timeout=timeout,
+        action=action,
+        url=url,
+        timeout=timeout,
     )
 
 
@@ -1482,8 +1670,11 @@ async def cve_match(
     """
     _init_pentest_singletons()
     return await _cve_match.execute(
-        action=action, target=target, query=query,
-        ports=ports, timeout=timeout,
+        action=action,
+        target=target,
+        query=query,
+        ports=ports,
+        timeout=timeout,
     )
 
 
@@ -1505,8 +1696,12 @@ async def jwt_tool(
     """
     _init_pentest_singletons()
     return await _jwt_tool.execute(
-        action=action, token=token, secret=secret,
-        wordlist=wordlist, new_claims=new_claims, timeout=timeout,
+        action=action,
+        token=token,
+        secret=secret,
+        wordlist=wordlist,
+        new_claims=new_claims,
+        timeout=timeout,
     )
 
 
@@ -1529,9 +1724,13 @@ async def ssrf_detect(
     """
     _init_pentest_singletons()
     return await _ssrf_detect.execute(
-        action=action, url=url, inject_param=inject_param,
-        callback_host=callback_host, callback_port=callback_port,
-        wait_seconds=wait_seconds, timeout=timeout,
+        action=action,
+        url=url,
+        inject_param=inject_param,
+        callback_host=callback_host,
+        callback_port=callback_port,
+        wait_seconds=wait_seconds,
+        timeout=timeout,
     )
 
 
@@ -1561,11 +1760,19 @@ async def auth_test(
     """
     _init_pentest_singletons()
     return await _auth_test.execute(
-        action=action, url=url, admin_url=admin_url,
-        login_url=login_url, headers=headers,
-        user_a_headers=user_a_headers, user_b_headers=user_b_headers,
-        low_priv_headers=low_priv_headers, login_data=login_data,
-        test_ids=test_ids, id_param=id_param, delay=delay, timeout=timeout,
+        action=action,
+        url=url,
+        admin_url=admin_url,
+        login_url=login_url,
+        headers=headers,
+        user_a_headers=user_a_headers,
+        user_b_headers=user_b_headers,
+        low_priv_headers=low_priv_headers,
+        login_data=login_data,
+        test_ids=test_ids,
+        id_param=id_param,
+        delay=delay,
+        timeout=timeout,
     )
 
 
@@ -1587,8 +1794,13 @@ async def rate_limit(
     """
     _init_pentest_singletons()
     return await _rate_limit.execute(
-        action=action, url=url, headers=headers,
-        count=count, interval=interval, spoof_ip=spoof_ip, timeout=timeout,
+        action=action,
+        url=url,
+        headers=headers,
+        count=count,
+        interval=interval,
+        spoof_ip=spoof_ip,
+        timeout=timeout,
     )
 
 
@@ -1613,9 +1825,15 @@ async def graphql_test(
     """
     _init_pentest_singletons()
     return await _graphql_test.execute(
-        action=action, url=url, headers=headers, query=query,
-        field=field, type_name=type_name, max_depth=max_depth,
-        batch_size=batch_size, timeout=timeout,
+        action=action,
+        url=url,
+        headers=headers,
+        query=query,
+        field=field,
+        type_name=type_name,
+        max_depth=max_depth,
+        batch_size=batch_size,
+        timeout=timeout,
     )
 
 
@@ -1647,8 +1865,12 @@ def technique_library(
 
     if action == "add":
         tech = Technique(
-            tool=tool_name, action=action_name, target_type=target_type,
-            description=description, payload=payload, waf_bypass=waf_bypass,
+            tool=tool_name,
+            action=action_name,
+            target_type=target_type,
+            description=description,
+            payload=payload,
+            waf_bypass=waf_bypass,
             success=success,
             tags=[t.strip() for t in tags.split(",") if t.strip()] if tags else [],
         )
@@ -1656,8 +1878,12 @@ def technique_library(
         return _json.dumps({"id": tid, "status": "stored"})
     elif action == "search":
         results = _technique_library.search(
-            tool=tool_name, action=action_name, target_type=target_type,
-            tag=tag, success_only=success, limit=limit,
+            tool=tool_name,
+            action=action_name,
+            target_type=target_type,
+            tag=tag,
+            success_only=success,
+            limit=limit,
         )
         return _json.dumps([t.to_dict() for t in results], indent=2)
     elif action == "waf_bypasses":
@@ -1671,6 +1897,7 @@ def technique_library(
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 4 — Blue Team / Defensive tools
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @tool
 async def cis_audit(
@@ -1690,8 +1917,11 @@ async def cis_audit(
     """
     _init_pentest_singletons()
     return await _cis_audit.execute(
-        action=action, target=target, port=port,
-        expected_ports=expected_ports, timeout=timeout,
+        action=action,
+        target=target,
+        port=port,
+        expected_ports=expected_ports,
+        timeout=timeout,
     )
 
 
@@ -1722,10 +1952,15 @@ async def net_monitor(
     """
     _init_pentest_singletons()
     return await _net_monitor.execute(
-        action=action, target=target, network=network,
-        interface=interface, duration=duration,
-        known_hosts=known_hosts, baseline_services=baseline_services,
-        expected_ports=expected_ports, allowed_protocols=allowed_protocols,
+        action=action,
+        target=target,
+        network=network,
+        interface=interface,
+        duration=duration,
+        known_hosts=known_hosts,
+        baseline_services=baseline_services,
+        expected_ports=expected_ports,
+        allowed_protocols=allowed_protocols,
         known_dhcp_servers=known_dhcp_servers,
         timeout=timeout,
     )
@@ -1747,7 +1982,9 @@ async def hardening_check(
     """
     _init_pentest_singletons()
     return await _hardening_check.execute(
-        action=action, target=target, timeout=timeout,
+        action=action,
+        target=target,
+        timeout=timeout,
     )
 
 
@@ -1772,9 +2009,14 @@ async def ir_toolkit(
     """
     _init_pentest_singletons()
     return await _ir_toolkit.execute(
-        action=action, log_path=log_path, pattern=pattern,
-        keyword=keyword, iocs=iocs, attack_type=attack_type,
-        compromised_hosts=compromised_hosts, timeout=timeout,
+        action=action,
+        log_path=log_path,
+        pattern=pattern,
+        keyword=keyword,
+        iocs=iocs,
+        attack_type=attack_type,
+        compromised_hosts=compromised_hosts,
+        timeout=timeout,
     )
 
 
@@ -1794,8 +2036,11 @@ async def purple_team(
     """
     _init_pentest_singletons()
     return await _purple_team.execute(
-        action=action, red_results=red_results, blue_results=blue_results,
-        exercise_name=exercise_name, target_scope=target_scope,
+        action=action,
+        red_results=red_results,
+        blue_results=blue_results,
+        exercise_name=exercise_name,
+        target_scope=target_scope,
     )
 
 
@@ -1825,9 +2070,14 @@ async def container_audit(
     """
     _init_pentest_singletons()
     return await _container_audit.execute(
-        action=action, target=target, image=image, path=path,
-        severity=severity, benchmark=benchmark,
-        exploit_name=exploit_name, timeout=timeout,
+        action=action,
+        target=target,
+        image=image,
+        path=path,
+        severity=severity,
+        benchmark=benchmark,
+        exploit_name=exploit_name,
+        timeout=timeout,
     )
 
 
@@ -1848,8 +2098,11 @@ async def websocket_test(
     """
     _init_pentest_singletons()
     return await _websocket_test.execute(
-        action=action, url=url, origin=origin,
-        auth_token=auth_token, categories=categories,
+        action=action,
+        url=url,
+        origin=origin,
+        auth_token=auth_token,
+        categories=categories,
         timeout=timeout,
     )
 
@@ -1874,7 +2127,10 @@ async def cicd_audit(
     """
     _init_pentest_singletons()
     return await _cicd_audit.execute(
-        action=action, repo_url=repo_url, path=path, timeout=timeout,
+        action=action,
+        repo_url=repo_url,
+        path=path,
+        timeout=timeout,
     )
 
 
@@ -1902,8 +2158,12 @@ async def ipv6_attack(
     """
     _init_pentest_singletons()
     return await _ipv6_attack.execute(
-        action=action, target=target, interface=interface,
-        network=network, router=router, new_router=new_router,
+        action=action,
+        target=target,
+        interface=interface,
+        network=network,
+        router=router,
+        new_router=new_router,
         timeout=timeout,
     )
 
@@ -1939,10 +2199,19 @@ async def iot_protocol(
     """
     _init_pentest_singletons()
     return await _iot_protocol.execute(
-        action=action, target=target, topic=topic, message=message,
-        username=username, wordlist=wordlist, count=count,
-        resource=resource, slave_id=slave_id, register=register,
-        channel=channel, path=path, timeout=timeout,
+        action=action,
+        target=target,
+        topic=topic,
+        message=message,
+        username=username,
+        wordlist=wordlist,
+        count=count,
+        resource=resource,
+        slave_id=slave_id,
+        register=register,
+        channel=channel,
+        path=path,
+        timeout=timeout,
     )
 
 
@@ -1975,10 +2244,17 @@ async def ad_attack(
     """
     _init_pentest_singletons()
     return await _ad_attack.execute(
-        action=action, target=target, domain=domain,
-        username=username, password=password, base_dn=base_dn,
-        filter=filter, ca_name=ca_name, template=template,
-        wordlist=wordlist, timeout=timeout,
+        action=action,
+        target=target,
+        domain=domain,
+        username=username,
+        password=password,
+        base_dn=base_dn,
+        filter=filter,
+        ca_name=ca_name,
+        template=template,
+        wordlist=wordlist,
+        timeout=timeout,
     )
 
 
@@ -2008,9 +2284,16 @@ async def llm_audit(
     """
     _init_pentest_singletons()
     return await _llm_audit.execute(
-        action=action, target=target, probe=probe, config_path=config_path,
-        output_dir=output_dir, payload_set=payload_set, corpus_path=corpus_path,
-        num_queries=num_queries, technique=technique, timeout=timeout,
+        action=action,
+        target=target,
+        probe=probe,
+        config_path=config_path,
+        output_dir=output_dir,
+        payload_set=payload_set,
+        corpus_path=corpus_path,
+        num_queries=num_queries,
+        technique=technique,
+        timeout=timeout,
     )
 
 
@@ -2040,9 +2323,15 @@ async def telecom_attack(
     """
     _init_pentest_singletons()
     return await _telecom_attack.execute(
-        action=action, target=target, port=port, count=count,
-        username=username, device_args=device_args,
-        extension_range=extension_range, call_id=call_id, timeout=timeout,
+        action=action,
+        target=target,
+        port=port,
+        count=count,
+        username=username,
+        device_args=device_args,
+        extension_range=extension_range,
+        call_id=call_id,
+        timeout=timeout,
     )
 
 
@@ -2077,11 +2366,21 @@ async def evasion(
     """
     _init_pentest_singletons()
     return await _evasion.execute(
-        action=action, payload=payload, lhost=lhost, lport=lport,
-        format=format, encoder=encoder, iterations=iterations,
-        output_path=output_path, target_pe=target_pe, input_file=input_file,
-        arch=arch, loader=loader, domain=domain,
-        payload_path=payload_path, timeout=timeout,
+        action=action,
+        payload=payload,
+        lhost=lhost,
+        lport=lport,
+        format=format,
+        encoder=encoder,
+        iterations=iterations,
+        output_path=output_path,
+        target_pe=target_pe,
+        input_file=input_file,
+        arch=arch,
+        loader=loader,
+        domain=domain,
+        payload_path=payload_path,
+        timeout=timeout,
     )
 
 
@@ -2116,11 +2415,20 @@ async def phishing(
     """
     _init_pentest_singletons()
     return await _phishing.execute(
-        action=action, target=target, campaign_name=campaign_name,
-        template=template, api_key=api_key, campaign_id=campaign_id,
-        phishlet=phishlet, domain=domain, email_file=email_file,
-        dkim_selector=dkim_selector, recipient=recipient,
-        sender=sender, ehlo_domain=ehlo_domain, timeout=timeout,
+        action=action,
+        target=target,
+        campaign_name=campaign_name,
+        template=template,
+        api_key=api_key,
+        campaign_id=campaign_id,
+        phishlet=phishlet,
+        domain=domain,
+        email_file=email_file,
+        dkim_selector=dkim_selector,
+        recipient=recipient,
+        sender=sender,
+        ehlo_domain=ehlo_domain,
+        timeout=timeout,
     )
 
 
@@ -2150,9 +2458,16 @@ async def grpc_audit(
     """
     _init_pentest_singletons()
     return await _grpc_audit.execute(
-        action=action, target=target, service=service, method=method,
-        data=data, auth_header=auth_header, proto_path=proto_path,
-        proto_file=proto_file, count=count, timeout=timeout,
+        action=action,
+        target=target,
+        service=service,
+        method=method,
+        data=data,
+        auth_header=auth_header,
+        proto_path=proto_path,
+        proto_file=proto_file,
+        count=count,
+        timeout=timeout,
     )
 
 
@@ -2183,10 +2498,15 @@ async def auth_audit(
     """
     _init_pentest_singletons()
     return await _auth_audit.execute(
-        action=action, target=target, client_id=client_id,
-        redirect_uri=redirect_uri, token=token,
-        saml_response=saml_response, wordlist=wordlist,
-        rp_id=rp_id, timeout=timeout,
+        action=action,
+        target=target,
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        token=token,
+        saml_response=saml_response,
+        wordlist=wordlist,
+        rp_id=rp_id,
+        timeout=timeout,
     )
 
 
@@ -2212,8 +2532,12 @@ async def mobile_audit(
     """
     _init_pentest_singletons()
     return await _mobile_audit.execute(
-        action=action, target=target, package_name=package_name,
-        script_path=script_path, output_dir=output_dir, timeout=timeout,
+        action=action,
+        target=target,
+        package_name=package_name,
+        script_path=script_path,
+        output_dir=output_dir,
+        timeout=timeout,
     )
 
 
@@ -2239,9 +2563,13 @@ async def supply_chain(
     """
     _init_pentest_singletons()
     return await _supply_chain.execute(
-        action=action, target=target, package_name=package_name,
-        registry=registry, packages_file=packages_file,
-        scan_type=scan_type, timeout=timeout,
+        action=action,
+        target=target,
+        package_name=package_name,
+        registry=registry,
+        packages_file=packages_file,
+        scan_type=scan_type,
+        timeout=timeout,
     )
 
 
@@ -2269,10 +2597,15 @@ async def serverless_audit(
     """
     _init_pentest_singletons()
     return await _serverless_audit.execute(
-        action=action, target=target, event_type=event_type,
-        provider=provider, trigger_type=trigger_type,
-        profile=profile, region=region,
-        concurrency=concurrency, timeout=timeout,
+        action=action,
+        target=target,
+        event_type=event_type,
+        provider=provider,
+        trigger_type=trigger_type,
+        profile=profile,
+        region=region,
+        concurrency=concurrency,
+        timeout=timeout,
     )
 
 
@@ -2295,8 +2628,11 @@ async def spa_test(
     """
     _init_pentest_singletons()
     return await _spa_test.execute(
-        action=action, target=target, routes_file=routes_file,
-        store_type=store_type, timeout=timeout,
+        action=action,
+        target=target,
+        routes_file=routes_file,
+        store_type=store_type,
+        timeout=timeout,
     )
 
 
@@ -2323,10 +2659,15 @@ async def sdn_attack(
     """
     _init_pentest_singletons()
     return await _sdn_attack.execute(
-        action=action, target=target, port=port,
-        netconf_port=netconf_port, openflow_port=openflow_port,
-        username=username, password=password,
-        api_key=api_key, timeout=timeout,
+        action=action,
+        target=target,
+        port=port,
+        netconf_port=netconf_port,
+        openflow_port=openflow_port,
+        username=username,
+        password=password,
+        api_key=api_key,
+        timeout=timeout,
     )
 
 
@@ -2353,9 +2694,14 @@ async def recon_pipeline(
     """
     _init_pentest_singletons()
     return await _recon_pipeline.execute(
-        action=action, domain=domain, target=target,
-        targets_file=targets_file, output_dir=output_dir,
-        threads=threads, severity=severity, timeout=timeout,
+        action=action,
+        domain=domain,
+        target=target,
+        targets_file=targets_file,
+        output_dir=output_dir,
+        threads=threads,
+        severity=severity,
+        timeout=timeout,
     )
 
 

@@ -1,4 +1,5 @@
 """Chain planner — recommend next tool actions based on target profile."""
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,9 @@ _RULES: list[dict[str, Any]] = [
     },
     {
         "name": "smb_discovered",
-        "condition": lambda p: p.has_service("smb") or p.has_service("microsoft-ds") or any(port.port in (139, 445) for port in p.ports),
+        "condition": lambda p: (
+            p.has_service("smb") or p.has_service("microsoft-ds") or any(port.port in (139, 445) for port in p.ports)
+        ),
         "suggestions": [
             {"tool": "service_enum", "action": "enum4linux_full", "reason": "SMB found — run enum4linux"},
             {"tool": "service_enum", "action": "smb_shares", "reason": "List SMB shares"},
@@ -92,10 +95,12 @@ def suggest_next_steps(profile: TargetProfile, max_suggestions: int = 10) -> lis
         try:
             if rule["condition"](profile):
                 for suggestion in rule["suggestions"]:
-                    suggestions.append({
-                        **suggestion,
-                        "rule_name": rule["name"],
-                    })
+                    suggestions.append(
+                        {
+                            **suggestion,
+                            "rule_name": rule["name"],
+                        }
+                    )
         except Exception as e:
             logger.warning("Rule '%s' evaluation failed: %s", rule["name"], e)
 

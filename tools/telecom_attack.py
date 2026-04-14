@@ -1,4 +1,5 @@
 """5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI detection."""
+
 from __future__ import annotations
 
 import logging
@@ -84,14 +85,22 @@ class TelecomAttackTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             str(c).format(
-                target=target, port=port, count=count, username=username,
-                device_args=device_args, extension_range=extension_range,
-                call_id=call_id, timeout=timeout,
+                target=target,
+                port=port,
+                count=count,
+                username=username,
+                device_args=device_args,
+                extension_range=extension_range,
+                call_id=call_id,
+                timeout=timeout,
             )
             for c in spec["cmd"]
         ]
         effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(
-            action=action, cmd=cmd, timeout=effective_timeout, target_hint=target,
+            action=action,
+            cmd=cmd,
+            timeout=effective_timeout,
+            target_hint=target,
         )

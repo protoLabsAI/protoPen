@@ -1,4 +1,5 @@
 """Parser for sqlmap output."""
+
 from __future__ import annotations
 
 import re
@@ -18,11 +19,13 @@ def parse_sqlmap(raw: str, store: "TargetStore") -> list[dict]:
     """Parse sqlmap text output — extract injectable params, backend, DBs."""
     entities: list[dict] = []
     for m in _PARAM_RE.finditer(raw):
-        entities.append({
-            "type": "sqli_param",
-            "parameter": m.group(1),
-            "injection_type": m.group(2),
-        })
+        entities.append(
+            {
+                "type": "sqli_param",
+                "parameter": m.group(1),
+                "injection_type": m.group(2),
+            }
+        )
     m = _BACKEND_RE.search(raw)
     if m:
         entities.append({"type": "backend_dbms", "dbms": m.group(1).strip()})

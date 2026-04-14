@@ -1,4 +1,5 @@
 """Technique library — store and retrieve successful attack techniques."""
+
 from __future__ import annotations
 
 import json
@@ -17,13 +18,14 @@ _DB_PATH = Path(__file__).parent.parent / "data" / "techniques.db"
 @dataclass
 class Technique:
     """A single attack technique record."""
+
     id: int = 0
     tool: str = ""
     action: str = ""
-    target_type: str = ""      # e.g., "web", "smb", "ssh", "graphql"
+    target_type: str = ""  # e.g., "web", "smb", "ssh", "graphql"
     description: str = ""
     payload: str = ""
-    waf_bypass: str = ""       # WAF product bypassed, if any
+    waf_bypass: str = ""  # WAF product bypassed, if any
     success: bool = True
     tags: list[str] = field(default_factory=list)
     created_at: float = 0.0
@@ -88,10 +90,15 @@ class TechniqueLibrary:
                 waf_bypass, success, tags, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                technique.tool, technique.action, technique.target_type,
-                technique.description, technique.payload,
-                technique.waf_bypass, int(technique.success),
-                json.dumps(technique.tags), technique.created_at,
+                technique.tool,
+                technique.action,
+                technique.target_type,
+                technique.description,
+                technique.payload,
+                technique.waf_bypass,
+                int(technique.success),
+                json.dumps(technique.tags),
+                technique.created_at,
             ),
         )
         self._conn.commit()
@@ -160,9 +167,7 @@ class TechniqueLibrary:
         by_type = self._conn.execute(
             "SELECT target_type, COUNT(*) FROM techniques WHERE target_type != '' GROUP BY target_type"
         ).fetchall()
-        success_rate = self._conn.execute(
-            "SELECT AVG(success) FROM techniques"
-        ).fetchone()[0]
+        success_rate = self._conn.execute("SELECT AVG(success) FROM techniques").fetchone()[0]
 
         return {
             "total": total,
@@ -173,8 +178,13 @@ class TechniqueLibrary:
 
     def _row_to_technique(self, row: tuple) -> Technique:
         return Technique(
-            id=row[0], tool=row[1], action=row[2], target_type=row[3],
-            description=row[4], payload=row[5], waf_bypass=row[6],
+            id=row[0],
+            tool=row[1],
+            action=row[2],
+            target_type=row[3],
+            description=row[4],
+            payload=row[5],
+            waf_bypass=row[6],
             success=bool(row[7]),
             tags=json.loads(row[8]) if row[8] else [],
             created_at=row[9],

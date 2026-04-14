@@ -1,4 +1,5 @@
 """Tests for auth_audit — mocked subprocess."""
+
 from __future__ import annotations
 
 import json
@@ -20,11 +21,16 @@ class TestInstantiation:
 
     def test_actions_defined(self, tool):
         expected = {
-            "oauth_redirect_test", "oauth_device_code",
-            "oidc_discovery", "oidc_token_test",
-            "saml_decode", "saml_inject",
-            "jwt_scan", "jwt_crack",
-            "webauthn_test", "session_fixation",
+            "oauth_redirect_test",
+            "oauth_device_code",
+            "oidc_discovery",
+            "oidc_token_test",
+            "saml_decode",
+            "saml_inject",
+            "jwt_scan",
+            "jwt_crack",
+            "webauthn_test",
+            "session_fixation",
         }
         assert set(tool.ACTIONS.keys()) == expected
 
@@ -44,7 +50,9 @@ class TestOAuth:
         proc.communicate.return_value = (b'{"findings":[]}', b"")
         proc.returncode = 0
         mock_exec.return_value = proc
-        await tool.execute("oauth_redirect_test", target="https://auth.example.com", client_id="app1", redirect_uri="https://evil.com")
+        await tool.execute(
+            "oauth_redirect_test", target="https://auth.example.com", client_id="app1", redirect_uri="https://evil.com"
+        )
         cmd = mock_exec.call_args[0]
         assert cmd[0] == "python3"
         assert "https://auth.example.com" in cmd

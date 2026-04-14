@@ -1,4 +1,5 @@
 """Tests for bettercap net.show ASCII table parser."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.bettercap import parse

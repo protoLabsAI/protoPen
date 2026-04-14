@@ -102,15 +102,17 @@ def _build_subagent_section() -> str:
         lines.append(f"  Tools: {', '.join(config.tools)}")
         lines.append("")
 
-    lines.extend([
-        "**Rules:**",
-        "- Delegate threat scanning/discovery to Threat Scanner",
-        "- Delegate deep vulnerability analysis to Vuln Analyst",
-        "- Delegate report writing/publishing to Intel Reporter",
-        "- For simple questions, answer directly without delegation",
-        "- Max 3 concurrent subagent tasks",
-        "- Subagents cannot spawn further subagents",
-    ])
+    lines.extend(
+        [
+            "**Rules:**",
+            "- Delegate threat scanning/discovery to Threat Scanner",
+            "- Delegate deep vulnerability analysis to Vuln Analyst",
+            "- Delegate report writing/publishing to Intel Reporter",
+            "- For simple questions, answer directly without delegation",
+            "- Max 3 concurrent subagent tasks",
+            "- Subagents cannot spawn further subagents",
+        ]
+    )
 
     return "\n".join(lines)
 

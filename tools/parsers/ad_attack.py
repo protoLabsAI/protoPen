@@ -1,4 +1,5 @@
 """Parser for Active Directory attack output — BloodHound, Certipy, enum4linux-ng, Impacket."""
+
 from __future__ import annotations
 
 import json
@@ -24,15 +25,17 @@ def parse_bloodhound_collect(raw: str, store: "TargetStore") -> list[dict]:
         if match:
             counts[obj_type] = int(match.group(1))
 
-    entities.append({
-        "type": "ad_finding",
-        "target": "domain",
-        "check": "bloodhound_collection",
-        "severity": "info",
-        "value": f"BloodHound data collected: {zip_file}",
-        "counts": counts,
-        "zip_file": zip_file,
-    })
+    entities.append(
+        {
+            "type": "ad_finding",
+            "target": "domain",
+            "check": "bloodhound_collection",
+            "severity": "info",
+            "value": f"BloodHound data collected: {zip_file}",
+            "counts": counts,
+            "zip_file": zip_file,
+        }
+    )
     return entities
 
 
@@ -53,17 +56,19 @@ def parse_certipy_find(raw: str, store: "TargetStore") -> list[dict]:
         name = tmpl.get("Template Name", tmpl.get("name", ""))
         vuln_to = tmpl.get("Vulnerabilities", tmpl.get("[!] Vulnerabilities", []))
         severity = "high" if vuln_to else "info"
-        entities.append({
-            "type": "ad_finding",
-            "target": name,
-            "check": "adcs_template",
-            "severity": severity,
-            "value": tmpl.get("Display Name", name),
-            "vulnerabilities": vuln_to if isinstance(vuln_to, list) else [vuln_to] if vuln_to else [],
-            "enabled": tmpl.get("Enabled", True),
-            "client_authentication": tmpl.get("Client Authentication", False),
-            "enrollee_supplies_subject": tmpl.get("Enrollee Supplies Subject", False),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": name,
+                "check": "adcs_template",
+                "severity": severity,
+                "value": tmpl.get("Display Name", name),
+                "vulnerabilities": vuln_to if isinstance(vuln_to, list) else [vuln_to] if vuln_to else [],
+                "enabled": tmpl.get("Enabled", True),
+                "client_authentication": tmpl.get("Client Authentication", False),
+                "enrollee_supplies_subject": tmpl.get("Enrollee Supplies Subject", False),
+            }
+        )
     return entities
 
 
@@ -84,17 +89,19 @@ def parse_certipy_vuln(raw: str, store: "TargetStore") -> list[dict]:
         vuln_to = tmpl.get("Vulnerabilities", tmpl.get("[!] Vulnerabilities", []))
         if not vuln_to:
             continue
-        entities.append({
-            "type": "ad_finding",
-            "target": name,
-            "check": "adcs_vulnerable_template",
-            "severity": "critical",
-            "value": f"Vulnerable template: {name}",
-            "vulnerabilities": vuln_to if isinstance(vuln_to, list) else [vuln_to],
-            "enabled": tmpl.get("Enabled", True),
-            "client_authentication": tmpl.get("Client Authentication", False),
-            "enrollee_supplies_subject": tmpl.get("Enrollee Supplies Subject", False),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": name,
+                "check": "adcs_vulnerable_template",
+                "severity": "critical",
+                "value": f"Vulnerable template: {name}",
+                "vulnerabilities": vuln_to if isinstance(vuln_to, list) else [vuln_to],
+                "enabled": tmpl.get("Enabled", True),
+                "client_authentication": tmpl.get("Client Authentication", False),
+                "enrollee_supplies_subject": tmpl.get("Enrollee Supplies Subject", False),
+            }
+        )
     return entities
 
 
@@ -108,35 +115,41 @@ def parse_enum4linux_ng(raw: str, store: "TargetStore") -> list[dict]:
 
     # Shares
     for share in data.get("shares", []):
-        entities.append({
-            "type": "ad_finding",
-            "target": share.get("name", ""),
-            "check": "smb_share",
-            "severity": "info",
-            "value": share.get("comment", ""),
-            "access": share.get("access", ""),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": share.get("name", ""),
+                "check": "smb_share",
+                "severity": "info",
+                "value": share.get("comment", ""),
+                "access": share.get("access", ""),
+            }
+        )
 
     # Users
     for user in data.get("users", []):
-        entities.append({
-            "type": "ad_finding",
-            "target": user.get("username", ""),
-            "check": "smb_user",
-            "severity": "info",
-            "value": user.get("name", user.get("username", "")),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": user.get("username", ""),
+                "check": "smb_user",
+                "severity": "info",
+                "value": user.get("name", user.get("username", "")),
+            }
+        )
 
     # Groups
     for group in data.get("groups", []):
-        entities.append({
-            "type": "ad_finding",
-            "target": group.get("groupname", ""),
-            "check": "smb_group",
-            "severity": "info",
-            "value": group.get("groupname", ""),
-            "members": group.get("members", []),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": group.get("groupname", ""),
+                "check": "smb_group",
+                "severity": "info",
+                "value": group.get("groupname", ""),
+                "members": group.get("members", []),
+            }
+        )
 
     return entities
 
@@ -151,14 +164,16 @@ def parse_ldapsearch(raw: str, store: "TargetStore") -> list[dict]:
         line = line.rstrip()
         if not line or line.startswith("#"):
             if current_dn:
-                entities.append({
-                    "type": "ad_finding",
-                    "target": current_dn,
-                    "check": "ldap_entry",
-                    "severity": "info",
-                    "value": current_dn,
-                    "attributes": dict(current_attrs),
-                })
+                entities.append(
+                    {
+                        "type": "ad_finding",
+                        "target": current_dn,
+                        "check": "ldap_entry",
+                        "severity": "info",
+                        "value": current_dn,
+                        "attributes": dict(current_attrs),
+                    }
+                )
                 current_dn = ""
                 current_attrs = {}
             continue
@@ -171,14 +186,16 @@ def parse_ldapsearch(raw: str, store: "TargetStore") -> list[dict]:
 
     # Flush last entry
     if current_dn:
-        entities.append({
-            "type": "ad_finding",
-            "target": current_dn,
-            "check": "ldap_entry",
-            "severity": "info",
-            "value": current_dn,
-            "attributes": dict(current_attrs),
-        })
+        entities.append(
+            {
+                "type": "ad_finding",
+                "target": current_dn,
+                "check": "ldap_entry",
+                "severity": "info",
+                "value": current_dn,
+                "attributes": dict(current_attrs),
+            }
+        )
 
     return entities
 
@@ -187,14 +204,16 @@ def parse_kerberoast(raw: str, store: "TargetStore") -> list[dict]:
     """Parse Impacket GetUserSPNs output for Kerberoast hashes."""
     entities: list[dict] = []
     hashes = [line for line in raw.splitlines() if line.startswith("$krb5tgs$")]
-    entities.append({
-        "type": "ad_finding",
-        "target": "domain",
-        "check": "kerberoast",
-        "severity": "high" if hashes else "info",
-        "value": f"Kerberoastable hashes found: {len(hashes)}",
-        "hash_count": len(hashes),
-    })
+    entities.append(
+        {
+            "type": "ad_finding",
+            "target": "domain",
+            "check": "kerberoast",
+            "severity": "high" if hashes else "info",
+            "value": f"Kerberoastable hashes found: {len(hashes)}",
+            "hash_count": len(hashes),
+        }
+    )
     return entities
 
 
@@ -202,14 +221,16 @@ def parse_asreproast(raw: str, store: "TargetStore") -> list[dict]:
     """Parse Impacket GetNPUsers output for AS-REP roast hashes."""
     entities: list[dict] = []
     hashes = [line for line in raw.splitlines() if line.startswith("$krb5asrep$")]
-    entities.append({
-        "type": "ad_finding",
-        "target": "domain",
-        "check": "asreproast",
-        "severity": "high" if hashes else "info",
-        "value": f"AS-REP roastable hashes found: {len(hashes)}",
-        "hash_count": len(hashes),
-    })
+    entities.append(
+        {
+            "type": "ad_finding",
+            "target": "domain",
+            "check": "asreproast",
+            "severity": "high" if hashes else "info",
+            "value": f"AS-REP roastable hashes found: {len(hashes)}",
+            "hash_count": len(hashes),
+        }
+    )
     return entities
 
 
@@ -231,15 +252,17 @@ def parse_secretsdump(raw: str, store: "TargetStore") -> list[dict]:
     if lsa_section:
         types_found.append("LSA")
 
-    entities.append({
-        "type": "ad_finding",
-        "target": "domain_controller",
-        "check": "secretsdump",
-        "severity": "critical" if ntlm_lines else "info",
-        "value": f"Secrets dumped — types: {', '.join(types_found) or 'none'}, NTLM hashes: {len(ntlm_lines)}",
-        "hash_count": len(ntlm_lines),
-        "types_found": types_found,
-    })
+    entities.append(
+        {
+            "type": "ad_finding",
+            "target": "domain_controller",
+            "check": "secretsdump",
+            "severity": "critical" if ntlm_lines else "info",
+            "value": f"Secrets dumped — types: {', '.join(types_found) or 'none'}, NTLM hashes: {len(ntlm_lines)}",
+            "hash_count": len(ntlm_lines),
+            "types_found": types_found,
+        }
+    )
     return entities
 
 

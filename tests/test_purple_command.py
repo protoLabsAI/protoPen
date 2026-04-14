@@ -4,6 +4,7 @@ server.py requires Python 3.10+ and heavy deps (gradio, nanobot, langgraph)
 that aren't available in the local test env. We test the purple command logic
 by exercising the same code path it uses: load playbook → run → format output.
 """
+
 from __future__ import annotations
 
 import json
@@ -43,9 +44,11 @@ def _format_purple_output(pb, scope: str) -> str:
     lines.append(f"\n**Results:** {completed}/{total} steps completed, {failed} failed")
 
     report_step = next(
-        (s for s in reversed(pb.steps)
-         if s.tool == "purple_team" and s.action == "exercise_report"
-         and s.status == StepStatus.COMPLETED),
+        (
+            s
+            for s in reversed(pb.steps)
+            if s.tool == "purple_team" and s.action == "exercise_report" and s.status == StepStatus.COMPLETED
+        ),
         None,
     )
     if report_step and report_step.output:
@@ -76,11 +79,13 @@ class TestPurpleCommandEndToEnd:
 
         async def mock_dispatch(tool: str, action: str, params: dict) -> str:
             if tool == "purple_team" and action == "exercise_report":
-                return json.dumps({
-                    "rating": "GOOD",
-                    "detection_rate": 0.85,
-                    "critical_findings": [],
-                })
+                return json.dumps(
+                    {
+                        "rating": "GOOD",
+                        "detection_rate": 0.85,
+                        "critical_findings": [],
+                    }
+                )
             if tool == "purple_team" and action == "coverage_matrix":
                 return json.dumps({"matrix": [], "summary": {"detection_rate": 0.85}})
             return json.dumps({"status": "ok"})
@@ -117,14 +122,16 @@ class TestPurpleCommandEndToEnd:
 
         async def low_rate_dispatch(tool: str, action: str, params: dict) -> str:
             if tool == "purple_team" and action == "exercise_report":
-                return json.dumps({
-                    "rating": "CRITICAL",
-                    "detection_rate": 0.20,
-                    "critical_findings": [
-                        {"technique": "T1046", "gap": "undetected"},
-                        {"technique": "T1595", "gap": "undetected"},
-                    ],
-                })
+                return json.dumps(
+                    {
+                        "rating": "CRITICAL",
+                        "detection_rate": 0.20,
+                        "critical_findings": [
+                            {"technique": "T1046", "gap": "undetected"},
+                            {"technique": "T1595", "gap": "undetected"},
+                        ],
+                    }
+                )
             return json.dumps({"status": "ok"})
 
         await run_playbook(pb, low_rate_dispatch)
@@ -212,10 +219,12 @@ class TestCodeFenceStripping:
 
         async def pct_dispatch(tool: str, action: str, params: dict) -> str:
             if tool == "purple_team" and action == "exercise_report":
-                return json.dumps({
-                    "rating": "CRITICAL",
-                    "detection_rate_pct": 0.15,
-                })
+                return json.dumps(
+                    {
+                        "rating": "CRITICAL",
+                        "detection_rate_pct": 0.15,
+                    }
+                )
             return '{"ok": true}'
 
         await run_playbook(pb, pct_dispatch)
@@ -235,10 +244,13 @@ class TestPurpleCommandScope:
 
     @pytest.mark.asyncio
     async def test_exercise_name_in_params(self):
-        pb = load_playbook("purple_team_exercise", {
-            "target": "10.0.0.1",
-            "exercise_name": "purple-abc12345",
-        })
+        pb = load_playbook(
+            "purple_team_exercise",
+            {
+                "target": "10.0.0.1",
+                "exercise_name": "purple-abc12345",
+            },
+        )
         report_step = pb.steps[-1]
         assert report_step.params["exercise_name"] == "purple-abc12345"
 

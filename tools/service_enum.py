@@ -1,4 +1,5 @@
 """Service enumeration — enum4linux, rpcclient, smbclient structured wrappers."""
+
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +41,11 @@ class ServiceEnumTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "enum4linux_full", "smb_shares", "smb_list",
-                        "rpc_info", "rpc_users",
+                        "enum4linux_full",
+                        "smb_shares",
+                        "smb_list",
+                        "rpc_info",
+                        "rpc_users",
                     ],
                 },
                 "target": {"type": "string", "description": "Target IP or hostname"},
@@ -81,7 +85,9 @@ class ServiceEnumTool(Tool):
     async def _run(self, *args: str, timeout: int = 120) -> str:
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
         try:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -96,15 +102,13 @@ class ServiceEnumTool(Tool):
     async def enum4linux_full(self, target: str, timeout: int = 120) -> str:
         return await self._run("enum4linux", "-a", target, timeout=timeout)
 
-    async def smb_shares(self, target: str, username: str = "",
-                         password: str = "", timeout: int = 60) -> str:
+    async def smb_shares(self, target: str, username: str = "", password: str = "", timeout: int = 60) -> str:
         args = ["smbclient", "-L", target, "-N"]
         if username:
             args.extend(["-U", f"{username}%{password}"])
         return await self._run(*args, timeout=timeout)
 
-    async def smb_list(self, target: str, share: str, username: str = "",
-                       password: str = "", timeout: int = 60) -> str:
+    async def smb_list(self, target: str, share: str, username: str = "", password: str = "", timeout: int = 60) -> str:
         path = f"//{target}/{share}"
         args = ["smbclient", path, "-N", "-c", "ls"]
         if username:
@@ -113,12 +117,24 @@ class ServiceEnumTool(Tool):
 
     async def rpc_info(self, target: str, timeout: int = 60) -> str:
         return await self._run(
-            "rpcclient", "-U", "", "-N", target, "-c", "srvinfo",
+            "rpcclient",
+            "-U",
+            "",
+            "-N",
+            target,
+            "-c",
+            "srvinfo",
             timeout=timeout,
         )
 
     async def rpc_users(self, target: str, timeout: int = 60) -> str:
         return await self._run(
-            "rpcclient", "-U", "", "-N", target, "-c", "enumdomusers",
+            "rpcclient",
+            "-U",
+            "",
+            "-N",
+            target,
+            "-c",
+            "enumdomusers",
             timeout=timeout,
         )

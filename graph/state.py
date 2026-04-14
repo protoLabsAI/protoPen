@@ -9,9 +9,7 @@ from typing import Annotated, NotRequired
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
 
-def merge_findings(
-    existing: list[dict] | None, new: list[dict] | None
-) -> list[dict]:
+def merge_findings(existing: list[dict] | None, new: list[dict] | None) -> list[dict]:
     """Reducer: append new findings, no deduplication needed."""
     if existing is None:
         return new or []

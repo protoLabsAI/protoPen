@@ -1,4 +1,5 @@
 """gRPC and protobuf security testing — reflection, fuzzing, auth bypass."""
+
 from __future__ import annotations
 
 import logging
@@ -52,8 +53,14 @@ class GRPCAuditTool(BasePentestTool):
         },
         "grpc_web_test": {
             "cmd": [
-                "grpcurl", "-plaintext", "-import-path", "{proto_path}",
-                "-proto", "{proto_file}", "{target}", "{method}",
+                "grpcurl",
+                "-plaintext",
+                "-import-path",
+                "{proto_path}",
+                "-proto",
+                "{proto_file}",
+                "{target}",
+                "{method}",
             ],
             "timeout": 30,
             "description": "Test gRPC-Web endpoint with proto definitions",
@@ -84,14 +91,23 @@ class GRPCAuditTool(BasePentestTool):
         spec = self.ACTIONS[action]
         cmd = [
             str(c).format(
-                target=target, service=service, method=method, data=data,
-                auth_header=auth_header, proto_path=proto_path,
-                proto_file=proto_file, count=count, timeout=timeout,
+                target=target,
+                service=service,
+                method=method,
+                data=data,
+                auth_header=auth_header,
+                proto_path=proto_path,
+                proto_file=proto_file,
+                count=count,
+                timeout=timeout,
             )
             for c in spec["cmd"]
         ]
         effective_timeout = spec.get("timeout", timeout)
 
         return await self._run(
-            action=action, cmd=cmd, timeout=effective_timeout, target_hint=target,
+            action=action,
+            cmd=cmd,
+            timeout=effective_timeout,
+            target_hint=target,
         )

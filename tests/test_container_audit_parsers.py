@@ -1,4 +1,5 @@
 """Tests for container_audit parsers — kube-hunter, kube-bench, deepce, CDK, Trivy."""
+
 from __future__ import annotations
 
 import json
@@ -22,20 +23,35 @@ def store():
 
 # ── kube-hunter ──────────────────────────────────────────────────────────────
 
+
 class TestParseKubeHunter:
     def test_empty_vulns(self, store):
         raw = json.dumps({"vulnerabilities": []})
         assert parse_kube_hunter(raw, store) == []
 
     def test_parse_vulns(self, store):
-        raw = json.dumps({"vulnerabilities": [
-            {"vulnerability": "Exposed K8s Dashboard", "severity": "high",
-             "location": "10.0.0.1:8443", "category": "Information Disclosure",
-             "hunter": "Dashboard", "description": "Dashboard is publicly accessible"},
-            {"vulnerability": "Unauthenticated Kubelet", "severity": "critical",
-             "location": "10.0.0.2:10250", "category": "Remote Code Execution",
-             "hunter": "Kubelet", "description": "Kubelet allows anonymous access"},
-        ]})
+        raw = json.dumps(
+            {
+                "vulnerabilities": [
+                    {
+                        "vulnerability": "Exposed K8s Dashboard",
+                        "severity": "high",
+                        "location": "10.0.0.1:8443",
+                        "category": "Information Disclosure",
+                        "hunter": "Dashboard",
+                        "description": "Dashboard is publicly accessible",
+                    },
+                    {
+                        "vulnerability": "Unauthenticated Kubelet",
+                        "severity": "critical",
+                        "location": "10.0.0.2:10250",
+                        "category": "Remote Code Execution",
+                        "hunter": "Kubelet",
+                        "description": "Kubelet allows anonymous access",
+                    },
+                ]
+            }
+        )
         entities = parse_kube_hunter(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "k8s_finding"
@@ -49,25 +65,48 @@ class TestParseKubeHunter:
 
 # ── kube-bench ───────────────────────────────────────────────────────────────
 
+
 class TestParseKubeBench:
     def test_empty_controls(self, store):
         raw = json.dumps({"Controls": []})
         assert parse_kube_bench(raw, store) == []
 
     def test_only_fail_and_warn(self, store):
-        raw = json.dumps({"Controls": [{
-            "node_type": "master",
-            "tests": [{
-                "results": [
-                    {"test_number": "1.1.1", "test_desc": "API server anonymous auth",
-                     "status": "FAIL", "remediation": "Set --anonymous-auth=false", "scored": True},
-                    {"test_number": "1.1.2", "test_desc": "API server basic auth",
-                     "status": "PASS", "scored": True},
-                    {"test_number": "1.1.3", "test_desc": "Insecure port",
-                     "status": "WARN", "remediation": "Set --insecure-port=0", "scored": False},
-                ],
-            }],
-        }]})
+        raw = json.dumps(
+            {
+                "Controls": [
+                    {
+                        "node_type": "master",
+                        "tests": [
+                            {
+                                "results": [
+                                    {
+                                        "test_number": "1.1.1",
+                                        "test_desc": "API server anonymous auth",
+                                        "status": "FAIL",
+                                        "remediation": "Set --anonymous-auth=false",
+                                        "scored": True,
+                                    },
+                                    {
+                                        "test_number": "1.1.2",
+                                        "test_desc": "API server basic auth",
+                                        "status": "PASS",
+                                        "scored": True,
+                                    },
+                                    {
+                                        "test_number": "1.1.3",
+                                        "test_desc": "Insecure port",
+                                        "status": "WARN",
+                                        "remediation": "Set --insecure-port=0",
+                                        "scored": False,
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
         entities = parse_kube_bench(raw, store)
         assert len(entities) == 2
         assert entities[0]["severity"] == "high"
@@ -81,17 +120,24 @@ class TestParseKubeBench:
 
 # ── deepce ───────────────────────────────────────────────────────────────────
 
+
 class TestParseDeepce:
     def test_escapes_and_info(self, store):
-        raw = json.dumps({
-            "escapes": [
-                {"name": "docker.sock", "severity": "high",
-                 "description": "Docker socket mounted", "exploitable": True},
-            ],
-            "info": [
-                {"name": "container_runtime", "value": "docker"},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "escapes": [
+                    {
+                        "name": "docker.sock",
+                        "severity": "high",
+                        "description": "Docker socket mounted",
+                        "exploitable": True,
+                    },
+                ],
+                "info": [
+                    {"name": "container_runtime", "value": "docker"},
+                ],
+            }
+        )
         entities = parse_deepce(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "container_finding"
@@ -109,12 +155,21 @@ class TestParseDeepce:
 
 # ── CDK evaluate ─────────────────────────────────────────────────────────────
 
+
 class TestParseCDK:
     def test_findings(self, store):
-        raw = json.dumps({"findings": [
-            {"name": "service-account", "severity": "high",
-             "description": "Default SA with cluster-admin", "exploit_available": True},
-        ]})
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "name": "service-account",
+                        "severity": "high",
+                        "description": "Default SA with cluster-admin",
+                        "exploit_available": True,
+                    },
+                ]
+            }
+        )
         entities = parse_cdk_evaluate(raw, store)
         assert len(entities) == 1
         assert entities[0]["type"] == "container_finding"
@@ -130,19 +185,36 @@ class TestParseCDK:
 
 # ── Trivy ────────────────────────────────────────────────────────────────────
 
+
 class TestParseTrivy:
     def test_image_vulns(self, store):
-        raw = json.dumps({"Results": [{
-            "Target": "alpine:3.19",
-            "Vulnerabilities": [
-                {"VulnerabilityID": "CVE-2024-1234", "Severity": "HIGH",
-                 "Title": "OpenSSL buffer overflow", "PkgName": "openssl",
-                 "InstalledVersion": "3.1.4", "FixedVersion": "3.1.5"},
-                {"VulnerabilityID": "CVE-2024-5678", "Severity": "CRITICAL",
-                 "Title": "zlib heap overflow", "PkgName": "zlib",
-                 "InstalledVersion": "1.3.0", "FixedVersion": "1.3.1"},
-            ],
-        }]})
+        raw = json.dumps(
+            {
+                "Results": [
+                    {
+                        "Target": "alpine:3.19",
+                        "Vulnerabilities": [
+                            {
+                                "VulnerabilityID": "CVE-2024-1234",
+                                "Severity": "HIGH",
+                                "Title": "OpenSSL buffer overflow",
+                                "PkgName": "openssl",
+                                "InstalledVersion": "3.1.4",
+                                "FixedVersion": "3.1.5",
+                            },
+                            {
+                                "VulnerabilityID": "CVE-2024-5678",
+                                "Severity": "CRITICAL",
+                                "Title": "zlib heap overflow",
+                                "PkgName": "zlib",
+                                "InstalledVersion": "1.3.0",
+                                "FixedVersion": "1.3.1",
+                            },
+                        ],
+                    }
+                ]
+            }
+        )
         entities = parse_trivy_image(raw, store)
         assert len(entities) == 2
         assert entities[0]["type"] == "container_vuln"

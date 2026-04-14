@@ -1,4 +1,5 @@
 """Tests for EngagementStore — SQLite audit trail for engagements."""
+
 import json
 
 import pytest
@@ -17,7 +18,8 @@ class TestEngagementLifecycle:
         eid = store.create_engagement(
             name="test-engagement",
             scope_json=json.dumps({"type": "cidr", "targets": ["192.168.4.0/24"]}),
-            mode="ACTIVE", max_phase="exploitation",
+            mode="ACTIVE",
+            max_phase="exploitation",
         )
         assert eid > 0
 
@@ -43,8 +45,11 @@ class TestFindings:
     def test_log_finding(self, store):
         eid = store.create_engagement(name="test", scope_json="{}", mode="ACTIVE")
         fid = store.log_finding(
-            engagement_id=eid, severity="high", category="wifi",
-            title="Open AP detected", detail="SSID 'FreeWiFi' no encryption",
+            engagement_id=eid,
+            severity="high",
+            category="wifi",
+            title="Open AP detected",
+            detail="SSID 'FreeWiFi' no encryption",
             target_ip="192.168.4.1",
         )
         assert fid > 0
@@ -69,17 +74,26 @@ class TestToolCalls:
     def test_log_tool_call(self, store):
         eid = store.create_engagement(name="test", scope_json="{}", mode="ACTIVE")
         tcid = store.log_tool_call(
-            engagement_id=eid, tool_name="blackarch", action="nmap_scan",
-            args_json=json.dumps({"target": "192.168.4.1"}), result_summary="scan complete",
-            success=True, duration_ms=1500, phase="RECON",
+            engagement_id=eid,
+            tool_name="blackarch",
+            action="nmap_scan",
+            args_json=json.dumps({"target": "192.168.4.1"}),
+            result_summary="scan complete",
+            success=True,
+            duration_ms=1500,
+            phase="RECON",
         )
         assert tcid > 0
 
     def test_log_blocked_call(self, store):
         eid = store.create_engagement(name="test", scope_json="{}", mode="PASSIVE")
         tcid = store.log_tool_call(
-            engagement_id=eid, tool_name="blackarch", action="wifi_deauth",
-            blocked=True, block_reason="mode enforcement", phase="EXPLOITATION",
+            engagement_id=eid,
+            tool_name="blackarch",
+            action="wifi_deauth",
+            blocked=True,
+            block_reason="mode enforcement",
+            phase="EXPLOITATION",
         )
         assert tcid > 0
 

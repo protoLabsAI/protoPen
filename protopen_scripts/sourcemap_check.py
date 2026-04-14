@@ -4,6 +4,7 @@
 For each JS file linked in the HTML, checks if the corresponding .map
 file is publicly accessible. Also looks for //# sourceMappingURL= comments.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -19,8 +20,8 @@ from protopen_scripts._common import make_session
 
 logger = logging.getLogger(__name__)
 
-SOURCE_MAP_COMMENT = re.compile(r'//[#@]\s*sourceMappingURL\s*=\s*(\S+)')
-X_SOURCE_MAP_HEADER = re.compile(r'X-SourceMap|SourceMap', re.IGNORECASE)
+SOURCE_MAP_COMMENT = re.compile(r"//[#@]\s*sourceMappingURL\s*=\s*(\S+)")
+X_SOURCE_MAP_HEADER = re.compile(r"X-SourceMap|SourceMap", re.IGNORECASE)
 
 
 def _extract_js_urls(html: str, base_url: str) -> list[str]:
@@ -29,11 +30,11 @@ def _extract_js_urls(html: str, base_url: str) -> list[str]:
     urls: list[str] = []
     src_re = re.compile(r'<script[^>]+src=["\']([^"\']+\.js[^"\']*)["\']', re.IGNORECASE)
     for src in src_re.findall(html):
-        if src.startswith('http'):
+        if src.startswith("http"):
             urls.append(src)
-        elif src.startswith('//'):
+        elif src.startswith("//"):
             urls.append(f"{parsed_base.scheme}:{src}")
-        elif src.startswith('/'):
+        elif src.startswith("/"):
             urls.append(f"{base_origin}{src}")
         else:
             urls.append(urljoin(base_url, src))
@@ -45,12 +46,12 @@ def _check_map_url(session: requests.Session, map_url: str, js_filename: str) ->
     try:
         resp = session.get(map_url, timeout=10)
         if resp.status_code == 200:
-            content_type = resp.headers.get('Content-Type', '')
+            content_type = resp.headers.get("Content-Type", "")
             # Source maps are typically JSON
-            is_json = 'json' in content_type or 'javascript' in content_type
+            is_json = "json" in content_type or "javascript" in content_type
             try:
                 data = resp.json()
-                has_sources = 'sources' in data or 'sourceRoot' in data
+                has_sources = "sources" in data or "sourceRoot" in data
             except Exception:
                 has_sources = False
 
@@ -92,7 +93,7 @@ def main() -> None:
         checked_maps: set[str] = set()
 
         for js_url in js_urls[:20]:
-            js_filename = urlparse(js_url).path.split('/')[-1] or "unknown.js"
+            js_filename = urlparse(js_url).path.split("/")[-1] or "unknown.js"
 
             # Strategy 1: Try <js_url>.map
             map_url = js_url + ".map"
@@ -109,12 +110,12 @@ def main() -> None:
                 js_content = js_resp.text
 
                 # Check X-SourceMap response header
-                for header_name in ('X-SourceMap', 'SourceMap'):
+                for header_name in ("X-SourceMap", "SourceMap"):
                     header_val = js_resp.headers.get(header_name)
                     if header_val:
-                        if header_val.startswith('http'):
+                        if header_val.startswith("http"):
                             sm_url = header_val
-                        elif header_val.startswith('/'):
+                        elif header_val.startswith("/"):
                             sm_url = f"{base_origin}{header_val}"
                         else:
                             sm_url = urljoin(js_url, header_val)
@@ -129,11 +130,11 @@ def main() -> None:
                 if m:
                     comment_url = m.group(1).strip()
                     # Skip data URIs
-                    if comment_url.startswith('data:'):
+                    if comment_url.startswith("data:"):
                         continue
-                    if comment_url.startswith('http'):
+                    if comment_url.startswith("http"):
                         sm_url = comment_url
-                    elif comment_url.startswith('/'):
+                    elif comment_url.startswith("/"):
                         sm_url = f"{base_origin}{comment_url}"
                     else:
                         sm_url = urljoin(js_url, comment_url)

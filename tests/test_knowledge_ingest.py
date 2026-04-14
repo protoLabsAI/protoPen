@@ -1,4 +1,5 @@
 """Tests for KnowledgeIngestMiddleware — LLM extraction + parser fallback."""
+
 from __future__ import annotations
 
 import json
@@ -8,6 +9,7 @@ import pytest
 
 try:
     import langchain_core  # noqa: F401
+
     HAS_LANGCHAIN = True
 except ImportError:
     HAS_LANGCHAIN = False
@@ -46,10 +48,12 @@ def _make_request(tool_name: str, action: str = ""):
 
 def _make_tool_message(content: str):
     from langchain_core.messages import ToolMessage
+
     return ToolMessage(content=content, tool_call_id="test")
 
 
 # ── NullStore ────────────────────────────────────────────────────────────────
+
 
 @needs_langchain
 class TestNullStore:
@@ -60,6 +64,7 @@ class TestNullStore:
 
 
 # ── Middleware filtering ─────────────────────────────────────────────────────
+
 
 @needs_langchain
 class TestIngestFiltering:
@@ -90,17 +95,19 @@ class TestIngestFiltering:
 
 # ── Parser fallback path ─────────────────────────────────────────────────────
 
+
 @needs_langchain
 class TestParserFallback:
     def test_cis_audit_findings_ingested(self, middleware, store):
         req = _make_request("cis_audit", "ssh_audit")
-        raw = json.dumps({
-            "target": "10.0.0.1",
-            "issues": [
-                {"severity": "high", "check": "PasswordAuth", "value": "yes",
-                 "recommendation": "Disable"},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "target": "10.0.0.1",
+                "issues": [
+                    {"severity": "high", "check": "PasswordAuth", "value": "yes", "recommendation": "Disable"},
+                ],
+            }
+        )
         result = _make_tool_message(raw)
         middleware._try_ingest(req, result)
 
@@ -112,14 +119,16 @@ class TestParserFallback:
 
     def test_hardening_failed_checks_ingested(self, middleware, store):
         req = _make_request("hardening_check", "ssh_harden")
-        raw = json.dumps({
-            "service": "ssh", "target": "10.0.0.1",
-            "checks": [
-                {"check": "PermitRootLogin", "passed": False, "severity": "critical",
-                 "remediation": "Set to no"},
-                {"check": "MaxAuthTries", "passed": True, "severity": "medium"},
-            ],
-        })
+        raw = json.dumps(
+            {
+                "service": "ssh",
+                "target": "10.0.0.1",
+                "checks": [
+                    {"check": "PermitRootLogin", "passed": False, "severity": "critical", "remediation": "Set to no"},
+                    {"check": "MaxAuthTries", "passed": True, "severity": "medium"},
+                ],
+            }
+        )
         result = _make_tool_message(raw)
         middleware._try_ingest(req, result)
 
@@ -129,13 +138,20 @@ class TestParserFallback:
 
     def test_ir_ioc_scan_ingested(self, middleware, store):
         req = _make_request("ir_toolkit", "ioc_scan")
-        raw = json.dumps({
-            "findings": [
-                {"ioc_type": "ip", "ioc_value": "198.51.100.1",
-                 "file": "/var/log/syslog", "line": 42, "context": "bad ip"},
-            ],
-            "total_hits": 1,
-        })
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "ioc_type": "ip",
+                        "ioc_value": "198.51.100.1",
+                        "file": "/var/log/syslog",
+                        "line": 42,
+                        "context": "bad ip",
+                    },
+                ],
+                "total_hits": 1,
+            }
+        )
         result = _make_tool_message(raw)
         middleware._try_ingest(req, result)
 
@@ -158,16 +174,23 @@ class TestParserFallback:
 
 # ── LLM extraction path ─────────────────────────────────────────────────────
 
+
 @needs_langchain
 class TestLlmExtraction:
     def test_llm_returns_findings(self, store):
         mw = KnowledgeIngestMiddleware(store)
         mw._llm_available = None  # untested
 
-        findings_json = json.dumps([
-            {"type": "ssh_misconfiguration", "severity": "high",
-             "summary": "Root login enabled", "details": "PermitRootLogin yes"},
-        ])
+        findings_json = json.dumps(
+            [
+                {
+                    "type": "ssh_misconfiguration",
+                    "severity": "high",
+                    "summary": "Root login enabled",
+                    "details": "PermitRootLogin yes",
+                },
+            ]
+        )
 
         mock_response = MagicMock()
         mock_response.content = findings_json
@@ -192,10 +215,12 @@ class TestLlmExtraction:
         mw._llm = mock_llm
 
         req = _make_request("cis_audit", "ssh_audit")
-        raw = json.dumps({
-            "target": "10.0.0.1",
-            "issues": [{"severity": "high", "check": "X", "value": "Y", "recommendation": "Z"}],
-        })
+        raw = json.dumps(
+            {
+                "target": "10.0.0.1",
+                "issues": [{"severity": "high", "check": "X", "value": "Y", "recommendation": "Z"}],
+            }
+        )
         result = _make_tool_message(raw)
         mw._try_ingest(req, result)
 
@@ -223,6 +248,7 @@ class TestLlmExtraction:
 
 
 # ── Ingestible tools set ─────────────────────────────────────────────────────
+
 
 @needs_langchain
 class TestIngestibleToolsCoverage:

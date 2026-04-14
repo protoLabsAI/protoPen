@@ -3,6 +3,7 @@
 Wraps TargetStore as a LangGraph-compatible Tool for the agent
 to query, upsert, and analyze target data across all sensor domains.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -41,15 +42,20 @@ class TargetIntelTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "upsert_host", "query_hosts", "get_host",
+                        "upsert_host",
+                        "query_hosts",
+                        "get_host",
                         "upsert_port",
-                        "upsert_wifi_network", "upsert_wifi_station",
+                        "upsert_wifi_network",
+                        "upsert_wifi_station",
                         "add_rf_signal",
                         "upsert_ble_device",
                         "upsert_rfid_nfc_tag",
                         "add_credential",
-                        "start_scan", "end_scan",
-                        "stats", "diff",
+                        "start_scan",
+                        "end_scan",
+                        "stats",
+                        "diff",
                     ],
                 },
                 "ip": {"type": "string"},
@@ -119,9 +125,12 @@ class TargetIntelTool(Tool):
 
     def _upsert_host(self, kw: dict) -> str:
         hid = self._store.upsert_host(
-            ip=kw.get("ip", ""), mac=kw.get("mac", ""),
-            hostname=kw.get("hostname", ""), os=kw.get("os", ""),
-            vendor=kw.get("vendor", ""), device_type=kw.get("device_type", "unknown"),
+            ip=kw.get("ip", ""),
+            mac=kw.get("mac", ""),
+            hostname=kw.get("hostname", ""),
+            os=kw.get("os", ""),
+            vendor=kw.get("vendor", ""),
+            device_type=kw.get("device_type", "unknown"),
         )
         host = self._store.get_host(hid)
         return f"Host upserted (id={hid}): {host['ip'] or host['mac']}"
@@ -168,16 +177,20 @@ class TargetIntelTool(Tool):
 
     def _upsert_port(self, kw: dict) -> str:
         pid = self._store.upsert_port(
-            host_id=kw["host_id"], port=kw["port"],
+            host_id=kw["host_id"],
+            port=kw["port"],
             protocol=kw.get("protocol", "tcp"),
-            service=kw.get("service", ""), banner=kw.get("banner", ""),
+            service=kw.get("service", ""),
+            banner=kw.get("banner", ""),
         )
         return f"Port upserted (id={pid}): {kw['port']}/{kw.get('protocol', 'tcp')}"
 
     def _upsert_wifi_network(self, kw: dict) -> str:
         nid = self._store.upsert_wifi_network(
-            bssid=kw["bssid"], ssid=kw.get("ssid", ""),
-            channel=kw.get("channel", 0), rssi=kw.get("rssi", 0),
+            bssid=kw["bssid"],
+            ssid=kw.get("ssid", ""),
+            channel=kw.get("channel", 0),
+            rssi=kw.get("rssi", 0),
             encryption=kw.get("encryption", ""),
         )
         return f"WiFi network upserted (id={nid}): {kw.get('ssid', '')} [{kw['bssid']}]"
@@ -200,22 +213,26 @@ class TargetIntelTool(Tool):
 
     def _upsert_ble_device(self, kw: dict) -> str:
         bid = self._store.upsert_ble_device(
-            mac=kw["mac"], name=kw.get("name", ""),
+            mac=kw["mac"],
+            name=kw.get("name", ""),
             rssi=kw.get("rssi", 0),
         )
         return f"BLE device upserted (id={bid}): {kw.get('name', '')} [{kw['mac']}]"
 
     def _upsert_rfid_nfc_tag(self, kw: dict) -> str:
         tid = self._store.upsert_rfid_nfc_tag(
-            tag_type=kw["tag_type"], uid=kw["uid"],
+            tag_type=kw["tag_type"],
+            uid=kw["uid"],
             label=kw.get("label", ""),
         )
         return f"RFID/NFC tag upserted (id={tid}): {kw['tag_type']} {kw['uid']}"
 
     def _add_credential(self, kw: dict) -> str:
         cid = self._store.add_credential(
-            username=kw.get("username", ""), password=kw.get("password", ""),
-            hash_type=kw.get("hash_type", ""), source=kw.get("source", ""),
+            username=kw.get("username", ""),
+            password=kw.get("password", ""),
+            hash_type=kw.get("hash_type", ""),
+            source=kw.get("source", ""),
             host_id=kw.get("host_id", 0),
             wifi_network_id=kw.get("wifi_network_id", 0),
         )
@@ -223,7 +240,8 @@ class TargetIntelTool(Tool):
 
     def _start_scan(self, kw: dict) -> str:
         sid = self._store.create_scan_session(
-            tool=kw.get("tool", ""), action=kw.get("scan_action", ""),
+            tool=kw.get("tool", ""),
+            action=kw.get("scan_action", ""),
             engagement=kw.get("engagement", ""),
         )
         return f"Scan session started (id={sid})"

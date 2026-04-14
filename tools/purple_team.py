@@ -1,4 +1,5 @@
 """Purple team mode — correlate red-team attacks with blue-team detections."""
+
 from __future__ import annotations
 
 import json
@@ -163,15 +164,18 @@ class PurpleTeamTool(BasePentestTool):
         total_detected = len(attacked_techniques & detected_techniques)
         gaps = attacked_techniques - detected_techniques
 
-        return json.dumps({
-            "matrix": matrix,
-            "summary": {
-                "techniques_tested": total_tested,
-                "techniques_detected": total_detected,
-                "detection_rate": round(total_detected / max(total_tested, 1) * 100, 1),
-                "gaps": sorted(gaps),
+        return json.dumps(
+            {
+                "matrix": matrix,
+                "summary": {
+                    "techniques_tested": total_tested,
+                    "techniques_detected": total_detected,
+                    "detection_rate": round(total_detected / max(total_tested, 1) * 100, 1),
+                    "gaps": sorted(gaps),
+                },
             },
-        }, indent=2)
+            indent=2,
+        )
 
     def _detection_gap(
         self,
@@ -203,20 +207,25 @@ class PurpleTeamTool(BasePentestTool):
                     f"Consider adding detection for {tid}: attack did not "
                     "succeed against this target but capability gap exists"
                 )
-            gaps.append({
-                "technique_id": tid,
-                "technique_name": r.get("technique_name", ""),
-                "attack_succeeded": succeeded,
-                "severity": severity,
-                "recommendation": recommendation,
-            })
+            gaps.append(
+                {
+                    "technique_id": tid,
+                    "technique_name": r.get("technique_name", ""),
+                    "attack_succeeded": succeeded,
+                    "severity": severity,
+                    "recommendation": recommendation,
+                }
+            )
 
-        return json.dumps({
-            "total_attacks": len(red_results),
-            "detected": len(detected_set),
-            "gaps": gaps,
-            "gap_count": len(gaps),
-        }, indent=2)
+        return json.dumps(
+            {
+                "total_attacks": len(red_results),
+                "detected": len(detected_set),
+                "gaps": gaps,
+                "gap_count": len(gaps),
+            },
+            indent=2,
+        )
 
     def _exercise_report(
         self,
@@ -241,22 +250,23 @@ class PurpleTeamTool(BasePentestTool):
         else:
             rating = "CRITICAL — significant gaps"
 
-        return json.dumps({
-            "exercise": exercise_name,
-            "scope": target_scope,
-            "rating": rating,
-            "detection_rate_pct": overall_score,
-            "summary": {
-                "attacks_executed": len(red_results),
-                "detections_fired": len(blue_results),
-                "critical_gaps": len(critical_gaps),
-                "high_gaps": len(high_gaps),
+        return json.dumps(
+            {
+                "exercise": exercise_name,
+                "scope": target_scope,
+                "rating": rating,
+                "detection_rate_pct": overall_score,
+                "summary": {
+                    "attacks_executed": len(red_results),
+                    "detections_fired": len(blue_results),
+                    "critical_gaps": len(critical_gaps),
+                    "high_gaps": len(high_gaps),
+                },
+                "critical_findings": critical_gaps[:10],
+                "high_findings": high_gaps[:10],
+                "info_findings": info_gaps[:10],
+                "coverage_matrix": matrix["matrix"],
+                "recommendations": [g["recommendation"] for g in gap_analysis["gaps"][:15]],
             },
-            "critical_findings": critical_gaps[:10],
-            "high_findings": high_gaps[:10],
-            "info_findings": info_gaps[:10],
-            "coverage_matrix": matrix["matrix"],
-            "recommendations": [
-                g["recommendation"] for g in gap_analysis["gaps"][:15]
-            ],
-        }, indent=2)
+            indent=2,
+        )

@@ -1,4 +1,5 @@
 """Parser for web enumeration output — gobuster and ffuf."""
+
 from __future__ import annotations
 
 import json
@@ -19,11 +20,13 @@ def parse_gobuster(raw: str, store: "TargetStore") -> list[dict]:
     for line in raw.splitlines():
         m = _GOBUSTER_LINE_RE.match(line.strip())
         if m:
-            entities.append({
-                "type": "web_path",
-                "path": m.group(1),
-                "status": int(m.group(2)),
-            })
+            entities.append(
+                {
+                    "type": "web_path",
+                    "path": m.group(1),
+                    "status": int(m.group(2)),
+                }
+            )
     return entities
 
 
@@ -33,12 +36,14 @@ def parse_ffuf(raw: str, store: "TargetStore") -> list[dict]:
     try:
         data = json.loads(raw)
         for result in data.get("results", []):
-            entities.append({
-                "type": "web_path",
-                "url": result.get("url", ""),
-                "status": result.get("status", 0),
-                "length": result.get("length", 0),
-            })
+            entities.append(
+                {
+                    "type": "web_path",
+                    "url": result.get("url", ""),
+                    "status": result.get("status", 0),
+                    "length": result.get("length", 0),
+                }
+            )
     except json.JSONDecodeError:
         pass
     return entities

