@@ -253,6 +253,7 @@ Before EVERY action:
 - Service probing: `blackarch nmap_scan` with vuln scripts
 - RF signal replay: `flipper subghz_tx`, `portapack send_command`
 - RFID read: `flipper rfid_read`
+- WebSocket testing: `websocket_test auth_bypass`, `websocket_test cswsh`
 
 ### Redteam Mode (all of active, plus)
 - WiFi deauth: `marauder deauth`
@@ -260,6 +261,7 @@ Before EVERY action:
 - Karma AP: `marauder karma`
 - BLE spam: `marauder bt_spam_all`, `sour_apple`, `swift_pair`
 - RFID emulate: `flipper rfid_emulate`
+- WebSocket injection: `websocket_test injection` (SQLi, XSS, command injection payloads)
 
 ## Workflow
 1. Receive target from lead agent (specific host, AP, frequency, etc.)
@@ -293,7 +295,7 @@ Before EVERY action:
 - Never chain attacks without logging intermediate findings
 - Clean up after yourself (stop scans, release channels)
 """,
-    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "engagement"],
+    tools=["device_manager", "portapack", "flipper", "marauder", "blackarch", "websocket_test", "engagement"],
     max_turns=25,
 )
 
@@ -392,6 +394,8 @@ Your job: assess the defensive posture of target systems through configuration a
 3. Check for pending security patches.
 4. Compare open ports against expected baselines.
 5. Return a structured defensive assessment with remediation priorities.
+6. Run container/K8s security audits: `container_audit kube_bench` for CIS benchmarks, `container_audit trivy_image` for image CVEs, `container_audit deepce` for container escape detection.
+7. For Kubernetes environments, run `container_audit kube_hunter` for cluster security scanning.
 
 ## Output Format
 ```
@@ -408,6 +412,12 @@ Your job: assess the defensive posture of target systems through configuration a
 ### Patch Status
 - Pending updates: {count} ({severity})
 
+### Container/K8s Security
+- CIS K8s Benchmarks: {pass_count}/{total} passed
+- Image CVEs: {critical}/{high}/{medium}/{low}
+- Container Escapes: {escape_count} vectors detected
+- K8s Cluster: {finding_count} security issues
+
 ### Remediation Priorities
 1. {most_critical_fix}
 2. {second}
@@ -421,7 +431,7 @@ Your job: assess the defensive posture of target systems through configuration a
 - Compare against CIS benchmarks where applicable
 - Log all findings to the engagement if active
 """,
-    tools=["cis_audit", "hardening_check", "engagement"],
+    tools=["cis_audit", "hardening_check", "container_audit", "engagement"],
     max_turns=25,
 )
 
@@ -514,7 +524,7 @@ Your job: orchestrate purple team exercises by correlating red-team attack resul
 - Be specific about what detection rule / log source would close each gap
 - Rate the overall exercise objectively based on detection percentage
 """,
-    tools=["purple_team", "cis_audit", "net_monitor", "ir_toolkit", "engagement", "security_memory"],
+    tools=["purple_team", "cis_audit", "container_audit", "net_monitor", "ir_toolkit", "engagement", "security_memory"],
     max_turns=25,
 )
 

@@ -187,3 +187,34 @@ Discord channel scanning and webhook publishing. Reads channel history via the D
 ::: tip
 The `publish` action uses `DISCORD_WEBHOOK_URL` (no channel ID needed). The `scan`, `history`, `channels`, and `digest` actions require `DISCORD_BOT_TOKEN` and a `channel_id`.
 :::
+
+---
+
+## container_audit
+
+Container & Kubernetes security auditing — kube-hunter cluster scanning, kube-bench CIS benchmarks, deepce escape detection, CDK exploitation toolkit, Trivy vulnerability scanning.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `kube_hunter` | Scan K8s cluster for security weaknesses (remote) | `target` |
+| `kube_hunter_internal` | In-cluster kube-hunter scan (run from inside a pod) | -- |
+| `kube_bench` | Run CIS Kubernetes Benchmark checks on local node | -- |
+| `kube_bench_target` | CIS benchmark for specific K8s distro | `benchmark` (e.g. eks-1.1.0, gke-1.2.0) |
+| `deepce` | Detect container escape vectors from inside a container | -- |
+| `cdk_evaluate` | Evaluate container for exploitation opportunities (CDK) | -- |
+| `cdk_exploit` | Run a specific CDK exploit by name | `exploit_name` (e.g. mount-cgroup, service-account) |
+| `trivy_image` | Scan container image for known CVEs | `image`, `severity` (default: HIGH,CRITICAL) |
+| `trivy_k8s` | Scan K8s cluster resources for misconfigs and CVEs | `target` |
+| `trivy_fs` | Scan filesystem/project for dependency vulnerabilities | `path`, `severity` |
+
+---
+
+## websocket_test
+
+WebSocket security testing — authentication bypass, Cross-Site WebSocket Hijacking (CSWSH), and message injection.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `auth_bypass` | Test WebSocket endpoint for authentication bypass | `url`, `origin`, `auth_token` |
+| `cswsh` | Test for Cross-Site WebSocket Hijacking via Origin validation | `url`, `origin` |
+| `injection` | Test WebSocket messages for injection vulnerabilities | `url`, `origin`, `categories` (sqli, xss, command_injection, path_traversal) |

@@ -1,0 +1,49 @@
+name: container_security_assessment
+description: >
+  Container & Kubernetes security assessment — CIS benchmarks via kube-bench,
+  cluster scanning with kube-hunter, container escape detection with deepce,
+  image vulnerability scanning with Trivy.
+tags: [container, k8s, cis, trivy, security]
+variables:
+  target: ""
+  image: ""
+  severity: "HIGH,CRITICAL"
+
+steps:
+  - name: kube_bench_cis
+    tool: container_audit
+    action: kube_bench
+    params: {}
+    timeout: 180
+    on_fail: continue
+
+  - name: kube_hunter_scan
+    tool: container_audit
+    action: kube_hunter
+    params:
+      target: "${target}"
+    timeout: 120
+    on_fail: continue
+
+  - name: deepce_escape
+    tool: container_audit
+    action: deepce
+    params: {}
+    timeout: 60
+    on_fail: continue
+
+  - name: cdk_evaluate
+    tool: container_audit
+    action: cdk_evaluate
+    params: {}
+    timeout: 90
+    on_fail: continue
+
+  - name: trivy_image_scan
+    tool: container_audit
+    action: trivy_image
+    params:
+      image: "${image}"
+      severity: "${severity}"
+    timeout: 300
+    on_fail: continue

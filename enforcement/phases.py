@@ -219,6 +219,23 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "gql_depth_test": KillChainPhase.VULN_ASSESSMENT,
     "gql_batch": KillChainPhase.VULN_ASSESSMENT,
     "gql_field_suggest": KillChainPhase.ENUMERATION,
+
+    # ── Container/K8s Audit ──
+    "kube_hunter": KillChainPhase.ENUMERATION,
+    "kube_hunter_internal": KillChainPhase.ENUMERATION,
+    "kube_bench": KillChainPhase.ENUMERATION,
+    "kube_bench_target": KillChainPhase.ENUMERATION,
+    "deepce": KillChainPhase.VULN_ASSESSMENT,
+    "cdk_evaluate": KillChainPhase.VULN_ASSESSMENT,
+    "cdk_exploit": KillChainPhase.EXPLOITATION,
+    "trivy_image": KillChainPhase.VULN_ASSESSMENT,
+    "trivy_k8s": KillChainPhase.VULN_ASSESSMENT,
+    "trivy_fs": KillChainPhase.VULN_ASSESSMENT,
+
+    # ── WebSocket Testing ──
+    "auth_bypass": KillChainPhase.VULN_ASSESSMENT,
+    "cswsh": KillChainPhase.VULN_ASSESSMENT,
+    "ws_injection": KillChainPhase.VULN_ASSESSMENT,
 }
 
 

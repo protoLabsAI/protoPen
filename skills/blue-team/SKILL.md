@@ -98,13 +98,51 @@ Blue results array: `[{"technique_id":"T1110","detected":true}, ...]`
 
 ---
 
+## Phase 5: Container & Kubernetes Security
+
+**Goal:** Audit container and Kubernetes environments for misconfigurations, escape vectors, and known CVEs.
+
+### Workflow
+1. Run CIS K8s benchmarks: `container_audit kube_bench` (local node) or `container_audit kube_bench_target` with benchmark=eks-1.1.0/gke-1.2.0
+2. Scan K8s cluster for security weaknesses: `container_audit kube_hunter` (remote) or `container_audit kube_hunter_internal` (in-pod)
+3. Detect container escape vectors: `container_audit deepce`
+4. Evaluate container exploitation opportunities: `container_audit cdk_evaluate`
+5. Scan images for CVEs: `container_audit trivy_image` with image name and severity filter
+6. Scan K8s resources: `container_audit trivy_k8s` for cluster-wide misconfiguration and CVE scan
+7. Scan filesystem dependencies: `container_audit trivy_fs` for vulnerable packages
+
+### Output
+```
+## Container Security Assessment: {target}
+
+### CIS K8s Benchmarks
+- Pass: {pass_count} | Fail: {fail_count} | Warn: {warn_count}
+- Critical failures: {list}
+
+### Container Escape Vectors
+- Vectors detected: {count}
+- Exploitable: {exploitable_count}
+- Key findings: {docker_sock, privileged_mode, etc.}
+
+### Image Vulnerabilities (Trivy)
+- Critical: {count} | High: {count} | Medium: {count}
+- Top CVEs: {list}
+
+### Remediation Priorities
+1. {most_critical}
+2. {second}
+3. {third}
+```
+
+---
+
 ## Subagent Delegation
 
 | Task | Delegate To | Tools Available |
 |------|-------------|-----------------|
-| CIS audits, hardening checks | `defender` | cis_audit, hardening_check, engagement |
+| CIS audits, hardening checks, container security | `defender` | cis_audit, hardening_check, container_audit, engagement |
 | Log analysis, IOC matching, containment | `incident_responder` | ir_toolkit, net_monitor, engagement, security_memory |
-| Purple team exercises, coverage analysis | `purple_team` | purple_team, cis_audit, net_monitor, ir_toolkit, engagement, security_memory |
+| Purple team exercises, coverage analysis | `purple_team` | purple_team, cis_audit, container_audit, net_monitor, ir_toolkit, engagement, security_memory |
 
 ---
 
@@ -118,6 +156,7 @@ Blue results array: `[{"technique_id":"T1110","detected":true}, ...]`
 | `ir_toolkit` | log_search, ioc_scan, auth_log_analyze, timeline_build, containment_recommend |
 | `purple_team` | coverage_matrix, detection_gap, exercise_report |
 | `blackarch` | tshark_capture, bettercap_recon, nmap_scan, shell_exec (allowlisted) |
+| `container_audit` | kube_hunter, kube_hunter_internal, kube_bench, kube_bench_target, deepce, cdk_evaluate, cdk_exploit, trivy_image, trivy_k8s, trivy_fs |
 
 ---
 

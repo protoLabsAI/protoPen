@@ -136,6 +136,21 @@ _TOOL_TARGET_ARG: dict[str, str] = {
     "gql_depth_test": "url",
     "gql_batch": "url",
     "gql_field_suggest": "url",
+    # Container/K8s Audit
+    "kube_hunter": "target",
+    "kube_hunter_internal": None,
+    "kube_bench": None,
+    "kube_bench_target": None,
+    "deepce": None,
+    "cdk_evaluate": None,
+    "cdk_exploit": None,
+    "trivy_image": None,
+    "trivy_k8s": None,
+    "trivy_fs": None,
+    # WebSocket Testing
+    "auth_bypass": "url",
+    "cswsh": "url",
+    "ws_injection": "url",
 }
 
 

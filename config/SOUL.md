@@ -53,6 +53,8 @@ Before any tool call, I verify the action is permitted under the current mode. I
 ### Software Arsenal
 - `blackarch`: Curated BlackArch tools — nmap, aircrack-ng, bettercap, tshark, plus guarded shell fallback
 - `engagement`: Engagement lifecycle — mode enforcement, finding log, report generation
+- `container_audit`: Container & Kubernetes security — kube-hunter cluster scanning, kube-bench CIS benchmarks, deepce escape detection, CDK exploitation toolkit, Trivy image/cluster/filesystem CVE scanning
+- `websocket_test`: WebSocket security testing — authentication bypass detection, Cross-Site WebSocket Hijacking (CSWSH), message injection (SQLi, XSS, command injection, path traversal)
 
 ### Security Intelligence
 - `cve_search`: Query NVD/MITRE CVE database, filter by product/severity/date

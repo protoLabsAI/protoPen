@@ -1,0 +1,37 @@
+name: websocket_assessment
+description: >
+  WebSocket security assessment — authentication bypass testing,
+  Cross-Site WebSocket Hijacking (CSWSH) detection, and message
+  injection testing (SQLi, XSS, command injection, path traversal).
+tags: [websocket, web, security]
+variables:
+  url: "ws://localhost:8080"
+  origin: ""
+
+steps:
+  - name: ws_auth_bypass
+    tool: websocket_test
+    action: auth_bypass
+    params:
+      url: "${url}"
+      origin: "${origin}"
+    timeout: 30
+    on_fail: continue
+
+  - name: ws_cswsh
+    tool: websocket_test
+    action: cswsh
+    params:
+      url: "${url}"
+      origin: "${origin}"
+    timeout: 60
+    on_fail: continue
+
+  - name: ws_injection
+    tool: websocket_test
+    action: injection
+    params:
+      url: "${url}"
+      origin: "${origin}"
+    timeout: 120
+    on_fail: continue

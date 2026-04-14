@@ -18,7 +18,7 @@
 
 ## Test Suite
 
-**571 tests passing** (2026-04-13)
+**644 tests passing** (2026-04-13)
 
 | Area | Tests | File |
 |------|-------|------|
@@ -32,6 +32,8 @@
 | Playbook integration | 30 | playbook_integration (step refs, ATT&CK normalization, end-to-end) |
 | `/purple` command | 14 | purple_command (code fence stripping, scope substitution, callbacks) |
 | Target store | 19 | target_store, target_intel, engagement_autoupsert |
+| Container audit | 31 | test_container_audit, test_container_audit_parsers |
+| WebSocket testing | 23 | test_websocket_test, test_websocket_test_parsers |
 
 ## Tool Inventory
 
@@ -46,7 +48,7 @@ priv_esc, lateral_move, data_exfil, persistence, cleanup,
 jwt_tool, ssrf_detect, auth_test, rate_limit, graphql_test,
 technique_library, playbook, chain_planner
 
-### Blue Team — Defensive (5 tools, 23 actions)
+### Blue Team — Defensive (7 tools, 36 actions)
 | Tool | Actions |
 |------|---------|
 | `cis_audit` | ssh_audit, tls_audit, firewall_audit, patch_check, port_baseline |
@@ -54,6 +56,8 @@ technique_library, playbook, chain_planner
 | `hardening_check` | ssh_harden, nginx_harden, apache_harden, docker_harden, k8s_harden |
 | `ir_toolkit` | log_search, ioc_scan, auth_log_analyze, timeline_build, containment_recommend |
 | `purple_team` | coverage_matrix, detection_gap, exercise_report |
+| `container_audit` | kube_hunter, kube_hunter_internal, kube_bench, kube_bench_target, deepce, cdk_evaluate, cdk_exploit, trivy_image, trivy_k8s, trivy_fs |
+| `websocket_test` | auth_bypass, cswsh, injection |
 
 ## Subagents (9)
 
@@ -63,13 +67,13 @@ technique_library, playbook, chain_planner
 | Intel | vuln_analyst | cve_search, browser, security_memory, target_intel |
 | Intel | intel_reporter | security_memory, discord_feed |
 | Red | recon | device_manager, portapack, flipper, marauder, blackarch, engagement |
-| Red | exploit | device_manager, portapack, flipper, marauder, blackarch, engagement |
+| Red | exploit | device_manager, portapack, flipper, marauder, blackarch, websocket_test, engagement |
 | Red | reporter | engagement, security_memory, discord_feed |
-| Blue | defender | cis_audit, hardening_check, engagement |
+| Blue | defender | cis_audit, hardening_check, container_audit, engagement |
 | Blue | incident_responder | ir_toolkit, net_monitor, engagement, security_memory |
-| Blue | purple_team | purple_team, cis_audit, net_monitor, ir_toolkit, engagement, security_memory |
+| Blue | purple_team | purple_team, cis_audit, container_audit, net_monitor, ir_toolkit, engagement, security_memory |
 
-## Playbooks (6)
+## Playbooks (8)
 
 | Playbook | Steps | Tags |
 |----------|-------|------|
@@ -79,6 +83,8 @@ technique_library, playbook, chain_planner
 | `defensive_assessment` | 6 | blue-team, defensive, cis, hardening |
 | `incident_response` | 5 | blue-team, ir, forensics |
 | `purple_team_exercise` | 9 | purple-team, red-team, blue-team, mitre-attack |
+| `container_security_assessment` | 5 | container, k8s, cis, trivy, security |
+| `websocket_assessment` | 3 | websocket, web, security |
 
 ## Chat Commands
 

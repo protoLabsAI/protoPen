@@ -74,6 +74,8 @@ def build_system_prompt(
 - For pentest tasks, delegate to subagents: Recon maps, Exploit attacks, Reporter writes.
 - For threat intel tasks, delegate to subagents: Threat Scanner scans, Vuln Analyst reads, Intel Reporter synthesizes.
 - For defensive tasks, delegate to subagents: Defender audits, Incident Responder investigates, Purple Team correlates.
+- For container/K8s security tasks, delegate to the Defender subagent (container_audit tool).
+- For WebSocket security testing, use websocket_test directly or delegate to the Exploit subagent.
 - Always check engagement mode before executing actions on hardware.
 - Log every finding in real time via the engagement tool.
 - Rate threat severity: [critical / high / medium / low / info]

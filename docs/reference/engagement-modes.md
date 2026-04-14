@@ -24,6 +24,7 @@ Each tool action has a risk level (0, 1, or 2). A tool action is permitted only 
 | flipper | `flip_subghz_rx`, `flip_nfc_read`, `flip_rfid_read`, `flip_ir_rx`, `flip_ble_scan`, `flip_storage_list` |
 | marauder | `wifi_scan_aps`, `wifi_scan_stations` |
 | blackarch | `nmap_scan`, `aircrack_monitor`, `aircrack_capture`, `bettercap_recon` |
+| container_audit | `kube_bench`, `kube_bench_target`, `trivy_image`, `trivy_k8s`, `trivy_fs` |
 
 ### Risk Level 1 (ACTIVE) -- Requires Active Mode
 
@@ -33,6 +34,8 @@ Each tool action has a risk level (0, 1, or 2). A tool action is permitted only 
 | flipper | `flip_subghz_tx`, `flip_nfc_write`, `flip_rfid_write`, `flip_ir_tx` |
 | marauder | `wifi_sniff_pmkid` |
 | blackarch | `nmap_vuln_scan`, `aircrack_crack`, `shell_exec` |
+| container_audit | `kube_hunter`, `kube_hunter_internal`, `deepce`, `cdk_evaluate` |
+| websocket_test | `auth_bypass`, `cswsh` |
 
 ### Risk Level 2 (REDTEAM) -- Requires Red Team Mode
 
@@ -41,6 +44,8 @@ Each tool action has a risk level (0, 1, or 2). A tool action is permitted only 
 | flipper | `flip_subghz_bruteforce` |
 | marauder | `wifi_deauth`, `wifi_beacon_spam`, `wifi_evil_portal`, `wifi_karma` |
 | blackarch | `bettercap_mitm` |
+| container_audit | `cdk_exploit` |
+| websocket_test | `injection` |
 
 ## How Enforcement Works
 

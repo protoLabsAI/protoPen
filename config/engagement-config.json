@@ -75,6 +75,11 @@
     "psexec": 3, "wmiexec": 3, "evil_winrm": 3, "pth_winrm": 3, "ssh_pivot": 2,
     "scp_download": 2, "smb_download": 2, "http_exfil": 1,
     "add_ssh_key": 3, "add_cron": 3, "check_persistence": 1,
-    "remove_ssh_key": 2, "remove_cron": 2, "remove_files": 2, "cleanup_report": 0
+    "remove_ssh_key": 2, "remove_cron": 2, "remove_files": 2, "cleanup_report": 0,
+    "kube_hunter": 1, "kube_hunter_internal": 1,
+    "kube_bench": 0, "kube_bench_target": 0,
+    "deepce": 1, "cdk_evaluate": 1, "cdk_exploit": 2,
+    "trivy_image": 0, "trivy_k8s": 0, "trivy_fs": 0,
+    "auth_bypass": 1, "cswsh": 1, "ws_injection": 2
   }
 }
