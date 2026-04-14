@@ -136,6 +136,11 @@ _TOOL_TARGET_ARG: dict[str, str] = {
     "gql_depth_test": "url",
     "gql_batch": "url",
     "gql_field_suggest": "url",
+    # BLE / NFC / SubGHz backfill
+    "ble_scan": None,
+    "nfc_emulate": None,
+    "subghz_bruteforce": None,
+    "bettercap_mitm": "target",
     # Container/K8s Audit
     "kube_hunter": "target",
     "kube_hunter_internal": None,

@@ -31,7 +31,7 @@ Each tool action has a risk level (0, 1, or 2). A tool action is permitted only 
 | Tool | Actions |
 |---|---|
 | portapack | `rf_replay`, `rf_send_pocsag` |
-| flipper | `flip_subghz_tx`, `flip_nfc_write`, `flip_rfid_write`, `flip_ir_tx` |
+| flipper | `flip_subghz_tx`, `flip_nfc_write`, `nfc_emulate`, `flip_rfid_write`, `flip_ir_tx` |
 | marauder | `wifi_sniff_pmkid` |
 | blackarch | `nmap_vuln_scan`, `aircrack_crack`, `shell_exec` |
 | container_audit | `kube_hunter`, `kube_hunter_internal`, `deepce`, `cdk_evaluate` |
@@ -44,6 +44,7 @@ Each tool action has a risk level (0, 1, or 2). A tool action is permitted only 
 | flipper | `flip_subghz_bruteforce` |
 | marauder | `wifi_deauth`, `wifi_beacon_spam`, `wifi_evil_portal`, `wifi_karma` |
 | blackarch | `bettercap_mitm` |
+| flipper | `subghz_bruteforce` |
 | container_audit | `cdk_exploit` |
 | websocket_test | `injection` |
 

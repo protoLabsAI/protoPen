@@ -82,7 +82,7 @@ class BlackArchTool(Tool):
                     "enum": [
                         "nmap_scan", "nmap_vuln_scan", "nmap_os_detect", "nmap_udp_scan",
                         "airmon_start", "airmon_stop", "airodump_scan",
-                        "bettercap_recon",
+                        "bettercap_recon", "bettercap_mitm",
                         "hashcat_crack", "hashcat_rules",
                         "nikto_scan", "gobuster_scan",
                         "tshark_capture",
@@ -126,6 +126,10 @@ class BlackArchTool(Tool):
             ),
             "bettercap_recon": lambda: self.bettercap_recon(
                 kwargs.get("interface", "eth0"), kwargs.get("timeout", 30),
+            ),
+            "bettercap_mitm": lambda: self.bettercap_mitm(
+                kwargs.get("target", ""), kwargs.get("interface", "eth0"),
+                kwargs.get("timeout", 60),
             ),
             "hashcat_crack": lambda: self.hashcat_crack(
                 kwargs.get("hash_file", ""), kwargs.get("hash_type", 22000),
@@ -222,6 +226,18 @@ class BlackArchTool(Tool):
     async def bettercap_recon(self, interface: str = "eth0", timeout: int = 30) -> str:
         caplet = f"set net.interface {interface}; net.recon on; sleep {timeout}; net.show; quit"
         return await self._run("bettercap", "-iface", interface, "-eval", caplet, timeout=timeout + 10)
+
+    async def bettercap_mitm(self, target: str, interface: str = "eth0", timeout: int = 60) -> str:
+        """ARP spoof MITM with network sniffing via bettercap."""
+        caplet = (
+            f"set net.interface {interface}; "
+            f"set arp.spoof.targets {target}; "
+            "net.recon on; arp.spoof on; net.sniff on; "
+            f"sleep {timeout}; net.show; quit"
+        )
+        return await self._run(
+            "bettercap", "-iface", interface, "-eval", caplet, timeout=timeout + 10,
+        )
 
     async def hashcat_crack(
         self, hash_file: str, hash_type: int = 22000,

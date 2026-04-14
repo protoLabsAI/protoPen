@@ -36,8 +36,10 @@ Serial bridge for the Flipper Zero multi-tool. Supports Sub-GHz, NFC, RFID, IR, 
 | `subghz_tx` | Transmit a Sub-GHz key | `freq`, `key_hex`, `te`, `repeat` |
 | `subghz_tx_from_file` | Transmit a captured Sub-GHz signal from file | `path` |
 | `subghz_decode_raw` | Decode a raw Sub-GHz capture file | `path` |
+| `subghz_bruteforce` | Brute-force Sub-GHz codes from a .sub file | `path`, `freq`, `repeat` |
 | `nfc_detect` | Detect and read an NFC tag | -- |
 | `nfc_field` | Toggle the NFC field on/off | `on` |
+| `nfc_emulate` | Emulate an NFC tag from a saved .nfc file | `path` |
 | `rfid_read` | Read an RFID tag | -- |
 | `rfid_write` | Write data to an RFID tag | `protocol`, `data_hex` |
 | `rfid_emulate` | Emulate an RFID tag | `protocol`, `data_hex` |
@@ -46,6 +48,7 @@ Serial bridge for the Flipper Zero multi-tool. Supports Sub-GHz, NFC, RFID, IR, 
 | `ir_tx_raw` | Transmit a raw IR signal | `raw_args` |
 | `ir_brute` | Brute-force IR signals from a universal remote | `remote_name`, `signal_name` |
 | `bt_info` | Get Bluetooth adapter information | -- |
+| `ble_scan` | Scan for nearby BLE peripherals | `timeout` (seconds, default 10) |
 | `storage_list` | List files/directories on the Flipper SD | `path` |
 | `storage_read` | Read a file from the Flipper SD | `path` |
 | `storage_stat` | Get file/directory stats | `path` |
@@ -106,6 +109,7 @@ Curated wrappers for BlackArch pen testing tools installed on the system, plus a
 | `airmon_stop` | Take WiFi interface out of monitor mode | `interface` |
 | `airodump_scan` | Capture WiFi traffic with airodump-ng | `interface`, `timeout` |
 | `bettercap_recon` | Network reconnaissance with bettercap | `target`, `interface` |
+| `bettercap_mitm` | ARP spoof MITM with network sniffing | `target`, `interface`, `timeout` |
 | `hashcat_crack` | Crack hashes with hashcat | `hash_file`, `hash_type`, `wordlist` |
 | `nikto_scan` | Web server vulnerability scan | `url`, `timeout` |
 | `gobuster_scan` | Directory/file brute-force on web servers | `url`, `wordlist` |

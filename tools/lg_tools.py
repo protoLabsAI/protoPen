@@ -620,11 +620,14 @@ async def flipper(
     data: str = "",
     protocol: str = "RAW",
     raw_data: str = "",
+    timeout: int = 10,
 ) -> str:
     """Control Flipper Zero via serial CLI.
 
-    RF: subghz_rx, subghz_tx, subghz_decode_raw, subghz_tx_from_file
+    RF: subghz_rx, subghz_tx, subghz_decode_raw, subghz_tx_from_file, subghz_bruteforce
+    NFC: nfc_detect, nfc_field, nfc_emulate
     RFID: rfid_read, rfid_emulate
+    BLE: ble_scan, bt_info
     IR: ir_rx, ir_tx_raw
     Storage: storage_list, storage_read, storage_stat, storage_mkdir
     System: device_info, power_info, send_command
@@ -641,6 +644,7 @@ async def flipper(
         action=action, command=command, frequency=frequency,
         modulation=modulation, path=path, key_type=key_type,
         data=data, protocol=protocol, raw_data=raw_data,
+        timeout=timeout,
     )
 
 

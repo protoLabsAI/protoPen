@@ -88,6 +88,14 @@ class TestSubGHz:
         flipper.subghz_decode_raw("/ext/raw.sub")
         conn.send.assert_called_with("subghz decode_raw /ext/raw.sub")
 
+    def test_subghz_bruteforce(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        flipper.subghz_bruteforce("/ext/brute.sub", 433920000, repeat=5, device=0)
+        conn.send.assert_called_with("subghz tx_from_file /ext/brute.sub 5 0")
+
+    def test_subghz_bruteforce_defaults(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        flipper.subghz_bruteforce("/ext/brute.sub", 315000000)
+        conn.send.assert_called_with("subghz tx_from_file /ext/brute.sub 3 0")
+
 
 # ── NFC ────────────────────────────────────────────────────────────
 
@@ -103,6 +111,10 @@ class TestNFC:
     def test_nfc_field_off(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.nfc_field(False)
         conn.send.assert_called_with("nfc field off")
+
+    def test_nfc_emulate(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        flipper.nfc_emulate("/ext/nfc/card.nfc")
+        conn.send.assert_called_with("nfc emulate /ext/nfc/card.nfc")
 
 
 # ── RFID ───────────────────────────────────────────────────────────
@@ -145,12 +157,20 @@ class TestIR:
         conn.send.assert_called_with("ir universal tv power")
 
 
-# ── Bluetooth ──────────────────────────────────────────────────────
+# ── Bluetooth / BLE ────────────────────────────────────────────────
 
 class TestBluetooth:
     def test_bt_info(self, flipper: FlipperTool, conn: MagicMock) -> None:
         flipper.bt_info()
         conn.send.assert_called_with("bt hci_info")
+
+    def test_ble_scan(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        flipper.ble_scan(timeout=15)
+        conn.send.assert_called_with("bt scan 15")
+
+    def test_ble_scan_default_timeout(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        flipper.ble_scan()
+        conn.send.assert_called_with("bt scan 10")
 
 
 # ── Storage ────────────────────────────────────────────────────────
@@ -332,3 +352,19 @@ class TestExecuteDispatch:
     def test_dispatch_subghz_tx_from_file(self, flipper: FlipperTool, conn: MagicMock) -> None:
         self._run(flipper.execute(action="subghz_tx_from_file", path="/ext/cap.sub"))
         conn.send.assert_called_with("subghz tx_from_file /ext/cap.sub 3 0")
+
+    def test_dispatch_subghz_bruteforce(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        self._run(flipper.execute(action="subghz_bruteforce", path="/ext/bf.sub", freq=433920000))
+        conn.send.assert_called_with("subghz tx_from_file /ext/bf.sub 3 0")
+
+    def test_dispatch_nfc_emulate(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        self._run(flipper.execute(action="nfc_emulate", path="/ext/nfc/card.nfc"))
+        conn.send.assert_called_with("nfc emulate /ext/nfc/card.nfc")
+
+    def test_dispatch_ble_scan(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        self._run(flipper.execute(action="ble_scan", timeout=20))
+        conn.send.assert_called_with("bt scan 20")
+
+    def test_dispatch_ble_scan_default(self, flipper: FlipperTool, conn: MagicMock) -> None:
+        self._run(flipper.execute(action="ble_scan"))
+        conn.send.assert_called_with("bt scan 10")

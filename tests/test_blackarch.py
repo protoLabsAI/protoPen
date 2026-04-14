@@ -94,6 +94,29 @@ class TestBettercap:
         result = await tool.bettercap_recon("eth0")
         assert "net.recon" in result
 
+    @patch("tools.blackarch.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_bettercap_mitm(self, mock_proc, tool):
+        proc = AsyncMock()
+        proc.communicate.return_value = (b"arp.spoof running", b"")
+        proc.returncode = 0
+        mock_proc.return_value = proc
+        result = await tool.bettercap_mitm("192.168.1.50", "eth0", timeout=30)
+        assert "arp.spoof" in result
+        cmd = mock_proc.call_args[0]
+        assert "bettercap" in cmd
+        assert "-iface" in cmd
+
+    @patch("tools.blackarch.asyncio.create_subprocess_exec")
+    @pytest.mark.asyncio
+    async def test_bettercap_mitm_dispatch(self, mock_proc, tool):
+        proc = AsyncMock()
+        proc.communicate.return_value = (b"ok", b"")
+        proc.returncode = 0
+        mock_proc.return_value = proc
+        result = await tool.execute(action="bettercap_mitm", target="10.0.0.1")
+        assert isinstance(result, str)
+
 
 class TestNanobotInterface:
     @pytest.mark.asyncio

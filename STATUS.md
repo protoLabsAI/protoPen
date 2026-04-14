@@ -18,7 +18,7 @@
 
 ## Test Suite
 
-**644 tests passing** (2026-04-13)
+**655 tests passing** (2026-04-13)
 
 | Area | Tests | File |
 |------|-------|------|

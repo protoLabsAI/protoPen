@@ -41,10 +41,11 @@ class FlipperTool(Tool):
                     "description": "Method to invoke on the Flipper Zero.",
                     "enum": [
                         "subghz_rx", "subghz_tx", "subghz_tx_from_file", "subghz_decode_raw",
-                        "nfc_detect", "nfc_field",
+                        "subghz_bruteforce",
+                        "nfc_detect", "nfc_field", "nfc_emulate",
                         "rfid_read", "rfid_write", "rfid_emulate",
                         "ir_rx", "ir_tx", "ir_tx_raw", "ir_brute",
-                        "bt_info",
+                        "bt_info", "ble_scan",
                         "storage_list", "storage_read", "storage_stat",
                         "storage_mkdir", "storage_md5",
                         "gpio_set", "gpio_read",
@@ -67,6 +68,8 @@ class FlipperTool(Tool):
                 "signal_name": {"type": "string", "description": "Signal name for IR brute."},
                 "pin": {"type": "string", "description": "GPIO pin name."},
                 "value": {"type": "integer", "description": "GPIO pin value (0 or 1)."},
+                "mac": {"type": "string", "description": "BLE MAC address for connect."},
+                "timeout": {"type": "integer", "description": "Timeout in seconds for scans."},
                 "cmd": {"type": "string", "description": "Raw CLI command to send."},
             },
             "required": ["action"],
@@ -86,8 +89,13 @@ class FlipperTool(Tool):
                 device=kwargs.get("device", 0),
             ),
             "subghz_decode_raw": lambda: self.subghz_decode_raw(kwargs["path"]),
+            "subghz_bruteforce": lambda: self.subghz_bruteforce(
+                kwargs["path"], kwargs["freq"], repeat=kwargs.get("repeat", 3),
+                device=kwargs.get("device", 0),
+            ),
             "nfc_detect": lambda: self.nfc_detect(),
             "nfc_field": lambda: self.nfc_field(kwargs["on"]),
+            "nfc_emulate": lambda: self.nfc_emulate(kwargs["path"]),
             "rfid_read": lambda: self.rfid_read(protocol=kwargs.get("protocol")),
             "rfid_write": lambda: self.rfid_write(kwargs["protocol"], kwargs["data_hex"]),
             "rfid_emulate": lambda: self.rfid_emulate(kwargs["protocol"], kwargs["data_hex"]),
@@ -96,6 +104,7 @@ class FlipperTool(Tool):
             "ir_tx_raw": lambda: self.ir_tx_raw(kwargs["raw_args"]),
             "ir_brute": lambda: self.ir_brute(kwargs["remote_name"], kwargs["signal_name"]),
             "bt_info": lambda: self.bt_info(),
+            "ble_scan": lambda: self.ble_scan(kwargs.get("timeout", 10)),
             "storage_list": lambda: self.storage_list(kwargs["path"]),
             "storage_read": lambda: self.storage_read(kwargs["path"]),
             "storage_stat": lambda: self.storage_stat(kwargs["path"]),
@@ -139,6 +148,14 @@ class FlipperTool(Tool):
     def subghz_decode_raw(self, path: str) -> str:
         return self._conn.send(f"subghz decode_raw {path}")
 
+    def subghz_bruteforce(
+        self, path: str, freq: int | float, repeat: int = 3, device: int = 0,
+    ) -> str:
+        """Brute-force Sub-GHz codes from a .sub file."""
+        return self._conn.send(
+            f"subghz tx_from_file {path} {repeat} {device}"
+        )
+
     # ── NFC ────────────────────────────────────────────────────────
 
     def nfc_detect(self) -> str:
@@ -147,6 +164,10 @@ class FlipperTool(Tool):
     def nfc_field(self, on: bool) -> str:
         state = "on" if on else "off"
         return self._conn.send(f"nfc field {state}")
+
+    def nfc_emulate(self, path: str) -> str:
+        """Emulate an NFC tag from a saved .nfc file (write via emulation)."""
+        return self._conn.send(f"nfc emulate {path}")
 
     # ── RFID ───────────────────────────────────────────────────────
 
@@ -180,6 +201,10 @@ class FlipperTool(Tool):
 
     def bt_info(self) -> str:
         return self._conn.send("bt hci_info")
+
+    def ble_scan(self, timeout: int = 10) -> str:
+        """Scan for nearby BLE peripherals."""
+        return self._conn.send(f"bt scan {timeout}")
 
     # ── Storage ────────────────────────────────────────────────────
 

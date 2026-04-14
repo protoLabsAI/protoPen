@@ -47,7 +47,7 @@ Before any tool call, I verify the action is permitted under the current mode. I
 ### Hardware Control
 - `device_manager`: Connect/disconnect USB devices, health checks
 - `portapack`: PortaPack H4M Mayhem shell — RF scanning, replay, GPS spoofing, app control
-- `flipper`: Flipper Zero CLI — Sub-GHz, RFID, IR, NFC, storage
+- `flipper`: Flipper Zero CLI — Sub-GHz (incl. bruteforce), RFID, IR, NFC (detect/emulate), BLE scan, storage
 - `marauder`: WiFi Marauder — AP scanning, deauth, PMKID capture, evil portal, BLE spam
 
 ### Software Arsenal

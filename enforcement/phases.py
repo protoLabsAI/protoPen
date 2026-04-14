@@ -220,6 +220,12 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "gql_batch": KillChainPhase.VULN_ASSESSMENT,
     "gql_field_suggest": KillChainPhase.ENUMERATION,
 
+    # ── BLE / NFC / SubGHz backfill ──
+    "ble_scan": KillChainPhase.RECON,
+    "nfc_emulate": KillChainPhase.EXPLOITATION,
+    "subghz_bruteforce": KillChainPhase.EXPLOITATION,
+    "bettercap_mitm": KillChainPhase.EXPLOITATION,
+
     # ── Container/K8s Audit ──
     "kube_hunter": KillChainPhase.ENUMERATION,
     "kube_hunter_internal": KillChainPhase.ENUMERATION,
