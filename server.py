@@ -907,8 +907,10 @@ def _main():
         }
 
     # ─── A2A protocol ────────────────────────────────────────────────────────
-    # JSON-RPC 2.0 endpoint consumed by protoWorkstacean's A2A plugin.
-    # Supports: message/send (synchronous — waits for full response)
+    # All A2A route logic lives in a2a_handler.py.
+    # register_a2a_routes() mounts: /a2a (JSON-RPC), /message:send, /message:stream,
+    # /tasks/{id}, /tasks/{id}:subscribe, /tasks/{id}:cancel,
+    # /tasks/{id}/pushNotificationConfigs, /.well-known/agent.json
 
     _A2A_API_KEY = os.environ.get("PROTOPEN_API_KEY", os.environ.get("RESEARCHER_API_KEY", ""))
 
@@ -923,7 +925,7 @@ def _main():
         "url": "http://steamdeck:7870",
         "provider": {"organization": "protoLabsAI"},
         "version": "2.0",
-        "capabilities": {"streaming": True, "pushNotifications": False},
+        "capabilities": {},   # populated by register_a2a_routes()
         "skills": [
             {
                 "id": "passive_recon",
@@ -982,136 +984,14 @@ def _main():
         ],
     }
 
-    @fastapi_app.get("/.well-known/agent.json", include_in_schema=False)
-    async def _agent_card():
-        return AGENT_CARD
-
-    from fastapi import Request as _FRequest
-
-    def _extract_a2a_text(params: dict) -> tuple[str, str, dict | None]:
-        """Extract text, contextId from A2A params. Returns (text, context_id, error_dict)."""
-        message = params.get("message", {})
-        context_id = params.get("contextId", "")
-        parts = message.get("parts", [])
-        text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
-        if not text:
-            text = next((p.get("text", "") for p in parts), "")
-        if not text:
-            return "", context_id, {"code": -32600, "message": "No text content in message"}
-        return text, context_id, None
-
-    @fastapi_app.post("/a2a", include_in_schema=False)
-    async def _a2a(request: _FRequest, req: dict):
-        # Optional API key auth
-        if _A2A_API_KEY and request.headers.get("x-api-key") != _A2A_API_KEY:
-            from fastapi.responses import JSONResponse as _JSONResponse
-            return _JSONResponse({"detail": "Unauthorized"}, status_code=401)
-
-        rpc_id = req.get("id")
-        method = req.get("method", "")
-        params = req.get("params", {})
-
-        # ── message/sendStream → SSE ──────────────────────────────────
-        if method == "message/sendStream":
-            text, context_id, err = _extract_a2a_text(params)
-            if err:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
-
-            import uuid as _uuid
-            from starlette.responses import StreamingResponse
-
-            task_id = str(_uuid.uuid4())
-            context_id = context_id or f"a2a-{_uuid.uuid4()}"
-
-            async def _sse_generator():
-                # Stream via LangGraph astream_events
-                async for event_type, payload in _chat_langgraph_stream(text, context_id):
-                    if event_type in ("tool_start", "tool_end"):
-                        evt = json.dumps({
-                            "jsonrpc": "2.0", "id": rpc_id,
-                            "result": {
-                                "id": task_id, "contextId": context_id,
-                                "status": {
-                                    "state": "working",
-                                    "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
-                                },
-                            },
-                        })
-                        yield f"data: {evt}\n\n"
-
-                    elif event_type == "text":
-                        evt = json.dumps({
-                            "jsonrpc": "2.0", "id": rpc_id,
-                            "result": {
-                                "id": task_id, "contextId": context_id,
-                                "status": {"state": "working"},
-                                "artifacts": [{"parts": [{"kind": "text", "text": payload}], "append": True}],
-                            },
-                        })
-                        yield f"data: {evt}\n\n"
-
-                    elif event_type == "done":
-                        evt = json.dumps({
-                            "jsonrpc": "2.0", "id": rpc_id,
-                            "result": {
-                                "id": task_id, "contextId": context_id,
-                                "status": {"state": "completed"},
-                                "artifacts": [{"parts": [{"kind": "text", "text": payload}]}],
-                            },
-                        })
-                        yield f"data: {evt}\n\n"
-
-                    elif event_type == "error":
-                        evt = json.dumps({
-                            "jsonrpc": "2.0", "id": rpc_id,
-                            "result": {
-                                "id": task_id, "contextId": context_id,
-                                "status": {"state": "failed", "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]}},
-                            },
-                        })
-                        yield f"data: {evt}\n\n"
-
-            return StreamingResponse(
-                _sse_generator(),
-                media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-            )
-
-        # ── message/send → synchronous (existing) ────────────────────
-        if method == "message/send":
-            text, context_id, err = _extract_a2a_text(params)
-            if err:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": err}
-
-            import uuid as _uuid
-            task_id = str(_uuid.uuid4())
-            context_id = context_id or f"a2a-{_uuid.uuid4()}"
-
-            result_messages = await chat(text, context_id)
-            assistant_parts = [
-                m["content"] for m in result_messages
-                if m.get("role") == "assistant" and m.get("content")
-            ]
-            response_text = "\n\n".join(assistant_parts)
-
-            return {
-                "jsonrpc": "2.0",
-                "id": rpc_id,
-                "result": {
-                    "id": task_id,
-                    "contextId": context_id,
-                    "status": {"state": "completed"},
-                    "artifacts": [{
-                        "parts": [{"kind": "text", "text": response_text}]
-                    }],
-                },
-            }
-
-        return {
-            "jsonrpc": "2.0",
-            "id": rpc_id,
-            "error": {"code": -32601, "message": f"Method not found: {method}"},
-        }
+    from a2a_handler import register_a2a_routes
+    register_a2a_routes(
+        app=fastapi_app,
+        chat_stream_fn_factory=_chat_langgraph_stream,
+        chat_fn=chat,
+        api_key=_A2A_API_KEY,
+        agent_card=AGENT_CARD,
+    )
 
     # Prometheus /metrics endpoint
     if metrics.is_enabled():
