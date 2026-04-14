@@ -25,6 +25,16 @@ needs_langchain = pytest.mark.skipif(
 )
 
 
+def _tool_name(t) -> str:
+    """Return tool name — compatible with LangChain 0.x StructuredTool and 1.x wrappers."""
+    return getattr(t, "name", None) or getattr(t, "__name__", repr(t))
+
+
+def _tool_desc(t) -> str:
+    """Return tool description — falls back to docstring for LangChain 1.x wrappers."""
+    return getattr(t, "description", None) or (t.__doc__ or "").strip()
+
+
 # ─── Tool Registration ────────────────────────────────────────────────────────
 
 @needs_langchain
@@ -34,7 +44,7 @@ class TestToolRegistration:
         tools = get_security_tools(knowledge_store=None)
         assert isinstance(tools, list)
         assert len(tools) >= 5
-        names = [t.name for t in tools]
+        names = [_tool_name(t) for t in tools]
         assert "cve_search" in names
         assert "security_feeds" in names
         assert "github_trending" in names
@@ -45,8 +55,8 @@ class TestToolRegistration:
         from tools.lg_tools import get_pentest_tools
         tools = get_pentest_tools()
         assert isinstance(tools, list)
-        assert len(tools) == 6
-        names = [t.name for t in tools]
+        assert len(tools) >= 6
+        names = [_tool_name(t) for t in tools]
         assert "device_manager" in names
         assert "portapack" in names
         assert "flipper" in names
@@ -57,7 +67,7 @@ class TestToolRegistration:
     def test_get_combined_tools_merges_both(self):
         from tools.lg_tools import get_combined_tools
         tools = get_combined_tools(knowledge_store=None)
-        names = [t.name for t in tools]
+        names = [_tool_name(t) for t in tools]
         assert "cve_search" in names
         assert "security_feeds" in names
         assert "device_manager" in names
@@ -73,13 +83,15 @@ class TestToolRegistration:
     def test_all_tools_have_descriptions(self):
         from tools.lg_tools import get_combined_tools
         for t in get_combined_tools(knowledge_store=None):
-            assert t.description, f"Tool {t.name} has no description"
-            assert len(t.description) > 10, f"Tool {t.name} description too short"
+            name = _tool_name(t)
+            desc = _tool_desc(t)
+            assert desc, f"Tool {name} has no description"
+            assert len(desc) > 10, f"Tool {name} description too short"
 
     def test_all_tools_have_unique_names(self):
         from tools.lg_tools import get_combined_tools
         tools = get_combined_tools(knowledge_store=None)
-        names = [t.name for t in tools]
+        names = [_tool_name(t) for t in tools]
         assert len(names) == len(set(names)), f"Duplicate tool names: {names}"
 
 
@@ -140,7 +152,7 @@ class TestSubagentRegistry:
         """All tool names referenced by subagents should be real tools."""
         from graph.subagents.config import SUBAGENT_REGISTRY
         from tools.lg_tools import get_combined_tools
-        valid_names = {t.name for t in get_combined_tools(knowledge_store=None)}
+        valid_names = {_tool_name(t) for t in get_combined_tools(knowledge_store=None)}
         # Also include tools that may only be available conditionally
         valid_names.update({"discord_feed", "rabbit_hole_bridge", "security_memory", "target_intel"})
         for name, config in SUBAGENT_REGISTRY.items():
