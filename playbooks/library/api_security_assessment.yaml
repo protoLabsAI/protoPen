@@ -261,6 +261,7 @@ steps:
   - name: ssrf_callback
     tool: ssrf_detect
     action: ssrf_callback
+    condition: "${callback_host} != ''"
     params:
       url: "${rest_url}"
       inject_param: "${inject_param}"

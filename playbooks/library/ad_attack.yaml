@@ -19,6 +19,7 @@ variables:
   wordlist: "/usr/share/seclists/Usernames/xato-net-10-million-usernames-nt.txt"
   ca_name: ""       # CA name for Certipy cert requests (from certipy_find output)
   template: ""      # Vulnerable template name (from certipy_vuln output)
+  da_access: "false"  # Set to "true" manually after confirming DA-level access to enable secretsdump
 
 steps:
 
@@ -193,9 +194,12 @@ steps:
   # Dump NTDS.dit (domain hashes), SAM, and LSA secrets from the domain controller.
   # Requires domain admin credentials or a DA certificate obtained above.
   # All domain account hashes — game over for the domain.
+  # Set da_access=true manually after confirming DA-level access (e.g. after
+  # certipy_req succeeds or kerberoast yields a DA hash that cracks).
   - name: secretsdump
     tool: ad_attack
     action: secretsdump
+    condition: "${da_access} == 'true'"
     params:
       target: "${target}"
       domain: "${domain}"
