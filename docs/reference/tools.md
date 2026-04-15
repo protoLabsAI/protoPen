@@ -313,9 +313,9 @@ SSRF detection — payload injection into URL parameters, cloud metadata endpoin
 | Action | Description | Key Parameters |
 |---|---|---|
 | `ssrf_basic` | Inject standard SSRF payloads (127.0.0.1, IPv6, etc.) into a URL parameter | `url`, `inject_param` |
-| `ssrf_cloud_meta` | Probe cloud metadata endpoints (AWS/GCP/Azure/DO) directly | — |
+| `ssrf_cloud_meta` | Probe cloud metadata endpoints (AWS/GCP/Azure/DO) directly | -- |
 | `ssrf_callback` | Blind SSRF detection via local callback HTTP server | `url`, `inject_param`, `callback_host`, `callback_port`, `wait_seconds` |
-| `ssrf_generate_payloads` | Generate SSRF bypass payload list for manual testing | — |
+| `ssrf_generate_payloads` | Generate SSRF bypass payload list for manual testing | -- |
 
 ---
 
@@ -337,10 +337,10 @@ Linux privilege escalation enumeration — linpeas, sudo audit, SUID binary disc
 
 | Action | Description | Key Parameters |
 |---|---|---|
-| `linpeas` | Comprehensive Linux privesc enumeration (crons, writable paths, capabilities, credentials) | — |
-| `sudo_check` | List sudo privileges for the current user | — |
-| `suid_find` | Find setuid binaries — results are GTFOBins-searchable | — |
-| `kernel_exploits` | Cross-reference kernel version against known exploits | — |
+| `linpeas` | Comprehensive Linux privesc enumeration (crons, writable paths, capabilities, credentials) | -- |
+| `sudo_check` | List sudo privileges for the current user | -- |
+| `suid_find` | Find setuid binaries — results are GTFOBins-searchable | -- |
+| `kernel_exploits` | Cross-reference kernel version against known exploits | -- |
 
 ---
 
@@ -352,7 +352,7 @@ Persistence mechanism testing — planting and enumerating SSH keys, cron jobs, 
 |---|---|---|
 | `add_ssh_key` | Add attacker public key to `~/.ssh/authorized_keys` | `pubkey` |
 | `add_cron` | Add a cron job for persistence | `cron_entry` |
-| `check_persistence` | Enumerate current cron jobs, authorized_keys, and enabled systemd services | — |
+| `check_persistence` | Enumerate current cron jobs, authorized_keys, and enabled systemd services | -- |
 
 ---
 
