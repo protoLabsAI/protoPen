@@ -8,7 +8,7 @@ description: >
   Phase progression: enumeration → vulnerability assessment → exploitation → post-exploitation.
   Requires REDTEAM engagement mode for exploitation steps (kerberoast, certipy_req, secretsdump).
 
-tags: [ad, active-directory, bloodhound, kerberoast, certipy, impacket, redteam]
+tags: [ad, active-directory, bloodhound, kerberoast, certipy, impacket, ldap, redteam]
 
 variables:
   target: ""        # Domain controller IP
