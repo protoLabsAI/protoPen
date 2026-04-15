@@ -136,6 +136,62 @@ def parse_firewall_egress(raw: str, store: "TargetStore") -> list[dict]:
     return entities
 
 
+def parse_tcp_probe(raw: str, store: "TargetStore") -> list[dict]:
+    entities: list[dict] = []
+    # FIN+ACK — IP-allowlisted ISP/CPE management port
+    for m in re.finditer(r"FINDING: Port (\d+) returns FIN\+ACK", raw):
+        port = int(m.group(1))
+        entities.append(
+            {
+                "type": "finding",
+                "severity": "info",
+                "title": f"Port {port} returns FIN+ACK — IP-allowlisted ISP/CPE management service",
+                "detail": (
+                    f"TCP/{port} actively rejects unauthorized SYN with FIN+ACK. "
+                    "Service is present but only accepts connections from authorised source IPs "
+                    "(ISP ACS servers, vendor management platform). Not directly exploitable from WAN."
+                ),
+            }
+        )
+        store.upsert_host(ip="", tags=[f"acs_port:{port}", "isp_management"])
+    # SYN+ACK — actually open
+    for m in re.finditer(r"Port (\d+): SYN\+ACK", raw):
+        port = int(m.group(1))
+        entities.append({"type": "service", "port": port, "protocol": "tcp", "state": "open"})
+    return entities
+
+
+def parse_acs_fingerprint(raw: str, store: "TargetStore") -> list[dict]:
+    entities: list[dict] = []
+    # Extract ISP identification hints
+    isp_m = re.search(r"ISP identification ---\n\s+(.+)", raw)
+    if isp_m:
+        entities.append({"type": "finding", "severity": "info", "title": f"ISP identified: {isp_m.group(1).strip()[:120]}"})
+    # Extract any banners found on management ports
+    for m in re.finditer(r"Port (\d+) \((.+?)\):\s*\n\s+(.+)", raw):
+        port, desc, banner = m.groups()
+        entities.append(
+            {
+                "type": "service",
+                "port": int(port),
+                "protocol": "tcp",
+                "service": desc.strip(),
+                "banner": banner.strip()[:200],
+            }
+        )
+    # Lumen/CenturyLink ACS note
+    if "CenturyLink" in raw or "Lumen" in raw or "qwest" in raw.lower():
+        entities.append(
+            {
+                "type": "finding",
+                "severity": "info",
+                "title": "CenturyLink/Lumen ACS detected — port 4567 is IP-allowlisted to Lumen ACS servers",
+                "detail": "TR-069/CWMP on 7547, proprietary ACS on 4567. Not reachable from arbitrary WAN IPs.",
+            }
+        )
+    return entities
+
+
 def parse_full_perimeter(raw: str, store: "TargetStore") -> list[dict]:
     entities: list[dict] = []
     for fn in [
@@ -145,6 +201,8 @@ def parse_full_perimeter(raw: str, store: "TargetStore") -> list[dict]:
         parse_default_creds,
         parse_dns_rebind_check,
         parse_firewall_egress,
+        parse_tcp_probe,
+        parse_acs_fingerprint,
     ]:
         entities.extend(fn(raw, store))
     return entities
@@ -157,6 +215,8 @@ PARSER_MAP[("perimeter_audit", "upnp_add_portmap")] = parse_upnp_add_portmap
 PARSER_MAP[("perimeter_audit", "default_creds")] = parse_default_creds
 PARSER_MAP[("perimeter_audit", "routersploit_scan")] = parse_routersploit_scan
 PARSER_MAP[("perimeter_audit", "wan_portscan")] = parse_wan_portscan
+PARSER_MAP[("perimeter_audit", "tcp_probe")] = parse_tcp_probe
+PARSER_MAP[("perimeter_audit", "acs_fingerprint")] = parse_acs_fingerprint
 PARSER_MAP[("perimeter_audit", "dns_rebind_check")] = parse_dns_rebind_check
 PARSER_MAP[("perimeter_audit", "firewall_egress")] = parse_firewall_egress
 PARSER_MAP[("perimeter_audit", "full_perimeter")] = parse_full_perimeter

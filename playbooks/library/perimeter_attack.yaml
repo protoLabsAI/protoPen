@@ -108,8 +108,9 @@ steps:
 
   # ── WAN Port Scan ─────────────────────────────────────────────────────────────
   # Scan the public WAN IP from an external vantage point.
+  # Runs parallel SYN scan (service detection) + ACK scan (firewall fingerprint).
+  # Reports ALL port states — open, filtered, closed — not just open.
   # Uses SSH pivot (pivot_host) if configured for true external view.
-  # Without pivot, scans from current host (valid only if externally routed).
   - name: wan_portscan
     tool: perimeter_audit
     action: wan_portscan
@@ -117,6 +118,41 @@ steps:
       external_ip: "${wan_ip}"
       pivot_host: "${pivot_host}"
     timeout: 180
+    on_fail: continue
+
+  # ── TCP Flag Analysis — ISP/CPE Management Ports ──────────────────────────────
+  # Deep probe of known ISP management ports using hping3 SYN probes + nmap stealth
+  # scan battery (-sA/-sF/-sN). Distinguishes:
+  #   FIN+ACK  → IP-allowlisted service (ISP ACS, TR-069 — port IS open but rejects
+  #              unauthorized source IPs — not exploitable from arbitrary WAN IPs)
+  #   RST      → Port closed, no service
+  #   SYN+ACK  → Port open and accepting connections
+  #   Silence  → Silent drop by stateful firewall
+  # Run this whenever wan_portscan or Shodan shows a "filtered" port — the TCP
+  # response flags reveal whether it's a firewall or an IP-allowlisted service.
+  - name: tcp_probe_mgmt_ports
+    tool: perimeter_audit
+    action: tcp_probe
+    params:
+      external_ip: "${wan_ip}"
+      pivot_host: "${pivot_host}"
+      ports: "4567,7547,9443,8181,30005"
+    timeout: 90
+    on_fail: continue
+
+  # ── ISP/ACS Management Fingerprint ──────────────────────────────────────────
+  # Probe CPE management infrastructure and identify the ISP's management platform.
+  # Maps TR-069 CWMP (7547), proprietary ACS (4567 Lumen, etc.), and vendor portals.
+  # Correlates rDNS + banner with known ISP management architectures.
+  # Understand this before attempting any CPE exploitation — ISP management ports
+  # are IP-allowlisted; attacking them requires compromising the ACS server first.
+  - name: acs_fingerprint
+    tool: perimeter_audit
+    action: acs_fingerprint
+    params:
+      external_ip: "${wan_ip}"
+      pivot_host: "${pivot_host}"
+    timeout: 60
     on_fail: continue
 
   # ── Phase gate — post-exploitation ───────────────────────────────────────────

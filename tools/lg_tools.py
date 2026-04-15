@@ -1096,6 +1096,7 @@ async def perimeter_audit(
     interface: str = "eth0",
     external_ip: str = "",
     pivot_host: str = "",
+    ports: str = "",
     timeout: int = 60,
 ) -> str:
     """Network perimeter and router/CPE audit — UPnP, default creds, RouterSploit, WAN exposure.
@@ -1107,10 +1108,19 @@ async def perimeter_audit(
     - upnp_add_portmap: Test whether IGD accepts unauthenticated port mapping additions
     - default_creds: Test common router default credentials (admin/admin, etc.)
     - routersploit_scan: RouterSploit autopwn scan against router
-    - wan_portscan: Scan WAN IP from external vantage (use pivot_host for real external view)
+    - wan_portscan: Scan WAN IP from external vantage — runs parallel SYN+ACK scans, reports ALL
+      port states (open/filtered/closed). Use pivot_host for true external view.
+    - tcp_probe: Deep TCP flag analysis on specific ports (comma-separated in 'ports' param, default
+      4567,7547,9443). Uses hping3 SYN probes + nmap -sA/-sF/-sN battery to distinguish:
+      FIN+ACK (IP-allowlisted ISP management), RST (closed), SYN+ACK (open), silence (firewall drop).
+      Run this when Shodan shows a port indexed but nmap reports it as filtered.
+    - acs_fingerprint: Probe ISP/CPE management ports (7547 CWMP, 4567 ACS, 9443, etc.) and
+      correlate with rDNS/ASN to identify ISP and management platform. Reveals TR-069 ACS
+      and proprietary management planes (Lumen, Comcast, AT&T, Verizon, Cox).
     - dns_rebind_check: Check if router blocks DNS rebinding attacks
     - firewall_egress: Test which outbound ports pass through the firewall
-    - full_perimeter: Run all perimeter checks in parallel
+    - full_perimeter: Run all perimeter checks in parallel (includes tcp_probe + acs_fingerprint
+      when external_ip or pivot_host is provided)
     """
     _init_pentest_singletons()
     return await _perimeter_audit.execute(
@@ -1119,6 +1129,7 @@ async def perimeter_audit(
         interface=interface,
         external_ip=external_ip,
         pivot_host=pivot_host,
+        ports=ports,
         timeout=timeout,
     )
 
