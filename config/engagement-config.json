@@ -81,6 +81,11 @@
     "kube_bench": 0, "kube_bench_target": 0,
     "deepce": 1, "cdk_evaluate": 1, "cdk_exploit": 2,
     "trivy_image": 0, "trivy_k8s": 0, "trivy_fs": 0,
-    "auth_bypass": 1, "cswsh": 1, "ws_injection": 2
+    "auth_bypass": 1, "cswsh": 1, "ws_injection": 2,
+    "device_discovery": 0, "telnet_check": 0, "snmp_audit": 0,
+    "firmware_exposure": 0, "rtsp_discover": 0,
+    "fingerprint": 1, "http_admin_check": 1, "mqtt_audit": 1,
+    "full_iot_audit": 1,
+    "default_creds": 2
   }
 }

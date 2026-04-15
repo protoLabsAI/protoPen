@@ -82,6 +82,7 @@ from tools.websocket_test import WebSocketTestTool
 from tools.cicd_audit import CICDAuditTool
 from tools.ipv6_attack import IPv6AttackTool
 from tools.iot_protocol import IoTProtocolTool
+from tools.iot_audit import IoTAuditTool
 from tools.ad_attack import ADAttackTool
 
 # Tier 3 — LLM, Telecom, Evasion, Phishing, gRPC, Auth
@@ -165,6 +166,7 @@ _websocket_test: WebSocketTestTool | None = None
 _cicd_audit: CICDAuditTool | None = None
 _ipv6_attack: IPv6AttackTool | None = None
 _iot_protocol: IoTProtocolTool | None = None
+_iot_audit: IoTAuditTool | None = None
 _ad_attack: ADAttackTool | None = None
 
 # Tier 3 singletons
@@ -589,6 +591,9 @@ def _init_pentest_singletons():
 
     global _iot_protocol
     _iot_protocol = IoTProtocolTool()
+
+    global _iot_audit
+    _iot_audit = IoTAuditTool()
 
     global _ad_attack
     _ad_attack = ADAttackTool()
@@ -2314,6 +2319,39 @@ async def iot_protocol(
 
 
 @tool
+async def iot_audit(
+    action: str,
+    target: str = "",
+    network: str = "",
+    port: int = 80,
+    service: str = "http",
+    timeout: int = 120,
+) -> str:
+    """IoT device security audit — discovery, fingerprinting, and vulnerability assessment.
+
+    - device_discovery: nmap IoT port sweep across a CIDR (risk 0)
+    - fingerprint: deep OS/service/banner fingerprint on a single host (risk 1)
+    - telnet_check: detect open Telnet on 23/2323 — high-severity (risk 0)
+    - http_admin_check: enumerate web admin panels, test default accounts (risk 1)
+    - mqtt_audit: test MQTT broker for anonymous access via $SYS topic (risk 1)
+    - snmp_audit: probe SNMP with default community strings (risk 0)
+    - rtsp_discover: find RTSP camera streams, check auth (risk 0)
+    - firmware_exposure: banner-grab for firmware version strings (risk 0)
+    - default_creds: hydra credential spray with IoT defaults (risk 2 — redteam only)
+    - full_iot_audit: orchestrates discovery + all checks against a network (risk 1)
+    """
+    _init_pentest_singletons()
+    return await _iot_audit.execute(
+        action=action,
+        target=target,
+        network=network,
+        port=port,
+        service=service,
+        timeout=timeout,
+    )
+
+
+@tool
 async def ad_attack(
     action: str,
     target: str = "",
@@ -2874,6 +2912,7 @@ def get_pentest_tools():
         cicd_audit,
         ipv6_attack,
         iot_protocol,
+        iot_audit,
         ad_attack,
         # Tier 3 — LLM, Telecom, Evasion, Phishing, gRPC, Auth
         llm_audit,

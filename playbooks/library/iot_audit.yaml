@@ -1,0 +1,162 @@
+name: iot_audit
+description: >
+  Full IoT device security assessment — discovery, fingerprinting, and vulnerability
+  checks for home/office networks. Finds devices with insecure services (Telnet, FTP,
+  Modbus), tests MQTT brokers for anonymous access, probes SNMP with default community
+  strings, discovers RTSP camera streams, and audits HTTP admin panels for default
+  credentials.
+
+  Run in PASSIVE mode for discovery only (device_discovery, snmp_audit, firmware_exposure).
+  Run in ACTIVE mode to add http_admin_check, mqtt_audit, rtsp_discover.
+  Run in REDTEAM mode to include default_creds spray.
+
+tags: [iot, discovery, audit, network, home, active]
+
+variables:
+  network: ""        # Target CIDR — e.g. 192.168.4.0/24
+  interface: "eth0"  # Network interface for packet captures
+  mqtt_broker: ""    # Optional: specific MQTT broker IP (defaults to network gateway)
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_iot_discovery
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: iot_discovery
+    on_fail: continue
+
+  # ── Layer 2 sweep — fastest host discovery ───────────────────────────────────
+  # ARP sweep to find all active hosts before running heavier IoT port scans
+  - name: arp_sweep
+    tool: lan_scan
+    action: arp_sweep
+    params:
+      network: "${network}"
+      interface: "${interface}"
+    timeout: 60
+    on_fail: continue
+
+  # ── mDNS enumeration — IoT devices advertise via Bonjour ─────────────────────
+  # Discovers smart TVs, printers, Chromecast, Apple TV, Sonos, etc.
+  - name: mdns_enum
+    tool: lan_scan
+    action: mdns_enum
+    params:
+      interface: "${interface}"
+    timeout: 60
+    on_fail: continue
+
+  # ── IoT port sweep — nmap across CIDR for IoT-relevant services ───────────────
+  # Covers: Telnet (23,2323), SSH (22), HTTP/S UIs (80,443,8080,8443),
+  # MQTT (1883,8883), CoAP (5683), Modbus (502), RTSP cameras (554,8554),
+  # TR-069 ACS (7547), printers (9100), FTP (21)
+  - name: device_discovery
+    tool: iot_audit
+    action: device_discovery
+    params:
+      network: "${network}"
+    timeout: 300
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_iot_assessment
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: iot_assessment
+    on_fail: continue
+
+  # ── Telnet check — open Telnet is always high-severity on IoT ─────────────────
+  # Many older IP cameras, NAS devices, and printers still ship with Telnet enabled.
+  # Checks both standard (23) and alternate (2323) Telnet ports.
+  - name: telnet_check
+    tool: iot_audit
+    action: telnet_check
+    params:
+      target: "${network}"
+    timeout: 90
+    on_fail: continue
+
+  # ── SNMP default community strings ───────────────────────────────────────────
+  # Probes SNMP with public/private and common vendor defaults.
+  # Successful SNMP queries expose device model, firmware, routing tables.
+  - name: snmp_audit
+    tool: iot_audit
+    action: snmp_audit
+    params:
+      target: "${network}"
+    timeout: 90
+    on_fail: continue
+
+  # ── Firmware version exposure ─────────────────────────────────────────────────
+  # Banner-grabs SSH, FTP, HTTP, Telnet for firmware version strings.
+  # Version strings enable CVE correlation — old firmware = known vulnerabilities.
+  - name: firmware_exposure
+    tool: iot_audit
+    action: firmware_exposure
+    params:
+      target: "${network}"
+    timeout: 120
+    on_fail: continue
+
+  # ── HTTP admin panel enumeration ──────────────────────────────────────────────
+  # Finds web UIs on ports 80, 443, 8080, 8081, 8443, 8888.
+  # Runs nmap http-default-accounts NSE script to check for factory credentials.
+  - name: http_admin_check
+    tool: iot_audit
+    action: http_admin_check
+    params:
+      target: "${network}"
+    timeout: 180
+    on_fail: continue
+
+  # ── MQTT broker anonymous access ─────────────────────────────────────────────
+  # Attempts unauthenticated subscribe to $SYS/# — the broker system topic.
+  # If data is returned, the broker is open and any device topic may be readable/writable.
+  - name: mqtt_audit
+    tool: iot_audit
+    action: mqtt_audit
+    params:
+      target: "${mqtt_broker}"
+    timeout: 30
+    on_fail: continue
+
+  # ── RTSP camera stream discovery ──────────────────────────────────────────────
+  # Scans ports 554 and 8554 and brute-forces common RTSP path patterns.
+  # Unauthenticated streams are a medium-severity privacy finding.
+  - name: rtsp_discover
+    tool: iot_audit
+    action: rtsp_discover
+    params:
+      target: "${network}"
+    timeout: 120
+    on_fail: continue
+
+  # ── CVE correlation on discovered service versions ────────────────────────────
+  # Cross-references discovered banner/version strings against known CVE databases.
+  - name: cve_correlation
+    tool: cve_match
+    action: cve_nmap
+    params:
+      target: "${network}"
+      ports: "23,80,443,502,554,1883,7547,8080,8443,8883"
+    timeout: 300
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_report
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: report
+    on_fail: continue
+
+  # ── Generate engagement report ────────────────────────────────────────────────
+  - name: generate_report
+    tool: engagement
+    action: generate_report
+    params: {}
+    timeout: 30
+    on_fail: continue
