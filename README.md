@@ -8,6 +8,7 @@ A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID p
 
 - **Threat Intelligence** — CVE search (NVD/MITRE), Exploit-DB monitoring, security RSS feeds (CISA, Krebs, THN), GitHub security tool tracking
 - **Pen Testing** — WiFi (deauth, PMKID, evil portal, karma), Bluetooth (BLE spam, Swift Pair), RF (Sub-GHz capture/replay), RFID/NFC (read/write/emulate), network (nmap, bettercap, nikto)
+- **External Attack Simulation** — Full outside-in perimeter assessment: passive footprint (Shodan, BGP/ASN, cert transparency, DNS security), active perimeter attack (router fingerprint, UPnP abuse, default creds, RouterSploit), TCP flag analysis to distinguish firewalled vs IP-allowlisted ISP management ports, and ISP/CPE ACS infrastructure identification
 - **Knowledge Store** — Hybrid search across advisories, exploits, and threat intel using vector similarity + BM25 keyword matching with Reciprocal Rank Fusion
 - **Security Subagents** — Threat Scanner (feed monitoring), Vuln Analyst (deep advisory analysis + target correlation), Intel Reporter (digest generation + Discord publishing)
 - **Pen-Test Subagents** — Recon (passive enumeration), Exploit (active testing), Reporter (finding synthesis + report generation)
@@ -107,6 +108,63 @@ python server.py --port 7870
 | `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
 | `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
 
+### External Attack Simulation
+
+Simulates a real external attacker with no prior access — passive footprint first, then active perimeter assault. All WAN-facing scans route through a configured external pivot (`PIVOT_HOST` env) to ensure results reflect a genuine outside-in view rather than hairpin NAT artifacts.
+
+| Tool | Description |
+|---|---|
+| `external_recon` | Passive external footprint: WAN IP discovery, Shodan/Censys host intelligence, BGP/ASN ownership, certificate transparency (crt.sh subdomain enumeration), DNS security posture (SPF/DKIM/DMARC/CAA), cloud storage exposure (S3/Azure/GCS). Requires `SHODAN_API_KEY` for Shodan actions. |
+| `perimeter_audit` | Active perimeter assault: router fingerprinting (banner/SNMP/web UI), UPnP device discovery and unauthenticated port-mapping abuse, default credential testing, RouterSploit autopwn, WAN port scan (parallel SYN+ACK via SSH pivot), DNS rebinding check, firewall egress mapping. |
+
+#### `perimeter_audit` actions
+
+| Action | Description |
+|---|---|
+| `router_fingerprint` | Banner grab, HTTP/HTTPS web UI title, SNMP community string enumeration |
+| `upnp_discover` | SSDP broadcast — find all UPnP devices including the IGD |
+| `upnp_portmap` | List existing UPnP port-forwarding rules (what's already exposed on WAN) |
+| `upnp_add_portmap` | Test whether the IGD accepts unauthenticated port mapping additions |
+| `default_creds` | Spray common ISP default credentials against router admin interface |
+| `routersploit_scan` | RouterSploit autopwn — tests all known router CVEs against the gateway |
+| `wan_portscan` | Parallel SYN+ACK scan of WAN IP via SSH pivot — reports all port states (open/filtered/closed), not just open. Includes ISP management ports (4567, 7547, 9443). |
+| `tcp_probe` | **Deep TCP flag analysis** on specific ports via `hping3` + `nmap -sA/-sF/-sN` battery. Distinguishes: `FIN+ACK` (IP-allowlisted ISP/CPE management — port is live but rejects non-ISP source IPs), `RST` (closed), `SYN+ACK` (open), silence (stateful firewall drop). Run this when Shodan shows a port indexed but nmap reports it filtered. |
+| `acs_fingerprint` | Probe ISP/CPE management infrastructure: TR-069 CWMP (7547), proprietary ACS (4567), Lumen Tungsten HTTPS (9443), Huawei HG (30005). Banner-grabs each port and correlates rDNS with known ISP management architectures (CenturyLink/Lumen, Comcast, AT&T, Verizon, Cox). |
+| `dns_rebind_check` | Test whether the router blocks DNS rebinding attacks |
+| `firewall_egress` | Test which outbound ports pass through the firewall (C2 channel assessment) |
+| `full_perimeter` | Run all checks in parallel. Includes `tcp_probe` + `acs_fingerprint` automatically when `external_ip`/`pivot_host` is provided. |
+
+#### External pivot
+
+WAN-facing actions (`wan_portscan`, `tcp_probe`, `acs_fingerprint`) **require an external pivot** when targeting public IPs. Scanning a WAN IP from the local host traverses hairpin NAT and produces invalid results. Set the pivot once and all tools use it automatically:
+
+```bash
+# systemd drop-in (persistent across restarts)
+mkdir -p ~/.config/systemd/user/protopen.service.d/
+cat > ~/.config/systemd/user/protopen.service.d/pivot.conf <<EOF
+[Service]
+Environment=PIVOT_HOST=root@your-vps-ip
+EOF
+systemctl --user daemon-reload && systemctl --user restart protopen
+```
+
+Or set in `docker-compose.yml`:
+```yaml
+environment:
+  - PIVOT_HOST=root@your-vps-ip
+```
+
+The pivot only needs `nmap`, `hping3`, and SSH access. Any external VPS works (AWS, DigitalOcean, Vultr — or a Tailscale-connected host).
+
+#### Playbooks
+
+Two new playbooks for end-to-end external attack simulation:
+
+| Playbook | Steps | Description |
+|---|---|---|
+| `external_recon` | 13 | Passive footprint: WAN IP → Shodan → BGP/ASN → cert transparency → DNS security → subdomain enum → OSINT → cloud exposure → SSL audit |
+| `perimeter_attack` | 14 | Active assault: router fingerprint → UPnP abuse → default creds → RouterSploit → WAN port scan → **TCP flag analysis** → **ACS fingerprint** → CVE correlation |
+
 ### Blue Team / Defensive
 
 | Tool | Description |
@@ -151,6 +209,8 @@ protoPen
 │   ├── hardening_check.py# Service hardening validation
 │   ├── ir_toolkit.py     # Incident response toolkit
 │   ├── purple_team.py    # Purple team correlation engine
+│   ├── external_recon.py # Passive external footprint (Shodan, BGP, crt.sh, DNS, cloud)
+│   ├── perimeter_audit.py# Active perimeter assault (router, UPnP, WAN scan, tcp_probe, ACS)
 │   ├── parsers/          # Output normalizers (nmap XML, ATT&CK alignment, etc.)
 │   └── scripts/          # Standalone audit scripts (ssh_audit, tls_audit, etc.)
 ├── playbooks/
@@ -200,10 +260,12 @@ The lead agent delegates to nine specialized subagents via the `task` tool:
 
 ## Playbooks
 
-protoPen ships with six pre-built playbooks that chain tools into multi-step workflows. All steps produce structured JSON output and handle tool failures gracefully (`on_fail: continue`).
+protoPen ships with pre-built playbooks that chain tools into multi-step workflows. All steps produce structured JSON output and handle tool failures gracefully (`on_fail: continue`).
 
 | Playbook | Steps | Description |
 |---|---|---|
+| `external_recon` | 13 | **Passive external footprint** — WAN IP discovery, Shodan/BGP/ASN, cert transparency, DNS security posture, subdomain enum, OSINT, cloud storage exposure, SSL audit |
+| `perimeter_attack` | 14 | **Active perimeter assault** — router fingerprint, UPnP abuse, default creds, RouterSploit, WAN scan (SYN+ACK via pivot), TCP flag analysis, ACS fingerprint, CVE correlation |
 | `purple_team_exercise` | 9 | Red recon → blue defense → MITRE ATT&CK coverage matrix + exercise report |
 | `defensive_assessment` | 6 | CIS SSH/TLS/firewall audits, SSH hardening, patch check, port baseline |
 | `incident_response` | 5 | Log search, IOC scan, auth log analysis, timeline, containment |
@@ -295,6 +357,10 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 | `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
 | `DISCORD_BOT_TOKEN` | No | Discord channel reading |
 | `DISCORD_WEBHOOK_URL` | No | Discord webhook for publishing digests, security alerts, and engagement reports (managed via Infisical in prod) |
+| `SHODAN_API_KEY` | No | Shodan API — enables `external_recon shodan_host/shodan_search` actions |
+| `CENSYS_API_ID` | No | Censys API ID — enables `external_recon censys_host` |
+| `CENSYS_API_SECRET` | No | Censys API secret |
+| `PIVOT_HOST` | No | External pivot for WAN scanning — `user@host` (e.g. `root@1.2.3.4`). Required for `wan_portscan`, `tcp_probe`, `acs_fingerprint` against public IPs. |
 | `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing |
 | `LANGFUSE_SECRET_KEY` | No | Langfuse tracing |
 
