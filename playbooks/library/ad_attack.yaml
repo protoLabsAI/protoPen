@@ -165,6 +165,7 @@ steps:
   - name: certipy_req
     tool: ad_attack
     action: certipy_req
+    condition: "${ca_name} != '' && ${template} != ''"
     params:
       target: "${target}"
       domain: "${domain}"

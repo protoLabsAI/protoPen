@@ -18,6 +18,7 @@ variables:
   graphql_url: ""      # GraphQL endpoint URL (e.g. https://api.example.com/graphql)
   rest_url: ""         # Base REST/HTTP API URL for SSRF + rate limit testing
   jwt_token: ""        # Sample JWT token to analyze (grab from browser/Burp)
+  jwt_alg: ""          # JWT algorithm — set after jwt_decode (e.g. HS256); gates jwt_crack
   jwt_wordlist: "/usr/share/seclists/Passwords/Common-Credentials/best110.txt"
   inject_param: "FUZZ" # URL parameter to inject SSRF payloads into
   callback_host: ""    # Your host IP for blind SSRF callback server
@@ -53,6 +54,7 @@ steps:
   - name: grpc_describe
     tool: grpc_audit
     action: grpc_describe
+    condition: "${grpc_service} != ''"
     params:
       target: "${grpc_target}"
       service: "${grpc_service}"
@@ -243,6 +245,7 @@ steps:
   - name: jwt_crack
     tool: jwt_tool
     action: jwt_crack
+    condition: "${jwt_token} != '' && ${jwt_alg} =~ /^HS/"
     params:
       token: "${jwt_token}"
       wordlist: "${jwt_wordlist}"
@@ -271,6 +274,7 @@ steps:
   - name: grpc_fuzz
     tool: grpc_audit
     action: grpc_fuzz
+    condition: "${grpc_service} != ''"
     params:
       target: "${grpc_target}"
       service: "${grpc_service}"
