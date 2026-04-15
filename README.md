@@ -104,6 +104,18 @@ python server.py --port 7870
 | `flipper` | Flipper Zero — Sub-GHz, NFC, RFID, IR, BLE, GPIO, storage |
 | `marauder` | WiFi Marauder — AP/station scan, deauth, PMKID, evil portal, karma, BLE spam |
 | `blackarch` | Curated wrappers — nmap, aircrack-ng, bettercap, nikto, gobuster, hashcat, tshark |
+| `iot_audit` | IoT device security — nmap IoT sweep, deep fingerprinting, Telnet/HTTP admin checks, MQTT anonymous access, SNMP default creds, RTSP stream discovery, firmware exposure, default cred spray |
+| `ad_attack` | Active Directory attack chain — BloodHound collection, Kerberoasting, AS-REP roasting, ADCS certificate abuse (Certipy ESC1–ESC8), LDAP enumeration, enum4linux-ng, secretsdump |
+| `grpc_audit` | gRPC security — server reflection enumeration, service description, auth testing, TLS enforcement, protobuf fuzzing, port scanning |
+| `graphql_test` | GraphQL security — introspection check, depth limit testing, batch query DoS, field suggestion leak |
+| `jwt_tool` | JWT analysis — decode/inspect, algorithm=none bypass, HMAC secret brute-force, claim tampering |
+| `ssrf_detect` | SSRF detection — payload injection, cloud metadata probing (AWS/GCP/Azure), blind callback server |
+| `rate_limit` | Rate limit testing — threshold detection, IP header bypass (X-Forwarded-For), path manipulation bypass |
+| `priv_esc` | Privilege escalation — linpeas, sudo enumeration, SUID discovery, kernel exploit suggestions |
+| `persistence` | Persistence mechanisms — SSH key planting, cron backdoors, persistence enumeration |
+| `lateral_move` | Lateral movement — impacket psexec/wmiexec, evil-winrm, pass-the-hash, SSH SOCKS pivot |
+| `data_exfil` | Evidence collection — SCP/SMB/HTTP file download from compromised hosts |
+| `spa_test` | SPA security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage audit, DOM XSS, source map exposure |
 | `device_manager` | USB serial connection management for all hardware peripherals |
 | `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
 | `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
@@ -266,6 +278,10 @@ protoPen ships with pre-built playbooks that chain tools into multi-step workflo
 |---|---|---|
 | `external_recon` | 13 | **Passive external footprint** — WAN IP discovery, Shodan/BGP/ASN, cert transparency, DNS security posture, subdomain enum, OSINT, cloud storage exposure, SSL audit |
 | `perimeter_attack` | 14 | **Active perimeter assault** — router fingerprint, UPnP abuse, default creds, RouterSploit, WAN scan (SYN+ACK via pivot), TCP flag analysis, ACS fingerprint, CVE correlation |
+| `post_exploitation` | 11 | **Post-exploitation chain** — sudo enum, SUID discovery, kernel exploits, linpeas, persistence check, SSH key plant, SSH pivot, pass-the-hash, psexec, evidence collection |
+| `ad_attack` | 11 | **Active Directory attack chain** — LDAP enum, enum4linux-ng, BloodHound collection, ADCS enumeration (certipy), AS-REP roasting, Kerberoasting, certificate abuse (ESC1), secretsdump |
+| `api_security_assessment` | 19 | **Modern API security** — gRPC reflection + auth testing, GraphQL introspection/depth/batch, JWT decode + algorithm bypass + crack, SSRF injection + blind callback, rate limit detection + bypass |
+| `spa_assessment` | 6 | **SPA security** — source map exposure, token leakage audit, route guard bypass, state store inspection, postMessage scanning, DOM XSS |
 | `purple_team_exercise` | 9 | Red recon → blue defense → MITRE ATT&CK coverage matrix + exercise report |
 | `defensive_assessment` | 6 | CIS SSH/TLS/firewall audits, SSH hardening, patch check, port baseline |
 | `incident_response` | 5 | Log search, IOC scan, auth log analysis, timeline, containment |
