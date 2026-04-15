@@ -488,7 +488,7 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
     tracing.start_trace(session_id=session_id, name="researcher-chat-lg", metadata={"message_preview": message[:100]})
     try:
         # Invoke the graph with session-scoped checkpointing
-        config = {"configurable": {"thread_id": f"gradio:{session_id}"}}
+        config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
         if _checkpointer:
             config["checkpointer"] = _checkpointer
 
@@ -520,7 +520,7 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     """
     from langchain_core.messages import HumanMessage
 
-    config = {"configurable": {"thread_id": f"gradio:{session_id}"}}
+    config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
     if _checkpointer:
         config["checkpointer"] = _checkpointer
 
