@@ -57,6 +57,7 @@ steps:
     action: device_discovery
     params:
       network: "${network}"
+      timeout: 600
     timeout: 600
     on_fail: continue
 
@@ -76,6 +77,7 @@ steps:
     action: telnet_check
     params:
       target: "${network}"
+      timeout: 300
     timeout: 300
     on_fail: continue
 
@@ -87,6 +89,7 @@ steps:
     action: snmp_audit
     params:
       target: "${network}"
+      timeout: 120
     timeout: 120
     on_fail: continue
 
@@ -98,6 +101,7 @@ steps:
     action: firmware_exposure
     params:
       target: "${network}"
+      timeout: 600
     timeout: 600
     on_fail: continue
 
@@ -109,6 +113,7 @@ steps:
     action: http_admin_check
     params:
       target: "${network}"
+      timeout: 600
     timeout: 600
     on_fail: continue
 
@@ -133,6 +138,7 @@ steps:
     action: rtsp_discover
     params:
       target: "${network}"
+      timeout: 300
     timeout: 300
     on_fail: continue
 

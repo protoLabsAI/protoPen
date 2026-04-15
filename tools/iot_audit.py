@@ -282,15 +282,20 @@ class IoTAuditTool(BasePentestTool):
         )
 
     async def _full_iot_audit(self, network: str, timeout: int) -> str:
-        """Discovery sweep → parallel targeted checks across the network."""
+        """Discovery sweep → parallel targeted checks across the network.
+
+        Uses timeout=0 for every sub-action so each falls back to its own
+        ACTIONS spec timeout rather than inheriting a single shared value.
+        Pass an explicit non-zero timeout to override all sub-actions at once.
+        """
         sections: list[str] = []
 
-        # Phase 1: broad discovery
+        # Phase 1: broad discovery — honour explicit override, else use spec (600s)
         logger.info("[iot_audit] full_iot_audit: discovery on %s", network)
-        discovery = await self.execute("device_discovery", network=network, timeout=300)
+        discovery = await self.execute("device_discovery", network=network, timeout=timeout)
         sections.append(f"=== device_discovery ===\n{discovery}")
 
-        # Phase 2: targeted checks — run in parallel against the network range
+        # Phase 2: targeted checks — each uses its own spec timeout unless overridden
         checks = [
             "telnet_check",
             "http_admin_check",
@@ -298,9 +303,8 @@ class IoTAuditTool(BasePentestTool):
             "rtsp_discover",
             "firmware_exposure",
         ]
-        check_timeout = timeout if timeout > 0 else 120
         results = await asyncio.gather(
-            *[self.execute(check, target=network, timeout=check_timeout) for check in checks],
+            *[self.execute(check, target=network, timeout=timeout) for check in checks],
             return_exceptions=True,
         )
         for check, result in zip(checks, results):
