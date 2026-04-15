@@ -219,7 +219,7 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "rtsp_discover": KillChainPhase.ENUMERATION,
     "firmware_exposure": KillChainPhase.ENUMERATION,
     "default_creds": KillChainPhase.EXPLOITATION,
-    "full_iot_audit": KillChainPhase.RECON,
+    "full_iot_audit": KillChainPhase.ENUMERATION,
 }
 
 

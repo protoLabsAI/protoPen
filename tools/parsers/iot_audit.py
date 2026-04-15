@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
@@ -28,6 +29,16 @@ _HIGH_RISK_SERVICES = {
     "47808": "BACnet",
 }
 
+# Patterns that indicate mosquitto_sub failed to connect (not anonymous access)
+_MQTT_ERROR_PATTERNS = [
+    "Connection refused",
+    "Unable to connect",
+    "Error: ",
+    "Connection error",
+    "rc = ",
+    "[stderr]",
+]
+
 
 # ── Shared XML parser ──────────────────────────────────────────────────────────
 
@@ -37,7 +48,6 @@ def _parse_nmap_xml(
     store: "TargetStore",
     *,
     action: str,
-    tag_open_ports: bool = True,
 ) -> list[dict]:
     """Parse nmap XML output into structured entities and upsert hosts into the store."""
     entities: list[dict] = []
@@ -87,11 +97,15 @@ def _parse_nmap_xml(
             banner_parts = [p for p in (svc_product, svc_version) if p]
             banner = " ".join(banner_parts)
 
-            # Collect NSE script output
-            script_output = ""
+            # Collect NSE script output keyed by script id so we can look up
+            # specific scripts reliably rather than searching concatenated text.
+            script_by_id: dict[str, str] = {}
             for script_el in port_el.findall("script"):
-                script_output += script_el.get("output", "") + " "
-            script_output = script_output.strip()
+                sid = script_el.get("id", "")
+                sout = script_el.get("output", "")
+                if sid:
+                    script_by_id[sid] = sout
+            script_output_all = " ".join(script_by_id.values())
 
             service_entity: dict = {
                 "type": "service",
@@ -102,8 +116,8 @@ def _parse_nmap_xml(
                 "banner": banner[:200],
                 "action": action,
             }
-            if script_output:
-                service_entity["script_output"] = script_output[:400]
+            if script_output_all:
+                service_entity["script_output"] = script_output_all[:400]
             entities.append(service_entity)
 
             # ── Severity-rated findings ────────────────────────────────────────
@@ -125,8 +139,10 @@ def _parse_nmap_xml(
                     }
                 )
 
-            # HTTP default accounts hit
-            if "http-default-accounts" in script_output.lower() and "credentials found" in script_output.lower():
+            # HTTP default accounts — check script id and output separately so
+            # we don't false-positive on the script id appearing in other output.
+            default_acct_output = script_by_id.get("http-default-accounts", "")
+            if default_acct_output and "credentials found" in default_acct_output.lower():
                 entities.append(
                     {
                         "type": "iot_finding",
@@ -134,13 +150,13 @@ def _parse_nmap_xml(
                         "ip": ip,
                         "port": int(port_id),
                         "title": f"Default credentials accepted on {ip}:{port_id}",
-                        "detail": script_output[:500],
+                        "detail": default_acct_output[:500],
                         "action": action,
                     }
                 )
 
             # Firmware version strings
-            ver_match = _VERSION_RE.search(banner + " " + script_output)
+            ver_match = _VERSION_RE.search(banner + " " + script_output_all)
             if ver_match:
                 entities.append(
                     {
@@ -193,24 +209,61 @@ def parse_http_admin_check(raw: str, store: "TargetStore") -> list[dict]:
 
 
 def parse_mqtt_audit(raw: str, store: "TargetStore") -> list[dict]:
-    """Parse mosquitto_sub output — any data returned = anonymous access confirmed."""
+    """Parse mosquitto_sub output — any broker data returned = anonymous access confirmed.
+
+    Guards against false positives from:
+    - JSON error objects (BasePentestTool binary-not-found format)
+    - mosquitto_sub connection/auth error messages
+    - Appended stderr text from _run()
+    """
     entities: list[dict] = []
     raw = raw.strip()
+
     if not raw:
-        # No output — either no broker, auth required, or connection refused
         entities.append(
             {
                 "type": "iot_finding",
                 "severity": "info",
                 "title": "MQTT broker not reachable or authentication required",
-                "detail": "mosquitto_sub returned no data — MQTT broker absent, firewalled, or auth enforced.",
+                "detail": "mosquitto_sub returned no data — broker absent, firewalled, or auth enforced.",
                 "action": "mqtt_audit",
             }
         )
         return entities
 
-    # Data returned without credentials — unauthenticated access confirmed
-    lines = [l for l in raw.splitlines() if l.strip()]
+    # Filter: JSON error from binary-not-found
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict) and "error" in parsed:
+            entities.append(
+                {
+                    "type": "iot_finding",
+                    "severity": "info",
+                    "title": "MQTT audit skipped — mosquitto_sub not available",
+                    "detail": parsed["error"],
+                    "action": "mqtt_audit",
+                }
+            )
+            return entities
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # Filter: connection/auth failure messages from mosquitto_sub
+    first_line = raw.splitlines()[0] if raw.splitlines() else raw
+    if any(pat in raw for pat in _MQTT_ERROR_PATTERNS):
+        entities.append(
+            {
+                "type": "iot_finding",
+                "severity": "info",
+                "title": "MQTT broker rejected connection or requires authentication",
+                "detail": raw[:300],
+                "action": "mqtt_audit",
+            }
+        )
+        return entities
+
+    # Broker returned data without credentials — anonymous access confirmed
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
     broker_version = ""
     for line in lines:
         if "version" in line.lower():
@@ -223,9 +276,8 @@ def parse_mqtt_audit(raw: str, store: "TargetStore") -> list[dict]:
             "severity": "high",
             "title": "MQTT broker allows anonymous access",
             "detail": (
-                f"mosquitto_sub connected and received {len(lines)} message(s) from $SYS/# "
-                "without credentials. Broker information is publicly readable and any client "
-                "may subscribe to device topics.\n"
+                f"mosquitto_sub received {len(lines)} message(s) from $SYS/# without credentials. "
+                "Broker info is publicly readable; any client may subscribe to device topics.\n"
                 + (f"Broker version: {broker_version}\n" if broker_version else "")
                 + f"Sample output:\n{raw[:400]}"
             ),
@@ -233,7 +285,6 @@ def parse_mqtt_audit(raw: str, store: "TargetStore") -> list[dict]:
         }
     )
 
-    # Extract IPs from broker output
     for ip in _IP_RE.findall(raw):
         store.upsert_host(ip=ip, tags=["mqtt_broker", "iot_scan"])
 
@@ -283,17 +334,15 @@ def parse_snmp_audit(raw: str, store: "TargetStore") -> list[dict]:
 
 
 def parse_rtsp_discover(raw: str, store: "TargetStore") -> list[dict]:
-    """Parse nmap rtsp-url-brute output — open RTSP streams, note auth status."""
+    """Parse nmap rtsp-url-brute output — note any open RTSP streams."""
     entities: list[dict] = []
     base = _parse_nmap_xml(raw, store, action="rtsp_discover")
     entities.extend(base)
 
-    # Look for successful RTSP URL discoveries in script output
     for entity in base:
         script_out = entity.get("script_output", "")
         if not script_out:
             continue
-        # nmap rtsp-url-brute reports discovered paths like "Discovered path: /live.sdp"
         if "discovered" in script_out.lower() or "200 OK" in script_out:
             ip = entity.get("ip", "")
             entities.append(
@@ -324,7 +373,7 @@ def parse_default_creds(raw: str, store: "TargetStore") -> list[dict]:
     """Parse hydra default-credential spray output."""
     entities: list[dict] = []
     for line in raw.splitlines():
-        # hydra successful login: "[22][ssh] host: 192.168.1.x   login: admin   password: admin"
+        # hydra: "[22][ssh] host: 192.168.1.x   login: admin   password: admin"
         if "host:" in line and "login:" in line and "password:" in line:
             ip_match = re.search(r"host:\s*([\d.]+)", line)
             login_match = re.search(r"login:\s*(\S+)", line)
@@ -358,6 +407,32 @@ def parse_default_creds(raw: str, store: "TargetStore") -> list[dict]:
     return entities
 
 
+def parse_full_iot_audit(raw: str, store: "TargetStore") -> list[dict]:
+    """Route each section of full_iot_audit output through its sub-parser."""
+    entities: list[dict] = []
+    _section_re = re.compile(r"^=== (\w+).*?===\s*$", re.MULTILINE)
+    _sub_parsers = {
+        "device_discovery": parse_device_discovery,
+        "telnet_check": parse_telnet_check,
+        "http_admin_check": parse_http_admin_check,
+        "snmp_audit": parse_snmp_audit,
+        "rtsp_discover": parse_rtsp_discover,
+        "firmware_exposure": parse_firmware_exposure,
+        "mqtt_audit": parse_mqtt_audit,
+    }
+
+    parts = _section_re.split(raw)
+    # parts = [pre_text, section_name1, content1, section_name2, content2, ...]
+    for i in range(1, len(parts) - 1, 2):
+        action_name = parts[i]
+        content = parts[i + 1] if i + 1 < len(parts) else ""
+        parser = _sub_parsers.get(action_name)
+        if parser and content.strip():
+            entities.extend(parser(content.strip(), store))
+
+    return entities
+
+
 # ── Register all parsers ───────────────────────────────────────────────────────
 
 PARSER_MAP[("iot_audit", "device_discovery")] = parse_device_discovery
@@ -369,3 +444,4 @@ PARSER_MAP[("iot_audit", "snmp_audit")] = parse_snmp_audit
 PARSER_MAP[("iot_audit", "rtsp_discover")] = parse_rtsp_discover
 PARSER_MAP[("iot_audit", "firmware_exposure")] = parse_firmware_exposure
 PARSER_MAP[("iot_audit", "default_creds")] = parse_default_creds
+PARSER_MAP[("iot_audit", "full_iot_audit")] = parse_full_iot_audit

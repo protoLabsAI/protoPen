@@ -115,6 +115,8 @@ steps:
   # ── MQTT broker anonymous access ─────────────────────────────────────────────
   # Attempts unauthenticated subscribe to $SYS/# — the broker system topic.
   # If data is returned, the broker is open and any device topic may be readable/writable.
+  # REQUIRED: set mqtt_broker to a specific IP (e.g. the hub/gateway running MQTT).
+  # If left empty this step is skipped by the tool with a clear message.
   - name: mqtt_audit
     tool: iot_audit
     action: mqtt_audit

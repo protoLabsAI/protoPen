@@ -594,6 +594,7 @@ def _init_pentest_singletons():
 
     global _iot_audit
     _iot_audit = IoTAuditTool()
+    _iot_audit._target_store = _target_store
 
     global _ad_attack
     _ad_attack = ADAttackTool()

@@ -5,9 +5,9 @@ This tool focuses on *security assessment*: finding devices, identifying insecur
 testing default credentials, and detecting common IoT misconfigurations.
 
 Risk tiers:
-  0 (passive) — read-only scans: device_discovery, telnet_check, snmp_audit,
-                  firmware_exposure, rtsp_discover
-  1 (active)  — interactive probes: fingerprint, http_admin_check, mqtt_audit
+  1 (active)  — service probes: device_discovery, telnet_check, snmp_audit,
+                  firmware_exposure, rtsp_discover, fingerprint, http_admin_check,
+                  mqtt_audit, full_iot_audit
   2 (redteam) — credential attacks: default_creds
 """
 
@@ -189,11 +189,15 @@ class IoTAuditTool(BasePentestTool):
             "description": "Banner-grab common ports for firmware and version strings",
         },
         # ── Default credential spray (redteam) ───────────────────────────────
+        # Requires seclists installed. Uses separate user/pass lists rather than
+        # a CSV combo file so hydra's -L/-P mode is reliably portable.
         "default_creds": {
             "cmd": [
                 "hydra",
-                "-C",
-                "/usr/share/seclists/Passwords/Default-Credentials/default-passwords.csv",
+                "-L",
+                "/usr/share/seclists/Usernames/top-usernames-shortlist.txt",
+                "-P",
+                "/usr/share/seclists/Passwords/Common-Credentials/best110.txt",
                 "-s",
                 "{port}",
                 "-f",
@@ -205,7 +209,7 @@ class IoTAuditTool(BasePentestTool):
                 "{service}",
             ],
             "timeout": 300,
-            "description": "Credential spray using IoT default pairs (hydra)",
+            "description": "Credential spray using common IoT defaults (hydra)",
         },
     }
 
@@ -216,8 +220,20 @@ class IoTAuditTool(BasePentestTool):
         network: str = "",
         port: int = 80,
         service: str = "http",
-        timeout: int = 120,
+        timeout: int = 0,
     ) -> str:
+        """Execute an iot_audit action.
+
+        Args:
+            target:  Single IP/hostname for targeted checks.
+            network: CIDR notation for sweep actions (device_discovery, full_iot_audit).
+            port:    Override port for default_creds.
+            service: Protocol for default_creds (ssh, telnet, ftp, http).
+            timeout: Override the action's built-in timeout; 0 = use action default.
+        """
+        if action == "mqtt_audit" and not target:
+            return "SKIP: mqtt_audit requires a target host — set mqtt_broker variable"
+
         if action == "full_iot_audit":
             return await self._full_iot_audit(network or target, timeout)
 
@@ -235,10 +251,12 @@ class IoTAuditTool(BasePentestTool):
             )
             for c in spec["cmd"]
         ]
+        # Caller timeout overrides spec default when explicitly provided (non-zero).
+        effective_timeout = timeout if timeout > 0 else spec.get("timeout", 120)
         return await self._run(
             action=action,
             cmd=cmd,
-            timeout=spec.get("timeout", timeout),
+            timeout=effective_timeout,
             target_hint=scan_target,
         )
 
@@ -259,20 +277,20 @@ class IoTAuditTool(BasePentestTool):
             "rtsp_discover",
             "firmware_exposure",
         ]
+        check_timeout = timeout if timeout > 0 else 120
         results = await asyncio.gather(
-            *[self.execute(check, target=network, timeout=timeout) for check in checks],
+            *[self.execute(check, target=network, timeout=check_timeout) for check in checks],
             return_exceptions=True,
         )
         for check, result in zip(checks, results):
             text = str(result) if isinstance(result, Exception) else result
             sections.append(f"=== {check} ===\n{text}")
 
-        # Phase 3: MQTT audit (only meaningful against specific broker IPs, but
-        # try the network gateway as a best-effort heuristic)
+        # Phase 3: MQTT audit against the network gateway (best-effort)
         gateway = _guess_gateway(network)
         if gateway:
             mqtt_result = await self.execute("mqtt_audit", target=gateway, timeout=20)
-            sections.append(f"=== mqtt_audit (gateway {gateway}) ===\n{mqtt_result}")
+            sections.append(f"=== mqtt_audit ===\n{mqtt_result}")
 
         return "\n\n".join(sections)
 
