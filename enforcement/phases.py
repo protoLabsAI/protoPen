@@ -209,6 +209,17 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "auth_bypass": KillChainPhase.VULN_ASSESSMENT,
     "cswsh": KillChainPhase.VULN_ASSESSMENT,
     "ws_injection": KillChainPhase.VULN_ASSESSMENT,
+    # ── IoT Audit ──
+    "device_discovery": KillChainPhase.RECON,
+    "fingerprint": KillChainPhase.ENUMERATION,
+    "telnet_check": KillChainPhase.ENUMERATION,
+    "http_admin_check": KillChainPhase.ENUMERATION,
+    "mqtt_audit": KillChainPhase.ENUMERATION,
+    "snmp_audit": KillChainPhase.ENUMERATION,
+    "rtsp_discover": KillChainPhase.ENUMERATION,
+    "firmware_exposure": KillChainPhase.ENUMERATION,
+    "default_creds": KillChainPhase.EXPLOITATION,
+    "full_iot_audit": KillChainPhase.RECON,
 }
 
 
