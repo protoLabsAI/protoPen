@@ -114,7 +114,7 @@ Simulates a real external attacker with no prior access — passive footprint fi
 
 | Tool | Description |
 |---|---|
-| `external_recon` | Passive external footprint: WAN IP discovery, Shodan/Censys host intelligence, BGP/ASN ownership, certificate transparency (crt.sh subdomain enumeration), DNS security posture (SPF/DKIM/DMARC/CAA), cloud storage exposure (S3/Azure/GCS). Requires `SHODAN_API_KEY` for Shodan actions. |
+| `external_recon` | Passive external footprint: WAN IP discovery, Shodan/Censys host intelligence, BGP/ASN ownership, certificate transparency (crt.sh subdomain enumeration), DNS security posture (SPF/DKIM/DMARC/CAA), cloud storage exposure (S3/Azure/GCS). `SHODAN_API_KEY` enables API mode; falls back to Shodan CLI if absent. |
 | `perimeter_audit` | Active perimeter assault: router fingerprinting (banner/SNMP/web UI), UPnP device discovery and unauthenticated port-mapping abuse, default credential testing, RouterSploit autopwn, WAN port scan (parallel SYN+ACK via SSH pivot), DNS rebinding check, firewall egress mapping. |
 
 #### `perimeter_audit` actions
@@ -136,7 +136,7 @@ Simulates a real external attacker with no prior access — passive footprint fi
 
 #### External pivot
 
-WAN-facing actions (`wan_portscan`, `tcp_probe`, `acs_fingerprint`) **require an external pivot** when targeting public IPs. Scanning a WAN IP from the local host traverses hairpin NAT and produces invalid results. Set the pivot once and all tools use it automatically:
+WAN-facing actions (`wan_portscan`, `tcp_probe`, `acs_fingerprint`) **strongly recommend an external pivot** for public IPs — scanning from the local host traverses hairpin NAT and produces unreliable results. Without a pivot the tool warns and proceeds locally (useful only if the host is externally routed). Set the pivot once and all tools use it automatically:
 
 ```bash
 # systemd drop-in (persistent across restarts)
@@ -154,7 +154,7 @@ environment:
   - PIVOT_HOST=root@your-vps-ip
 ```
 
-The pivot only needs `nmap`, `hping3`, and SSH access. Any external VPS works (AWS, DigitalOcean, Vultr — or a Tailscale-connected host).
+The pivot needs `nmap`, `hping3`, `nc`, `bash`, and `timeout` — plus SSH access. Any external VPS works (AWS, DigitalOcean, Vultr — or a Tailscale-connected host).
 
 #### Playbooks
 

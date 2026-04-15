@@ -82,6 +82,7 @@ class EngagementManager(Tool):
                         "generate_report",
                         "list_findings",
                         "transition_phase",
+                        "update",
                     ],
                 },
                 "name": {"type": "string", "description": "Engagement name"},
@@ -93,6 +94,12 @@ class EngagementManager(Tool):
                 "detail": {"type": "string", "description": "Finding detail"},
                 "tool_name": {"type": "string", "description": "Tool name for permission check"},
                 "phase": {"type": "string", "description": "Engagement phase (recon, scan, exploit, report)"},
+                "note": {
+                    "type": "string",
+                    "description": "Timestamped note to append (update action) — use for authorization statements and ownership confirmations",
+                },
+                "authorized_by": {"type": "string", "description": "Who authorized this engagement (update action)"},
+                "rules_of_engagement": {"type": "string", "description": "RoE summary / constraints (update action)"},
             },
             "required": ["action"],
         }
@@ -422,7 +429,10 @@ class EngagementManager(Tool):
         return f"Phase transition: {old} -> {phase}"
 
     def _exec_update(self, kwargs) -> str:
-        """Update active engagement metadata — scope, notes, authorized_by."""
+        """Update active engagement metadata — scope, notes, authorized_by.
+
+        All changes are immediately persisted to engagement.json for audit durability.
+        """
         if not self.active_engagement:
             return "No active engagement to update"
         updated = []
@@ -441,6 +451,9 @@ class EngagementManager(Tool):
             updated.append(f"rules_of_engagement → {kwargs['rules_of_engagement'][:120]}")
         if not updated:
             return "No fields updated — provide scope, note, authorized_by, or rules_of_engagement"
+        # Persist immediately so authorization context survives process restarts
+        ws = Path(self.active_engagement["workspace"])
+        (ws / "engagement.json").write_text(json.dumps(self.active_engagement, indent=2))
         return "Engagement updated:\n" + "\n".join(f"  • {u}" for u in updated)
 
     def _exec_generate_report(self) -> str:
