@@ -82,13 +82,48 @@ class PerimeterAuditTool(Tool):
             "required": ["action"],
         }
 
+    @staticmethod
+    def _is_public_ip(ip: str) -> bool:
+        """Return True if ip is a routable public address (not RFC-1918/loopback/link-local)."""
+        import ipaddress
+
+        try:
+            addr = ipaddress.ip_address(ip)
+            return not (addr.is_private or addr.is_loopback or addr.is_link_local)
+        except ValueError:
+            return False  # hostname or empty — treat as non-public for safety
+
     async def execute(self, **kwargs: Any) -> str:
         action = kwargs.get("action", "")
         target = kwargs.get("target", "")
         interface = kwargs.get("interface", "eth0")
         external_ip = kwargs.get("external_ip", "")
-        pivot_host = kwargs.get("pivot_host", "") or os.environ.get("PIVOT_HOST", "")
         timeout = kwargs.get("timeout", 60)
+
+        # Pivot resolution: env var is authoritative.
+        # Agent-supplied pivot_host is accepted ONLY if it looks like user@host and is
+        # NOT the same as the target/external_ip (guards against the agent confusing
+        # the two).  PIVOT_HOST env always wins if set.
+        env_pivot = os.environ.get("PIVOT_HOST", "")
+        raw_pivot = kwargs.get("pivot_host", "")
+        scan_target = external_ip or target
+        # Reject agent-supplied pivot if it equals the scan target (agent confusion)
+        if raw_pivot and raw_pivot == scan_target:
+            logger.warning("pivot_host == scan target (%s) — ignoring agent value, using PIVOT_HOST env", scan_target)
+            raw_pivot = ""
+        pivot_host = env_pivot or raw_pivot
+
+        # Hard guard: never scan a public IP from local when PIVOT_HOST is configured.
+        # A local scan of a public WAN IP goes through hairpin NAT — the result is
+        # meaningless for external attack simulation.
+        wan_actions = {"wan_portscan", "tcp_probe", "acs_fingerprint", "full_perimeter"}
+        if action in wan_actions and self._is_public_ip(scan_target) and not pivot_host:
+            return (
+                f"BLOCKED: {action} on public IP {scan_target!r} requires an external pivot.\n"
+                "Set PIVOT_HOST=user@host in the environment or pass pivot_host=user@host.\n"
+                "Scanning a public WAN IP from the local host traverses hairpin NAT and "
+                "produces invalid results — it does not simulate an external attacker's view."
+            )
 
         ports = kwargs.get("ports", "")
         dispatch = {

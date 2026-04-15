@@ -1109,14 +1109,18 @@ async def perimeter_audit(
     - default_creds: Test common router default credentials (admin/admin, etc.)
     - routersploit_scan: RouterSploit autopwn scan against router
     - wan_portscan: Scan WAN IP from external vantage — runs parallel SYN+ACK scans, reports ALL
-      port states (open/filtered/closed). Use pivot_host for true external view.
+      port states (open/filtered/closed). REQUIRES external pivot for public IPs (set via
+      PIVOT_HOST env var — do NOT pass the target IP as pivot_host).
     - tcp_probe: Deep TCP flag analysis on specific ports (comma-separated in 'ports' param, default
       4567,7547,9443). Uses hping3 SYN probes + nmap -sA/-sF/-sN battery to distinguish:
       FIN+ACK (IP-allowlisted ISP management), RST (closed), SYN+ACK (open), silence (firewall drop).
-      Run this when Shodan shows a port indexed but nmap reports it as filtered.
+      REQUIRES external pivot for public IPs. Run when Shodan shows a port indexed but nmap
+      reports filtered — the flags reveal whether it's a firewall or an IP-allowlisted service.
+      NOTE: pivot_host is auto-resolved from PIVOT_HOST env — do not pass target IP as pivot_host.
     - acs_fingerprint: Probe ISP/CPE management ports (7547 CWMP, 4567 ACS, 9443, etc.) and
       correlate with rDNS/ASN to identify ISP and management platform. Reveals TR-069 ACS
       and proprietary management planes (Lumen, Comcast, AT&T, Verizon, Cox).
+      REQUIRES external pivot for public IPs.
     - dns_rebind_check: Check if router blocks DNS rebinding attacks
     - firewall_egress: Test which outbound ports pass through the firewall
     - full_perimeter: Run all perimeter checks in parallel (includes tcp_probe + acs_fingerprint
