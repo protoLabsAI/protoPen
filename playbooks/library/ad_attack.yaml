@@ -49,11 +49,16 @@ steps:
   # ── SMB/LDAP/RPC deep enumeration ────────────────────────────────────────────
   # enum4linux-ng covers users, groups, shares, password policy, domain info.
   # More comprehensive than individual ldapsearch queries.
+  # Runs with domain credentials when available — falls back to null-session
+  # if username/password are empty (useful for initial unauthenticated probe).
   - name: enum4linux_ng
     tool: ad_attack
     action: enum4linux_ng
     params:
       target: "${target}"
+      username: "${username}"
+      password: "${password}"
+      domain: "${domain}"
     timeout: 120
     on_fail: continue
 
