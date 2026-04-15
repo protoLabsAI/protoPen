@@ -418,8 +418,7 @@ exit
 
         # Port list includes common service ports + ISP/CPE management ports (7547 CWMP, 4567 ACS)
         port_list = (
-            "21,22,23,25,53,80,110,143,443,465,587,993,995,"
-            "1194,1723,3389,4500,5060,4567,7547,8080,8443,8888,9000,9443"
+            "21,22,23,25,53,80,110,143,443,465,587,993,995,1194,1723,3389,4500,5060,4567,7547,8080,8443,8888,9000,9443"
         )
 
         results = [f"WAN port scan: {external_ip}"]
@@ -457,9 +456,7 @@ exit
 
         return "\n".join(results)
 
-    async def tcp_probe(
-        self, target: str, ports: str = "", pivot_host: str = "", timeout: int = 60
-    ) -> str:
+    async def tcp_probe(self, target: str, ports: str = "", pivot_host: str = "", timeout: int = 60) -> str:
         """Deep TCP flag analysis on specific ports — distinguishes silent-drop, RST, and FIN+ACK.
 
         Uses hping3 SYN probes (with flag inspection) and nmap stealth scan battery (-sA -sF -sN).
@@ -483,8 +480,14 @@ exit
         async def run_remote(cmd: str) -> str:
             if pivot_host:
                 return await self._run(
-                    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
-                    pivot_host, cmd, timeout=timeout,
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "ConnectTimeout=10",
+                    pivot_host,
+                    cmd,
+                    timeout=timeout,
                 )
             return await self._run("sh", "-c", cmd, timeout=timeout)
 
@@ -493,21 +496,19 @@ exit
         for p in ports.split(","):
             p = p.strip()
             if p:
-                hping_tasks.append(run_remote(
-                    f"hping3 -S -p {p} -c 3 --fast {target} 2>&1 || echo 'hping3 not available'"
-                ))
+                hping_tasks.append(
+                    run_remote(f"hping3 -S -p {p} -c 3 --fast {target} 2>&1 || echo 'hping3 not available'")
+                )
 
         # nmap stealth battery: ACK + FIN + NULL scans
         ack_scan = run_remote(f"nmap -sA -p {ports} -T4 --reason {target}")
         fin_scan = run_remote(f"nmap -sF -p {ports} -T4 --reason {target}")
         null_scan = run_remote(f"nmap -sN -p {ports} -T4 --reason {target}")
 
-        all_results = await asyncio.gather(
-            *hping_tasks, ack_scan, fin_scan, null_scan, return_exceptions=True
-        )
+        all_results = await asyncio.gather(*hping_tasks, ack_scan, fin_scan, null_scan, return_exceptions=True)
 
         hping_results = all_results[: len(hping_tasks)]
-        ack_out, fin_out, null_out = all_results[len(hping_tasks):]
+        ack_out, fin_out, null_out = all_results[len(hping_tasks) :]
 
         # Parse hping output for response flags
         for i, (p, hping_out) in enumerate(zip(ports.split(","), hping_results)):
@@ -566,8 +567,14 @@ exit
         async def run_remote(cmd: str) -> str:
             if pivot_host:
                 return await self._run(
-                    "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
-                    pivot_host, cmd, timeout=timeout,
+                    "ssh",
+                    "-o",
+                    "StrictHostKeyChecking=no",
+                    "-o",
+                    "ConnectTimeout=10",
+                    pivot_host,
+                    cmd,
+                    timeout=timeout,
                 )
             return await self._run("sh", "-c", cmd, timeout=timeout)
 
@@ -583,9 +590,7 @@ exit
 
         # Parallel: nmap service probe + banner grabs on each port
         port_csv = ",".join(mgmt_ports.keys())
-        scan_task = run_remote(
-            f"nmap -sV -sS -p {port_csv} --version-intensity 5 -T4 --reason {target}"
-        )
+        scan_task = run_remote(f"nmap -sV -sS -p {port_csv} --version-intensity 5 -T4 --reason {target}")
 
         banner_tasks = {}
         for port, desc in mgmt_ports.items():
@@ -593,9 +598,7 @@ exit
                 f"timeout 5 bash -c 'echo -e \"GET / HTTP/1.0\\r\\n\\r\\n\" | nc -w 3 {target} {port} 2>&1 | head -5'"
             )
 
-        scan_out, *banner_outs = await asyncio.gather(
-            scan_task, *banner_tasks.values(), return_exceptions=True
-        )
+        scan_out, *banner_outs = await asyncio.gather(scan_task, *banner_tasks.values(), return_exceptions=True)
 
         results.append("\n--- Port scan: CPE management ports ---")
         results.append(str(scan_out)[:2000] if not isinstance(scan_out, Exception) else str(scan_out))
@@ -752,9 +755,7 @@ exit
         if external_ip or pivot_host:
             tasks["WAN Port Scan"] = self.wan_portscan(external_ip, pivot_host, 90)
             tasks["ACS Fingerprint"] = self.acs_fingerprint(external_ip or target, pivot_host, 60)
-            tasks["TCP Probe (CPE ports)"] = self.tcp_probe(
-                external_ip or target, "4567,7547,9443", pivot_host, 60
-            )
+            tasks["TCP Probe (CPE ports)"] = self.tcp_probe(external_ip or target, "4567,7547,9443", pivot_host, 60)
 
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
         for label, result in zip(tasks.keys(), results):

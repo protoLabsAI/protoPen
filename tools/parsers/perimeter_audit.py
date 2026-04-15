@@ -166,7 +166,9 @@ def parse_acs_fingerprint(raw: str, store: "TargetStore") -> list[dict]:
     # Extract ISP identification hints
     isp_m = re.search(r"ISP identification ---\n\s+(.+)", raw)
     if isp_m:
-        entities.append({"type": "finding", "severity": "info", "title": f"ISP identified: {isp_m.group(1).strip()[:120]}"})
+        entities.append(
+            {"type": "finding", "severity": "info", "title": f"ISP identified: {isp_m.group(1).strip()[:120]}"}
+        )
     # Extract any banners found on management ports
     for m in re.finditer(r"Port (\d+) \((.+?)\):\s*\n\s+(.+)", raw):
         port, desc, banner = m.groups()
