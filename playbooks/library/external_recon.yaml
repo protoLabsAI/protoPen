@@ -1,0 +1,147 @@
+name: external_recon
+description: >
+  Passive external reconnaissance from an attacker's perspective — no packets
+  sent to the target network. Discovers the public WAN IP, enumerates what
+  Shodan/Censys see at that IP, maps BGP/ASN ownership, expands attack surface
+  via certificate transparency, audits DNS security posture (SPF/DKIM/DMARC),
+  and checks for exposed cloud storage. Use this as the first step of any
+  external engagement before sending a single probe.
+tags: [recon, external, passive, osint, shodan, dns, cloud, perimeter]
+variables:
+  domain: ""           # Primary domain to investigate (e.g. "example.com"). Leave empty for IP-only.
+  wan_ip: ""           # Public WAN IP — auto-discovered if empty
+  interface: "eth0"    # LAN interface for gateway detection
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_recon
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: recon
+    on_fail: continue
+
+  # ── WAN IP Discovery ─────────────────────────────────────────────────────────
+  # Discover the public IP this network presents to the internet.
+  # All subsequent steps use this IP as the primary external target.
+  - name: wan_ip_discovery
+    tool: external_recon
+    action: wan_ip
+    timeout: 20
+    on_fail: continue
+
+  # ── Shodan Passive Scan ───────────────────────────────────────────────────────
+  # What does Shodan see at the WAN IP? Open ports, banners, CVEs, org info.
+  # Requires SHODAN_API_KEY env var. Falls back to shodan CLI if set.
+  - name: shodan_host
+    tool: external_recon
+    action: shodan_host
+    params:
+      target: "${wan_ip}"
+    timeout: 30
+    on_fail: continue
+
+  # ── BGP / ASN / WHOIS ────────────────────────────────────────────────────────
+  # IP ownership, ISP, announced prefixes, abuse contacts.
+  - name: bgp_asn
+    tool: external_recon
+    action: bgp_asn
+    params:
+      target: "${wan_ip}"
+    timeout: 20
+    on_fail: continue
+
+  # ── Certificate Transparency ─────────────────────────────────────────────────
+  # crt.sh — find every hostname ever issued a cert for this domain.
+  # Reveals forgotten subdomains, staging envs, internal names leaked via CT.
+  - name: cert_transparency
+    tool: external_recon
+    action: cert_transparency
+    params:
+      target: "${domain}"
+    timeout: 30
+    on_fail: continue
+
+  # ── DNS Security Posture ──────────────────────────────────────────────────────
+  # SPF, DKIM, DMARC, CAA, DNSSEC — email spoofing and zone takeover surface.
+  - name: dns_security
+    tool: external_recon
+    action: dns_security
+    params:
+      target: "${domain}"
+    timeout: 30
+    on_fail: continue
+
+  # ── Subdomain Enumeration ─────────────────────────────────────────────────────
+  # Passive subdomain discovery via subfinder + amass to complement crt.sh.
+  - name: subdomain_passive
+    tool: subdomain_discovery
+    action: subfinder
+    params:
+      target: "${domain}"
+    timeout: 120
+    on_fail: continue
+
+  # ── OSINT — theHarvester ──────────────────────────────────────────────────────
+  # Emails, IPs, and additional hostnames from public sources.
+  - name: theharvester
+    tool: osint_recon
+    action: theharvester
+    params:
+      target: "${domain}"
+      source: "all"
+      limit: 500
+    timeout: 120
+    on_fail: continue
+
+  # ── DNS Enumeration ───────────────────────────────────────────────────────────
+  # MX, NS, TXT, AAAA records — maps full DNS topology.
+  - name: dns_full
+    tool: dns_enum
+    action: dig_query
+    params:
+      target: "${domain}"
+      record_type: "ANY"
+    timeout: 30
+    on_fail: continue
+
+  # ── Zone Transfer Attempt ─────────────────────────────────────────────────────
+  # Attempts AXFR — dumps entire zone if misconfigured.
+  - name: zone_transfer
+    tool: dns_enum
+    action: zone_transfer
+    params:
+      target: "${domain}"
+    timeout: 20
+    on_fail: continue
+
+  # ── Cloud Storage Exposure ────────────────────────────────────────────────────
+  # Checks common S3/Azure/GCS bucket name patterns for domain.
+  - name: cloud_exposure
+    tool: external_recon
+    action: cloud_exposure
+    params:
+      target: "${domain}"
+    timeout: 60
+    on_fail: continue
+
+  # ── SSL Certificate Audit ─────────────────────────────────────────────────────
+  # What does the WAN-facing TLS stack look like to an external attacker?
+  - name: ssl_external
+    tool: ssl_audit
+    action: ssl_full_audit
+    params:
+      target: "${wan_ip}:443"
+    timeout: 120
+    on_fail: continue
+
+  # ── Shodan Search — Broader Context ──────────────────────────────────────────
+  # Search Shodan for related infrastructure (same org/ISP).
+  - name: shodan_org_search
+    tool: external_recon
+    action: shodan_search
+    params:
+      target: "hostname:${domain}"
+    timeout: 30
+    on_fail: continue

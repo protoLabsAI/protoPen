@@ -35,6 +35,8 @@ from knowledge.target_store import TargetStore
 from tools.dns_enum import DnsEnumTool
 from tools.subdomain_discovery import SubdomainDiscoveryTool
 from tools.osint_recon import OsintReconTool
+from tools.external_recon import ExternalReconTool
+from tools.perimeter_audit import PerimeterAuditTool
 from tools.web_enum import WebEnumTool
 from tools.service_enum import ServiceEnumTool
 from tools.ssl_audit import SslAuditTool
@@ -119,6 +121,8 @@ _target_intel: TargetIntelTool | None = None
 _dns_enum: DnsEnumTool | None = None
 _subdomain_discovery: SubdomainDiscoveryTool | None = None
 _osint_recon: OsintReconTool | None = None
+_external_recon: ExternalReconTool | None = None
+_perimeter_audit: PerimeterAuditTool | None = None
 _web_enum: WebEnumTool | None = None
 _service_enum: ServiceEnumTool | None = None
 _ssl_audit: SslAuditTool | None = None
@@ -496,12 +500,17 @@ def _init_pentest_singletons():
 
     global _dns_enum, _subdomain_discovery, _osint_recon
     global _web_enum, _service_enum, _ssl_audit, _api_enum
+    global _external_recon, _perimeter_audit
     _dns_enum = DnsEnumTool()
     _dns_enum._target_store = _target_store
     _subdomain_discovery = SubdomainDiscoveryTool()
     _subdomain_discovery._target_store = _target_store
     _osint_recon = OsintReconTool()
     _osint_recon._target_store = _target_store
+    _external_recon = ExternalReconTool()
+    _external_recon._target_store = _target_store
+    _perimeter_audit = PerimeterAuditTool()
+    _perimeter_audit._target_store = _target_store
     _web_enum = WebEnumTool()
     _web_enum._target_store = _target_store
     _service_enum = ServiceEnumTool()
@@ -1049,6 +1058,67 @@ async def osint_recon(
         target=target,
         source=source,
         limit=limit,
+        timeout=timeout,
+    )
+
+
+@tool
+async def external_recon(
+    action: str,
+    target: str = "",
+    timeout: int = 60,
+) -> str:
+    """Passive external reconnaissance from an attacker's perspective.
+
+    Actions:
+    - wan_ip: Discover the public WAN IP of this network
+    - shodan_host: Query Shodan for everything known about an IP (requires SHODAN_API_KEY)
+    - shodan_search: Search Shodan with a query string (e.g. 'org:\"ISP\" port:22')
+    - censys_host: Query Censys for services on an IP (requires CENSYS_API_ID/SECRET)
+    - bgp_asn: BGP/ASN/WHOIS ownership, prefixes, abuse contacts for an IP
+    - cert_transparency: crt.sh certificate transparency — discover all subdomains/hostnames
+    - dns_security: Check SPF, DKIM, DMARC, CAA, DNSSEC posture for a domain
+    - cloud_exposure: Check for exposed S3/Azure/GCS buckets tied to a domain
+    - full_external: Run all external recon phases (WAN IP → Shodan → BGP → certs → DNS → cloud)
+    """
+    _init_pentest_singletons()
+    return await _external_recon.execute(
+        action=action,
+        target=target,
+        timeout=timeout,
+    )
+
+
+@tool
+async def perimeter_audit(
+    action: str,
+    target: str = "",
+    interface: str = "eth0",
+    external_ip: str = "",
+    pivot_host: str = "",
+    timeout: int = 60,
+) -> str:
+    """Network perimeter and router/CPE audit — UPnP, default creds, RouterSploit, WAN exposure.
+
+    Actions:
+    - router_fingerprint: Banner grab, web UI title, SNMP fingerprint of gateway router
+    - upnp_discover: Discover all UPnP devices via SSDP broadcast
+    - upnp_portmap: List existing UPnP port forwarding rules (potential WAN exposure)
+    - upnp_add_portmap: Test whether IGD accepts unauthenticated port mapping additions
+    - default_creds: Test common router default credentials (admin/admin, etc.)
+    - routersploit_scan: RouterSploit autopwn scan against router
+    - wan_portscan: Scan WAN IP from external vantage (use pivot_host for real external view)
+    - dns_rebind_check: Check if router blocks DNS rebinding attacks
+    - firewall_egress: Test which outbound ports pass through the firewall
+    - full_perimeter: Run all perimeter checks in parallel
+    """
+    _init_pentest_singletons()
+    return await _perimeter_audit.execute(
+        action=action,
+        target=target,
+        interface=interface,
+        external_ip=external_ip,
+        pivot_host=pivot_host,
         timeout=timeout,
     )
 
@@ -2722,10 +2792,12 @@ def get_pentest_tools():
         engagement,
         target_intel,
         opsec,
-        # Phase 2 — Recon
+        # Phase 2 — Recon (internal + external)
         dns_enum,
         subdomain_discovery,
         osint_recon,
+        external_recon,
+        perimeter_audit,
         # Phase 2 — Enumeration
         web_enum,
         service_enum,

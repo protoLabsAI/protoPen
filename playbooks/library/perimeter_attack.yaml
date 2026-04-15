@@ -1,0 +1,139 @@
+name: perimeter_attack
+description: >
+  Active perimeter penetration — router/CPE exploitation, UPnP abuse, default
+  credential testing, RouterSploit autopwn, WAN port scan from external vantage,
+  DNS rebinding, and firewall egress mapping. Simulates an external attacker who
+  has identified the target network and is attempting to breach the perimeter.
+  Run external_recon first to establish the passive picture, then this playbook
+  to go active.
+tags: [attack, external, perimeter, router, upnp, wan, firewall, redteam]
+variables:
+  gateway_ip: ""       # Router/gateway IP (auto-detected if empty)
+  wan_ip: ""           # Public WAN IP (from external_recon wan_ip step)
+  interface: "eth0"    # LAN interface
+  pivot_host: ""       # SSH user@host for external VPS (enables real WAN-side scan)
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_exploitation
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: exploitation
+    on_fail: continue
+
+  # ── Router Fingerprinting ─────────────────────────────────────────────────────
+  # Banner grab, web UI identification, SNMP community strings.
+  # Determines router make/model for targeted CVE/exploit selection.
+  - name: router_fingerprint
+    tool: perimeter_audit
+    action: router_fingerprint
+    params:
+      target: "${gateway_ip}"
+      interface: "${interface}"
+    timeout: 45
+    on_fail: continue
+
+  # ── UPnP Discovery ───────────────────────────────────────────────────────────
+  # Find all UPnP-enabled devices. The router IGD is the primary target.
+  - name: upnp_discover
+    tool: perimeter_audit
+    action: upnp_discover
+    params:
+      interface: "${interface}"
+    timeout: 30
+    on_fail: continue
+
+  # ── UPnP Port Mapping Enumeration ────────────────────────────────────────────
+  # List existing port forwards — reveals what's already exposed on the WAN.
+  - name: upnp_portmap
+    tool: perimeter_audit
+    action: upnp_portmap
+    params:
+      target: "${gateway_ip}"
+    timeout: 20
+    on_fail: continue
+
+  # ── UPnP Abuse Test ──────────────────────────────────────────────────────────
+  # Attempt to add an unauthenticated port mapping — the classic UPnP attack.
+  # Adds a test mapping and immediately removes it.
+  - name: upnp_add_portmap
+    tool: perimeter_audit
+    action: upnp_add_portmap
+    params:
+      target: "${gateway_ip}"
+    timeout: 20
+    on_fail: continue
+
+  # ── Default Credential Attack ─────────────────────────────────────────────────
+  # Test common default creds against router admin interface (HTTP/HTTPS/8080/8443).
+  - name: default_creds
+    tool: perimeter_audit
+    action: default_creds
+    params:
+      target: "${gateway_ip}"
+    timeout: 60
+    on_fail: continue
+
+  # ── RouterSploit Autopwn ──────────────────────────────────────────────────────
+  # RouterSploit scanner against gateway — tests all known router CVEs.
+  - name: routersploit_scan
+    tool: perimeter_audit
+    action: routersploit_scan
+    params:
+      target: "${gateway_ip}"
+    timeout: 120
+    on_fail: continue
+
+  # ── DNS Rebinding Check ───────────────────────────────────────────────────────
+  # Does the router block DNS rebinding attacks? If not, malicious sites
+  # can interact with the router admin interface from the browser.
+  - name: dns_rebind_check
+    tool: perimeter_audit
+    action: dns_rebind_check
+    params:
+      target: "${gateway_ip}"
+    timeout: 20
+    on_fail: continue
+
+  # ── Firewall Egress Mapping ───────────────────────────────────────────────────
+  # Which outbound ports does the firewall allow? Reveals C2 channel options
+  # and identifies misconfigured outbound rules.
+  - name: firewall_egress
+    tool: perimeter_audit
+    action: firewall_egress
+    timeout: 90
+    on_fail: continue
+
+  # ── WAN Port Scan ─────────────────────────────────────────────────────────────
+  # Scan the public WAN IP from an external vantage point.
+  # Uses SSH pivot (pivot_host) if configured for true external view.
+  # Without pivot, scans from current host (valid only if externally routed).
+  - name: wan_portscan
+    tool: perimeter_audit
+    action: wan_portscan
+    params:
+      external_ip: "${wan_ip}"
+      pivot_host: "${pivot_host}"
+    timeout: 180
+    on_fail: continue
+
+  # ── Phase gate — post-exploitation ───────────────────────────────────────────
+  - name: phase_post
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: post_exploitation
+    on_fail: continue
+
+  # ── CVE Correlation on Discovered Services ────────────────────────────────────
+  # Run CVE matching against anything found on the WAN IP.
+  - name: cve_check_wan
+    tool: cve_match
+    action: cve_nmap
+    params:
+      target: "${wan_ip}"
+      ports: "top-100"
+    timeout: 300
+    on_fail: continue
