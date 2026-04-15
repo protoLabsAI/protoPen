@@ -867,6 +867,9 @@ async def engagement(
     category: str = "",
     title: str = "",
     description: str = "",
+    note: str = "",
+    authorized_by: str = "",
+    rules_of_engagement: str = "",
 ) -> str:
     """Manage pentest engagements — mode enforcement, logging, reporting.
 
@@ -875,6 +878,13 @@ async def engagement(
     - set_mode: Set mode (passive/active/redteam)
     - check_permission: Check if a tool action is allowed in current mode
     - log_finding: Log a finding (severity, category, title, description)
+    - update: Update active engagement metadata without restarting — accepts any of:
+        scope (str): update the target scope
+        note (str): append a timestamped note (use for authorization statements,
+                    ownership confirmations, RoE changes — anything the agent should
+                    be able to cite when deciding whether to proceed with an action)
+        authorized_by (str): record who authorized this engagement
+        rules_of_engagement (str): record RoE summary / constraints
     - report: Generate engagement report
     - status: Show current engagement state
     """
@@ -889,6 +899,9 @@ async def engagement(
         category=category,
         title=title,
         description=description,
+        note=note,
+        authorized_by=authorized_by,
+        rules_of_engagement=rules_of_engagement,
     )
 
 

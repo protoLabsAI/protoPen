@@ -109,6 +109,7 @@ class EngagementManager(Tool):
             "generate_report": lambda: self._exec_generate_report(),
             "list_findings": lambda: self._exec_list_findings(),
             "transition_phase": lambda: self._exec_transition_phase(kwargs),
+            "update": lambda: self._exec_update(kwargs),
         }
         fn = dispatch.get(action)
         if fn is None:
@@ -419,6 +420,28 @@ class EngagementManager(Tool):
         old = self.current_phase or "(start)"
         self.transition_phase(phase)
         return f"Phase transition: {old} -> {phase}"
+
+    def _exec_update(self, kwargs) -> str:
+        """Update active engagement metadata — scope, notes, authorized_by."""
+        if not self.active_engagement:
+            return "No active engagement to update"
+        updated = []
+        if "scope" in kwargs and kwargs["scope"]:
+            self.active_engagement["scope"] = kwargs["scope"]
+            updated.append(f"scope → {kwargs['scope']}")
+        if "note" in kwargs and kwargs["note"]:
+            notes = self.active_engagement.setdefault("notes", [])
+            notes.append({"timestamp": datetime.now(timezone.utc).isoformat(), "text": kwargs["note"]})
+            updated.append(f"note added: {kwargs['note'][:80]}")
+        if "authorized_by" in kwargs and kwargs["authorized_by"]:
+            self.active_engagement["authorized_by"] = kwargs["authorized_by"]
+            updated.append(f"authorized_by → {kwargs['authorized_by']}")
+        if "rules_of_engagement" in kwargs and kwargs["rules_of_engagement"]:
+            self.active_engagement["rules_of_engagement"] = kwargs["rules_of_engagement"]
+            updated.append(f"rules_of_engagement → {kwargs['rules_of_engagement'][:120]}")
+        if not updated:
+            return "No fields updated — provide scope, note, authorized_by, or rules_of_engagement"
+        return "Engagement updated:\n" + "\n".join(f"  • {u}" for u in updated)
 
     def _exec_generate_report(self) -> str:
         return self.generate_report()
