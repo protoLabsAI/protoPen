@@ -53,7 +53,7 @@
     "wifi_sniff_pmkid": 1, "wifi_deauth": 2, "wifi_beacon_spam": 2,
     "wifi_evil_portal": 2, "wifi_karma": 2,
     "nmap_scan": 0, "nmap_vuln_scan": 1,
-    "nmap_os_detect": 0, "nmap_udp_scan": 1, "hashcat_rules": 1,
+    "nmap_os_detect": 0, "nmap_udp_scan": 1,
     "aircrack_monitor": 0, "aircrack_capture": 0, "aircrack_crack": 1,
     "bettercap_recon": 0, "bettercap_mitm": 2,
     "shell_exec": 1,

