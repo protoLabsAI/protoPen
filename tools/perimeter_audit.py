@@ -441,7 +441,7 @@ exit
         gw = await self._get_gateway()
         admin_raw = await self._curl(f"http://{gw}/", timeout=8)
         if "rebind" in admin_raw.lower() or "dns" in admin_raw.lower():
-            results.append(f"  Router web UI mentions DNS/rebind settings")
+            results.append("  Router web UI mentions DNS/rebind settings")
 
         results.append(
             "\nNote: DNS rebinding attacks let malicious websites access your router admin\n"

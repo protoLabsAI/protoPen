@@ -214,7 +214,7 @@ class ExternalReconTool(Tool):
         # fallback: shodan CLI if available
         result = await self._run("shodan", "host", target, timeout=timeout)
         if "command not found" in result or "No such file" in result:
-            return f"Shodan: no API key set (SHODAN_API_KEY) and shodan CLI not found. Set key or install: pip install shodan"
+            return "Shodan: no API key set (SHODAN_API_KEY) and shodan CLI not found. Set key or install: pip install shodan"
         return result
 
     async def shodan_search(self, query: str, timeout: int = 30) -> str:
