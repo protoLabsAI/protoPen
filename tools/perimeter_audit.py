@@ -118,6 +118,7 @@ class PerimeterAuditTool(Tool):
     async def _run(self, *args: str, timeout: int = 60, env: dict | None = None) -> str:
         logger.info("Running: %s", " ".join(str(a) for a in args))
         import os as _os
+
         run_env = _os.environ.copy()
         if env:
             run_env.update(env)
@@ -139,12 +140,12 @@ class PerimeterAuditTool(Tool):
     async def _get_gateway(self, interface: str = "eth0") -> str:
         """Detect the default gateway IP."""
         out = await self._run("ip", "route", "show", "default", timeout=5)
-        m = re.search(r'default via ([\d.]+)', out)
+        m = re.search(r"default via ([\d.]+)", out)
         if m:
             return m.group(1)
         # fallback for non-Linux
         out2 = await self._run("route", "-n", timeout=5)
-        m2 = re.search(r'0\.0\.0\.0\s+([\d.]+)', out2)
+        m2 = re.search(r"0\.0\.0\.0\s+([\d.]+)", out2)
         return m2.group(1) if m2 else "192.168.1.1"
 
     async def _curl(self, url: str, timeout: int = 15, extra_args: list[str] | None = None) -> str:
@@ -165,28 +166,36 @@ class PerimeterAuditTool(Tool):
         # Parallel: nmap banner + HTTP title + HTTPS title + SNMP
         async def nmap_banner():
             return await self._run(
-                "nmap", "-sV", "-p", "22,23,80,443,8080,8443,8888,7547",
-                "--script", "banner,http-title,ssh-hostkey",
-                "-T4", "--open", target, timeout=30
+                "nmap",
+                "-sV",
+                "-p",
+                "22,23,80,443,8080,8443,8888,7547",
+                "--script",
+                "banner,http-title,ssh-hostkey",
+                "-T4",
+                "--open",
+                target,
+                timeout=30,
             )
 
         async def http_title():
             out = await self._curl(f"http://{target}/", timeout=10)
-            m = re.search(r'<title>(.*?)</title>', out, re.IGNORECASE | re.DOTALL)
+            m = re.search(r"<title>(.*?)</title>", out, re.IGNORECASE | re.DOTALL)
             return f"HTTP title: {m.group(1).strip()[:100] if m else '(no title)'}\n{out[:300]}"
 
         async def https_title():
             out = await self._curl(f"https://{target}/", timeout=10, extra_args=["-k"])
-            m = re.search(r'<title>(.*?)</title>', out, re.IGNORECASE | re.DOTALL)
+            m = re.search(r"<title>(.*?)</title>", out, re.IGNORECASE | re.DOTALL)
             return f"HTTPS title: {m.group(1).strip()[:100] if m else '(no title)'}\n{out[:300]}"
 
         async def snmp_community():
-            return await self._run(
-                "snmpwalk", "-v2c", "-c", "public", target, "system", timeout=10
-            )
+            return await self._run("snmpwalk", "-v2c", "-c", "public", target, "system", timeout=10)
 
         nmap_out, http_out, https_out, snmp_out = await asyncio.gather(
-            nmap_banner(), http_title(), https_title(), snmp_community(),
+            nmap_banner(),
+            http_title(),
+            https_title(),
+            snmp_community(),
             return_exceptions=True,
         )
         for label, out in [("nmap", nmap_out), ("HTTP", http_out), ("HTTPS", https_out), ("SNMP", snmp_out)]:
@@ -208,25 +217,16 @@ class PerimeterAuditTool(Tool):
 
         # nmap UPnP scripts
         nmap_out = await self._run(
-            "nmap", "-sU", "-p", "1900", "--script", "upnp-info",
-            "-T4", "224.0.0.0/4", timeout=25
+            "nmap", "-sU", "-p", "1900", "--script", "upnp-info", "-T4", "224.0.0.0/4", timeout=25
         )
         results.append(f"nmap UPnP:\n{nmap_out[:1000]}")
 
         # miranda/upnp-inspector fallback via curl SSDP
         ssdp_msg = (
-            "M-SEARCH * HTTP/1.1\r\n"
-            "HOST: 239.255.255.250:1900\r\n"
-            "MAN: \"ssdp:discover\"\r\n"
-            "MX: 3\r\n"
-            "ST: ssdp:all\r\n\r\n"
+            'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 3\r\nST: ssdp:all\r\n\r\n'
         )
         # netcat approach
-        nc_out = await self._run(
-            "bash", "-c",
-            f'echo -e "{ssdp_msg}" | nc -u -w3 239.255.255.250 1900',
-            timeout=8
-        )
+        nc_out = await self._run("bash", "-c", f'echo -e "{ssdp_msg}" | nc -u -w3 239.255.255.250 1900', timeout=8)
         if nc_out and "command not found" not in nc_out:
             results.append(f"SSDP responses:\n{nc_out[:500]}")
 
@@ -250,10 +250,16 @@ class PerimeterAuditTool(Tool):
 <NewPortMappingIndex>0</NewPortMappingIndex>
 </u:GetGenericPortMappingEntry></s:Body></s:Envelope>"""
         raw = await self._run(
-            "curl", "-s", "--max-time", "10",
-            "-H", "Content-Type: text/xml; charset=utf-8",
-            "-H", "SOAPAction: \"urn:schemas-upnp-org:service:WANIPConnection:1#GetGenericPortMappingEntry\"",
-            "--data", soap_body,
+            "curl",
+            "-s",
+            "--max-time",
+            "10",
+            "-H",
+            "Content-Type: text/xml; charset=utf-8",
+            "-H",
+            'SOAPAction: "urn:schemas-upnp-org:service:WANIPConnection:1#GetGenericPortMappingEntry"',
+            "--data",
+            soap_body,
             f"http://{target}:49000/igdupnp/control/WANIPConn1",
             timeout=15,
         )
@@ -269,18 +275,21 @@ class PerimeterAuditTool(Tool):
 
         # Try via upnpc
         add = await self._run(
-            "upnpc", "-u", f"http://{target}:1900/rootDesc.xml",
-            "-a", "192.168.4.1", "65535", "65535", "TCP", "protopen_test",
-            timeout=15
+            "upnpc",
+            "-u",
+            f"http://{target}:1900/rootDesc.xml",
+            "-a",
+            "192.168.4.1",
+            "65535",
+            "65535",
+            "TCP",
+            "protopen_test",
+            timeout=15,
         )
         results.append(f"Add result: {add[:200]}")
 
         # Remove immediately
-        rm = await self._run(
-            "upnpc", "-u", f"http://{target}:1900/rootDesc.xml",
-            "-d", "65535", "TCP",
-            timeout=10
-        )
+        rm = await self._run("upnpc", "-u", f"http://{target}:1900/rootDesc.xml", "-d", "65535", "TCP", timeout=10)
         results.append(f"Remove result: {rm[:200]}")
 
         if "success" in add.lower() or "portmapping" in add.lower():
@@ -302,10 +311,10 @@ class PerimeterAuditTool(Tool):
             ("admin", "admin123"),
             ("root", "root"),
             ("root", "admin"),
-            ("admin", "motorola"),    # Motorola/Arris
+            ("admin", "motorola"),  # Motorola/Arris
             ("admin", "password1"),
-            ("cusadmin", "highspeed"), # Comcast/Xfinity
-            ("admin", "attadmin"),    # AT&T
+            ("cusadmin", "highspeed"),  # Comcast/Xfinity
+            ("admin", "attadmin"),  # AT&T
             ("admin", "comcast"),
         ]
         found: list[str] = []
@@ -315,9 +324,19 @@ class PerimeterAuditTool(Tool):
                 url = f"{scheme}://{target}:{port}/"
                 auth_arg = f"{user}:{passwd}"
                 raw = await self._run(
-                    "curl", "-s", "--max-time", "5", "-k", "-u", auth_arg,
-                    "-o", "/dev/null", "-w", "%{http_code}",
-                    url, timeout=8
+                    "curl",
+                    "-s",
+                    "--max-time",
+                    "5",
+                    "-k",
+                    "-u",
+                    auth_arg,
+                    "-o",
+                    "/dev/null",
+                    "-w",
+                    "%{http_code}",
+                    url,
+                    timeout=8,
                 )
                 code = raw.strip()
                 if code in ("200", "302", "301") and code != "401":
@@ -349,9 +368,14 @@ class PerimeterAuditTool(Tool):
                 )
                 # fallback: nmap router scripts
                 nmap_out = await self._run(
-                    "nmap", "-sV", "-p", "80,443,8080,23,22,7547",
-                    "--script", "http-router-info,telnet-info",
-                    target, timeout=60
+                    "nmap",
+                    "-sV",
+                    "-p",
+                    "80,443,8080,23,22,7547",
+                    "--script",
+                    "http-router-info,telnet-info",
+                    target,
+                    timeout=60,
                 )
                 results.append(f"nmap router scripts:\n{nmap_out}")
                 return "\n".join(results)
@@ -369,9 +393,7 @@ exit
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=rsf_script.encode()), timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(input=rsf_script.encode()), timeout=timeout)
             out = stdout.decode(errors="replace")
             results.append(out[:3000])
         except asyncio.TimeoutError:
@@ -399,18 +421,27 @@ exit
                 f"--open -T4 {external_ip}"
             )
             out = await self._run(
-                "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
-                pivot_host, nmap_cmd,
-                timeout=timeout
+                "ssh",
+                "-o",
+                "StrictHostKeyChecking=no",
+                "-o",
+                "ConnectTimeout=10",
+                pivot_host,
+                nmap_cmd,
+                timeout=timeout,
             )
             results.append(out[:3000])
         else:
             results.append("  No pivot configured — scanning from local (results only valid if external routing)")
             out = await self._run(
-                "nmap", "-sV",
-                "-p", "21,22,23,25,53,80,110,143,443,465,587,993,995,1194,1723,3389,4500,5060,7547,8080,8443",
-                "--open", "-T3", external_ip,
-                timeout=timeout
+                "nmap",
+                "-sV",
+                "-p",
+                "21,22,23,25,53,80,110,143,443,465,587,993,995,1194,1723,3389,4500,5060,7547,8080,8443",
+                "--open",
+                "-T3",
+                external_ip,
+                timeout=timeout,
             )
             results.append(out[:3000])
 
@@ -431,7 +462,7 @@ exit
         ]
         for td in test_domains:
             out = await self._run("dig", "+short", td, timeout=8)
-            if re.search(r'\b(192\.168|10\.|172\.(1[6-9]|2\d|3[01])\.|169\.254)', out):
+            if re.search(r"\b(192\.168|10\.|172\.(1[6-9]|2\d|3[01])\.|169\.254)", out):
                 results.append(f"  VULNERABLE: {td} resolved to private IP {out.strip()}")
                 results.append("  Router DNS rebinding protection: INACTIVE")
             else:
@@ -479,9 +510,7 @@ exit
         filtered_ports: list[str] = []
 
         async def test_port(port: str, name: str) -> tuple[str, str, bool]:
-            out = await self._run(
-                "nc", "-zv", "-w", "3", test_host, port, timeout=6
-            )
+            out = await self._run("nc", "-zv", "-w", "3", test_host, port, timeout=6)
             is_open = "succeeded" in out.lower() or "open" in out.lower() or "connected" in out.lower()
             return port, name, is_open
 

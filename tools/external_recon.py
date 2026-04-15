@@ -159,7 +159,7 @@ class ExternalReconTool(Tool):
                 if m:
                     results.append(m.group(1))
                     break
-                m = re.search(r'\b(\d{1,3}(?:\.\d{1,3}){3})\b', raw)
+                m = re.search(r"\b(\d{1,3}(?:\.\d{1,3}){3})\b", raw)
                 if m:
                     results.append(m.group(1))
                     break
@@ -278,16 +278,14 @@ class ExternalReconTool(Tool):
         lines: list[str] = []
 
         # Team Cymru WHOIS (most reliable for ASN)
-        cymru = await self._run(
-            "whois", "-h", "whois.cymru.com", f" -v {target}", timeout=15
-        )
+        cymru = await self._run("whois", "-h", "whois.cymru.com", f" -v {target}", timeout=15)
         lines.append(f"=== Team Cymru ASN ===\n{cymru}")
 
         # bgp.he.net via curl (human-readable, no API key needed)
         he_raw = await self._curl(f"https://bgp.he.net/ip/{urllib.parse.quote(target)}#_bgpinfo", timeout=15)
         # extract key fields
-        asn_m = re.findall(r'AS(\d+)', he_raw)
-        prefix_m = re.findall(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})', he_raw)
+        asn_m = re.findall(r"AS(\d+)", he_raw)
+        prefix_m = re.findall(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2})", he_raw)
         if asn_m:
             lines.append(f"BGP.he.net ASNs: {list(set(asn_m))[:5]}")
         if prefix_m:
@@ -298,8 +296,8 @@ class ExternalReconTool(Tool):
         try:
             d = json.loads(ipinfo)
             lines.append(
-                f"ipinfo: org={d.get('org','?')} city={d.get('city','?')} "
-                f"region={d.get('region','?')} country={d.get('country','?')}"
+                f"ipinfo: org={d.get('org', '?')} city={d.get('city', '?')} "
+                f"region={d.get('region', '?')} country={d.get('country', '?')}"
             )
         except json.JSONDecodeError:
             lines.append(f"ipinfo raw: {ipinfo[:200]}")
@@ -462,7 +460,7 @@ class ExternalReconTool(Tool):
         parts.append(f"## WAN IP\n{wan}\n")
 
         # Extract IP for subsequent queries
-        ip_m = re.search(r'WAN IP:\s*([\d.]+)', wan)
+        ip_m = re.search(r"WAN IP:\s*([\d.]+)", wan)
         recon_ip = ip_m.group(1) if ip_m else target
 
         # Phase 2: Run everything in parallel
@@ -470,7 +468,7 @@ class ExternalReconTool(Tool):
             "Shodan": self.shodan_host(recon_ip, timeout=30),
             "BGP/ASN": self.bgp_asn(recon_ip, timeout=20),
         }
-        if target and not re.match(r'^\d+\.\d+\.\d+\.\d+$', target):
+        if target and not re.match(r"^\d+\.\d+\.\d+\.\d+$", target):
             tasks["Cert Transparency"] = self.cert_transparency(target, timeout=30)
             tasks["DNS Security"] = self.dns_security(target, timeout=30)
             tasks["Cloud Exposure"] = self.cloud_exposure(target, timeout=45)
@@ -487,4 +485,5 @@ class ExternalReconTool(Tool):
 
 def _b64(s: str) -> str:
     import base64
+
     return base64.b64encode(s.encode()).decode()
