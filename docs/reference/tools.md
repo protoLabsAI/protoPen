@@ -222,3 +222,175 @@ WebSocket security testing — authentication bypass, Cross-Site WebSocket Hijac
 | `auth_bypass` | Test WebSocket endpoint for authentication bypass | `url`, `origin`, `auth_token` |
 | `cswsh` | Test for Cross-Site WebSocket Hijacking via Origin validation | `url`, `origin` |
 | `injection` | Test WebSocket messages for injection vulnerabilities | `url`, `origin`, `categories` (sqli, xss, command_injection, path_traversal) |
+
+---
+
+## iot_audit
+
+IoT device security assessment — nmap IoT sweep, service fingerprinting, Telnet/HTTP admin checks, MQTT broker testing, SNMP enumeration, RTSP stream discovery, firmware version exposure, and default credential spraying.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `device_discovery` | nmap IoT port sweep across a CIDR — identifies cameras, routers, NAS, smart home hubs | `target` (CIDR) |
+| `fingerprint` | Deep OS + service version + banner fingerprint on a single host | `target` |
+| `telnet_check` | Check for open Telnet on port 23 and 2323 (common IoT backdoor) | `target` |
+| `http_admin_check` | Enumerate HTTP admin UIs on common IoT ports and test default accounts | `target` |
+| `mqtt_audit` | Test MQTT broker for anonymous access via `$SYS` topic subscription | `target` |
+| `snmp_audit` | Probe SNMP with default community strings using onesixtyone | `target` |
+| `rtsp_discover` | Find RTSP camera streams and check for auth requirement | `target` |
+| `firmware_exposure` | Banner-grab common ports for firmware and version strings | `target` |
+| `default_creds` | Credential spray using common IoT defaults (hydra) | `target`, `service` |
+| `full_iot_audit` | Run all checks in sequence against a target | `target` |
+
+---
+
+## ad_attack
+
+Active Directory attack chain — BloodHound graph collection, Kerberoasting, AS-REP roasting, ADCS certificate abuse (Certipy ESC1–ESC8), LDAP enumeration, and domain secrets dumping. Requires `REDTEAM` mode for exploitation steps.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `bloodhound_collect` | Collect all AD objects and relationships for BloodHound ingestion | `target`, `domain`, `username`, `password` |
+| `bloodhound_edges` | Focused collection of ACL relationships and domain trust edges | `target`, `domain`, `username`, `password` |
+| `certipy_find` | Enumerate all ADCS certificate templates across all CAs | `target`, `domain`, `username`, `password` |
+| `certipy_vuln` | Filter templates vulnerable to ESC1–ESC8 privilege escalation | `target`, `domain`, `username`, `password` |
+| `certipy_req` | Request a certificate from a vulnerable template (ESC1 exploit) | `target`, `domain`, `username`, `password`, `ca_name`, `template` |
+| `enum4linux_ng` | SMB/LDAP/RPC deep enumeration — users, groups, shares, password policy | `target`, `username`, `password`, `domain` |
+| `ldapsearch` | LDAP query for AD objects (users, computers, groups) | `target`, `domain`, `username`, `password`, `base_dn`, `filter` |
+| `kerberoast` | Request TGS tickets for SPNs — crack offline with hashcat `-m 13100` | `target`, `domain`, `username`, `password` |
+| `asreproast` | Extract AS-REP hashes for accounts without preauth — crack with hashcat `-m 18200` | `target`, `domain`, `wordlist` |
+| `secretsdump` | Dump NTDS.dit, SAM, and LSA secrets from the domain controller | `target`, `domain`, `username`, `password` |
+
+---
+
+## grpc_audit
+
+gRPC security testing — server reflection enumeration, service/method description, auth testing, TLS enforcement, protobuf fuzzing, and port scanning.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `grpc_reflection` | List all services via gRPC server reflection | `target` (host:port) |
+| `grpc_describe` | Describe service methods, request/response message shapes | `target`, `service` |
+| `grpc_call` | Call a gRPC method with a data payload | `target`, `method`, `data` |
+| `grpc_fuzz` | Fuzz gRPC service methods with random/malformed inputs | `target`, `service`, `count` |
+| `grpc_auth_test` | Test gRPC method with and without an Authorization header | `target`, `method`, `auth_header` |
+| `grpc_tls_check` | Verify the endpoint requires TLS | `target` |
+| `grpc_web_test` | Test gRPC-Web endpoint with proto definitions | `target` |
+| `protoscan` | Scan for exposed protobuf/gRPC endpoints across common ports | `target` |
+
+---
+
+## graphql_test
+
+GraphQL security testing — introspection, depth limit DoS, batch query amplification, and field suggestion leakage.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `gql_introspect` | Test if introspection is enabled and extract the full schema | `url`, `headers` |
+| `gql_depth_test` | Find server's depth limit via incrementally deeper nested queries | `url`, `headers` |
+| `gql_batch` | Test batch query support — amplifies brute force and bypasses rate limiting | `url`, `headers` |
+| `gql_field_suggest` | Probe for field name leakage via typo-triggered suggestion responses | `url`, `headers` |
+
+---
+
+## jwt_tool
+
+JWT analysis — decode, algorithm bypass testing, HMAC secret brute-force, and claim tampering.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `jwt_decode` | Decode a JWT and display header, payload, signature; flags weak alg/claims | `token` |
+| `jwt_alg_none` | Generate algorithm=none bypass variants for manual submission | `token` |
+| `jwt_crack` | Brute-force HMAC secret (HS256/384/512) with a wordlist | `token`, `wordlist` |
+| `jwt_tamper` | Modify JWT claims and re-sign for privilege escalation testing | `token`, `claims` |
+
+---
+
+## ssrf_detect
+
+SSRF detection — payload injection into URL parameters, cloud metadata endpoint probing, and blind callback server.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `ssrf_basic` | Inject standard SSRF payloads (127.0.0.1, IPv6, etc.) into a URL parameter | `url`, `inject_param` |
+| `ssrf_cloud_meta` | Probe cloud metadata endpoints (AWS/GCP/Azure/DO) directly | -- |
+| `ssrf_callback` | Blind SSRF detection via local callback HTTP server | `url`, `inject_param`, `callback_host`, `callback_port`, `wait_seconds` |
+| `ssrf_generate_payloads` | Generate SSRF bypass payload list for manual testing | -- |
+
+---
+
+## rate_limit
+
+Rate limit testing — threshold detection, IP header spoofing bypass, and URL path manipulation bypass.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `rate_detect` | Send sequential requests and track HTTP 429 / Retry-After responses | `url`, `headers`, `count` |
+| `rate_bypass_headers` | Test bypass via IP spoofing headers (X-Forwarded-For, X-Real-IP, etc.) | `url`, `headers`, `spoof_ip` |
+| `rate_bypass_path` | Test bypass via URL normalization tricks (trailing slash, dot, double-slash) | `url`, `headers` |
+
+---
+
+## priv_esc
+
+Linux privilege escalation enumeration — linpeas, sudo audit, SUID binary discovery, and kernel exploit suggestions.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `linpeas` | Comprehensive Linux privesc enumeration (crons, writable paths, capabilities, credentials) | -- |
+| `sudo_check` | List sudo privileges for the current user | -- |
+| `suid_find` | Find setuid binaries — results are GTFOBins-searchable | -- |
+| `kernel_exploits` | Cross-reference kernel version against known exploits | -- |
+
+---
+
+## persistence
+
+Persistence mechanism testing — planting and enumerating SSH keys, cron jobs, and systemd services.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `add_ssh_key` | Add attacker public key to `~/.ssh/authorized_keys` | `pubkey` |
+| `add_cron` | Add a cron job for persistence | `cron_entry` |
+| `check_persistence` | Enumerate current cron jobs, authorized_keys, and enabled systemd services | -- |
+
+---
+
+## lateral_move
+
+Lateral movement — impacket psexec/wmiexec, evil-winrm, pass-the-hash, and SSH SOCKS pivot.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `psexec` | Remote shell via SMB named pipes (impacket) | `target`, `domain`, `username`, `password` |
+| `wmiexec` | WMI execution via impacket | `target`, `domain`, `username`, `password` |
+| `evil_winrm` | Evil-WinRM shell for Windows Remote Management | `target`, `username`, `password` |
+| `pth_winrm` | Pass-the-hash authentication via evil-winrm | `target`, `username`, `hash` |
+| `ssh_pivot` | Establish SOCKS5 proxy through a compromised host | `target`, `username`, `socks_port` |
+
+---
+
+## data_exfil
+
+Evidence collection — pull files from compromised hosts via SCP, SMB, or HTTP.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `scp_download` | Download file from compromised host via SCP | `target`, `username`, `remote_path`, `local_path` |
+| `smb_download` | Download file from an SMB share | `target`, `share`, `remote_path`, `local_path` |
+| `http_exfil` | Download file via HTTP/HTTPS | `url`, `local_path` |
+
+---
+
+## spa_test
+
+Single-Page Application security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage, DOM XSS, and JavaScript source map exposure.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `route_bypass` | Test SPA client-side route guard bypass (access protected routes unauthenticated) | `target`, `routes_file` |
+| `state_inspect` | Inspect client-side state stores (Redux, Vuex, etc.) for sensitive data | `target`, `store_type` |
+| `postmessage_scan` | Scan for insecure `postMessage` handlers | `target` |
+| `token_leakage_audit` | Audit for token leakage in localStorage and URL fragments | `target` |
+| `dom_xss_scan` | Scan for DOM-based cross-site scripting vulnerabilities | `target` |
+| `js_source_map_check` | Check for exposed JavaScript source maps (`.map` files leak original source) | `target` |
