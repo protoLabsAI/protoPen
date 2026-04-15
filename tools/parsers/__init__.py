@@ -97,3 +97,6 @@ from tools.parsers import lan_scan  # noqa: E402,F401
 # External attack simulation
 from tools.parsers import external_recon  # noqa: E402,F401
 from tools.parsers import perimeter_audit  # noqa: E402,F401
+
+# IoT security audit
+from tools.parsers import iot_audit  # noqa: E402,F401
