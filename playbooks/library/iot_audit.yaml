@@ -57,7 +57,8 @@ steps:
     action: device_discovery
     params:
       network: "${network}"
-    timeout: 300
+      timeout: 600
+    timeout: 600
     on_fail: continue
 
   # ── Phase gate ───────────────────────────────────────────────────────────────
@@ -76,7 +77,8 @@ steps:
     action: telnet_check
     params:
       target: "${network}"
-    timeout: 90
+      timeout: 300
+    timeout: 300
     on_fail: continue
 
   # ── SNMP default community strings ───────────────────────────────────────────
@@ -87,7 +89,8 @@ steps:
     action: snmp_audit
     params:
       target: "${network}"
-    timeout: 90
+      timeout: 120
+    timeout: 120
     on_fail: continue
 
   # ── Firmware version exposure ─────────────────────────────────────────────────
@@ -98,7 +101,8 @@ steps:
     action: firmware_exposure
     params:
       target: "${network}"
-    timeout: 120
+      timeout: 600
+    timeout: 600
     on_fail: continue
 
   # ── HTTP admin panel enumeration ──────────────────────────────────────────────
@@ -109,7 +113,8 @@ steps:
     action: http_admin_check
     params:
       target: "${network}"
-    timeout: 180
+      timeout: 600
+    timeout: 600
     on_fail: continue
 
   # ── MQTT broker anonymous access ─────────────────────────────────────────────
@@ -133,7 +138,8 @@ steps:
     action: rtsp_discover
     params:
       target: "${network}"
-    timeout: 120
+      timeout: 300
+    timeout: 300
     on_fail: continue
 
   # ── CVE correlation on discovered service versions ────────────────────────────

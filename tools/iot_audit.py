@@ -48,6 +48,7 @@ class IoTAuditTool(BasePentestTool):
 
     ACTIONS: dict[str, dict[str, Any]] = {
         # ── Discovery ─────────────────────────────────────────────────────────
+        # --max-rtt-timeout / --max-retries keep dead hosts from stalling a /24
         "device_discovery": {
             "cmd": [
                 "nmap",
@@ -59,11 +60,15 @@ class IoTAuditTool(BasePentestTool):
                 "--script",
                 "banner,http-title,http-server-header",
                 "-T4",
+                "--max-rtt-timeout",
+                "800ms",
+                "--max-retries",
+                "2",
                 "-oX",
                 "-",
                 "{network}",
             ],
-            "timeout": 300,
+            "timeout": 600,
             "description": "nmap IoT port sweep across a CIDR",
         },
         # ── Deep fingerprint ─────────────────────────────────────────────────
@@ -82,7 +87,7 @@ class IoTAuditTool(BasePentestTool):
                 "-",
                 "{target}",
             ],
-            "timeout": 120,
+            "timeout": 180,
             "description": "Deep OS + service version + banner fingerprint on a single host",
         },
         # ── Telnet ───────────────────────────────────────────────────────────
@@ -95,11 +100,15 @@ class IoTAuditTool(BasePentestTool):
                 "23,2323",
                 "--script",
                 "banner,telnet-ntlm-info",
+                "--max-rtt-timeout",
+                "800ms",
+                "--max-retries",
+                "2",
                 "-oX",
                 "-",
                 "{target}",
             ],
-            "timeout": 60,
+            "timeout": 300,
             "description": "Check for open Telnet on port 23 and 2323",
         },
         # ── HTTP admin panels ────────────────────────────────────────────────
@@ -115,11 +124,15 @@ class IoTAuditTool(BasePentestTool):
                 "--script-args",
                 "http-default-accounts.category=security,http-default-accounts.fingerprintfile=nse-default-account-db",
                 "-T4",
+                "--max-rtt-timeout",
+                "800ms",
+                "--max-retries",
+                "2",
                 "-oX",
                 "-",
                 "{target}",
             ],
-            "timeout": 120,
+            "timeout": 600,
             "description": "Enumerate HTTP admin UIs and test default accounts",
         },
         # ── MQTT anonymous access ─────────────────────────────────────────────
@@ -149,7 +162,7 @@ class IoTAuditTool(BasePentestTool):
                 "/usr/share/doc/onesixtyone/dict.txt",
                 "{target}",
             ],
-            "timeout": 60,
+            "timeout": 120,
             "description": "Probe SNMP with default community strings using onesixtyone",
         },
         # ── RTSP cameras ─────────────────────────────────────────────────────
@@ -163,11 +176,15 @@ class IoTAuditTool(BasePentestTool):
                 "--script",
                 "rtsp-url-brute",
                 "-T4",
+                "--max-rtt-timeout",
+                "800ms",
+                "--max-retries",
+                "2",
                 "-oX",
                 "-",
                 "{target}",
             ],
-            "timeout": 90,
+            "timeout": 300,
             "description": "Find RTSP camera streams and check for auth requirement",
         },
         # ── Firmware version strings ──────────────────────────────────────────
@@ -181,11 +198,15 @@ class IoTAuditTool(BasePentestTool):
                 "--script",
                 "banner,http-server-header,ftp-syst",
                 "-T4",
+                "--max-rtt-timeout",
+                "800ms",
+                "--max-retries",
+                "2",
                 "-oX",
                 "-",
                 "{target}",
             ],
-            "timeout": 90,
+            "timeout": 600,
             "description": "Banner-grab common ports for firmware and version strings",
         },
         # ── Default credential spray (redteam) ───────────────────────────────
@@ -261,15 +282,20 @@ class IoTAuditTool(BasePentestTool):
         )
 
     async def _full_iot_audit(self, network: str, timeout: int) -> str:
-        """Discovery sweep → parallel targeted checks across the network."""
+        """Discovery sweep → parallel targeted checks across the network.
+
+        Uses timeout=0 for every sub-action so each falls back to its own
+        ACTIONS spec timeout rather than inheriting a single shared value.
+        Pass an explicit non-zero timeout to override all sub-actions at once.
+        """
         sections: list[str] = []
 
-        # Phase 1: broad discovery
+        # Phase 1: broad discovery — honour explicit override, else use spec (600s)
         logger.info("[iot_audit] full_iot_audit: discovery on %s", network)
-        discovery = await self.execute("device_discovery", network=network, timeout=300)
+        discovery = await self.execute("device_discovery", network=network, timeout=timeout)
         sections.append(f"=== device_discovery ===\n{discovery}")
 
-        # Phase 2: targeted checks — run in parallel against the network range
+        # Phase 2: targeted checks — each uses its own spec timeout unless overridden
         checks = [
             "telnet_check",
             "http_admin_check",
@@ -277,9 +303,8 @@ class IoTAuditTool(BasePentestTool):
             "rtsp_discover",
             "firmware_exposure",
         ]
-        check_timeout = timeout if timeout > 0 else 120
         results = await asyncio.gather(
-            *[self.execute(check, target=network, timeout=check_timeout) for check in checks],
+            *[self.execute(check, target=network, timeout=timeout) for check in checks],
             return_exceptions=True,
         )
         for check, result in zip(checks, results):
