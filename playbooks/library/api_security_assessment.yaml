@@ -1,0 +1,301 @@
+name: api_security_assessment
+description: >
+  Modern API security assessment — gRPC, GraphQL, JWT/auth token analysis, SSRF
+  detection, and rate limit testing. Designed for APIs that go beyond REST: gRPC
+  services, GraphQL endpoints, and applications using JWT-based authentication.
+
+  Run web_vuln_assessment first for baseline HTTP scanning. This playbook covers
+  the protocol and auth-layer vulnerabilities that nikto/nuclei miss.
+
+  Risk tiers:
+    ACTIVE  — grpc_reflection, gql_introspect, jwt_decode, ssrf_basic, rate_detect
+    REDTEAM — jwt_crack, ssrf_callback, rate_bypass
+
+tags: [api, grpc, graphql, jwt, ssrf, rate-limit, auth, active]
+
+variables:
+  grpc_target: ""      # gRPC endpoint — host:port (e.g. api.example.com:50051)
+  graphql_url: ""      # GraphQL endpoint URL (e.g. https://api.example.com/graphql)
+  rest_url: ""         # Base REST/HTTP API URL for SSRF + rate limit testing
+  jwt_token: ""        # Sample JWT token to analyze (grab from browser/Burp)
+  jwt_alg: ""          # JWT algorithm — must be set manually from jwt_decode output (e.g. HS256);
+                       # gates jwt_crack so it only runs against HMAC-signed tokens
+  jwt_wordlist: "/usr/share/seclists/Passwords/Common-Credentials/best110.txt"
+  inject_param: "FUZZ" # URL parameter to inject SSRF payloads into
+  callback_host: ""    # Your host IP for blind SSRF callback server
+  headers: "{}"        # JSON dict of request headers (e.g. auth tokens)
+  grpc_service: ""     # Specific gRPC service to describe/fuzz (from reflection)
+  grpc_method: ""      # Specific gRPC method for auth testing
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enumeration
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: enumeration
+    on_fail: continue
+
+  # ── gRPC: service reflection ──────────────────────────────────────────────────
+  # Enumerate all exposed gRPC services via server reflection.
+  # If reflection is enabled, all service names and method signatures are readable
+  # without any protobuf definitions — a significant information disclosure.
+  - name: grpc_reflection
+    tool: grpc_audit
+    action: grpc_reflection
+    params:
+      target: "${grpc_target}"
+    timeout: 15
+    on_fail: continue
+
+  # ── gRPC: service description ─────────────────────────────────────────────────
+  # Describe service methods, request/response message shapes, and field types.
+  # Provides the full protobuf schema needed for method invocation and fuzzing.
+  - name: grpc_describe
+    tool: grpc_audit
+    action: grpc_describe
+    condition: "${grpc_service} != ''"
+    params:
+      target: "${grpc_target}"
+      service: "${grpc_service}"
+    timeout: 15
+    on_fail: continue
+
+  # ── gRPC: TLS enforcement check ───────────────────────────────────────────────
+  # Verify the endpoint requires TLS. gRPC over plaintext exposes all RPC calls
+  # to network interception — equivalent to HTTP without HTTPS.
+  - name: grpc_tls_check
+    tool: grpc_audit
+    action: grpc_tls_check
+    params:
+      target: "${grpc_target}"
+    timeout: 15
+    on_fail: continue
+
+  # ── GraphQL: introspection check ──────────────────────────────────────────────
+  # Test if introspection is enabled. Introspection exposes the full schema —
+  # all types, fields, queries, mutations, and subscriptions. Should be disabled
+  # in production. Results feed directly into gql_depth_test and gql_batch.
+  - name: gql_introspect
+    tool: graphql_test
+    action: gql_introspect
+    params:
+      url: "${graphql_url}"
+      headers: "${headers}"
+    timeout: 30
+    on_fail: continue
+
+  # ── GraphQL: field suggestion probe ──────────────────────────────────────────
+  # Send typo field names — GraphQL servers that leak suggestions reveal valid
+  # field names even when introspection is disabled. A passive information leak.
+  - name: gql_field_suggest
+    tool: graphql_test
+    action: gql_field_suggest
+    params:
+      url: "${graphql_url}"
+      headers: "${headers}"
+    timeout: 30
+    on_fail: continue
+
+  # ── JWT: decode and analyze ───────────────────────────────────────────────────
+  # Decode the JWT and surface common issues: algorithm=none, weak algorithm
+  # (HS256 with guessable secret), JKU/X5U SSRF headers, kid injection vectors,
+  # and expiry. No network calls — pure static analysis.
+  - name: jwt_decode
+    tool: jwt_tool
+    action: jwt_decode
+    params:
+      token: "${jwt_token}"
+    timeout: 5
+    on_fail: continue
+
+  # ── JWT: algorithm=none bypass test ──────────────────────────────────────────
+  # Generate bypass tokens with alg=none variants. Submit each to the target
+  # manually — if any are accepted the server skips signature verification entirely.
+  - name: jwt_alg_none
+    tool: jwt_tool
+    action: jwt_alg_none
+    params:
+      token: "${jwt_token}"
+    timeout: 5
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_vuln_assessment
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: vuln_assessment
+    on_fail: continue
+
+  # ── gRPC: auth test ───────────────────────────────────────────────────────────
+  # Call a gRPC method with and without an Authorization header to check whether
+  # the endpoint enforces authentication. Unauthenticated access = critical finding.
+  - name: grpc_auth_test
+    tool: grpc_audit
+    action: grpc_auth_test
+    condition: "${grpc_method} != ''"
+    params:
+      target: "${grpc_target}"
+      method: "${grpc_method}"
+      auth_header: ""
+    timeout: 15
+    on_fail: continue
+
+  # ── GraphQL: depth limit test ─────────────────────────────────────────────────
+  # Incrementally deepen a nested query to find the server's depth limit.
+  # No depth limit = ReDoS / resource exhaustion vulnerability (CVSS 7.5+).
+  - name: gql_depth_test
+    tool: graphql_test
+    action: gql_depth_test
+    params:
+      url: "${graphql_url}"
+      headers: "${headers}"
+    timeout: 60
+    on_fail: continue
+
+  # ── GraphQL: batch query test ─────────────────────────────────────────────────
+  # Send an array of queries in a single request. If the server processes all of
+  # them, batch queries can amplify brute-force attacks and bypass rate limiting.
+  - name: gql_batch
+    tool: graphql_test
+    action: gql_batch
+    params:
+      url: "${graphql_url}"
+      headers: "${headers}"
+    timeout: 30
+    on_fail: continue
+
+  # ── SSRF: basic payload injection ────────────────────────────────────────────
+  # Inject standard SSRF payloads (127.0.0.1, 0x7f000001, IPv6 ::1, etc.)
+  # into a URL parameter. Detects server-side request forgery via response
+  # status and body differences.
+  - name: ssrf_basic
+    tool: ssrf_detect
+    action: ssrf_basic
+    params:
+      url: "${rest_url}"
+      inject_param: "${inject_param}"
+    timeout: 60
+    on_fail: continue
+
+  # ── SSRF: cloud metadata access ───────────────────────────────────────────────
+  # Directly probe cloud metadata endpoints (AWS/GCP/Azure/DO) to check if this
+  # host can reach them. A successful hit means any SSRF vulnerability can be
+  # leveraged to steal instance credentials.
+  - name: ssrf_cloud_meta
+    tool: ssrf_detect
+    action: ssrf_cloud_meta
+    timeout: 30
+    on_fail: continue
+
+  # ── Rate limit: detection ─────────────────────────────────────────────────────
+  # Send 50 sequential requests and track HTTP 429 responses, Retry-After headers,
+  # and X-RateLimit-Remaining. Establishes the rate limit threshold before bypass.
+  - name: rate_detect
+    tool: rate_limit
+    action: rate_detect
+    params:
+      url: "${rest_url}"
+      headers: "${headers}"
+      count: 50
+    timeout: 120
+    on_fail: continue
+
+  # ── Rate limit: header bypass ─────────────────────────────────────────────────
+  # Test whether the rate limiter trusts IP spoofing headers (X-Forwarded-For,
+  # X-Real-IP, True-Client-IP, etc.). A bypass via these headers means brute force
+  # is unlimited despite appearing to be rate limited.
+  - name: rate_bypass_headers
+    tool: rate_limit
+    action: rate_bypass_headers
+    params:
+      url: "${rest_url}"
+      headers: "${headers}"
+      spoof_ip: "1.2.3.4"
+    timeout: 60
+    on_fail: continue
+
+  # ── Rate limit: path manipulation bypass ─────────────────────────────────────
+  # Test rate limit bypass via URL normalization tricks (trailing slash, dot,
+  # double-slash, fragment). Path-based rate limiters are often bypassable this way.
+  - name: rate_bypass_path
+    tool: rate_limit
+    action: rate_bypass_path
+    params:
+      url: "${rest_url}"
+      headers: "${headers}"
+    timeout: 30
+    on_fail: continue
+
+  # ── gRPC: protoscan ───────────────────────────────────────────────────────────
+  # Scan for exposed protobuf/gRPC endpoints across the target. Useful when the
+  # gRPC port isn't known — scans common ports and fingerprints gRPC responses.
+  - name: protoscan
+    tool: grpc_audit
+    action: protoscan
+    params:
+      target: "${grpc_target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── JWT: secret brute force ───────────────────────────────────────────────────
+  # Brute-force the HMAC secret of an HS256/HS384/HS512 JWT. A weak secret means
+  # arbitrary token forgery. Requires jwt_wordlist to be set.
+  # Only runs if jwt_token is set and algorithm is HS*.
+  - name: jwt_crack
+    tool: jwt_tool
+    action: jwt_crack
+    condition: "${jwt_token} != '' && ${jwt_alg} =~ /^HS/"
+    params:
+      token: "${jwt_token}"
+      wordlist: "${jwt_wordlist}"
+    timeout: 300
+    on_fail: continue
+
+  # ── SSRF: blind callback ──────────────────────────────────────────────────────
+  # Start a local HTTP server and inject the callback URL as the SSRF payload.
+  # Confirms blind SSRF where the response doesn't reflect server-side data.
+  # Requires callback_host to be set to your reachable IP.
+  - name: ssrf_callback
+    tool: ssrf_detect
+    action: ssrf_callback
+    condition: "${callback_host} != ''"
+    params:
+      url: "${rest_url}"
+      inject_param: "${inject_param}"
+      callback_host: "${callback_host}"
+      callback_port: 8888
+      wait_seconds: 5
+    timeout: 60
+    on_fail: continue
+
+  # ── gRPC: fuzzing ─────────────────────────────────────────────────────────────
+  # Fuzz gRPC service methods with random/malformed inputs looking for panics,
+  # unexpected errors, or crashes. 1000 requests with varied field values.
+  - name: grpc_fuzz
+    tool: grpc_audit
+    action: grpc_fuzz
+    condition: "${grpc_service} != ''"
+    params:
+      target: "${grpc_target}"
+      service: "${grpc_service}"
+      count: 1000
+    timeout: 120
+    on_fail: continue
+
+  # ── Report ────────────────────────────────────────────────────────────────────
+  - name: phase_report
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: report
+    on_fail: continue
+
+  - name: generate_report
+    tool: engagement
+    action: generate_report
+    params: {}
+    timeout: 30
+    on_fail: continue

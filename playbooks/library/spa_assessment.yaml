@@ -1,0 +1,123 @@
+name: spa_assessment
+description: >
+  Single-page application security assessment — client-side route bypass, state
+  store inspection for secrets, postMessage handler scanning, token leakage auditing
+  (localStorage + URL fragments), DOM XSS detection, and JavaScript source map
+  exposure.
+
+  Complements web_vuln_assessment (server-side) with client-side security checks
+  specific to React, Vue, Angular, and other SPA frameworks.
+
+tags: [spa, web, dom-xss, jwt, client-side, active]
+
+variables:
+  target: ""          # Base URL of the SPA (e.g. https://app.example.com)
+  routes_file: ""     # Optional: path to JSON file listing SPA routes to test
+  store_type: "redux" # State store type: redux | vuex | pinia | mobx | ngrx
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enumeration
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: enumeration
+    on_fail: continue
+
+  # ── JavaScript source map check ──────────────────────────────────────────────
+  # Look for exposed .map files adjacent to minified JS bundles.
+  # Source maps reconstruct original source code from production builds —
+  # exposing API keys, internal logic, and unminified variable names.
+  - name: js_source_map_check
+    tool: spa_test
+    action: js_source_map_check
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Token leakage audit ───────────────────────────────────────────────────────
+  # Check localStorage for JWTs and session tokens (common in SPAs but insecure —
+  # accessible to any JS on the page). Also check URL fragments (#access_token=...)
+  # which are logged by browser history and server access logs.
+  - name: token_leakage_audit
+    tool: spa_test
+    action: token_leakage_audit
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_vuln_assessment
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: vuln_assessment
+    on_fail: continue
+
+  # ── Client-side route bypass ──────────────────────────────────────────────────
+  # Test whether client-side route guards (auth checks in the router) can be
+  # bypassed by navigating directly to protected routes. A route guard that only
+  # runs on navigation — not on direct URL load — is bypassable.
+  - name: route_bypass
+    tool: spa_test
+    action: route_bypass
+    params:
+      target: "${target}"
+      routes_file: "${routes_file}"
+    timeout: 60
+    on_fail: continue
+
+  # ── State store inspection ────────────────────────────────────────────────────
+  # Inspect the client-side state store (Redux, Vuex, etc.) for sensitive data —
+  # passwords, tokens, PII, or internal state that should not be client-accessible.
+  # Reveals what data the application trusts the client to hold.
+  - name: state_inspect
+    tool: spa_test
+    action: state_inspect
+    params:
+      target: "${target}"
+      store_type: "${store_type}"
+    timeout: 60
+    on_fail: continue
+
+  # ── postMessage handler scan ──────────────────────────────────────────────────
+  # Enumerate window.addEventListener('message', ...) handlers and check whether
+  # they validate the origin of incoming messages. Missing origin validation =
+  # cross-origin message injection (data theft, DOM manipulation, auth bypass).
+  - name: postmessage_scan
+    tool: spa_test
+    action: postmessage_scan
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── DOM XSS scan ─────────────────────────────────────────────────────────────
+  # Scan for DOM-based XSS — sources (location.hash, document.referrer, postMessage)
+  # flowing into sinks (innerHTML, eval, document.write). Distinct from reflected/stored
+  # XSS because the payload never touches the server.
+  - name: dom_xss_scan
+    tool: spa_test
+    action: dom_xss_scan
+    params:
+      target: "${target}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Report ────────────────────────────────────────────────────────────────────
+  - name: phase_report
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: report
+    on_fail: continue
+
+  - name: generate_report
+    tool: engagement
+    action: generate_report
+    params: {}
+    timeout: 30
+    on_fail: continue
