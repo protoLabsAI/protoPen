@@ -278,10 +278,10 @@ protoPen ships with pre-built playbooks that chain tools into multi-step workflo
 |---|---|---|
 | `external_recon` | 13 | **Passive external footprint** — WAN IP discovery, Shodan/BGP/ASN, cert transparency, DNS security posture, subdomain enum, OSINT, cloud storage exposure, SSL audit |
 | `perimeter_attack` | 14 | **Active perimeter assault** — router fingerprint, UPnP abuse, default creds, RouterSploit, WAN scan (SYN+ACK via pivot), TCP flag analysis, ACS fingerprint, CVE correlation |
-| `post_exploitation` | 11 | **Post-exploitation chain** — sudo enum, SUID discovery, kernel exploits, linpeas, persistence check, SSH key plant, SSH pivot, pass-the-hash, psexec, evidence collection |
-| `ad_attack` | 11 | **Active Directory attack chain** — LDAP enum, enum4linux-ng, BloodHound collection, ADCS enumeration (certipy), AS-REP roasting, Kerberoasting, certificate abuse (ESC1), secretsdump |
-| `api_security_assessment` | 19 | **Modern API security** — gRPC reflection + auth testing, GraphQL introspection/depth/batch, JWT decode + algorithm bypass + crack, SSRF injection + blind callback, rate limit detection + bypass |
-| `spa_assessment` | 6 | **SPA security** — source map exposure, token leakage audit, route guard bypass, state store inspection, postMessage scanning, DOM XSS |
+| `post_exploitation` | 16 | **Post-exploitation chain** — sudo enum, SUID discovery, kernel exploits, linpeas, persistence check, SSH key plant, SSH pivot, pass-the-hash, psexec, evidence collection |
+| `ad_attack` | 16 | **Active Directory attack chain** — LDAP enum, enum4linux-ng, BloodHound collection, ADCS enumeration (certipy), AS-REP roasting, Kerberoasting, certificate abuse (ESC1), secretsdump |
+| `api_security_assessment` | 23 | **Modern API security** — gRPC reflection + auth testing, GraphQL introspection/depth/batch, JWT decode + algorithm bypass + crack, SSRF injection + blind callback, rate limit detection + bypass |
+| `spa_assessment` | 10 | **SPA security** — source map exposure, token leakage audit, route guard bypass, state store inspection, postMessage scanning, DOM XSS |
 | `purple_team_exercise` | 9 | Red recon → blue defense → MITRE ATT&CK coverage matrix + exercise report |
 | `defensive_assessment` | 6 | CIS SSH/TLS/firewall audits, SSH hardening, patch check, port baseline |
 | `incident_response` | 5 | Log search, IOC scan, auth log analysis, timeline, containment |
