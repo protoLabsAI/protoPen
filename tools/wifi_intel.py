@@ -85,8 +85,12 @@ class WiFiIntelTool(Tool):
                 },
                 "band": {
                     "type": "string",
-                    "description": "Band to scan: '2.4', '5', or 'both' (default: '2.4')",
+                    "description": "Band to scan: '2.4', '5', or 'both' (default: '2.4'). Ignored when channels is set.",
                     "enum": ["2.4", "5", "both"],
+                },
+                "channels": {
+                    "type": "string",
+                    "description": "Comma-separated channel list passed to airodump-ng -c (e.g. '1,6,11,36,40,44,48,149,153,157,161'). More stable than --band on mt76 drivers. Overrides band when set.",
                 },
                 "duration": {
                     "type": "integer",
@@ -127,6 +131,7 @@ class WiFiIntelTool(Tool):
                 band=kwargs.get("band", "2.4"),
                 duration=int(kwargs.get("duration", 900)),
                 interface=kwargs.get("interface", self._iface),
+                channels=kwargs.get("channels"),
             ),
             "capture_pmkid": lambda: self._capture_pmkid(
                 duration=int(kwargs.get("duration", 300)),
@@ -244,26 +249,36 @@ class WiFiIntelTool(Tool):
         link_out = await self._run("ip", "link", "set", monitor_interface, "up", timeout=10)
         return link_out or f"Monitor mode stopped on {monitor_interface}"
 
-    async def _survey(self, band: str, duration: int, interface: str) -> str:
+    async def _survey(self, band: str, duration: int, interface: str, channels: Optional[str] = None) -> str:
         """Channel-hopping airodump-ng scan; parses CSV and upserts into target_intel."""
-        # Map band parameter to airodump-ng --band flag values
-        band_map = {"2.4": "bg", "5": "a", "both": "abg"}
-        band_flag = band_map.get(band, "bg")
-
         # Derive monitor interface name (assume convention: {iface}mon)
         mon_iface = self._mon if self._mon else f"{interface}mon"
 
         cap_dir = self._capture_dir(ssid="survey", bssid="")
         cap_base = str(cap_dir / "capture")
 
-        output = await self._run(
-            "airodump-ng",
-            "--write", cap_base,
-            "--output-format", "csv,pcap",
-            "--band", band_flag,
-            mon_iface,
-            timeout=duration + 30,
-        )
+        # channels= is more stable than --band on mt76 drivers (less channel switching).
+        # Use -c <list> when provided, otherwise fall back to --band.
+        if channels:
+            cmd = [
+                "airodump-ng",
+                "--write", cap_base,
+                "--output-format", "csv,pcap",
+                "-c", channels,
+                mon_iface,
+            ]
+        else:
+            band_map = {"2.4": "bg", "5": "a", "both": "abg"}
+            band_flag = band_map.get(band, "bg")
+            cmd = [
+                "airodump-ng",
+                "--write", cap_base,
+                "--output-format", "csv,pcap",
+                "--band", band_flag,
+                mon_iface,
+            ]
+
+        output = await self._run(*cmd, timeout=duration + 30)
 
         # Parse the CSV output produced by airodump-ng
         csv_path = Path(f"{cap_base}-01.csv")
