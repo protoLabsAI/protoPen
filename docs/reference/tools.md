@@ -398,15 +398,31 @@ Single-Page Application security — client-side route guard bypass, state store
 
 ## wifi_intel
 
-Alfa WiFi adapter — passive landscape surveys and targeted WPA capture using the aircrack-ng suite (airmon-ng, airodump-ng, aireplay-ng) and hcxdumptool. All captures are organized under a timestamped workspace directory with metadata JSON ready for transfer to a GPU cracking box.
+Alfa AWUS036AXML (MediaTek MT7921U, dual-band WiFi 6) — passive landscape surveys and targeted WPA capture using airodump-ng and hcxdumptool. All captures are organized under a timestamped workspace directory with metadata JSON ready for transfer to a GPU cracking box.
+
+Monitor mode is managed via `iw dev set type monitor` directly (not airmon-ng). This leaves NetworkManager and all other interfaces untouched, which is required on SteamOS/Tailscale setups where killing NM drops the SSH tunnel.
 
 | Action | Description | Key Parameters |
 |---|---|---|
-| `monitor_start` | Place the adapter into monitor mode via `airmon-ng start` | `interface` (default: `wlan1`) |
-| `monitor_stop` | Restore the adapter to managed mode via `airmon-ng stop` | `monitor_interface` (default: `wlan1mon`) |
-| `survey` | Channel-hopping airodump-ng passive scan; ingests all APs and stations into target_intel | `band` (`2.4`/`5`/`both`), `duration` (seconds), `interface` |
+| `monitor_start` | Place the adapter into monitor mode via `iw`; emits a kernel compatibility warning if >= 6.9 (see limitations below) | `interface` (default: `wlan1`) |
+| `monitor_stop` | Restore the adapter to managed mode via `iw` | `monitor_interface` (default: `wlan1mon`) |
+| `survey` | airodump-ng passive scan; ingests all APs and stations into target_intel | `band` (`2.4`/`5`/`both`), `channels` (comma-separated list, e.g. `1,6,11,36,40,44,48,149,153,157,161` — overrides `band` when set, more stable on mt76), `duration` (seconds), `interface` |
 | `capture_pmkid` | Passive PMKID/EAPOL capture via hcxdumptool; auto-converts to hashcat-ready `.hc22000` | `duration`, `bssid_filter` (optional) |
 | `capture_handshake` | Targeted WPA 4-way handshake capture via deauth + airodump-ng; writes `.cap` + metadata JSON | `bssid` (required), `channel` (required), `ssid` (label), `duration` |
 | `signal_history` | Query target_intel for a BSSID's historical RSSI readings and timestamps | `bssid` (required) |
 | `export` | Dump all known WiFi networks from target_intel to JSON; lists all capture dirs with metadata | — |
-| `js_source_map_check` | Check for exposed JavaScript source maps (`.map` files leak original source) | `target` |
+
+### Steam Deck Limitations (SteamOS kernel 6.11 / mt76 driver)
+
+**Frame injection broken (kernel >= 6.9):** A regression in Linux >= 6.9.0 broke frame injection and active monitor mode across all mt76 devices ([ZerBea/hcxdumptool#465](https://github.com/ZerBea/hcxdumptool/discussions/465)). SteamOS 3.7.x ships kernel 6.11.x. `capture_handshake` (deauth injection) will fail silently. `monitor_start` warns automatically when this is detected. Last known-working kernels: 6.6.40 (LTS) / 6.8.12 (stable). Keep an eye on SteamOS kernel updates.
+
+**Passive capture unaffected:** `survey` and `capture_pmkid` work normally — the regression only affects injection. hcxdumptool already defaults to passive mode (no `-A` flag).
+
+**Driver stability under channel hopping:** Full `--band` hopping (all 13 2.4GHz channels) crashes the mt76 driver after ~5–15 minutes. Use the `channels` parameter with a fixed list (e.g. `1,6,11,36,40,44,48,149,153,157,161`) — confirmed stable at 5-minute runs. The `wifi_landscape_survey` playbook uses this by default.
+
+**USB hub power:** The Alfa requires ~1000mA. The official Steam Deck dock allocates 160–500mA per USB-A port — the adapter will not enumerate through it. Connect directly to the deck's USB-C port, or use an externally powered USB hub with its own AC adapter.
+
+**SteamOS config persistence:** Three files are required on the deck and must survive OS updates. Add them to `/etc/atomic-update.conf.d/protopen-keep.conf`:
+- `/etc/udev/rules.d/99-alfa-nowake.rules` — prevents USB connect events from waking the display
+- `/etc/NetworkManager/conf.d/99-alfa-unmanaged.conf` — prevents NM from managing the Alfa by MAC
+- `/etc/modprobe.d/blacklist-btusb.conf` — prevents `btusb` from claiming the adapter's Bluetooth interface, which blocks WiFi driver init
