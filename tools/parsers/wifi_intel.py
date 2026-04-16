@@ -41,14 +41,16 @@ def parse_survey(raw: str, store: "TargetStore") -> list[dict]:
             rssi=int(ap.get("rssi", 0) or 0),
             encryption=ap.get("encryption", ""),
         )
-        entities.append({
-            "type": "wifi_network",
-            "bssid": bssid,
-            "ssid": ap.get("ssid", ""),
-            "channel": ap.get("channel", 0),
-            "rssi": ap.get("rssi", 0),
-            "encryption": ap.get("encryption", ""),
-        })
+        entities.append(
+            {
+                "type": "wifi_network",
+                "bssid": bssid,
+                "ssid": ap.get("ssid", ""),
+                "channel": ap.get("channel", 0),
+                "rssi": ap.get("rssi", 0),
+                "encryption": ap.get("encryption", ""),
+            }
+        )
     return entities
 
 
