@@ -44,7 +44,7 @@ Respond with ONLY a JSON object like this example: {{"score": 25, "reason": "bri
 Query: {query}"""
 
 
-async def check_guardrail(query: str, llm_url: str = "http://127.0.0.1:8317/v1", threshold: int = 40) -> dict:
+async def check_guardrail(query: str, llm_url: str = "https://api.anthropic.com/v1", threshold: int = 40) -> dict:
     """Check if a query is within security research scope.
 
     Returns: {"pass": bool, "score": int, "reason": str}
@@ -222,7 +222,7 @@ Document excerpt (first 500 chars):
 {excerpt}"""
 
 
-async def grade_document(query: str, content: str, llm_url: str = "http://127.0.0.1:8317/v1") -> bool:
+async def grade_document(query: str, content: str, llm_url: str = "https://api.anthropic.com/v1") -> bool:
     """Quick binary relevance check. Returns True if relevant."""
     if not content or len(content.strip()) < 50:
         return False  # Too short to be useful
@@ -260,7 +260,7 @@ Original query: {query}
 Respond with ONLY the rewritten query (no explanation)."""
 
 
-async def rewrite_query(query: str, llm_url: str = "http://127.0.0.1:8317/v1") -> str:
+async def rewrite_query(query: str, llm_url: str = "https://api.anthropic.com/v1") -> str:
     """Rewrite a query for better search results."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
