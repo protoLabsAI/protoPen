@@ -100,3 +100,6 @@ from tools.parsers import perimeter_audit  # noqa: E402,F401
 
 # IoT security audit
 from tools.parsers import iot_audit  # noqa: E402,F401
+
+# Alfa WiFi Intel (airodump-ng survey + hcxdumptool captures)
+from tools.parsers import wifi_intel  # noqa: E402,F401
