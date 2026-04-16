@@ -283,18 +283,24 @@ class WiFiIntelTool(Tool):
                 mon_iface,
             ]
 
-        output = await self._run(*cmd, timeout=duration + 30)
+        # airodump-ng runs continuously — use background process and stop after duration.
+        # Using _run would treat the expected timeout as a fatal error.
+        proc = await self._run_background(*cmd)
+        await asyncio.sleep(duration)
+        try:
+            proc.terminate()
+            await asyncio.wait_for(proc.wait(), timeout=5)
+        except Exception:
+            proc.kill()
+            await proc.wait()
 
-        # Parse the CSV output produced by airodump-ng
+        # Parse the CSV written by airodump-ng
         csv_path = Path(f"{cap_base}-01.csv")
         aps: list[dict] = []
         stations: list[dict] = []
 
         if csv_path.exists():
             aps, stations = self._parse_airodump_csv(csv_path)
-        else:
-            # airodump-ng may not have written if it timed out — parse stdout fallback
-            aps, stations = _parse_airodump_stdout(output)
 
         # Upsert into target_intel store if available
         store = getattr(self, "_target_store", None)
@@ -416,7 +422,16 @@ class WiFiIntelTool(Tool):
             filter_file.write_text(bssid_filter + "\n")
             cmd += [f"--filterlist_ap={filter_file}"]
 
-        capture_output = await self._run(*cmd, timeout=duration + 30)
+        # hcxdumptool runs continuously — stop after duration, same as survey.
+        proc = await self._run_background(*cmd)
+        await asyncio.sleep(duration)
+        try:
+            proc.terminate()
+            await asyncio.wait_for(proc.wait(), timeout=5)
+        except Exception:
+            proc.kill()
+            await proc.wait()
+        capture_output = ""
 
         # Convert to hashcat-ready hc22000
         convert_output = await self._run(
@@ -448,7 +463,7 @@ class WiFiIntelTool(Tool):
                 "pcapng": str(pcapng_path),
                 "hc22000": str(hc22000_path),
                 "metadata": metadata,
-                "hcxdumptool_output": capture_output[:500],
+                "hcxdumptool_output": capture_output,
                 "hcxpcapngtool_output": convert_output[:300],
             }
         )
