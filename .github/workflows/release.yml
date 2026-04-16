@@ -109,4 +109,4 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: |
           node scripts/post-release-notes.mjs \
-            --title "protoPen ${{ steps.version.outputs.tag }}"
+            --title "${{ steps.version.outputs.tag }}"

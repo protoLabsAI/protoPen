@@ -116,6 +116,7 @@ def end_trace():
     if not _enabled:
         _trace_id_ctx.set("")
         _session_id_ctx.set("")
+        _caller_trace_ctx.set({})
         return
     try:
         _langfuse.flush()
@@ -123,6 +124,7 @@ def end_trace():
         pass
     _trace_id_ctx.set("")
     _session_id_ctx.set("")
+    _caller_trace_ctx.set({})
 
 
 def trace_llm_call(
