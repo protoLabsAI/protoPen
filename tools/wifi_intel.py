@@ -198,8 +198,14 @@ class WiFiIntelTool(Tool):
 
     async def _monitor_start(self, interface: str) -> str:
         compat_warn = await self._check_kernel_compat()
-        output = await self._run("airmon-ng", "start", interface)
-        result = output or f"Monitor mode started on {interface}"
+        # Use iw directly instead of airmon-ng.  airmon-ng runs an interactive
+        # prompt when phy has no interface assigned and kills NetworkManager,
+        # which destroys any SSH-over-Tailscale session.  iw is non-interactive
+        # and leaves all other interfaces untouched.
+        await self._run("ip", "link", "set", interface, "down", timeout=10)
+        await self._run("iw", "dev", interface, "set", "type", "monitor", timeout=10)
+        link_out = await self._run("ip", "link", "set", interface, "up", timeout=10)
+        result = link_out or f"Monitor mode started on {interface}"
         if compat_warn:
             result = compat_warn + "\n\n" + result
         return result
@@ -233,8 +239,10 @@ class WiFiIntelTool(Tool):
         return ""
 
     async def _monitor_stop(self, monitor_interface: str) -> str:
-        output = await self._run("airmon-ng", "stop", monitor_interface)
-        return output or f"Monitor mode stopped on {monitor_interface}"
+        await self._run("ip", "link", "set", monitor_interface, "down", timeout=10)
+        await self._run("iw", "dev", monitor_interface, "set", "type", "managed", timeout=10)
+        link_out = await self._run("ip", "link", "set", monitor_interface, "up", timeout=10)
+        return link_out or f"Monitor mode stopped on {monitor_interface}"
 
     async def _survey(self, band: str, duration: int, interface: str) -> str:
         """Channel-hopping airodump-ng scan; parses CSV and upserts into target_intel."""
