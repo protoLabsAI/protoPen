@@ -116,6 +116,7 @@ python server.py --port 7870
 | `lateral_move` | Lateral movement — impacket psexec/wmiexec, evil-winrm, pass-the-hash, SSH SOCKS pivot |
 | `data_exfil` | Evidence collection — SCP/SMB/HTTP file download from compromised hosts |
 | `spa_test` | SPA security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage audit, DOM XSS, source map exposure |
+| `wifi_intel` | Alfa WiFi adapter — passive landscape surveys (airodump-ng channel-hopping), PMKID/EAPOL capture (hcxdumptool → hc22000), WPA handshake capture (deauth + airodump-ng), RSSI history, target_intel ingestion |
 | `device_manager` | USB serial connection management for all hardware peripherals |
 | `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
 | `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
@@ -288,6 +289,8 @@ protoPen ships with pre-built playbooks that chain tools into multi-step workflo
 | `full_recon` | 6 | nmap, DNS enum, subdomain discovery, OSINT, web dirs, SSL check |
 | `web_vuln_assessment` | 6 | nikto, nuclei, XSS, SQLi, CORS, CVE scan |
 | `smb_enum` | 4 | enum4linux, SMB shares, RPC users, CVE check |
+| `wifi_landscape_survey` | 6 | **Passive WiFi landscape survey** — monitor start, channel-hopping airodump-ng scan (2.4/5 GHz), target_intel upsert, monitor stop, report |
+| `wifi_pentest_local` | 9 | **Active WiFi pen test** — monitor start, 60s survey, passive PMKID capture (hcxdumptool → hc22000), WPA handshake capture (deauth, conditional), monitor stop, report |
 
 Run via the `/purple` command (for purple team exercises) or programmatically:
 

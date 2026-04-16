@@ -1,0 +1,76 @@
+name: wifi_landscape_survey
+description: >
+  Passive WiFi landscape survey using the Alfa adapter. Scans all 2.4GHz channels
+  (optionally 5GHz), captures AP and client data, and ingests everything into
+  target_intel for historical trending. Run repeatedly — all results are upserted
+  (not duplicated). Use target_intel diff to see what changed between runs.
+
+  Safe to drive externally via A2A on any cadence. No active attacks.
+
+tags: [wifi, passive, survey, recon, landscape]
+
+variables:
+  band: "2.4"          # "2.4", "5", or "both"
+  duration: "900"      # seconds (default 15 min)
+  interface: "wlan1"
+  monitor_interface: "wlan1mon"
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enumeration
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: enumeration
+    on_fail: continue
+
+  # ── Put adapter into monitor mode ─────────────────────────────────────────────
+  # airmon-ng kills any processes that would interfere (NetworkManager, wpa_supplicant)
+  # and creates the {interface}mon monitor interface.
+  - name: monitor_start
+    tool: wifi_intel
+    action: monitor_start
+    params:
+      interface: "${interface}"
+    timeout: 30
+    on_fail: continue
+
+  # ── Channel-hopping survey ────────────────────────────────────────────────────
+  # airodump-ng hops across all channels in the requested band.
+  # All discovered APs and associated stations are written to a timestamped
+  # capture directory (CSV + pcap) and upserted into target_intel automatically.
+  - name: survey
+    tool: wifi_intel
+    action: survey
+    params:
+      band: "${band}"
+      duration: "${duration}"
+      interface: "${interface}"
+    timeout: 960
+    on_fail: continue
+
+  # ── Restore adapter to managed mode ──────────────────────────────────────────
+  - name: monitor_stop
+    tool: wifi_intel
+    action: monitor_stop
+    params:
+      monitor_interface: "${monitor_interface}"
+    timeout: 30
+    on_fail: continue
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_report
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: report
+    on_fail: continue
+
+  # ── Generate engagement report ────────────────────────────────────────────────
+  - name: generate_report
+    tool: engagement
+    action: generate_report
+    params: {}
+    timeout: 30
+    on_fail: continue

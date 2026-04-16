@@ -253,6 +253,14 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "firmware_exposure": KillChainPhase.ENUMERATION,
     "default_creds": KillChainPhase.EXPLOITATION,
     "full_iot_audit": KillChainPhase.ENUMERATION,
+    # ── WiFi Intel (Alfa adapter) ──
+    "monitor_start": KillChainPhase.RECON,
+    "monitor_stop": KillChainPhase.RECON,
+    "wifi_survey": KillChainPhase.RECON,
+    "capture_pmkid": KillChainPhase.ENUMERATION,
+    "capture_handshake": KillChainPhase.EXPLOITATION,
+    "wifi_signal_history": KillChainPhase.RECON,
+    "wifi_export": KillChainPhase.RECON,
 }
 
 

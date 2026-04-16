@@ -103,6 +103,12 @@
     "session_fixation": 1, "token_replay": 1,
     "rate_detect": 1, "rate_bypass_headers": 1, "rate_bypass_path": 1,
     "route_bypass": 1, "state_inspect": 1, "postmessage_scan": 1,
-    "token_leakage_audit": 1, "dom_xss_scan": 1, "js_source_map_check": 1
+    "token_leakage_audit": 1, "dom_xss_scan": 1, "js_source_map_check": 1,
+    "monitor_start": 0, "monitor_stop": 0,
+    "wifi_survey": 0,
+    "capture_pmkid": 1,
+    "capture_handshake": 2,
+    "wifi_signal_history": 0,
+    "wifi_export": 0
   }
 }

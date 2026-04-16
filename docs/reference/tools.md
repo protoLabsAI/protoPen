@@ -393,4 +393,20 @@ Single-Page Application security — client-side route guard bypass, state store
 | `postmessage_scan` | Scan for insecure `postMessage` handlers | `target` |
 | `token_leakage_audit` | Audit for token leakage in localStorage and URL fragments | `target` |
 | `dom_xss_scan` | Scan for DOM-based cross-site scripting vulnerabilities | `target` |
+
+---
+
+## wifi_intel
+
+Alfa WiFi adapter — passive landscape surveys and targeted WPA capture using the aircrack-ng suite (airmon-ng, airodump-ng, aireplay-ng) and hcxdumptool. All captures are organized under a timestamped workspace directory with metadata JSON ready for transfer to a GPU cracking box.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `monitor_start` | Place the adapter into monitor mode via `airmon-ng start` | `interface` (default: `wlan1`) |
+| `monitor_stop` | Restore the adapter to managed mode via `airmon-ng stop` | `monitor_interface` (default: `wlan1mon`) |
+| `survey` | Channel-hopping airodump-ng passive scan; ingests all APs and stations into target_intel | `band` (`2.4`/`5`/`both`), `duration` (seconds), `interface` |
+| `capture_pmkid` | Passive PMKID/EAPOL capture via hcxdumptool; auto-converts to hashcat-ready `.hc22000` | `duration`, `bssid_filter` (optional) |
+| `capture_handshake` | Targeted WPA 4-way handshake capture via deauth + airodump-ng; writes `.cap` + metadata JSON | `bssid` (required), `channel` (required), `ssid` (label), `duration` |
+| `signal_history` | Query target_intel for a BSSID's historical RSSI readings and timestamps | `bssid` (required) |
+| `export` | Dump all known WiFi networks from target_intel to JSON; lists all capture dirs with metadata | — |
 | `js_source_map_check` | Check for exposed JavaScript source maps (`.map` files leak original source) | `target` |
