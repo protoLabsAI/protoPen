@@ -30,9 +30,6 @@ services:
       - protopen-audit:/sandbox/audit
       - protopen-papers:/sandbox/papers
       - protopen-cron:/opt/.cron
-      - protopen-cliproxy:/opt/.cliproxy
-      # Claude OAuth credentials (read-only)
-      - ${HOME}/.claude:/opt/claude-creds:ro
       # Config (bind-mount for APO prompt optimization)
       - ./config:/opt/protopen/config:rw
 
@@ -92,4 +89,3 @@ volumes:
   protopen-audit:
   protopen-papers:
   protopen-cron:
-  protopen-cliproxy:

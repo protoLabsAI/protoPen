@@ -672,7 +672,6 @@ def _build_settings_callbacks() -> dict:
         detected = _detect_vllm_model("http://host.docker.internal:8000/v1")
         if detected:
             choices.append(f"local: {detected}")
-        # Claude models via CLIProxyAPI (OAuth)
         choices.extend(
             [
                 "claude: claude-sonnet-4-6",

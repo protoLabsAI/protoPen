@@ -19,15 +19,6 @@ RUN npm install -g agent-browser \
     && (agent-browser install --with-deps 2>/dev/null \
         || (apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*))
 
-# Claude Code CLI (for Claude model access)
-RUN npm install -g @anthropic-ai/claude-code
-
-# CLIProxyAPI — OpenAI-compatible proxy that uses Claude Code OAuth
-ARG CLIPROXY_VERSION=6.8.55
-RUN ARCH=$(dpkg --print-architecture) \
-    && curl -fsSL "https://github.com/router-for-me/CLIProxyAPI/releases/download/v${CLIPROXY_VERSION}/CLIProxyAPI_${CLIPROXY_VERSION}_linux_${ARCH}.tar.gz" \
-    | tar xz -C /usr/local/bin cli-proxy-api \
-    && chmod +x /usr/local/bin/cli-proxy-api
 
 # Install Python deps
 RUN pip install --no-cache-dir \
@@ -56,8 +47,8 @@ RUN mkdir -p /sandbox /tmp/sandbox /sandbox/audit /sandbox/knowledge /sandbox/pa
     && chown -R sandbox:sandbox /sandbox /tmp/sandbox
 
 # Persistent dirs (volumes mounted at runtime)
-RUN mkdir -p /opt/.cliproxy /opt/.cron \
-    && chown -R sandbox:sandbox /opt/.cliproxy /opt/.cron
+RUN mkdir -p /opt/.cron \
+    && chown -R sandbox:sandbox /opt/.cron
 
 # Drop to sandbox user
 USER sandbox

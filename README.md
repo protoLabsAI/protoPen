@@ -33,36 +33,14 @@ A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID p
 
 ## Quick Start
 
-### Prerequisites: Claude Code Authentication
+### Prerequisites
 
-protoPen uses **CLIProxyAPI** to access Claude models through your existing Claude Code subscription — no separate API key needed. It works by reading the OAuth token from Claude Code's credential file on your host.
+protoPen routes LLM calls through a LiteLLM gateway. Set the gateway key:
 
-**Setup:**
-
-1. **Install and authenticate Claude Code** on the host machine:
-
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   claude  # This opens a browser for OAuth login
-   ```
-
-2. **Ensure the credentials file is readable** by the container (runs as uid 1001):
-
-   ```bash
-   chmod 644 ~/.claude/.credentials.json
-   ```
-
-   This file is mounted read-only into the container at `/opt/claude-creds/`. The entrypoint extracts the OAuth token and injects it into CLIProxyAPI's config. A background watcher refreshes the token every 5 minutes if the file changes.
-
-3. **Verify the file exists:**
-   ```bash
-   ls -la ~/.claude/.credentials.json
-   # Should show: -rw-r--r-- ... .credentials.json
-   ```
-
-> **How it works:** CLIProxyAPI runs inside the container on port 8317, exposing an OpenAI-compatible API that routes requests to Anthropic using your Claude Code OAuth token. The agent uses this as its LLM provider — LLM calls use your Claude Code subscription, not a separate API key.
-
-> **Alternative:** If you prefer to use an API key directly, set `ANTHROPIC_API_KEY` in your environment.
+```bash
+export OPENAI_API_KEY=<litellm-master-key>   # required — LiteLLM gateway auth
+export ANTHROPIC_API_KEY=sk-ant-...          # optional — direct Anthropic access
+```
 
 ### Docker (recommended)
 
@@ -372,7 +350,8 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 |---|---|---|
 | `AGENT_BACKEND` | No | `langgraph` |
 | `PROTOPEN_API_KEY` | No | API key for A2A authentication |
-| `ANTHROPIC_API_KEY` | No | Direct Anthropic API (alternative to CLIProxyAPI) |
+| `OPENAI_API_KEY` | Yes | LiteLLM gateway master key |
+| `ANTHROPIC_API_KEY` | No | Direct Anthropic API key (optional) |
 | `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
 | `DISCORD_BOT_TOKEN` | No | Discord channel reading |
 | `DISCORD_WEBHOOK_URL` | No | Discord webhook for publishing digests, security alerts, and engagement reports (managed via Infisical in prod) |
@@ -386,7 +365,7 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 ## Stack
 
 - **Agent**: LangGraph
-- **LLM**: CLIProxyAPI → Claude Code OAuth (no API key needed) or direct Anthropic API
+- **LLM**: LiteLLM gateway → Claude (Sonnet/Haiku) via `OPENAI_API_KEY`
 - **UI**: Gradio 5 (dark theme, PWA)
 - **Knowledge**: SQLite + sqlite-vec + FTS5 (hybrid search: vector similarity + BM25 keyword, RRF fusion)
 - **Observability**: Langfuse tracing, Prometheus metrics, JSONL audit
