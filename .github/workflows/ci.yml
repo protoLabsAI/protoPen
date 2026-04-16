@@ -88,7 +88,6 @@ jobs:
           images: ghcr.io/protolabsai/protopen
           tags: |
             type=sha,prefix=,format=short
-            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v5

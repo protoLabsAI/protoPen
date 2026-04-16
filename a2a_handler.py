@@ -272,7 +272,20 @@ def _extract_text_and_context(message: dict, context_id: str = "") -> tuple[str,
     return text, context_id
 
 
-def _parse_push_config(configuration: dict) -> PushNotificationConfig | None:
+# Sentinel returned by _parse_push_config when a URL was provided but blocked.
+# Callers must check `is _PUSH_SSRF_BLOCKED` and return -32602 rather than
+# silently dropping the webhook configuration.
+_PUSH_SSRF_BLOCKED = object()
+
+
+def _parse_push_config(configuration: dict) -> "PushNotificationConfig | None":
+    """Parse push notification config from A2A params.
+
+    Returns:
+        PushNotificationConfig  — valid config ready to use
+        None                    — no push config requested
+        _PUSH_SSRF_BLOCKED      — URL provided but rejected; caller should error
+    """
     cfg = (configuration or {}).get("pushNotificationConfig") or (configuration or {}).get("taskPushNotificationConfig")
     if not cfg:
         return None
@@ -281,7 +294,7 @@ def _parse_push_config(configuration: dict) -> PushNotificationConfig | None:
         return None
     if not _is_safe_webhook_url(url):
         logger.warning("[a2a] rejected unsafe webhook URL: %s", url)
-        return None
+        return _PUSH_SSRF_BLOCKED  # type: ignore[return-value]
     auth = cfg.get("authentication") or {}
     return PushNotificationConfig(
         url=url,
@@ -648,6 +661,12 @@ def register_a2a_routes(
 
             context_id = context_id or f"a2a-{uuid4()}"
             push_config = _parse_push_config(configuration)
+            if push_config is _PUSH_SSRF_BLOCKED:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32602, "message": "Unsafe or invalid webhook URL (SSRF protection)"},
+                }
 
             # ── message/sendStream / message/stream → SSE ─────────────────────
             if method in ("message/sendStream", "message/stream"):
@@ -823,6 +842,8 @@ def register_a2a_routes(
         if not text:
             raise HTTPException(400, "No text content in message")
         push_config = _parse_push_config(configuration)
+        if push_config is _PUSH_SSRF_BLOCKED:
+            raise HTTPException(422, "Unsafe or invalid webhook URL (SSRF protection)")
         record = await _submit_task(text, context_id, push_config)
         return JSONResponse(_task_to_response(record), status_code=202)
 
@@ -838,6 +859,8 @@ def register_a2a_routes(
         if not text:
             raise HTTPException(400, "No text content in message")
         push_config = _parse_push_config(configuration)
+        if push_config is _PUSH_SSRF_BLOCKED:
+            raise HTTPException(422, "Unsafe or invalid webhook URL (SSRF protection)")
         return StreamingResponse(
             _stream_new_task(text, context_id, push_config),
             media_type="text/event-stream",
@@ -911,7 +934,11 @@ def register_a2a_routes(
         logger.info("[a2a] push config registered for task %s → %s", task_id, cfg.url)
         return {"id": cfg.id, "task_id": task_id, "url": cfg.url}
 
-    # ── Start TTL eviction loop ────────────────────────────────────────────────
-    _fire_and_forget(_store.start_cleanup_loop())
+    # ── Start TTL eviction loop on server startup ─────────────────────────────
+    # Must run inside the event loop — use a startup handler, not bare create_task()
+    # which would fail when called during synchronous app construction.
+    @app.on_event("startup")
+    async def _start_a2a_cleanup():
+        _fire_and_forget(_store.start_cleanup_loop())
 
     logger.info("[a2a] routes registered (streaming=True, pushNotifications=True, ttl=3600s)")

@@ -23,6 +23,15 @@ const { values } = parseArgs({
 
 const to = values.to || "HEAD";
 
+// ── Ref sanitization (shell injection guard) ──────────────────────────────────
+
+const SAFE_REF = /^[a-zA-Z0-9._\-/]+$/;
+
+function safeRef(ref, name) {
+  if (!SAFE_REF.test(ref)) throw new Error(`Unsafe ${name} ref: ${JSON.stringify(ref)}`);
+  return ref;
+}
+
 // ── Commit range ──────────────────────────────────────────────────────────────
 
 let from = values.from;
@@ -37,7 +46,7 @@ if (!from) {
 }
 
 const rawLog = execSync(
-  `git log ${from}..${to} --pretty=format:"%s" --no-merges`,
+  `git log ${safeRef(from, "from")}..${safeRef(to, "to")} --pretty=format:"%s" --no-merges`,
   { encoding: "utf8" },
 ).trim();
 

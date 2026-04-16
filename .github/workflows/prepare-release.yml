@@ -96,3 +96,9 @@ jobs:
             --body "Automated version bump to \`v${VERSION}\`.")
           echo "PR: ${PR_URL}"
           gh pr merge "${PR_URL}" --squash --admin
+
+          # Push the semver tag — this is what triggers release.yml
+          git fetch origin main
+          git tag -a "v${VERSION}" "origin/main" -m "v${VERSION}"
+          git push origin "v${VERSION}"
+          echo "Tagged v${VERSION} → release.yml will fire"
