@@ -1,3 +1,9 @@
+[project]
+name = "protopen"
+version = "2.0.0"
+description = "Autonomous pen testing and security intelligence agent"
+requires-python = ">=3.11"
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120

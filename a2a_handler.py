@@ -22,11 +22,14 @@ Supported operations
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
+import socket
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Callable
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
@@ -35,6 +38,18 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 logger = logging.getLogger(__name__)
 
+# Module-level set keeps fire-and-forget tasks alive until done (prevents GC)
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _fire_and_forget(coro) -> asyncio.Task:
+    """Schedule a coroutine as a background task with a strong GC-safe reference."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
+
 # ── Task state constants ──────────────────────────────────────────────────────
 
 SUBMITTED = "submitted"
@@ -42,6 +57,7 @@ WORKING = "working"
 COMPLETED = "completed"
 FAILED = "failed"
 CANCELED = "canceled"
+INPUT_REQUIRED = "input-required"
 
 _TERMINAL = {COMPLETED, FAILED, CANCELED}
 
@@ -71,6 +87,7 @@ class TaskRecord:
     message_text: str
     accumulated_text: str = ""
     error_message: str | None = None
+    last_status_message: str | None = None
     push_config: PushNotificationConfig | None = None
     # ── asyncio primitives (not serialised) ──
     _cancel_event: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
@@ -108,6 +125,7 @@ class A2ATaskStore:
         state: str,
         accumulated_text: str | None = None,
         error: str | None = None,
+        last_status_message: str | None = None,
     ) -> TaskRecord | None:
         async with self._lock:
             record = self._tasks.get(task_id)
@@ -119,6 +137,8 @@ class A2ATaskStore:
                 record.accumulated_text = accumulated_text
             if error is not None:
                 record.error_message = error
+            if last_status_message is not None:
+                record.last_status_message = last_status_message
             old_event = record._update_event
             record._update_event = asyncio.Event()
         # Wake subscribers outside the lock so they can re-acquire it
@@ -134,12 +154,68 @@ class A2ATaskStore:
             record._bg_task.cancel()
         return True
 
+    async def cleanup_expired(self, ttl_seconds: int = 3600) -> int:
+        """Remove terminal tasks older than ttl_seconds. Returns eviction count."""
+        now = datetime.now(timezone.utc)
+        async with self._lock:
+            to_delete = [
+                tid
+                for tid, rec in self._tasks.items()
+                if rec.state in _TERMINAL
+                and (now - datetime.fromisoformat(rec.updated_at)).total_seconds() > ttl_seconds
+            ]
+            for tid in to_delete:
+                del self._tasks[tid]
+        if to_delete:
+            logger.debug("[a2a] evicted %d expired tasks", len(to_delete))
+        return len(to_delete)
+
+    async def start_cleanup_loop(self, ttl_seconds: int = 3600, interval: int = 300) -> None:
+        """Background loop that evicts expired terminal tasks every *interval* seconds."""
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                await self.cleanup_expired(ttl_seconds)
+            except Exception:
+                logger.exception("[a2a] cleanup loop error")
+
 
 # Module-level singleton — one store per process
 _store = A2ATaskStore()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+def _is_safe_webhook_url(url: str) -> bool:
+    """Return True if *url* is safe to deliver webhooks to (SSRF protection).
+
+    Rejects: loopback, RFC-1918 private, link-local, multicast, reserved ranges,
+    unspecified addresses, and non-http(s) schemes.  One-time DNS resolution is
+    used so dynamic DNS rebinding is caught at registration time.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = parsed.hostname
+        if not host:
+            return False
+        # Resolve hostname → IP (raises gaierror if unresolvable)
+        try:
+            ip = ipaddress.ip_address(socket.gethostbyname(host))
+        except (socket.gaierror, ValueError):
+            return False
+        return not (
+            ip.is_loopback
+            or ip.is_private
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_reserved
+            or ip.is_unspecified
+        )
+    except Exception:
+        return False
 
 
 def _now_iso() -> str:
@@ -196,14 +272,33 @@ def _extract_text_and_context(message: dict, context_id: str = "") -> tuple[str,
     return text, context_id
 
 
-def _parse_push_config(configuration: dict) -> PushNotificationConfig | None:
+# Sentinel returned by _parse_push_config when a URL was provided but blocked.
+# Callers must check `is _PUSH_SSRF_BLOCKED` and return -32602 rather than
+# silently dropping the webhook configuration.
+_PUSH_SSRF_BLOCKED = object()
+
+
+def _parse_push_config(configuration: dict) -> "PushNotificationConfig | None":
+    """Parse push notification config from A2A params.
+
+    Returns:
+        PushNotificationConfig  — valid config ready to use
+        None                    — no push config requested
+        _PUSH_SSRF_BLOCKED      — URL provided but rejected; caller should error
+    """
     cfg = (configuration or {}).get("pushNotificationConfig") or (configuration or {}).get("taskPushNotificationConfig")
-    if not cfg or not cfg.get("url"):
+    if not cfg:
         return None
+    url = cfg.get("url") or cfg.get("webhookUrl", "")
+    if not url:
+        return None
+    if not _is_safe_webhook_url(url):
+        logger.warning("[a2a] rejected unsafe webhook URL: %s", url)
+        return _PUSH_SSRF_BLOCKED  # type: ignore[return-value]
     auth = cfg.get("authentication") or {}
     return PushNotificationConfig(
-        url=cfg["url"],
-        token=auth.get("credentials"),
+        url=url,
+        token=auth.get("credentials") or cfg.get("token"),
         id=cfg.get("id", str(uuid4())),
     )
 
@@ -249,7 +344,7 @@ async def _deliver_webhook(record: TaskRecord, push_config: PushNotificationConf
 def _make_push_fn(push_config: PushNotificationConfig | None):
     async def _push(record: TaskRecord) -> None:
         if push_config and record.state in _TERMINAL | {WORKING}:
-            asyncio.create_task(_deliver_webhook(record, push_config))
+            _fire_and_forget(_deliver_webhook(record, push_config))
 
     return _push
 
@@ -283,8 +378,8 @@ async def _run_task_background(
                 await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
 
             elif event_type in ("tool_start", "tool_end"):
-                # Status update only — no new artifact text
-                await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
+                # Persist tool message so :subscribe reconnects can show it
+                await _store.update_state(task_id, WORKING, accumulated_text=accumulated, last_status_message=payload)
 
             elif event_type == "done":
                 record = await _store.update_state(
@@ -359,8 +454,24 @@ def register_a2a_routes(
         text: str,
         context_id: str,
         push_config: PushNotificationConfig | None,
+        caller_trace: dict | None = None,
     ) -> TaskRecord:
-        """Create a TaskRecord, fire the background runner, return immediately."""
+        """Create a TaskRecord, fire the background runner, return immediately.
+
+        *caller_trace* is optional A2A trace metadata from the parent caller
+        (params.metadata["a2a.trace"]).  When present it is propagated into the
+        Langfuse trace as caller_trace_id / caller_span_id for cross-agent
+        correlation.  asyncio.create_task() inherits the current context so the
+        contextvars set here flow into the background coroutine automatically.
+        """
+        if caller_trace:
+            try:
+                import tracing as _tracing
+
+                _tracing.set_caller_context(caller_trace)
+            except Exception:
+                pass
+
         task_id = str(uuid4())
         now = _now_iso()
         record = TaskRecord(
@@ -386,152 +497,137 @@ def register_a2a_routes(
         logger.info("[a2a] task %s submitted (context=%s)", task_id, context_id)
         return record
 
-    # ── Streaming SSE generator ───────────────────────────────────────────────
+    # ── Shared subscribe SSE generator ───────────────────────────────────────
+
+    async def _subscribe_sse_gen(task_id: str, rpc_id: Any = None):
+        """Fan-out SSE generator that reads from the task store.
+
+        Emits current snapshot immediately on (re)connect, then waits for
+        _update_event to wake and yields deltas.  Producer runs independently —
+        consumer disconnection cannot cancel it.
+        """
+        r = await _store.get(task_id)
+        if r is None:
+            return
+
+        # Snapshot on connect
+        status_payload: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
+        if r.error_message:
+            status_payload["message"] = {"role": "agent", "parts": [{"kind": "text", "text": r.error_message}]}
+        yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": status_payload})
+        if r.accumulated_text:
+            yield _sse_rpc(
+                rpc_id,
+                {
+                    "id": task_id,
+                    "contextId": r.context_id,
+                    "artifacts": [
+                        {
+                            "parts": [{"kind": "text", "text": r.accumulated_text}],
+                            "append": r.state not in _TERMINAL,
+                            "last_chunk": r.state in _TERMINAL,
+                        }
+                    ],
+                },
+            )
+        if r.state in _TERMINAL:
+            return
+
+        last_text_len = len(r.accumulated_text)
+        while True:
+            r = await _store.get(task_id)
+            if r is None:
+                return
+            if r.state in _TERMINAL:
+                # Emit any remaining text then terminal status
+                if r.accumulated_text and len(r.accumulated_text) > last_text_len:
+                    yield _sse_rpc(
+                        rpc_id,
+                        {
+                            "id": task_id,
+                            "contextId": r.context_id,
+                            "artifacts": [
+                                {
+                                    "parts": [{"kind": "text", "text": r.accumulated_text[last_text_len:]}],
+                                    "append": False,
+                                    "last_chunk": True,
+                                }
+                            ],
+                        },
+                    )
+                terminal_status: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
+                if r.error_message:
+                    terminal_status["message"] = {
+                        "role": "agent",
+                        "parts": [{"kind": "text", "text": r.error_message}],
+                    }
+                yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": terminal_status})
+                return
+
+            next_event = r._update_event
+            try:
+                await asyncio.wait_for(next_event.wait(), timeout=25)
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+                continue
+
+            r = await _store.get(task_id)
+            if r is None:
+                return
+
+            # Status frame (include tool message if present)
+            status_evt: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
+            if r.last_status_message:
+                status_evt["message"] = {
+                    "role": "agent",
+                    "parts": [{"kind": "text", "text": r.last_status_message}],
+                }
+            yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": status_evt})
+
+            # Delta-only text frame
+            if r.accumulated_text and len(r.accumulated_text) > last_text_len:
+                new_text = r.accumulated_text[last_text_len:]
+                last_text_len = len(r.accumulated_text)
+                yield _sse_rpc(
+                    rpc_id,
+                    {
+                        "id": task_id,
+                        "contextId": r.context_id,
+                        "artifacts": [
+                            {"parts": [{"kind": "text", "text": new_text}], "append": True, "last_chunk": False}
+                        ],
+                    },
+                )
+
+            if r.state in _TERMINAL:
+                return
+
+    # ── Streaming SSE generator (submit + fan-out) ────────────────────────────
 
     async def _stream_new_task(
         text: str,
         context_id: str,
         push_config: PushNotificationConfig | None,
         rpc_id: Any = None,
+        caller_trace: dict | None = None,
     ):
-        """Async generator: creates a task and streams its events as SSE."""
-        task_id = str(uuid4())
-        now = _now_iso()
-        record = TaskRecord(
-            id=task_id,
-            context_id=context_id,
-            state=SUBMITTED,
-            created_at=now,
-            updated_at=now,
-            message_text=text,
-            push_config=push_config,
-        )
-        await _store.create(record)
+        """Submit task (independent background producer) then fan-out via store.
 
-        # Frame 0: submitted — client gets task_id before LangGraph starts
+        The producer survives consumer disconnection — SSE reconnection via
+        :subscribe or tasks/resubscribe will resume from where text left off.
+        """
+        record = await _submit_task(text, context_id, push_config, caller_trace=caller_trace)
+        task_id = record.id
+
+        # Frame 0: submitted — client can extract task_id as polling fallback
         yield _sse_rpc(
             rpc_id,
-            {
-                "id": task_id,
-                "contextId": context_id,
-                "status": {"state": SUBMITTED, "timestamp": now},
-            },
+            {"id": task_id, "contextId": context_id, "status": {"state": SUBMITTED, "timestamp": record.created_at}},
         )
 
-        push_fn = _make_push_fn(push_config)
-        accumulated = ""
-        last_emitted_len = 0
-
-        try:
-            await _store.update_state(task_id, WORKING)
-            await push_fn(await _store.get(task_id))
-
-            yield _sse_rpc(
-                rpc_id,
-                {
-                    "id": task_id,
-                    "contextId": context_id,
-                    "status": {"state": WORKING, "timestamp": _now_iso()},
-                },
-            )
-
-            async for event_type, payload in chat_stream_fn_factory(text, context_id):
-                r = await _store.get(task_id)
-                if r and r._cancel_event.is_set():
-                    await _store.update_state(task_id, CANCELED)
-                    yield _sse_rpc(
-                        rpc_id,
-                        {
-                            "id": task_id,
-                            "contextId": context_id,
-                            "status": {"state": CANCELED, "timestamp": _now_iso()},
-                        },
-                    )
-                    return
-
-                if event_type == "text":
-                    accumulated += payload
-                    await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
-                    # Only emit artifact frame when text actually grew
-                    if len(accumulated) > last_emitted_len:
-                        last_emitted_len = len(accumulated)
-                        yield _sse_rpc(
-                            rpc_id,
-                            {
-                                "id": task_id,
-                                "contextId": context_id,
-                                "status": {"state": WORKING},
-                                "artifacts": [
-                                    {"parts": [{"kind": "text", "text": payload}], "append": True, "last_chunk": False}
-                                ],
-                            },
-                        )
-
-                elif event_type in ("tool_start", "tool_end"):
-                    await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
-                    yield _sse_rpc(
-                        rpc_id,
-                        {
-                            "id": task_id,
-                            "contextId": context_id,
-                            "status": {
-                                "state": WORKING,
-                                "timestamp": _now_iso(),
-                                "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
-                            },
-                        },
-                    )
-
-                elif event_type == "done":
-                    final_text = payload or accumulated
-                    r = await _store.update_state(task_id, COMPLETED, accumulated_text=final_text)
-                    await push_fn(r)
-                    yield _sse_rpc(
-                        rpc_id,
-                        {
-                            "id": task_id,
-                            "contextId": context_id,
-                            "status": {"state": COMPLETED, "timestamp": _now_iso()},
-                            "artifacts": [
-                                {"parts": [{"kind": "text", "text": final_text}], "append": False, "last_chunk": True}
-                            ],
-                        },
-                    )
-                    return
-
-                elif event_type == "error":
-                    r = await _store.update_state(task_id, FAILED, error=payload)
-                    await push_fn(r)
-                    yield _sse_rpc(
-                        rpc_id,
-                        {
-                            "id": task_id,
-                            "contextId": context_id,
-                            "status": {
-                                "state": FAILED,
-                                "timestamp": _now_iso(),
-                                "message": {"role": "agent", "parts": [{"kind": "text", "text": payload}]},
-                            },
-                        },
-                    )
-                    return
-
-        except Exception as exc:
-            logger.exception("[a2a] stream task %s crashed", task_id)
-            r = await _store.update_state(task_id, FAILED, error=str(exc))
-            await push_fn(r)
-            yield _sse_rpc(
-                rpc_id,
-                {
-                    "id": task_id,
-                    "contextId": context_id,
-                    "status": {
-                        "state": FAILED,
-                        "timestamp": _now_iso(),
-                        "message": {"role": "agent", "parts": [{"kind": "text", "text": str(exc)}]},
-                    },
-                },
-            )
+        # Fan-out via shared subscribe generator
+        async for frame in _subscribe_sse_gen(task_id, rpc_id=rpc_id):
+            yield frame
 
     # ── POST /a2a  (JSON-RPC 2.0 — legacy, backwards-compat) ─────────────────
 
@@ -544,32 +640,44 @@ def register_a2a_routes(
         method = req.get("method", "")
         params = req.get("params", {})
 
-        message = params.get("message", {})
-        context_id = params.get("contextId", "")
-        configuration = params.get("configuration", {})
+        # ── message/send + message/sendStream extract message body ──────────────
+        if method in ("message/send", "message/sendStream", "message/stream"):
+            message = params.get("message", {})
+            context_id = params.get("contextId", "")
+            configuration = params.get("configuration", {})
+            caller_trace = (params.get("metadata") or {}).get("a2a.trace")
 
-        parts = message.get("parts", [])
-        text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
-        if not text:
-            text = next((p.get("text", "") for p in parts), "")
+            parts = message.get("parts", [])
+            text = next((p.get("text", "") for p in parts if p.get("kind") == "text"), "")
+            if not text:
+                text = next((p.get("text", "") for p in parts), "")
 
-        if not text:
-            return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32600, "message": "No text content in message"}}
+            if not text:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32602, "message": "No text content in message"},
+                }
 
-        context_id = context_id or f"a2a-{uuid4()}"
-        push_config = _parse_push_config(configuration)
+            context_id = context_id or f"a2a-{uuid4()}"
+            push_config = _parse_push_config(configuration)
+            if push_config is _PUSH_SSRF_BLOCKED:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32602, "message": "Unsafe or invalid webhook URL (SSRF protection)"},
+                }
 
-        # ── message/sendStream → SSE ──────────────────────────────────────────
-        if method == "message/sendStream":
-            return StreamingResponse(
-                _stream_new_task(text, context_id, push_config, rpc_id=rpc_id),
-                media_type="text/event-stream",
-                headers=_SSE_HEADERS,
-            )
+            # ── message/sendStream / message/stream → SSE ─────────────────────
+            if method in ("message/sendStream", "message/stream"):
+                return StreamingResponse(
+                    _stream_new_task(text, context_id, push_config, rpc_id=rpc_id, caller_trace=caller_trace),
+                    media_type="text/event-stream",
+                    headers=_SSE_HEADERS,
+                )
 
-        # ── message/send → async, returns submitted immediately ───────────────
-        if method == "message/send":
-            record = await _submit_task(text, context_id, push_config)
+            # ── message/send → async, returns submitted immediately ───────────
+            record = await _submit_task(text, context_id, push_config, caller_trace=caller_trace)
             return {
                 "jsonrpc": "2.0",
                 "id": rpc_id,
@@ -579,6 +687,142 @@ def register_a2a_routes(
                     "status": {"state": SUBMITTED, "timestamp": record.created_at},
                 },
             }
+
+        # ── tasks/get ─────────────────────────────────────────────────────────
+        if method == "tasks/get":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": _task_to_response(record)}
+
+        # ── tasks/cancel ──────────────────────────────────────────────────────
+        if method == "tasks/cancel":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            if record.state in _TERMINAL:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32002, "message": f"Task already terminal: {record.state}"},
+                }
+            await _store.cancel(task_id)
+            record = await _store.update_state(task_id, CANCELED)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": _task_to_response(record)}
+
+        # ── tasks/resubscribe → SSE ───────────────────────────────────────────
+        if method == "tasks/resubscribe":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            if await _store.get(task_id) is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            return StreamingResponse(
+                _subscribe_sse_gen(task_id, rpc_id=rpc_id),
+                media_type="text/event-stream",
+                headers=_SSE_HEADERS,
+            )
+
+        # ── tasks/pushNotificationConfig/set ──────────────────────────────────
+        if method == "tasks/pushNotificationConfig/set":
+            task_id = params.get("id") or params.get("taskId", "")
+            cfg_data = params.get("pushNotificationConfig") or params
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            webhook_url = cfg_data.get("url") or cfg_data.get("webhookUrl", "")
+            if not webhook_url or not _is_safe_webhook_url(webhook_url):
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32602, "message": "Invalid or unsafe webhook URL"},
+                }
+            auth = cfg_data.get("authentication") or {}
+            cfg = PushNotificationConfig(
+                url=webhook_url,
+                token=auth.get("credentials") or cfg_data.get("token"),
+                id=cfg_data.get("id", str(uuid4())),
+            )
+            async with _store._lock:
+                record.push_config = cfg
+            if record.state in _TERMINAL:
+                _fire_and_forget(_deliver_webhook(record, cfg))
+            logger.info("[a2a] push config set for task %s → %s", task_id, cfg.url)
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": {"id": cfg.id, "task_id": task_id, "url": cfg.url}}
+
+        # ── tasks/pushNotificationConfig/get ──────────────────────────────────
+        if method == "tasks/pushNotificationConfig/get":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            result = None
+            if record.push_config:
+                result = {"id": record.push_config.id, "task_id": task_id, "url": record.push_config.url}
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
+
+        # ── tasks/pushNotificationConfig/list ─────────────────────────────────
+        if method == "tasks/pushNotificationConfig/list":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            configs = []
+            if record.push_config:
+                configs = [{"id": record.push_config.id, "task_id": task_id, "url": record.push_config.url}]
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": configs}
+
+        # ── tasks/pushNotificationConfig/delete ───────────────────────────────
+        if method == "tasks/pushNotificationConfig/delete":
+            task_id = params.get("id") or params.get("taskId", "")
+            if not task_id:
+                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
+            record = await _store.get(task_id)
+            if record is None:
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
+            async with _store._lock:
+                record.push_config = None
+            return {"jsonrpc": "2.0", "id": rpc_id, "result": None}
 
         return {
             "jsonrpc": "2.0",
@@ -598,6 +842,8 @@ def register_a2a_routes(
         if not text:
             raise HTTPException(400, "No text content in message")
         push_config = _parse_push_config(configuration)
+        if push_config is _PUSH_SSRF_BLOCKED:
+            raise HTTPException(422, "Unsafe or invalid webhook URL (SSRF protection)")
         record = await _submit_task(text, context_id, push_config)
         return JSONResponse(_task_to_response(record), status_code=202)
 
@@ -613,6 +859,8 @@ def register_a2a_routes(
         if not text:
             raise HTTPException(400, "No text content in message")
         push_config = _parse_push_config(configuration)
+        if push_config is _PUSH_SSRF_BLOCKED:
+            raise HTTPException(422, "Unsafe or invalid webhook URL (SSRF protection)")
         return StreamingResponse(
             _stream_new_task(text, context_id, push_config),
             media_type="text/event-stream",
@@ -629,55 +877,18 @@ def register_a2a_routes(
             raise HTTPException(404, f"Task not found: {task_id}")
         return _task_to_response(record)
 
-    # ── GET /tasks/{task_id}:subscribe  (SSE reconnect) ──────────────────────
+    # ── GET /tasks/{task_id}:subscribe  (SSE reconnect — plain SSE) ──────────
 
     @app.get("/tasks/{task_id}:subscribe", include_in_schema=False)
     async def _subscribe_task(task_id: str, request: Request):
         _check_auth(request, api_key)
-        record = await _store.get(task_id)
-        if record is None:
+        if await _store.get(task_id) is None:
             raise HTTPException(404, f"Task not found: {task_id}")
-
-        async def _sse_gen():
-            # Emit current snapshot immediately on (re)connect
-            r = await _store.get(task_id)
-            if r is None:
-                return
-            yield _sse(_build_status_event(r))
-            if r.accumulated_text:
-                yield _sse(_build_artifact_event(r, last_chunk=r.state in _TERMINAL))
-            if r.state in _TERMINAL:
-                return
-
-            # Wait for updates until terminal
-            last_text_len = len(r.accumulated_text)
-            while True:
-                r = await _store.get(task_id)
-                if r is None or r.state in _TERMINAL:
-                    if r:
-                        yield _sse(_build_status_event(r))
-                        if r.accumulated_text and len(r.accumulated_text) > last_text_len:
-                            yield _sse(_build_artifact_event(r, last_chunk=True))
-                    return
-
-                next_event = r._update_event
-                try:
-                    await asyncio.wait_for(next_event.wait(), timeout=25)
-                except asyncio.TimeoutError:
-                    yield ": keepalive\n\n"
-                    continue
-
-                r = await _store.get(task_id)
-                if r is None:
-                    return
-                yield _sse(_build_status_event(r))
-                if r.accumulated_text and len(r.accumulated_text) > last_text_len:
-                    last_text_len = len(r.accumulated_text)
-                    yield _sse(_build_artifact_event(r, last_chunk=r.state in _TERMINAL))
-                if r.state in _TERMINAL:
-                    return
-
-        return StreamingResponse(_sse_gen(), media_type="text/event-stream", headers=_SSE_HEADERS)
+        return StreamingResponse(
+            _subscribe_sse_gen(task_id, rpc_id=None),
+            media_type="text/event-stream",
+            headers=_SSE_HEADERS,
+        )
 
     # ── POST /tasks/{task_id}:cancel ──────────────────────────────────────────
 
@@ -702,23 +913,32 @@ def register_a2a_routes(
         if record is None:
             raise HTTPException(404, f"Task not found: {task_id}")
 
+        webhook_url = body.get("url") or body.get("webhookUrl", "")
+        if not webhook_url:
+            raise HTTPException(400, "url is required")
+        if not _is_safe_webhook_url(webhook_url):
+            raise HTTPException(422, "Unsafe webhook URL (SSRF protection)")
+
         auth = body.get("authentication") or {}
         cfg = PushNotificationConfig(
-            url=body.get("url", ""),
-            token=auth.get("credentials"),
+            url=webhook_url,
+            token=auth.get("credentials") or body.get("token"),
             id=body.get("id", str(uuid4())),
         )
-        if not cfg.url:
-            raise HTTPException(400, "url is required")
-
         async with _store._lock:
             record.push_config = cfg
 
-        # If task already terminal, fire webhook immediately
         if record.state in _TERMINAL:
-            asyncio.create_task(_deliver_webhook(record, cfg))
+            _fire_and_forget(_deliver_webhook(record, cfg))
 
         logger.info("[a2a] push config registered for task %s → %s", task_id, cfg.url)
         return {"id": cfg.id, "task_id": task_id, "url": cfg.url}
 
-    logger.info("[a2a] routes registered (streaming=True, pushNotifications=True)")
+    # ── Start TTL eviction loop on server startup ─────────────────────────────
+    # Must run inside the event loop — use a startup handler, not bare create_task()
+    # which would fail when called during synchronous app construction.
+    @app.on_event("startup")
+    async def _start_a2a_cleanup():
+        _fire_and_forget(_store.start_cleanup_loop())
+
+    logger.info("[a2a] routes registered (streaming=True, pushNotifications=True, ttl=3600s)")

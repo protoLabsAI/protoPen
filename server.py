@@ -520,7 +520,7 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     """
     from langchain_core.messages import HumanMessage
 
-    config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
+    config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
     if _checkpointer:
         config["checkpointer"] = _checkpointer
 
@@ -941,10 +941,19 @@ def _main():
             "with threat intelligence capabilities (CVE feeds, security advisories, GitHub, knowledge store). "
             "Runs on a Steam Deck with attached RF/WiFi/RFID peripherals."
         ),
-        "url": "http://steamdeck:7870",
+        # url must point to the JSON-RPC endpoint, not the server root
+        "url": "http://steamdeck:7870/a2a",
         "provider": {"organization": "protoLabsAI"},
         "version": "2.0",
-        "capabilities": {},  # populated by register_a2a_routes()
+        "defaultInputModes": ["text/plain"],
+        "defaultOutputModes": ["text/markdown"],
+        "capabilities": {
+            "stateTransitionHistory": False,
+        },  # streaming + pushNotifications populated by register_a2a_routes()
+        "securitySchemes": {
+            "apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+        },
+        "security": [{"apiKey": []}],
         "skills": [
             {
                 "id": "passive_recon",
@@ -954,8 +963,12 @@ def _main():
                     "enumeration, RF spectrum survey, network host discovery, and service "
                     "fingerprinting. No active probing or transmission — observation only."
                 ),
-                "inputModes": ["text/plain"],
-                "outputModes": ["text/markdown"],
+                "tags": ["wifi", "rf", "network", "recon", "passive"],
+                "examples": [
+                    "Scan all WiFi networks in the 2.4 and 5 GHz bands",
+                    "Discover hosts on 192.168.1.0/24 without sending probes",
+                    "Survey RF spectrum around the office",
+                ],
             },
             {
                 "id": "active_pentest",
@@ -966,8 +979,12 @@ def _main():
                     "read/write. Requires active or redteam engagement mode. Returns findings "
                     "with severity ratings and evidence."
                 ),
-                "inputModes": ["text/plain"],
-                "outputModes": ["text/markdown"],
+                "tags": ["pentest", "exploit", "wifi", "rfid", "rf", "active"],
+                "examples": [
+                    "Capture PMKID hashes from all WPA2 networks in range",
+                    "Scan 10.0.0.0/24 for CVE-2024-XXXX",
+                    "Replay captured RF signal on 433 MHz",
+                ],
             },
             {
                 "id": "security_report",
@@ -977,18 +994,25 @@ def _main():
                     "findings. Triages by severity, correlates across RF/WiFi/network domains, "
                     "identifies attack paths, and provides actionable remediation priorities."
                 ),
-                "inputModes": ["text/plain"],
-                "outputModes": ["text/markdown"],
+                "tags": ["report", "assessment", "findings", "remediation"],
+                "examples": [
+                    "Generate a full assessment report for this engagement",
+                    "Summarise findings by severity and map attack paths",
+                ],
             },
             {
                 "id": "threat_intel",
                 "name": "Threat Intelligence",
                 "description": (
-                    "Research a security topic in depth: searches CVE feeds, security advisories, "
+                    "Research a security topic in depth: searches CVE databases, security advisories, "
                     "GitHub, web, and internal knowledge store. Returns a structured threat report."
                 ),
-                "inputModes": ["text/plain"],
-                "outputModes": ["text/markdown"],
+                "tags": ["cve", "threat", "intel", "research", "advisory"],
+                "examples": [
+                    "Find critical CVEs affecting OpenSSH released in 2024",
+                    "Research MITRE ATT&CK techniques used in recent ransomware campaigns",
+                    "What vulnerabilities affect MikroTik RouterOS?",
+                ],
             },
             {
                 "id": "summarize",
@@ -997,8 +1021,11 @@ def _main():
                     "Summarize recent CVEs, advisories, exploits, or threat intel from the "
                     "knowledge store. Optionally scoped to a topic or time window."
                 ),
-                "inputModes": ["text/plain"],
-                "outputModes": ["text/markdown"],
+                "tags": ["summary", "cve", "advisory", "digest"],
+                "examples": [
+                    "Summarise the most critical CVEs from the last 7 days",
+                    "What are the top threats to industrial control systems this month?",
+                ],
             },
         ],
     }
@@ -1012,6 +1039,11 @@ def _main():
         api_key=_A2A_API_KEY,
         agent_card=AGENT_CARD,
     )
+
+    # Alias required by protoWorkstacean agent discovery
+    @fastapi_app.get("/.well-known/agent-card.json", include_in_schema=False)
+    async def _agent_card_alias():
+        return AGENT_CARD
 
     # Prometheus /metrics endpoint
     if metrics.is_enabled():
