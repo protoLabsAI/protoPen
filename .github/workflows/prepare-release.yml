@@ -122,6 +122,11 @@ jobs:
           fi
 
           # Push the semver tag — this is what triggers release.yml
+          # Fetch origin so the merge commit is available locally before tagging.
+          git fetch origin main
+          git cat-file -e "${MERGE_SHA}^{commit}" || {
+            echo "Merged commit ${MERGE_SHA} not available locally." && exit 1
+          }
           git tag -a "v${VERSION}" "${MERGE_SHA}" -m "v${VERSION}"
           git push origin "v${VERSION}"
           echo "Tagged v${VERSION} → release.yml will fire"
