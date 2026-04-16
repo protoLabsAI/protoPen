@@ -35,10 +35,11 @@ A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID p
 
 ### Prerequisites
 
-Set your Anthropic API key:
+protoPen routes LLM calls through a LiteLLM gateway. Set the gateway key:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=<litellm-master-key>   # required — LiteLLM gateway auth
+export ANTHROPIC_API_KEY=sk-ant-...          # optional — direct Anthropic access
 ```
 
 ### Docker (recommended)
@@ -349,7 +350,8 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 |---|---|---|
 | `AGENT_BACKEND` | No | `langgraph` |
 | `PROTOPEN_API_KEY` | No | API key for A2A authentication |
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
+| `OPENAI_API_KEY` | Yes | LiteLLM gateway master key |
+| `ANTHROPIC_API_KEY` | No | Direct Anthropic API key (optional) |
 | `GITHUB_TOKEN` | No | GitHub API (higher rate limits) |
 | `DISCORD_BOT_TOKEN` | No | Discord channel reading |
 | `DISCORD_WEBHOOK_URL` | No | Discord webhook for publishing digests, security alerts, and engagement reports (managed via Infisical in prod) |
@@ -363,7 +365,7 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 ## Stack
 
 - **Agent**: LangGraph
-- **LLM**: Anthropic API (Claude Sonnet/Haiku via `ANTHROPIC_API_KEY`)
+- **LLM**: LiteLLM gateway → Claude (Sonnet/Haiku) via `OPENAI_API_KEY`
 - **UI**: Gradio 5 (dark theme, PWA)
 - **Knowledge**: SQLite + sqlite-vec + FTS5 (hybrid search: vector similarity + BM25 keyword, RRF fusion)
 - **Observability**: Langfuse tracing, Prometheus metrics, JSONL audit

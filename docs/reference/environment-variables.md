@@ -38,7 +38,8 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `ANTHROPIC_API_KEY` | yes | -- | Anthropic API key |
+| `OPENAI_API_KEY` | yes | -- | LiteLLM gateway master key |
+| `ANTHROPIC_API_KEY` | no | -- | Direct Anthropic API key (optional) |
 | `OPENAI_API_KEY` | no | -- | OpenAI-compatible API key (used for LiteLLM gateway access) |
 
 ## Observability
