@@ -95,7 +95,23 @@ jobs:
             --title "chore: release v${VERSION}" \
             --body "Automated version bump to \`v${VERSION}\`.")
           echo "PR: ${PR_URL}"
-          gh pr merge "${PR_URL}" --squash --admin
+
+          # Enable auto-merge — GitHub merges once CI checks pass
+          gh pr merge "${PR_URL}" --squash --auto
+
+          # Poll until the PR is merged (CI must pass first; timeout 10 min)
+          echo "Waiting for PR to merge…"
+          for i in $(seq 1 120); do
+            STATE=$(gh pr view "${PR_URL}" --json state -q .state)
+            if [ "$STATE" = "MERGED" ]; then
+              echo "PR merged."
+              break
+            fi
+            if [ "$i" -eq 120 ]; then
+              echo "Timeout waiting for PR to merge." && exit 1
+            fi
+            sleep 5
+          done
 
           # Push the semver tag — this is what triggers release.yml
           git fetch origin main
