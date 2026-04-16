@@ -100,11 +100,15 @@ jobs:
           gh pr merge "${PR_URL}" --squash --auto
 
           # Poll until the PR is merged (CI must pass first; timeout 10 min)
+          # Capture the exact merge commit SHA so the tag is deterministic even
+          # if main advances while we wait.
           echo "Waiting for PR to merge…"
+          MERGE_SHA=""
           for i in $(seq 1 120); do
             STATE=$(gh pr view "${PR_URL}" --json state -q .state)
             if [ "$STATE" = "MERGED" ]; then
-              echo "PR merged."
+              MERGE_SHA=$(gh pr view "${PR_URL}" --json mergeCommit -q .mergeCommit.oid)
+              echo "PR merged at ${MERGE_SHA}."
               break
             fi
             if [ "$i" -eq 120 ]; then
@@ -113,8 +117,16 @@ jobs:
             sleep 5
           done
 
+          if [ -z "$MERGE_SHA" ]; then
+            echo "Missing merge commit SHA." && exit 1
+          fi
+
           # Push the semver tag — this is what triggers release.yml
+          # Fetch origin so the merge commit is available locally before tagging.
           git fetch origin main
-          git tag -a "v${VERSION}" "origin/main" -m "v${VERSION}"
+          git cat-file -e "${MERGE_SHA}^{commit}" || {
+            echo "Merged commit ${MERGE_SHA} not available locally." && exit 1
+          }
+          git tag -a "v${VERSION}" "${MERGE_SHA}" -m "v${VERSION}"
           git push origin "v${VERSION}"
           echo "Tagged v${VERSION} → release.yml will fire"

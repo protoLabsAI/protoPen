@@ -223,13 +223,23 @@ def _now_iso() -> str:
 
 
 def _task_to_response(record: TaskRecord) -> dict:
+    """Full Task object — used for REST responses AND as the ``kind: "task"``
+    initial SSE frame.  The ``kind`` discriminator is required so
+    ``@a2a-js/sdk`` can route the event instead of silently dropping it.
+    """
     resp: dict[str, Any] = {
+        "kind": "task",
         "id": record.id,
         "contextId": record.context_id,
         "status": {"state": record.state, "timestamp": record.updated_at},
     }
     if record.accumulated_text:
-        resp["artifacts"] = [{"parts": [{"kind": "text", "text": record.accumulated_text}]}]
+        resp["artifacts"] = [
+            {
+                "artifactId": record.id,
+                "parts": [{"kind": "text", "text": record.accumulated_text}],
+            }
+        ]
     if record.error_message:
         resp["status"]["message"] = {
             "role": "agent",
@@ -238,27 +248,40 @@ def _task_to_response(record: TaskRecord) -> dict:
     return resp
 
 
-def _build_status_event(record: TaskRecord) -> dict:
+def _build_status_event(record: TaskRecord, *, final: bool = False) -> dict:
+    """``TaskStatusUpdateEvent`` — camelCase + ``kind`` required by @a2a-js/sdk."""
     evt: dict[str, Any] = {
-        "task_id": record.id,
-        "context_id": record.context_id,
+        "kind": "status-update",
+        "taskId": record.id,
+        "contextId": record.context_id,
         "status": {"state": record.state, "timestamp": record.updated_at},
+        "final": final,
     }
     if record.error_message:
         evt["status"]["message"] = {
             "role": "agent",
             "parts": [{"kind": "text", "text": record.error_message}],
         }
+    elif record.last_status_message and record.state not in _TERMINAL:
+        evt["status"]["message"] = {
+            "role": "agent",
+            "parts": [{"kind": "text", "text": record.last_status_message}],
+        }
     return evt
 
 
-def _build_artifact_event(record: TaskRecord, *, last_chunk: bool) -> dict:
+def _build_artifact_event(record: TaskRecord, *, text: str, append: bool, last_chunk: bool) -> dict:
+    """``TaskArtifactUpdateEvent`` — camelCase + ``kind`` required by @a2a-js/sdk."""
     return {
-        "task_id": record.id,
-        "context_id": record.context_id,
-        "artifact": {"parts": [{"kind": "text", "text": record.accumulated_text}]},
-        "append": True,
-        "last_chunk": last_chunk,
+        "kind": "artifact-update",
+        "taskId": record.id,
+        "contextId": record.context_id,
+        "artifact": {
+            "artifactId": record.id,
+            "parts": [{"kind": "text", "text": text}],
+        },
+        "append": append,
+        "lastChunk": last_chunk,
     }
 
 
@@ -312,12 +335,11 @@ async def _deliver_webhook(record: TaskRecord, push_config: PushNotificationConf
     Retries 3× with exponential backoff (1s / 3s / 9s).
     Skips retry on 4xx (client error — retrying won't help).
     """
-    payload = _build_status_event(record)
+    payload = _build_status_event(record, final=True)
     if record.state == COMPLETED and record.accumulated_text:
         payload["artifact"] = {
+            "artifactId": record.id,
             "parts": [{"kind": "text", "text": record.accumulated_text}],
-            "append": False,
-            "last_chunk": True,
         }
 
     headers = {"Content-Type": "application/json"}
@@ -502,68 +524,33 @@ def register_a2a_routes(
     async def _subscribe_sse_gen(task_id: str, rpc_id: Any = None):
         """Fan-out SSE generator that reads from the task store.
 
-        Emits current snapshot immediately on (re)connect, then waits for
-        _update_event to wake and yields deltas.  Producer runs independently —
+        Emits a ``kind: "task"`` snapshot immediately on (re)connect, then
+        waits for _update_event to wake and yields ``kind: "status-update"``
+        and ``kind: "artifact-update"`` events.  Producer runs independently —
         consumer disconnection cannot cancel it.
+
+        Event shapes follow the A2A spec discriminated-union contract so that
+        ``@a2a-js/sdk`` can route each frame without silently dropping it.
         """
         r = await _store.get(task_id)
         if r is None:
             return
 
-        # Snapshot on connect
-        status_payload: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
-        if r.error_message:
-            status_payload["message"] = {"role": "agent", "parts": [{"kind": "text", "text": r.error_message}]}
-        yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": status_payload})
-        if r.accumulated_text:
-            yield _sse_rpc(
-                rpc_id,
-                {
-                    "id": task_id,
-                    "contextId": r.context_id,
-                    "artifacts": [
-                        {
-                            "parts": [{"kind": "text", "text": r.accumulated_text}],
-                            "append": r.state not in _TERMINAL,
-                            "last_chunk": r.state in _TERMINAL,
-                        }
-                    ],
-                },
-            )
+        # Frame 0: full Task snapshot — kind: "task"
+        yield _sse_rpc(rpc_id, _task_to_response(r))
+
+        # If already terminal, emit the final artifact + status and exit
         if r.state in _TERMINAL:
+            if r.accumulated_text:
+                yield _sse_rpc(
+                    rpc_id,
+                    _build_artifact_event(r, text=r.accumulated_text, append=False, last_chunk=True),
+                )
+            yield _sse_rpc(rpc_id, _build_status_event(r, final=True))
             return
 
         last_text_len = len(r.accumulated_text)
         while True:
-            r = await _store.get(task_id)
-            if r is None:
-                return
-            if r.state in _TERMINAL:
-                # Emit any remaining text then terminal status
-                if r.accumulated_text and len(r.accumulated_text) > last_text_len:
-                    yield _sse_rpc(
-                        rpc_id,
-                        {
-                            "id": task_id,
-                            "contextId": r.context_id,
-                            "artifacts": [
-                                {
-                                    "parts": [{"kind": "text", "text": r.accumulated_text[last_text_len:]}],
-                                    "append": False,
-                                    "last_chunk": True,
-                                }
-                            ],
-                        },
-                    )
-                terminal_status: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
-                if r.error_message:
-                    terminal_status["message"] = {
-                        "role": "agent",
-                        "parts": [{"kind": "text", "text": r.error_message}],
-                    }
-                yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": terminal_status})
-                return
-
             next_event = r._update_event
             try:
                 await asyncio.wait_for(next_event.wait(), timeout=25)
@@ -575,32 +562,31 @@ def register_a2a_routes(
             if r is None:
                 return
 
-            # Status frame (include tool message if present)
-            status_evt: dict[str, Any] = {"state": r.state, "timestamp": r.updated_at}
-            if r.last_status_message:
-                status_evt["message"] = {
-                    "role": "agent",
-                    "parts": [{"kind": "text", "text": r.last_status_message}],
-                }
-            yield _sse_rpc(rpc_id, {"id": task_id, "contextId": r.context_id, "status": status_evt})
+            if r.state == COMPLETED:
+                # Terminal artifact (full text, authoritative) then final status-update
+                if r.accumulated_text:
+                    yield _sse_rpc(
+                        rpc_id,
+                        _build_artifact_event(r, text=r.accumulated_text, append=False, last_chunk=True),
+                    )
+                yield _sse_rpc(rpc_id, _build_status_event(r, final=True))
+                return
+            elif r.state in _TERMINAL:
+                # Failed / cancelled — just the final status-update
+                yield _sse_rpc(rpc_id, _build_status_event(r, final=True))
+                return
 
-            # Delta-only text frame
+            # Mid-run: status-update (includes tool message if set)
+            yield _sse_rpc(rpc_id, _build_status_event(r, final=False))
+
+            # Delta-only artifact-update if new text arrived
             if r.accumulated_text and len(r.accumulated_text) > last_text_len:
                 new_text = r.accumulated_text[last_text_len:]
                 last_text_len = len(r.accumulated_text)
                 yield _sse_rpc(
                     rpc_id,
-                    {
-                        "id": task_id,
-                        "contextId": r.context_id,
-                        "artifacts": [
-                            {"parts": [{"kind": "text", "text": new_text}], "append": True, "last_chunk": False}
-                        ],
-                    },
+                    _build_artifact_event(r, text=new_text, append=True, last_chunk=False),
                 )
-
-            if r.state in _TERMINAL:
-                return
 
     # ── Streaming SSE generator (submit + fan-out) ────────────────────────────
 
@@ -619,13 +605,8 @@ def register_a2a_routes(
         record = await _submit_task(text, context_id, push_config, caller_trace=caller_trace)
         task_id = record.id
 
-        # Frame 0: submitted — client can extract task_id as polling fallback
-        yield _sse_rpc(
-            rpc_id,
-            {"id": task_id, "contextId": context_id, "status": {"state": SUBMITTED, "timestamp": record.created_at}},
-        )
-
-        # Fan-out via shared subscribe generator
+        # _subscribe_sse_gen emits Frame 0 as kind: "task" (full Task snapshot),
+        # then status-update / artifact-update events as the task progresses.
         async for frame in _subscribe_sse_gen(task_id, rpc_id=rpc_id):
             yield frame
 

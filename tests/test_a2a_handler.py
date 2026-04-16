@@ -214,10 +214,13 @@ async def test_webhook_delivery_success():
         call_kwargs = mock_client.post.call_args
         assert call_kwargs.kwargs["headers"]["Authorization"] == "Bearer tok123"
         payload = call_kwargs.kwargs["json"]
-        assert payload["task_id"] == "test-task-id"
+        assert payload["kind"] == "status-update"
+        assert payload["taskId"] == "test-task-id"
         assert payload["status"]["state"] == COMPLETED
-        # Completed tasks include the artifact
+        assert payload["final"] is True
+        # Completed tasks include the artifact inline
         assert "artifact" in payload
+        assert payload["artifact"]["artifactId"] == "test-task-id"
 
 
 @pytest.mark.asyncio
@@ -246,17 +249,29 @@ async def test_webhook_delivery_no_token():
 def test_build_status_event():
     record = _make_record(state=WORKING)
     evt = _build_status_event(record)
-    assert evt["task_id"] == "test-task-id"
-    assert evt["context_id"] == "test-ctx"
+    assert evt["kind"] == "status-update"
+    assert evt["taskId"] == "test-task-id"
+    assert evt["contextId"] == "test-ctx"
     assert evt["status"]["state"] == WORKING
+    assert evt["final"] is False
+
+
+def test_build_status_event_final():
+    record = _make_record(state=COMPLETED)
+    evt = _build_status_event(record, final=True)
+    assert evt["kind"] == "status-update"
+    assert evt["final"] is True
 
 
 def test_build_artifact_event():
     record = _make_record(accumulated_text="some output")
-    evt = _build_artifact_event(record, last_chunk=True)
+    evt = _build_artifact_event(record, text="some output", append=False, last_chunk=True)
+    assert evt["kind"] == "artifact-update"
+    assert evt["taskId"] == "test-task-id"
     assert evt["artifact"]["parts"][0]["text"] == "some output"
-    assert evt["last_chunk"] is True
-    assert evt["append"] is True
+    assert evt["artifact"]["artifactId"] == "test-task-id"
+    assert evt["lastChunk"] is True
+    assert evt["append"] is False
 
 
 # ── Route integration (FastAPI ASGI test client) ──────────────────────────────
