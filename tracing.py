@@ -14,8 +14,29 @@ from typing import Any
 _langfuse = None
 _enabled = False
 
-# Track current trace ID for audit log cross-referencing
+# Context vars — inherited by asyncio.create_task() children
 _trace_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("_trace_id_ctx", default="")
+_session_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("_session_id_ctx", default="")
+_caller_trace_ctx: contextvars.ContextVar[dict] = contextvars.ContextVar("_caller_trace_ctx", default={})
+
+
+def current_trace_id() -> str:
+    """Return the active Langfuse trace ID, or '' if none."""
+    return _trace_id_ctx.get("")
+
+
+def current_session_id() -> str:
+    """Return the active session ID, or '' if none."""
+    return _session_id_ctx.get("")
+
+
+def set_caller_context(caller_trace: dict) -> None:
+    """Store incoming A2A trace metadata so start_trace() can stamp it.
+
+    Call this before asyncio.create_task() — the child inherits the context.
+    Expected keys: traceId, spanId, project.
+    """
+    _caller_trace_ctx.set(caller_trace or {})
 
 
 def init():
@@ -50,7 +71,13 @@ def is_enabled() -> bool:
 
 
 def start_trace(session_id: str, name: str = "researcher-chat", metadata: dict | None = None) -> Any:
-    """Start a new trace for a chat session."""
+    """Start a new trace for a chat session.
+
+    Automatically stamps caller_trace_id / caller_span_id when set_caller_context()
+    was called by the A2A handler before spawning this coroutine.
+    """
+    _session_id_ctx.set(session_id)
+
     if not _enabled:
         return None
 
@@ -60,14 +87,23 @@ def start_trace(session_id: str, name: str = "researcher-chat", metadata: dict |
         trace_id = Langfuse.create_trace_id(seed=session_id)
         _trace_id_ctx.set(trace_id)
 
-        # Start a root observation that acts as our trace
+        # Merge caller trace context for cross-agent Langfuse correlation
+        caller_trace = _caller_trace_ctx.get({})
+        trace_meta: dict[str, Any] = {
+            **(metadata or {}),
+            "session_id": session_id,
+            "tags": ["protopen"],
+        }
+        if caller_trace.get("traceId"):
+            trace_meta["caller_trace_id"] = caller_trace["traceId"]
+        if caller_trace.get("spanId"):
+            trace_meta["caller_span_id"] = caller_trace["spanId"]
+        if caller_trace.get("project"):
+            trace_meta["caller_project"] = caller_trace["project"]
+
         span = _langfuse.start_as_current_observation(
             name=name,
-            metadata={
-                **(metadata or {}),
-                "session_id": session_id,
-                "tags": ["protopen"],
-            },
+            metadata=trace_meta,
         )
         return span
     except Exception as e:
@@ -78,12 +114,15 @@ def start_trace(session_id: str, name: str = "researcher-chat", metadata: dict |
 def end_trace():
     """End the current trace."""
     if not _enabled:
+        _trace_id_ctx.set("")
+        _session_id_ctx.set("")
         return
     try:
         _langfuse.flush()
     except Exception:
         pass
     _trace_id_ctx.set("")
+    _session_id_ctx.set("")
 
 
 def trace_llm_call(
