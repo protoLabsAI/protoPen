@@ -49,6 +49,7 @@ def _fire_and_forget(coro) -> asyncio.Task:
     task.add_done_callback(_background_tasks.discard)
     return task
 
+
 # ── Task state constants ──────────────────────────────────────────────────────
 
 SUBMITTED = "submitted"
@@ -365,9 +366,7 @@ async def _run_task_background(
 
             elif event_type in ("tool_start", "tool_end"):
                 # Persist tool message so :subscribe reconnects can show it
-                await _store.update_state(
-                    task_id, WORKING, accumulated_text=accumulated, last_status_message=payload
-                )
+                await _store.update_state(task_id, WORKING, accumulated_text=accumulated, last_status_message=payload)
 
             elif event_type == "done":
                 record = await _store.update_state(
@@ -677,7 +676,11 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             return {"jsonrpc": "2.0", "id": rpc_id, "result": _task_to_response(record)}
 
         # ── tasks/cancel ──────────────────────────────────────────────────────
@@ -687,7 +690,11 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             if record.state in _TERMINAL:
                 return {
                     "jsonrpc": "2.0",
@@ -704,7 +711,11 @@ def register_a2a_routes(
             if not task_id:
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             if await _store.get(task_id) is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             return StreamingResponse(
                 _subscribe_sse_gen(task_id, rpc_id=rpc_id),
                 media_type="text/event-stream",
@@ -719,10 +730,18 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             webhook_url = cfg_data.get("url") or cfg_data.get("webhookUrl", "")
             if not webhook_url or not _is_safe_webhook_url(webhook_url):
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "Invalid or unsafe webhook URL"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32602, "message": "Invalid or unsafe webhook URL"},
+                }
             auth = cfg_data.get("authentication") or {}
             cfg = PushNotificationConfig(
                 url=webhook_url,
@@ -743,7 +762,11 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             result = None
             if record.push_config:
                 result = {"id": record.push_config.id, "task_id": task_id, "url": record.push_config.url}
@@ -756,7 +779,11 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             configs = []
             if record.push_config:
                 configs = [{"id": record.push_config.id, "task_id": task_id, "url": record.push_config.url}]
@@ -769,7 +796,11 @@ def register_a2a_routes(
                 return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32602, "message": "id required"}}
             record = await _store.get(task_id)
             if record is None:
-                return {"jsonrpc": "2.0", "id": rpc_id, "error": {"code": -32001, "message": f"Task not found: {task_id}"}}
+                return {
+                    "jsonrpc": "2.0",
+                    "id": rpc_id,
+                    "error": {"code": -32001, "message": f"Task not found: {task_id}"},
+                }
             async with _store._lock:
                 record.push_config = None
             return {"jsonrpc": "2.0", "id": rpc_id, "result": None}
