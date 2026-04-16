@@ -101,7 +101,7 @@ jobs:
 
           # Poll until the PR is merged (CI must pass first; timeout 10 min)
           # Capture the exact merge commit SHA so the tag is deterministic even
-          # if main advances while we wait (CodeRabbit PR-21 review).
+          # if main advances while we wait.
           echo "Waiting for PR to merge…"
           MERGE_SHA=""
           for i in $(seq 1 120); do
