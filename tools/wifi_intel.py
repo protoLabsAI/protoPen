@@ -197,8 +197,40 @@ class WiFiIntelTool(Tool):
     # ── Actions ────────────────────────────────────────────────────────────────
 
     async def _monitor_start(self, interface: str) -> str:
+        compat_warn = await self._check_kernel_compat()
         output = await self._run("airmon-ng", "start", interface)
-        return output or f"Monitor mode started on {interface}"
+        result = output or f"Monitor mode started on {interface}"
+        if compat_warn:
+            result = compat_warn + "\n\n" + result
+        return result
+
+    async def _check_kernel_compat(self) -> str:
+        """Warn if the kernel has the known mt76 injection regression (>= 6.9.0).
+
+        Linux >= 6.9.0 broke frame injection and active monitor mode across all
+        mt76 devices (ZerBea/hcxdumptool#465, openwrt/mt76#839).
+        Passive capture (survey, capture_pmkid) still works.
+        capture_handshake (deauth injection) will likely fail silently.
+        Last known-working: 6.6.40 (LTS) / 6.8.12 (stable).
+        """
+        try:
+            release = await self._run("uname", "-r", timeout=5)
+            m = re.match(r"(\d+)\.(\d+)", release.strip())
+            if not m:
+                return ""
+            major, minor = int(m.group(1)), int(m.group(2))
+            if (major, minor) >= (6, 9):
+                return (
+                    f"WARNING: kernel {major}.{minor} has a known mt76 regression "
+                    "(Linux >= 6.9.0) that breaks frame injection and deauth. "
+                    "Passive capture (survey, capture_pmkid) works normally. "
+                    "capture_handshake will likely fail — last working kernels: "
+                    "6.6.40 (LTS) / 6.8.12 (stable). "
+                    "Ref: ZerBea/hcxdumptool#465"
+                )
+        except Exception:
+            pass
+        return ""
 
     async def _monitor_stop(self, monitor_interface: str) -> str:
         output = await self._run("airmon-ng", "stop", monitor_interface)
