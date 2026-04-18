@@ -358,8 +358,8 @@ class TestTlsIntercept:
 class TestParsers:
     def _make_store(self):
         store = MagicMock()
-        store.add_finding = MagicMock()
-        store.upsert_host = MagicMock()
+        store.add_credential = MagicMock(return_value=1)
+        store.upsert_host = MagicMock(return_value=1)
         return store
 
     def test_cleartext_harvest_parser_calls_store(self):
@@ -383,10 +383,9 @@ class TestParsers:
         assert len(entities) == 1
         assert entities[0]["type"] == "credential"
         assert entities[0]["protocol"] == "FTP"
-        store.add_finding.assert_called_once()
-        call_kwargs = store.add_finding.call_args[1]
-        assert call_kwargs["severity"] == "high"
-        assert "FTP" in call_kwargs["title"]
+        store.add_credential.assert_called_once()
+        call_kwargs = store.add_credential.call_args[1]
+        assert "FTP" in call_kwargs["source"]
 
     def test_pcap_parse_parser_upserts_hosts(self):
         from tools.parsers.traffic_analysis import parse_pcap_parse
@@ -417,6 +416,9 @@ class TestParsers:
         assert "10.0.0.1" in ips
         assert "10.0.0.2" in ips
         assert store.upsert_host.call_count == 2
+        # Verify no unsupported kwargs
+        for call in store.upsert_host.call_args_list:
+            assert "source" not in call[1]
 
     def test_session_reconstruct_parser_records_auth_headers(self):
         from tools.parsers.traffic_analysis import parse_session_reconstruct
@@ -450,7 +452,7 @@ class TestParsers:
         # Only the session with authorization header should be ingested
         assert len(entities) == 1
         assert entities[0]["host"] == "internal.corp"
-        store.add_finding.assert_called_once()
+        store.add_credential.assert_called_once()
 
     def test_parser_invalid_json(self):
         from tools.parsers.traffic_analysis import parse_cleartext_harvest
@@ -458,7 +460,7 @@ class TestParsers:
         store = self._make_store()
         result = parse_cleartext_harvest("not json {{", store)
         assert result == []
-        store.add_finding.assert_not_called()
+        store.add_credential.assert_not_called()
 
     def test_parser_empty_string(self):
         from tools.parsers.traffic_analysis import parse_pcap_parse

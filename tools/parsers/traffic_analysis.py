@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_cleartext_harvest(raw: str, store: "TargetStore") -> list[dict]:
-    """Ingest cleartext credentials into target_store as findings."""
+    """Ingest cleartext credentials into target_store via add_credential."""
     entities: list[dict] = []
     if not raw:
         return entities
@@ -31,15 +31,19 @@ def parse_cleartext_harvest(raw: str, store: "TargetStore") -> list[dict]:
         protocol = finding.get("protocol", "")
         src = finding.get("src_ip", "")
         dst = finding.get("dst_ip", "")
-        note = json.dumps({k: v for k, v in finding.items() if k not in ("src_ip", "dst_ip")})
+        username = finding.get("username", "") or finding.get("credentials", "").split(":")[0]
+        password = finding.get("password", "") or (
+            ":".join(finding.get("credentials", "").split(":")[1:])
+            if ":" in finding.get("credentials", "")
+            else finding.get("credentials", "")
+        )
+        notes = json.dumps({k: v for k, v in finding.items() if k not in ("src_ip", "dst_ip")})
         try:
-            store.add_finding(
-                host=dst or src,
-                port=None,
-                severity="high",
-                title=f"Cleartext credentials — {protocol}",
-                detail=note,
-                source="traffic_analysis/cleartext_harvest",
+            store.add_credential(
+                username=username,
+                password=password,
+                source=f"traffic_analysis/cleartext_harvest:{protocol}",
+                notes=notes,
             )
         except Exception:
             pass
@@ -66,7 +70,11 @@ def parse_pcap_parse(raw: str, store: "TargetStore") -> list[dict]:
                 if ip and ip not in seen_hosts:
                     seen_hosts.add(ip)
                     try:
-                        store.upsert_host(ip=ip, source="traffic_analysis/pcap_parse")
+                        store.upsert_host(
+                            ip=ip,
+                            tags=["traffic_analysis"],
+                            notes="discovered via pcap flow analysis",
+                        )
                     except Exception:
                         pass
                     entities.append({"type": "host", "ip": ip})
@@ -74,12 +82,12 @@ def parse_pcap_parse(raw: str, store: "TargetStore") -> list[dict]:
 
 
 def parse_pcap_capture(raw: str, store: "TargetStore") -> list[dict]:
-    """No structured entities to ingest from a capture — just record the path."""
+    """No structured entities to ingest from a live capture."""
     return []
 
 
 def parse_session_reconstruct(raw: str, store: "TargetStore") -> list[dict]:
-    """Ingest HTTP sessions with authorization headers as high-severity findings."""
+    """Ingest HTTP sessions with authorization headers as credentials."""
     entities: list[dict] = []
     if not raw:
         return entities
@@ -89,25 +97,26 @@ def parse_session_reconstruct(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     for session in data.get("http_sessions", []):
-        if session.get("authorization"):
-            host = session.get("host", "unknown")
-            try:
-                store.add_finding(
-                    host=host,
-                    port=None,
-                    severity="high",
-                    title="HTTP cleartext authorization header",
-                    detail=json.dumps(session),
-                    source="traffic_analysis/session_reconstruct",
-                )
-            except Exception:
-                pass
-            entities.append({"type": "http_credential", "host": host, "uri": session.get("uri", "")})
+        auth = session.get("authorization", "")
+        if not auth:
+            continue
+        host = session.get("host", "unknown")
+        uri = session.get("uri", "")
+        try:
+            store.add_credential(
+                username="",
+                password="",
+                source="traffic_analysis/session_reconstruct",
+                notes=json.dumps({"host": host, "uri": uri, "authorization": auth}),
+            )
+        except Exception:
+            pass
+        entities.append({"type": "http_credential", "host": host, "uri": uri})
     return entities
 
 
 def parse_tls_intercept(raw: str, store: "TargetStore") -> list[dict]:
-    """Record intercepted TLS flows."""
+    """Record intercepted TLS flow hosts."""
     entities: list[dict] = []
     if not raw:
         return entities
@@ -117,21 +126,19 @@ def parse_tls_intercept(raw: str, store: "TargetStore") -> list[dict]:
         return entities
 
     target = data.get("target_ip", "")
-    flows = data.get("flows", [])
-    for flow in flows:
+    if target:
+        try:
+            store.upsert_host(
+                ip=target,
+                tags=["tls_intercepted"],
+                notes="device intercepted via traffic_analysis/tls_intercept",
+            )
+        except Exception:
+            pass
+
+    for flow in data.get("flows", []):
         url = flow.get("url", "")
-        if url and target:
-            try:
-                store.add_finding(
-                    host=target,
-                    port=443,
-                    severity="info",
-                    title="TLS-intercepted request",
-                    detail=url,
-                    source="traffic_analysis/tls_intercept",
-                )
-            except Exception:
-                pass
+        if url:
             entities.append({"type": "intercepted_url", "target": target, "url": url})
     return entities
 
