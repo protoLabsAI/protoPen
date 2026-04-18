@@ -58,7 +58,7 @@ class TrafficAnalysisTool(Tool):
     def description(self) -> str:
         return (
             "Packet capture and traffic analysis for networks you own or have authorization to test. "
-            "Actions: pcap_capture (live capture via tcpdump with BPF filter), "
+            "Actions: pcap_capture (live capture via tcpdump or tshark fallback, with BPF filter), "
             "pcap_parse (flow analysis + protocol breakdown via tshark), "
             "session_reconstruct (TCP stream reassembly + HTTP session extraction via tcpflow), "
             "cleartext_harvest (extract credentials from HTTP Basic, FTP, Telnet, MQTT, SNMP in a pcap), "
@@ -216,21 +216,39 @@ class TrafficAnalysisTool(Tool):
         bpf_filter: str,
         packet_count: int,
     ) -> str:
-        """Capture live traffic to a pcap file."""
+        """Capture live traffic to a pcap file.
+
+        Prefers tcpdump; falls back to tshark -w when tcpdump is absent.
+        """
         cap_dir = self._workspace / f"capture_{_ts()}"
         cap_dir.mkdir(parents=True, exist_ok=True)
         pcap_path = cap_dir / "capture.pcap"
 
-        cmd = ["tcpdump", "-i", interface, "-w", str(pcap_path), "-n"]
-        if packet_count > 0:
-            cmd += ["-c", str(packet_count)]
-        if bpf_filter:
-            # BPF filter args passed as additional positional args to tcpdump;
-            # use shlex.split to preserve quoted tokens in complex expressions.
-            cmd += shlex.split(bpf_filter)
+        # Detect capture backend: tcpdump preferred, tshark as fallback.
+        use_tshark = False
+        probe, _, probe_rc = await self._run("tcpdump", "--version", timeout=5, allow_nonzero=True)
+        if probe_rc != 0:
+            probe, _, probe_rc = await self._run("tshark", "--version", timeout=5, allow_nonzero=True)
+            use_tshark = probe_rc == 0
+
+        if use_tshark:
+            # tshark equivalent: tshark -i <iface> -w <pcap> [-c <n>] [filter]
+            cmd = ["tshark", "-i", interface, "-w", str(pcap_path)]
+            if packet_count > 0:
+                cmd += ["-c", str(packet_count)]
+            if bpf_filter:
+                cmd += ["-f", bpf_filter]
+        else:
+            cmd = ["tcpdump", "-i", interface, "-w", str(pcap_path), "-n"]
+            if packet_count > 0:
+                cmd += ["-c", str(packet_count)]
+            if bpf_filter:
+                # BPF filter args passed as additional positional args to tcpdump;
+                # use shlex.split to preserve quoted tokens in complex expressions.
+                cmd += shlex.split(bpf_filter)
 
         if packet_count > 0:
-            # tcpdump exits on its own after packet_count packets
+            # Both tools exit on their own after packet_count packets
             out, err, rc = await self._run(*cmd, timeout=duration + 30, allow_nonzero=True)
         else:
             # Time-bounded capture: run in background, sleep, then terminate
@@ -251,6 +269,7 @@ class TrafficAnalysisTool(Tool):
                 "bpf_filter": bpf_filter,
                 "packet_count": packet_count_actual,
                 "capture_dir": str(cap_dir),
+                "capture_backend": "tshark" if use_tshark else "tcpdump",
             }
         )
 
