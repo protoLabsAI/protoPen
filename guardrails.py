@@ -307,6 +307,7 @@ _PENTEST_TOOL_PREFIXES = {
     "blackarch",
     "engagement",
     "device_manager",
+    "traffic",  # traffic_analysis — tls_intercept is REDTEAM-level
 }
 
 

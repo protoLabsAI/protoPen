@@ -101,6 +101,8 @@ from tools.spa_test import SPATestTool
 from tools.sdn_attack import SDNAttackTool
 from tools.recon_pipeline import ReconPipelineTool
 from tools.orchestrator import EngagementOrchestratorTool
+from tools.wifi_intel import WiFiIntelTool
+from tools.traffic_analysis import TrafficAnalysisTool
 
 
 # Instantiate underlying tool classes (stateless singletons)
@@ -187,6 +189,12 @@ _recon_pipeline: ReconPipelineTool | None = None
 
 # Orchestrator singleton
 _orchestrator_tool: EngagementOrchestratorTool | None = None
+
+# WiFi Intel singleton
+_wifi_intel: WiFiIntelTool | None = None
+
+# Traffic analysis singleton
+_traffic_analysis: TrafficAnalysisTool | None = None
 
 
 # Discord tools — only loaded when DISCORD_BOT_TOKEN is set
@@ -634,6 +642,18 @@ def _init_pentest_singletons():
 
     global _recon_pipeline
     _recon_pipeline = ReconPipelineTool()
+
+    global _wifi_intel
+    wifi_cfg = config.get("devices", {}).get("wifi_adapter", {})
+    _wifi_intel = WiFiIntelTool(
+        interface=wifi_cfg.get("interface", "wlan1"),
+        monitor_interface=wifi_cfg.get("monitor_interface", "wlan1mon"),
+    )
+    _wifi_intel._target_store = _target_store
+
+    global _traffic_analysis
+    _traffic_analysis = TrafficAnalysisTool()
+    _traffic_analysis._target_store = _target_store
 
     # Orchestrator — wired with engagement manager and a dispatch closure
     global _orchestrator_tool
@@ -2842,6 +2862,85 @@ async def recon_pipeline(
     )
 
 
+@tool
+async def wifi_intel(
+    action: str,
+    interface: str = "wlan1",
+    monitor_interface: str = "wlan1mon",
+    band: str = "2.4",
+    channels: str = "",
+    duration: int = 60,
+    bssid: str = "",
+    bssid_filter: str = "",
+    channel: int = 0,
+    ssid: str = "",
+) -> str:
+    """Alfa WiFi adapter control — passive landscape surveys and targeted WPA capture.
+
+    Actions: monitor_start (enable monitor mode), monitor_stop (return to managed mode),
+    survey (channel-hopping airodump-ng scan, ingests all APs + stations into target_intel),
+    capture_pmkid (hcxdumptool passive PMKID/EAPOL → hashcat .hc22000),
+    capture_handshake (targeted WPA handshake via deauth + airodump-ng),
+    signal_history (query RSSI history for a BSSID from target_intel),
+    export (dump all known WiFi networks from target_intel + list capture files).
+    """
+    _init_pentest_singletons()
+    return await _wifi_intel.execute(
+        action=action,
+        interface=interface,
+        monitor_interface=monitor_interface,
+        band=band,
+        channels=channels or None,
+        duration=duration,
+        bssid=bssid,
+        bssid_filter=bssid_filter,
+        channel=channel,
+        ssid=ssid,
+    )
+
+
+@tool
+async def traffic_analysis(
+    action: str,
+    interface: str = "eth0",
+    duration: int = 60,
+    filter: str = "",
+    pcap_file: str = "",
+    output_dir: str = "",
+    analysis_type: str = "all",
+    target_ip: str = "",
+    gateway_ip: str = "",
+    listen_port: int = 8080,
+    packet_count: int = 0,
+) -> str:
+    """Packet capture and traffic analysis for networks you own or have authorization to test.
+
+    - pcap_capture: Live packet capture to file (tcpdump). Params: interface, duration, filter, packet_count.
+    - pcap_parse: Analyse an existing pcap — flows, protocols, suspicious patterns (tshark).
+      Params: pcap_file, analysis_type (flows|protocols|suspicious|all).
+    - session_reconstruct: Reassemble TCP streams and extract HTTP sessions (tcpflow).
+      Params: pcap_file, output_dir.
+    - cleartext_harvest: Extract credentials from HTTP Basic auth, FTP, Telnet, MQTT, SNMP.
+      Params: pcap_file.
+    - tls_intercept: Transparent HTTPS interception via ARP spoof + mitmproxy (own devices only).
+      Params: interface, target_ip, gateway_ip, listen_port, duration.
+    """
+    _init_pentest_singletons()
+    return await _traffic_analysis.execute(
+        action=action,
+        interface=interface,
+        duration=duration,
+        filter=filter,
+        pcap_file=pcap_file,
+        output_dir=output_dir,
+        analysis_type=analysis_type,
+        target_ip=target_ip,
+        gateway_ip=gateway_ip,
+        listen_port=listen_port,
+        packet_count=packet_count,
+    )
+
+
 def get_engagement_manager() -> EngagementManager:
     """Return the EngagementManager singleton (lazy-inits if needed)."""
     _init_pentest_singletons()
@@ -2929,6 +3028,10 @@ def get_pentest_tools():
         spa_test,
         sdn_attack,
         recon_pipeline,
+        # WiFi Intel — Alfa adapter surveys and WPA capture
+        wifi_intel,
+        # Traffic analysis — packet capture, session reconstruction, credential harvesting
+        traffic_analysis,
     ]
 
 

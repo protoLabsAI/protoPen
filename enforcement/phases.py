@@ -261,6 +261,12 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "capture_handshake": KillChainPhase.EXPLOITATION,
     "wifi_signal_history": KillChainPhase.RECON,
     "wifi_export": KillChainPhase.RECON,
+    # ── Traffic Analysis ──
+    "pcap_capture": KillChainPhase.RECON,
+    "pcap_parse": KillChainPhase.ENUMERATION,
+    "session_reconstruct": KillChainPhase.ENUMERATION,
+    "cleartext_harvest": KillChainPhase.EXPLOITATION,
+    "tls_intercept": KillChainPhase.EXPLOITATION,
 }
 
 
