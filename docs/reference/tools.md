@@ -426,3 +426,44 @@ Monitor mode is managed via `iw dev set type monitor` directly (not airmon-ng). 
 - `/etc/udev/rules.d/99-alfa-nowake.rules` — prevents USB connect events from waking the display
 - `/etc/NetworkManager/conf.d/99-alfa-unmanaged.conf` — prevents NM from managing the Alfa by MAC
 - `/etc/modprobe.d/blacklist-btusb.conf` — prevents `btusb` from claiming the adapter's Bluetooth interface, which blocks WiFi driver init
+
+---
+
+## traffic_analysis
+
+Packet capture and traffic analysis for networks you own or have written authorization to test. Wraps tcpdump, tshark, tcpflow, and mitmproxy.
+
+Credentials and hosts discovered are automatically ingested into `target_store` (`add_credential`, `upsert_host`). `tls_intercept` requires **REDTEAM** engagement mode.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `pcap_capture` | Live packet capture to a `.pcap` file via tcpdump | `interface` (default: `eth0`), `duration` (seconds), `filter` (BPF expression, e.g. `host 192.168.1.100 and port 80`), `packet_count` (0 = unlimited) |
+| `pcap_parse` | Analyse an existing pcap — TCP/UDP flow table, protocol hierarchy, anomaly detection (SYN scans, long DNS queries, cleartext on 443) via tshark | `pcap_file` (required), `analysis_type` (`flows` / `protocols` / `suspicious` / `all`) |
+| `session_reconstruct` | Reassemble TCP streams via tcpflow; extracts HTTP method, URI, Host, Authorization header, and body preview for each session | `pcap_file` (required), `output_dir` |
+| `cleartext_harvest` | Extract credentials from a pcap: HTTP Basic Auth (base64-decoded), HTTP POST form fields matching password/token patterns, FTP USER+PASS, Telnet data streams, MQTT CONNECT credentials, SNMP v1/v2c community strings | `pcap_file` (required) |
+| `tls_intercept` | Transparent HTTPS MITM — ARP spoof both directions (arpspoof), iptables REDIRECT 443 → mitmproxy, capture flows to dump file; restores `net.ipv4.ip_forward` and removes iptables rule on teardown. **Own devices only. REDTEAM engagement level.** | `interface`, `target_ip` (required), `gateway_ip` (required), `listen_port` (default: 8080), `duration` (seconds) |
+
+### BPF filter examples
+
+```
+host 192.168.1.50                         # single host
+host 192.168.1.50 and port 80             # host + port
+net 192.168.1.0/24                        # subnet
+port 21 or port 23                        # FTP and Telnet
+not port 443 and not port 22              # exclude SSH and HTTPS
+```
+
+### Anomaly detection (pcap_parse / suspicious)
+
+- **SYN scan detection** — source IPs that send SYN to ≥ 20 distinct ports on the same destination
+- **Cleartext auth protocols** — any FTP, Telnet, or HTTP Basic traffic
+- **DNS tunneling heuristic** — DNS queries with names > 50 characters
+- **Plaintext on 443** — TCP port 443 traffic that is not TLS/SSL
+
+### Engagement gating
+
+| Action | Required mode |
+|---|---|
+| `pcap_parse`, `session_reconstruct` | PASSIVE (0) |
+| `pcap_capture`, `cleartext_harvest` | ACTIVE (1) |
+| `tls_intercept` | REDTEAM (2) |

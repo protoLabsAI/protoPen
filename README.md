@@ -95,6 +95,7 @@ python server.py --port 7870
 | `data_exfil` | Evidence collection — SCP/SMB/HTTP file download from compromised hosts |
 | `spa_test` | SPA security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage audit, DOM XSS, source map exposure |
 | `wifi_intel` | Alfa AWUS036AXML (MT7921U, dual-band WiFi 6) — passive landscape surveys (airodump-ng, 2.4+5GHz), PMKID/EAPOL capture (hcxdumptool → hc22000), WPA handshake capture (deauth + airodump-ng, requires kernel < 6.9 for injection), RSSI history, target_intel ingestion. Monitor mode via `iw` (not airmon-ng) to preserve NM/Tailscale. |
+| `traffic_analysis` | Packet capture and traffic analysis for networks you own or have authorization to test — live pcap capture (tcpdump, BPF filter), flow analysis + anomaly detection (tshark), TCP session reconstruction (tcpflow + HTTP extraction), cleartext credential harvesting (HTTP Basic, FTP, Telnet, MQTT, SNMP), and transparent TLS interception (ARP spoof + mitmproxy, REDTEAM level). Findings ingested into target_store. |
 | `device_manager` | USB serial connection management for all hardware peripherals |
 | `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
 | `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
@@ -269,6 +270,8 @@ protoPen ships with pre-built playbooks that chain tools into multi-step workflo
 | `smb_enum` | 4 | enum4linux, SMB shares, RPC users, CVE check |
 | `wifi_landscape_survey` | 6 | **Passive WiFi landscape survey** — monitor start, airodump-ng scan on stable channel list (2.4+5GHz, 5 min default), target_intel upsert, monitor stop, report. Safe to run repeatedly via A2A. |
 | `wifi_pentest_local` | 9 | **Active WiFi pen test** — monitor start, 60s survey, passive PMKID capture (hcxdumptool → hc22000), WPA handshake capture (deauth, conditional on bssid+channel set and REDTEAM mode). Note: handshake capture requires kernel < 6.9 for frame injection. |
+| `network_traffic_survey` | 4 | **Passive network traffic capture and analysis** — live pcap capture (tcpdump), full flow/protocol/anomaly analysis (tshark), cleartext credential harvest. Safe, no injection. Suitable for own-network baseline monitoring. |
+| `tls_intercept_session` | 4 | **TLS interception session** — ARP spoof + mitmproxy transparent intercept, flow analysis, session reconstruction. REDTEAM engagement level; own devices only; tears down cleanly on timeout. |
 
 Run via the `/purple` command (for purple team exercises) or programmatically:
 

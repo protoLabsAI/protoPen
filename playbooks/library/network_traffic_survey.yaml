@@ -1,0 +1,65 @@
+name: network_traffic_survey
+description: >
+  Passive network traffic capture and analysis. Captures live traffic on the
+  specified interface for a configurable duration, then runs full flow/protocol/
+  anomaly analysis and harvests cleartext credentials from the resulting pcap.
+  No active attacks or packet injection of any kind — safe for own-network
+  monitoring and baselining.
+
+  Safe to run on any cadence. Suitable for continuous monitoring, incident
+  investigation, and pre-engagement network baselining.
+
+tags: [network, traffic, passive, recon, enumeration]
+
+variables:
+  interface: "eth0"         # capture interface
+  duration: "120"           # seconds to capture
+  filter: ""                # optional BPF filter expression (e.g. "host 192.168.1.1")
+  output_dir: "/tmp/protopen/traffic_survey"
+
+steps:
+
+  # ── Phase gate ───────────────────────────────────────────────────────────────
+  - name: phase_enumeration
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: enumeration
+    on_fail: continue
+
+  # ── Live packet capture ───────────────────────────────────────────────────────
+  # Captures all traffic on the interface for the configured duration.
+  # An optional BPF filter narrows scope (leave blank for full capture).
+  - name: capture_traffic
+    tool: traffic_analysis
+    action: pcap_capture
+    params:
+      interface: "${interface}"
+      duration: "${duration}"
+      filter: "${filter}"
+    timeout: 180
+    on_fail: continue
+
+  # ── Full protocol parse ───────────────────────────────────────────────────────
+  # Flow analysis, protocol hierarchy, and anomaly detection (SYN scans,
+  # DNS tunneling, cleartext on port 443). Hosts ingested into target_store.
+  - name: parse_capture
+    tool: traffic_analysis
+    action: pcap_parse
+    params:
+      pcap_file: "${output_dir}/capture.pcap"
+      analysis_type: "all"
+    timeout: 120
+    on_fail: continue
+
+  # ── Cleartext credential harvest ──────────────────────────────────────────────
+  # Extracts credentials from: HTTP Basic auth, HTTP POST forms, FTP USER+PASS,
+  # Telnet data, MQTT CONNECT, SNMP community strings.
+  # Findings ingested into target_store as credentials.
+  - name: harvest_cleartext
+    tool: traffic_analysis
+    action: cleartext_harvest
+    params:
+      pcap_file: "${output_dir}/capture.pcap"
+    timeout: 60
+    on_fail: continue
