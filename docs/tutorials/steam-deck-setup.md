@@ -366,6 +366,139 @@ groups deck  # should include 'wireshark'
 
 This enables the `blackarch tshark_capture` and `net_monitor traffic_baseline` tools for live LAN traffic analysis.
 
+## Hardware: HackRF / PortaPack {#hackrf-portapack}
+
+The PortaPack H4M (HackRF One + Mayhem firmware) requires extra setup on SteamOS because:
+
+1. **Wrong USB product ID in stock libhackrf** — Mayhem enumerates as `1d50:6018`. Stock libhackrf only recognises `1d50:6089` (HackRF One) and silently finds nothing.
+2. **No udev rule for `0x6018`** — the packaged udev rules don't cover Mayhem's product ID, so the device node is not accessible without root.
+
+### Power requirement
+
+The PortaPack draws ~500mA. The official Steam Deck dock allocates 160–500mA per USB-A port and the device may fail to enumerate through it. **Connect directly to the Deck's USB-C port**, or use an externally powered hub.
+
+### 1. Verify enumeration
+
+```bash
+lsusb -v -d 1d50:6018 | grep -E 'iManufacturer|iProduct'
+```
+
+Expected output:
+```
+iManufacturer  1 Great Scott Gadgets
+iProduct       2 PortaPack Mayhem
+```
+
+If no output, check the cable (must be a data cable, not charge-only) and the USB-C port.
+
+### 2. Install the hackrf package and udev rule
+
+```bash
+sudo pacman -S --noconfirm hackrf soapyhackrf
+
+echo 'ATTR{idVendor}=="1d50", ATTR{idProduct}=="6018", SYMLINK+="hackrf-portapack-%k", TAG+="uaccess"' | \
+  sudo tee /etc/udev/rules.d/53-hackrf-portapack.rules
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger --attr-match=idVendor=1d50
+```
+
+### 3. Patch and rebuild libhackrf
+
+Stock libhackrf (`2024.02.1-3`) does not recognise `0x6018`. Build a patched version from source.
+
+**Set up an Arch distrobox** (required because SteamOS rootfs lacks glibc dev headers):
+
+```bash
+distrobox create --name archbuild --image archlinux:latest --no-entry
+distrobox enter archbuild -- sudo pacman -S --noconfirm base-devel cmake libusb
+```
+
+**Clone and patch hackrf:**
+
+```bash
+git clone --depth=1 https://github.com/greatscottgadgets/hackrf.git ~/hackrf-portapack-src
+```
+
+Edit `~/hackrf-portapack-src/host/libhackrf/src/hackrf.c`:
+
+1. After the `rad1o_usb_pid` line, add:
+   ```c
+   static const uint16_t portapack_mayhem_usb_pid = 0x6018;
+   ```
+
+2. In the `hackrf_device_list()` product-ID check (around line 584), add `portapack_mayhem_usb_pid` to both OR-chains that filter by `idProduct`. There are two identical blocks — search for `rad1o_usb_pid` and add the new constant after each occurrence:
+   ```c
+   (device_descriptor.idProduct == rad1o_usb_pid) ||
+   (device_descriptor.idProduct == portapack_mayhem_usb_pid))
+   ```
+
+**Build and install:**
+
+```bash
+distrobox enter archbuild -- bash -c "
+  cd ~/hackrf-portapack-src/host
+  cmake -B build2 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
+  cmake --build build2 -j4
+"
+sudo cmake --install ~/hackrf-portapack-src/host/build2
+sudo ldconfig
+```
+
+**Verify:**
+
+```bash
+hackrf_info
+```
+
+Expected:
+```
+Found HackRF
+Index: 0
+Serial number: Transceiver
+hackrf_board_id_read() failed: Pipe error (-1000)
+```
+
+`Found HackRF` is success. The `Pipe error` on `board_id_read` is normal — Mayhem intercepts that control transfer. SDR software via SoapyHackRF works correctly:
+
+```bash
+SoapySDRUtil --find='driver=hackrf'
+# → Found device 0  driver=hackrf  serial=00000030...
+```
+
+### 4. Persist through OS updates
+
+SteamOS A/B updates will overwrite `/usr/lib/libhackrf.so*`. Add the patched files to the keep list:
+
+```bash
+sudo tee -a /etc/atomic-update.conf.d/protopen-keep.conf << 'EOF'
+/etc/udev/rules.d/53-hackrf-portapack.rules
+/usr/lib/libhackrf.so.0.10.0
+/usr/lib/libhackrf.so.0
+/usr/lib/libhackrf.so
+/usr/bin/hackrf_info
+EOF
+```
+
+After any SteamOS OS update, re-run the reinstall script:
+
+```bash
+~/hackrf-portapack-src/reinstall.sh
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `lsusb` shows no `1d50:` device | Cable is charge-only; try a different cable or port. Device not powered. |
+| `lsusb` shows `1d50:6018` but `hackrf_info` says "No HackRF boards found" | Patched libhackrf not installed — run step 3. |
+| `hackrf_info` exits with `Pipe error` only | Normal — Mayhem firmware. Enumeration succeeded. |
+| `SoapySDRUtil --find` returns nothing | Run step 3 first; SoapyHackRF uses libhackrf internally. |
+| After OS update, `hackrf_info` reverts to "No HackRF boards found" | Run `~/hackrf-portapack-src/reinstall.sh`. |
+| distrobox build fails — `stdint.h: No such file or directory` | Copy from a container: `find ~/.local/share/containers -name 'stdint.h' -not -path '*/isl/*' -not -path '*/c++/*' | head -1`, then `sudo cp <path> /usr/include/stdint.h`. |
+
+---
+
 ## What's next
 
 With protoPen running on the Deck, continue to the [First Engagement](./first-engagement) tutorial to run a passive network scan using only the Deck's built-in hardware.

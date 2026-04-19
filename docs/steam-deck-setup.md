@@ -180,8 +180,8 @@ If all 196 pass, protoPen is installed correctly and ready for hardware hookup.
 
 Once tests pass, you can:
 
-1. **Connect hardware** — Plug in PortaPack, Flipper Zero, and WiFi Marauder via USB hub
-2. **Verify devices** — `ls /dev/ttyACM* /dev/ttyUSB*` should show your serial devices
+1. **Connect hardware** — Plug PortaPack directly into the Deck's USB-C port (not the hub — needs ~500mA); Flipper Zero and WiFi Marauder via hub is fine
+2. **Verify devices** — `ls /dev/ttyACM* /dev/ttyUSB*` should show your serial devices; `hackrf_info` should show "Found HackRF"
 3. **Update serial ports** — Edit `config/engagement-config.json` with actual device paths
 4. **Start the agent** — `python server.py` (requires LLM gateway — see README.md)
 5. **Run a passive scan** — Start an engagement in passive mode to verify hardware-in-the-loop works
@@ -200,3 +200,5 @@ Once tests pass, you can:
 | Serial devices not showing up | Check USB connections, run `dmesg \| tail` for errors |
 | `pip install` fails on `sqlite-vec` | Install build deps: `sudo pacman -S gcc cmake` |
 | SteamOS update broke everything | Re-run steps 2-3 (read-only disable, sudoers, pacman keyring) |
+| `hackrf_info` says "No HackRF boards found" | See [HackRF / PortaPack setup](./tutorials/steam-deck-setup#hackrf-portapack) — libhackrf needs patching for Mayhem firmware |
+| PortaPack not enumerating at all | Connect directly to USB-C port; hub may not supply enough current |
