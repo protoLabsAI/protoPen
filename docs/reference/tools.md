@@ -153,3 +153,31 @@ _83 tools, generated from the live registry — do not edit by hand._
 | `set_goal` | Commit to an autonomous goal — keep working across turns until a verifier confirms it's met (or the iteration budget runs out) |
 
 <!-- END GENERATED TOOLS -->
+
+## Hardware notes
+
+### PortaPack / HackRF on SteamOS — USB enumeration quirk
+
+PortaPack Mayhem firmware enumerates as `1d50:6018`. The `lsusb` database mislabels this as "Black Magic Debug Probe" — it is not. Confirm with `lsusb -v -d 1d50:6018 | grep iProduct` → `PortaPack Mayhem`.
+
+Stock `libhackrf` (from `pacman -S hackrf`) only recognises `1d50:6089` (HackRF One) and will report "No HackRF boards found." even with the device connected. Two fixes are required:
+
+**1. Custom udev rule** — gives the `deck` user access to the device node:
+
+```bash
+echo 'ATTR{idVendor}=="1d50", ATTR{idProduct}=="6018", SYMLINK+="hackrf-portapack-%k", TAG+="uaccess"' | \
+  sudo tee /etc/udev/rules.d/53-hackrf-portapack.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger --attr-match=idVendor=1d50
+```
+
+**2. Patched libhackrf** — see [Steam Deck Setup → HackRF / PortaPack](../tutorials/steam-deck-setup#hackrf-portapack) for the full build procedure. After patching, `hackrf_info` shows `Found HackRF`. The `hackrf_board_id_read() failed: Pipe error` messages are expected — Mayhem intercepts some USB control transfers; SDR software using SoapyHackRF works normally.
+
+**OS update persistence** — add to `/etc/atomic-update.conf.d/protopen-keep.conf`:
+```
+/etc/udev/rules.d/53-hackrf-portapack.rules
+/usr/lib/libhackrf.so.0.10.0
+/usr/lib/libhackrf.so.0
+/usr/lib/libhackrf.so
+/usr/bin/hackrf_info
+```
+After an OS update, re-run `~/hackrf-portapack-src/reinstall.sh` to rebuild and reinstall the patched library.
