@@ -81,6 +81,8 @@ async def run_playbook(
 
 
 _STEP_REF_RE = re.compile(r"\$\{steps\.([a-zA-Z0-9_]+)\.output\}")
+# Matches ${steps.NAME.output.FIELD} — extracts a JSON field from a step's output.
+_STEP_FIELD_RE = re.compile(r"\$\{steps\.([a-zA-Z0-9_]+)\.output\.([a-zA-Z0-9_]+)\}")
 
 
 def _resolve_step_refs(
@@ -108,6 +110,26 @@ def _resolve_step_refs(
         if not isinstance(value, str) or "${steps." not in value:
             resolved[key] = value
             continue
+
+        # Pre-pass: resolve ${steps.NAME.output.FIELD} before the full-output
+        # substitution so field refs don't get consumed by the broader regex.
+        if _STEP_FIELD_RE.search(value):
+            def _replace_field(match: re.Match) -> str:
+                step_name, field = match.group(1), match.group(2)
+                step = step_map.get(step_name)
+                if step is None or not step.output:
+                    return match.group(0)  # leave unresolved
+                try:
+                    return str(json.loads(step.output).get(field, ""))
+                except (json.JSONDecodeError, AttributeError):
+                    return match.group(0)
+
+            value = _STEP_FIELD_RE.sub(_replace_field, value)
+            # If no more step refs remain, store and move on.
+            if "${steps." not in value:
+                resolved[key] = value
+                continue
+            # Still has ${steps.NAME.output} refs — fall through to main logic.
 
         ref_names = _STEP_REF_RE.findall(value)
 

@@ -431,17 +431,33 @@ Monitor mode is managed via `iw dev set type monitor` directly (not airmon-ng). 
 
 ## traffic_analysis
 
-Packet capture and traffic analysis for networks you own or have written authorization to test. Wraps tcpdump, tshark, tcpflow, and mitmproxy.
+Packet capture and traffic analysis for networks you own or have written authorization to test. Wraps tcpdump (with tshark fallback), tshark, tcpflow, and mitmproxy.
 
 Credentials and hosts discovered are automatically ingested into `target_store` (`add_credential`, `upsert_host`). `tls_intercept` requires **REDTEAM** engagement mode.
 
 | Action | Description | Key Parameters |
 |---|---|---|
-| `pcap_capture` | Live packet capture to a `.pcap` file via tcpdump | `interface` (default: `eth0`), `duration` (seconds), `filter` (BPF expression, e.g. `host 192.168.1.100 and port 80`), `packet_count` (0 = unlimited) |
+| `pcap_capture` | Live packet capture to a `.pcap` file. Prefers tcpdump; falls back to tshark automatically when tcpdump is absent. Output JSON includes `pcap_file` (absolute path) and `capture_backend`. | `interface` (default: `eth0`), `duration` (seconds), `filter` (BPF expression, e.g. `host 192.168.1.100 and port 80`), `packet_count` (0 = unlimited) |
 | `pcap_parse` | Analyse an existing pcap — TCP/UDP flow table, protocol hierarchy, anomaly detection (SYN scans, long DNS queries, cleartext on 443) via tshark | `pcap_file` (required), `analysis_type` (`flows` / `protocols` / `suspicious` / `all`) |
 | `session_reconstruct` | Reassemble TCP streams via tcpflow; extracts HTTP method, URI, Host, Authorization header, and body preview for each session | `pcap_file` (required), `output_dir` |
 | `cleartext_harvest` | Extract credentials from a pcap: HTTP Basic Auth (base64-decoded), HTTP POST form fields matching password/token patterns, FTP USER+PASS, Telnet data streams, MQTT CONNECT credentials, SNMP v1/v2c community strings | `pcap_file` (required) |
 | `tls_intercept` | Transparent HTTPS MITM — ARP spoof both directions (arpspoof), iptables REDIRECT 443 → mitmproxy, capture flows to dump file; restores `net.ipv4.ip_forward` and removes iptables rule on teardown. **Own devices only. REDTEAM engagement level.** | `interface`, `target_ip` (required), `gateway_ip` (required), `listen_port` (default: 8080), `duration` (seconds) |
+
+### System dependencies
+
+| Tool | Used by | Install (Arch/SteamOS) | Install (Debian/Ubuntu) |
+|---|---|---|---|
+| `tcpdump` | `pcap_capture` (primary) | `sudo pacman -S tcpdump` | `sudo apt install tcpdump` |
+| `tshark` | `pcap_capture` (fallback), `pcap_parse` | `sudo pacman -S wireshark-cli` | `sudo apt install tshark` |
+| `tcpflow` | `session_reconstruct` | `sudo pacman -S tcpflow` | `sudo apt install tcpflow` |
+| `arpspoof` | `tls_intercept` | `sudo pacman -S dsniff` | `sudo apt install dsniff` |
+| `mitmproxy` | `tls_intercept` | `pip install mitmproxy` | `pip install mitmproxy` |
+
+**SteamOS note:** tcpdump requires `cap_net_raw` capability to capture without root. Set it once with:
+```bash
+sudo setcap cap_net_raw,cap_net_admin+eip /usr/bin/tcpdump
+```
+tshark uses the `wireshark` group instead — add your user: `sudo usermod -aG wireshark $USER`.
 
 ### BPF filter examples
 
@@ -458,7 +474,29 @@ not port 443 and not port 22              # exclude SSH and HTTPS
 - **SYN scan detection** — source IPs that send SYN to ≥ 20 distinct ports on the same destination
 - **Cleartext auth protocols** — any FTP, Telnet, or HTTP Basic traffic
 - **DNS tunneling heuristic** — DNS queries with names > 50 characters
-- **Plaintext on 443** — TCP port 443 traffic that is not TLS/SSL
+- **Plaintext on 443** — TCP port 443 traffic that is not TLS/SSL framed; note this flag also fires on QUIC (UDP/443) which is benign
+
+### Playbook step chaining
+
+`pcap_capture` saves its output to a timestamped subdirectory and returns the path as `pcap_file` in its JSON output. Playbooks should reference it via step output fields rather than a fixed `output_dir` variable:
+
+```yaml
+- name: capture
+  tool: traffic_analysis
+  action: pcap_capture
+  params:
+    interface: "${interface}"
+    duration: "${duration}"
+
+- name: parse
+  tool: traffic_analysis
+  action: pcap_parse
+  params:
+    pcap_file: "${steps.capture.output.pcap_file}"   # ← correct
+    analysis_type: "all"
+```
+
+The `${steps.NAME.output.FIELD}` syntax extracts a single JSON key from a prior step's output and is supported across all playbooks.
 
 ### Engagement gating
 

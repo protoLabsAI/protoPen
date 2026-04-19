@@ -17,7 +17,6 @@ variables:
   gateway_ip: ""            # IP of the default gateway (required)
   listen_port: "8080"       # local port mitmproxy will bind to
   duration: "300"           # seconds to run the intercept session
-  output_dir: "/tmp/protopen/tls_sessions"
 
 steps:
 
@@ -54,7 +53,7 @@ steps:
     tool: traffic_analysis
     action: session_reconstruct
     params:
-      pcap_file: "${output_dir}/flows.dump"
-      output_dir: "${output_dir}/sessions"
+      pcap_file: "${steps.tls_intercept.output.flow_dump}"
+      output_dir: "${steps.tls_intercept.output.output_dir}"
     timeout: 120
     on_fail: continue

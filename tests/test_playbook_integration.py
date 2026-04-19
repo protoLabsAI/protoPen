@@ -384,6 +384,107 @@ class TestPurpleTeamStepRefs:
         for step in blue_steps:
             assert step.phase == "blue", f"{step.name} should have phase=blue"
 
+
+# ── Step output field refs ────────────────────────────────────────────────────
+
+
+class TestStepOutputFieldRefs:
+    """${steps.NAME.output.FIELD} extracts a JSON field from a prior step's output."""
+
+    @pytest.mark.asyncio
+    async def test_field_ref_extracts_json_key(self):
+        """Basic field extraction: producer outputs JSON, consumer reads one key."""
+        pb = Playbook(
+            name="field-ref-test",
+            steps=[
+                PlaybookStep(name="capture", tool="traffic_analysis", action="pcap_capture", on_fail="continue"),
+                PlaybookStep(
+                    name="parse",
+                    tool="traffic_analysis",
+                    action="pcap_parse",
+                    params={"pcap_file": "${steps.capture.output.pcap_file}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "pcap_capture":
+                return json.dumps({"pcap_file": "/tmp/capture.pcap", "packet_count": 42})
+            return json.dumps({"received_path": params.get("pcap_file", "")})
+
+        await run_playbook(pb, dispatch)
+        assert pb.steps[1].status == StepStatus.COMPLETED
+        result = json.loads(pb.steps[1].output)
+        assert result["received_path"] == "/tmp/capture.pcap"
+
+    @pytest.mark.asyncio
+    async def test_field_ref_missing_key_leaves_empty(self):
+        """If the field doesn't exist in the JSON output, resolves to empty string."""
+        pb = Playbook(
+            name="field-ref-missing",
+            steps=[
+                PlaybookStep(name="step1", tool="t", action="a", on_fail="continue"),
+                PlaybookStep(
+                    name="step2",
+                    tool="t",
+                    action="b",
+                    params={"path": "${steps.step1.output.nonexistent_field}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            if action == "a":
+                return json.dumps({"other_field": "value"})
+            return json.dumps({"got": params.get("path", "UNSET")})
+
+        await run_playbook(pb, dispatch)
+        result = json.loads(pb.steps[1].output)
+        assert result["got"] == ""
+
+    @pytest.mark.asyncio
+    async def test_field_ref_non_json_output_leaves_ref(self):
+        """If prior step output is not JSON, the ref is left as-is."""
+        pb = Playbook(
+            name="field-ref-non-json",
+            steps=[
+                PlaybookStep(name="step1", tool="t", action="a", on_fail="continue"),
+                PlaybookStep(
+                    name="step2",
+                    tool="t",
+                    action="b",
+                    params={"path": "${steps.step1.output.pcap_file}"},
+                    on_fail="continue",
+                ),
+            ],
+        )
+        original_ref = "${steps.step1.output.pcap_file}"
+        dispatched_path = None
+
+        async def dispatch(tool: str, action: str, params: dict) -> str:
+            nonlocal dispatched_path
+            if action == "a":
+                return "plain text, not JSON"
+            dispatched_path = params.get("path")
+            return "{}"
+
+        await run_playbook(pb, dispatch)
+        assert dispatched_path == original_ref
+
+    @pytest.mark.asyncio
+    async def test_field_ref_network_traffic_survey_wiring(self):
+        """network_traffic_survey playbook correctly wires pcap_file between steps."""
+        pb = load_playbook(
+            "network_traffic_survey",
+            {"interface": "eth0", "duration": "10", "filter": ""},
+        )
+        parse_step = next(s for s in pb.steps if s.name == "parse_capture")
+        harvest_step = next(s for s in pb.steps if s.name == "harvest_cleartext")
+        assert "${steps.capture_traffic.output.pcap_file}" in parse_step.params["pcap_file"]
+        assert "${steps.capture_traffic.output.pcap_file}" in harvest_step.params["pcap_file"]
+
     def test_correlation_steps_have_no_phase(self):
         pb = load_playbook("purple_team_exercise", {"target": "10.0.0.1"})
         for step in pb.steps:

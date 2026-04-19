@@ -15,7 +15,6 @@ variables:
   interface: "eth0"         # capture interface
   duration: "120"           # seconds to capture
   filter: ""                # optional BPF filter expression (e.g. "host 192.168.1.1")
-  output_dir: "/tmp/protopen/traffic_survey"
 
 steps:
 
@@ -47,7 +46,7 @@ steps:
     tool: traffic_analysis
     action: pcap_parse
     params:
-      pcap_file: "${output_dir}/capture.pcap"
+      pcap_file: "${steps.capture_traffic.output.pcap_file}"
       analysis_type: "all"
     timeout: 120
     on_fail: continue
@@ -60,6 +59,6 @@ steps:
     tool: traffic_analysis
     action: cleartext_harvest
     params:
-      pcap_file: "${output_dir}/capture.pcap"
+      pcap_file: "${steps.capture_traffic.output.pcap_file}"
     timeout: 60
     on_fail: continue
