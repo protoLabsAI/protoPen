@@ -18,6 +18,7 @@ docs/.vitepress/cache/
 
 # protoLabs workspace-config standard
 .beads/beads.db
+!.beads/issues.jsonl
 .worktrees/
 .automaker/features/
 .automaker/checkpoints/
