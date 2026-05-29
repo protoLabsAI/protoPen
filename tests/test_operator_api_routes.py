@@ -40,7 +40,7 @@ class _Beads:
         return {"deleted": issue_id, "project_path": project_path}
 
 
-def _client(*, run=None, api_key: str = "", engagement=None):
+def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None):
     app = FastAPI()
     notes = _Notes()
 
@@ -57,6 +57,7 @@ def _client(*, run=None, api_key: str = "", engagement=None):
         subagent_run=run or default_run,
         subagent_batch=batch,
         engagement_status=engagement,
+        knowledge_search=knowledge,
         notes_service=notes,
         beads_service=_Beads(),
         api_key=api_key,
@@ -122,6 +123,27 @@ def test_engagement_route_returns_inactive_shape_when_unwired() -> None:
     assert body["active"] is False
     assert body["findings"] == []
     assert body["total_findings"] == 0
+
+
+def test_knowledge_route_passes_query_filter_and_limit() -> None:
+    seen = {}
+
+    def knowledge(query, k, table):
+        seen["args"] = (query, k, table)
+        return {"query": query, "table": table, "count": 1, "hits": [{"table": "cves", "source_id": "CVE-1"}]}
+
+    client, _ = _client(knowledge=knowledge)
+    body = client.get("/api/knowledge/search", params={"q": "rce", "k": 5, "table": "cves"}).json()
+
+    assert seen["args"] == ("rce", 5, "cves")
+    assert body["count"] == 1
+    assert body["hits"][0]["source_id"] == "CVE-1"
+
+
+def test_knowledge_route_returns_empty_shape_when_unwired() -> None:
+    client, _ = _client()  # knowledge_search omitted
+    body = client.get("/api/knowledge/search", params={"q": "anything"}).json()
+    assert body == {"query": "anything", "table": None, "count": 0, "hits": []}
 
 
 def test_operator_routes_enforce_api_key() -> None:

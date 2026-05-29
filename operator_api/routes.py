@@ -84,6 +84,7 @@ def register_operator_routes(
     subagent_run: Callable[[dict[str, Any]], Awaitable[str]],
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
     engagement_status: Callable[[], dict[str, Any]] | None = None,
+    knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     api_key: str = "",
@@ -132,6 +133,15 @@ def register_operator_routes(
                 "findings": [],
             }
         return engagement_status()
+
+    @router.get("/api/knowledge/search")
+    async def _knowledge_search(q: str, k: int = 10, table: str | None = None):
+        if knowledge_search is None:
+            return {"query": q, "table": table, "count": 0, "hits": []}
+        try:
+            return await asyncio.to_thread(knowledge_search, q, k, table)
+        except Exception as exc:
+            raise _http_error(exc) from exc
 
     @router.post("/api/subagents/run")
     async def _subagent_run(req: SubagentRunRequest):

@@ -66,6 +66,31 @@ export type EngagementStatus = {
   findings: EngagementFinding[];
 };
 
+/** Knowledge-store tables exposed as search filters — mirrors
+ * operator_api/knowledge.py KNOWLEDGE_TABLES (frontend source of truth). */
+export const KNOWLEDGE_TABLES = [
+  "cves",
+  "exploits",
+  "advisories",
+  "threat_intel",
+  "topics",
+  "digests",
+] as const;
+
+export type KnowledgeHit = {
+  table: string;
+  source_id: string;
+  preview: string;
+  score: number;
+};
+
+export type KnowledgeSearchResult = {
+  query: string;
+  table: string | null;
+  count: number;
+  hits: KnowledgeHit[];
+};
+
 export type ChatMessage = {
   id?: string;
   role: "user" | "assistant" | "system";
