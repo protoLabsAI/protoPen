@@ -41,7 +41,18 @@ class _Beads:
 
 
 def _client(
-    *, run=None, api_key: str = "", engagement=None, knowledge=None, audit=None, report=None, report_generate=None
+    *,
+    run=None,
+    api_key: str = "",
+    engagement=None,
+    knowledge=None,
+    audit=None,
+    report=None,
+    report_generate=None,
+    agent_launch=None,
+    agent_list=None,
+    agent_get=None,
+    agent_cancel=None,
 ):
     app = FastAPI()
     notes = _Notes()
@@ -63,6 +74,10 @@ def _client(
         engagement_report_generate=report_generate,
         knowledge_search=knowledge,
         audit_recent=audit,
+        agent_launch=agent_launch,
+        agent_list=agent_list,
+        agent_get=agent_get,
+        agent_cancel=agent_cancel,
         notes_service=notes,
         beads_service=_Beads(),
         api_key=api_key,
@@ -197,6 +212,45 @@ def test_engagement_report_post_generates() -> None:
 def test_engagement_report_post_409_when_unwired() -> None:
     client, _ = _client()
     assert client.post("/api/engagement/report").status_code == 409
+
+
+def test_agent_routes_launch_list_get_cancel() -> None:
+    launched = {}
+    cancelled = {}
+    runs = [{"id": "task-abc", "type": "researcher", "status": "running"}]
+
+    def launch(req):
+        launched["req"] = req
+        return "task-abc"
+
+    def get(task_id):
+        return runs[0] if task_id == "task-abc" else None
+
+    def cancel(task_id):
+        cancelled["id"] = task_id
+        return True
+
+    client, _ = _client(agent_launch=launch, agent_list=lambda: runs, agent_get=get, agent_cancel=cancel)
+
+    assert client.post("/api/agents/launch", json={"type": "researcher", "prompt": "go"}).json() == {
+        "task_id": "task-abc"
+    }
+    assert launched["req"]["type"] == "researcher"
+    assert client.get("/api/agents").json() == {"agents": runs}
+    assert client.get("/api/agents/task-abc").json() == runs[0]
+    assert client.get("/api/agents/missing").status_code == 404
+    assert client.post("/api/agents/task-abc/cancel").json() == {"cancelled": True}
+    assert cancelled["id"] == "task-abc"
+
+
+def test_agent_launch_409_when_unwired() -> None:
+    client, _ = _client()
+    assert client.post("/api/agents/launch", json={"prompt": "x"}).status_code == 409
+
+
+def test_agents_list_empty_when_unwired() -> None:
+    client, _ = _client()
+    assert client.get("/api/agents").json() == {"agents": []}
 
 
 def test_operator_routes_enforce_api_key() -> None:

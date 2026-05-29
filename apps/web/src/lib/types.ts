@@ -100,6 +100,18 @@ export type KnowledgeSearchResult = {
   hits: KnowledgeHit[];
 };
 
+export type AgentRun = {
+  id: string;
+  type: string;
+  description: string;
+  status: "running" | "done" | "error" | "cancelled";
+  started_at: string;
+  ended_at: string;
+  duration_ms: number;
+  output: string;
+  error: string;
+};
+
 export type AuditEntry = {
   ts: string;
   session_id: string;

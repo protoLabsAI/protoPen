@@ -1,5 +1,6 @@
 import type {
   AgentConfig,
+  AgentRun,
   AuditRecent,
   BeadsIssue,
   ChatMessage,
@@ -268,6 +269,18 @@ export const api = {
       method: "POST",
       body,
     });
+  },
+
+  launchAgent(body: { session_id: string; type: string; description: string; prompt: string; emit_skill: boolean }) {
+    return request<{ task_id: string }>("/api/agents/launch", { method: "POST", body });
+  },
+
+  listAgents() {
+    return request<{ agents: AgentRun[] }>("/api/agents");
+  },
+
+  cancelAgent(id: string) {
+    return request<{ cancelled: boolean }>(`/api/agents/${encodeURIComponent(id)}/cancel`, { method: "POST" });
   },
 
   chat(message: string, sessionId: string) {

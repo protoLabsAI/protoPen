@@ -1383,6 +1383,104 @@ textarea {
   overflow-wrap: break-word;
 }
 
+.agent-runs {
+  min-height: 0;
+  max-height: 320px;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  margin: 0 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.agent-runs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.agent-runs-head .icon-button {
+  width: 26px;
+  height: 26px;
+}
+
+.agent-runs-empty {
+  padding: 6px 2px;
+}
+
+.agent-run {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.agent-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agent-run-toggle {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-run-type {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.agent-run-desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-secondary);
+  font-size: 12px;
+}
+
+.agent-run-dur {
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.agent-run-output {
+  margin: 4px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  padding: 8px;
+  color: var(--fg-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
 @media (max-width: 1040px) {
   .workspace {
     grid-template-columns: 64px minmax(0, 1fr);

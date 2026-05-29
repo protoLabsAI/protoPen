@@ -88,6 +88,10 @@ def register_operator_routes(
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
     audit_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
+    agent_launch: Callable[[dict[str, Any]], str] | None = None,
+    agent_list: Callable[[], list[dict[str, Any]]] | None = None,
+    agent_get: Callable[[str], dict[str, Any] | None] | None = None,
+    agent_cancel: Callable[[str], bool] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     api_key: str = "",
@@ -188,6 +192,31 @@ def register_operator_routes(
             return {"ok": True, "session_id": req.session_id, "output": output}
         except Exception as exc:
             raise _http_error(exc) from exc
+
+    @router.post("/api/agents/launch")
+    async def _agent_launch(req: SubagentRunRequest):
+        if agent_launch is None:
+            raise HTTPException(status_code=409, detail="agent launching is not available")
+        try:
+            # Synchronous: registry.launch must schedule the task on this loop.
+            return {"task_id": agent_launch(_model_payload(req))}
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/agents")
+    async def _agents_list():
+        return {"agents": agent_list() if agent_list else []}
+
+    @router.get("/api/agents/{task_id}")
+    async def _agent_get(task_id: str):
+        run = agent_get(task_id) if agent_get else None
+        if run is None:
+            raise HTTPException(status_code=404, detail="agent run not found")
+        return run
+
+    @router.post("/api/agents/{task_id}/cancel")
+    async def _agent_cancel(task_id: str):
+        return {"cancelled": bool(agent_cancel(task_id)) if agent_cancel else False}
 
     @router.get("/api/notes/workspace")
     async def _notes_get(project_path: str):
