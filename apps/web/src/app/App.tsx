@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ScrollText,
   Search,
   Settings2,
   Sparkles,
@@ -25,6 +26,7 @@ import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
+  AuditEntry,
   BeadsIssue,
   EngagementStatus,
   KnowledgeHit,
@@ -34,7 +36,8 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "knowledge" | "subagents" | "runtime";
+type Surface = "chat" | "knowledge" | "subagents" | "runtime" | "audit";
+type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
 type StatusTone = "success" | "warning" | "error" | "muted";
@@ -119,6 +122,13 @@ function formatBool(value: boolean) {
   return value ? "on" : "off";
 }
 
+function formatAuditTime(ts: string) {
+  if (!ts) return "—";
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return ts;
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 function statusTone(ok?: boolean) {
   if (ok === undefined) return "muted";
   return ok ? "success" : "error";
@@ -201,6 +211,12 @@ export function App() {
   const [knowledgeBusy, setKnowledgeBusy] = useState(false);
   const [knowledgeSearched, setKnowledgeSearched] = useState(false);
 
+  const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
+  const [auditBusy, setAuditBusy] = useState(false);
+  const [auditLoaded, setAuditLoaded] = useState(false);
+  const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
+  const [auditTool, setAuditTool] = useState("");
+
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesDirty, setNotesDirty] = useState(false);
   const [issueDraft, setIssueDraft] = useState<IssueDraft>(emptyIssueDraft);
@@ -270,6 +286,12 @@ export function App() {
     return () => window.clearTimeout(handle);
   }, [notesBusy, notesDirty, projectPath, workspace]);
 
+  useEffect(() => {
+    if (surface === "audit" && !auditLoaded && !auditBusy) {
+      void refreshAudit();
+    }
+  }, [surface, auditLoaded, auditBusy]);
+
   async function runSubagent() {
     const prompt = subagentPrompt.trim();
     const runnableBatchTasks = batchTasks.filter((task) => task.prompt.trim());
@@ -325,6 +347,25 @@ export function App() {
       }
     } finally {
       setKnowledgeBusy(false);
+    }
+  }
+
+  async function refreshAudit() {
+    if (auditBusy) return;
+    setAuditBusy(true);
+    setError("");
+    try {
+      const result = await api.auditRecent({ n: 200 });
+      setAuditEntries(result.entries);
+      setAuditLoaded(true);
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) {
+        setNeedsAuth(true);
+      } else {
+        setError(exc instanceof Error ? exc.message : String(exc));
+      }
+    } finally {
+      setAuditBusy(false);
     }
   }
 
@@ -550,6 +591,22 @@ export function App() {
 
   const groupedIssues = useMemo(() => groupIssues(beadsIssues), [beadsIssues]);
 
+  const auditTools = useMemo(
+    () => Array.from(new Set(auditEntries.map((entry) => entry.tool).filter(Boolean))).sort(),
+    [auditEntries],
+  );
+
+  const filteredAudit = useMemo(
+    () =>
+      auditEntries.filter((entry) => {
+        if (auditFilter === "ok" && !entry.success) return false;
+        if (auditFilter === "failed" && entry.success) return false;
+        if (auditTool && entry.tool !== auditTool) return false;
+        return true;
+      }),
+    [auditEntries, auditFilter, auditTool],
+  );
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -601,6 +658,12 @@ export function App() {
             label="Runtime"
             icon={<Gauge size={18} />}
             onClick={() => setSurface("runtime")}
+          />
+          <RailButton
+            active={surface === "audit"}
+            label="Audit"
+            icon={<ScrollText size={18} />}
+            onClick={() => setSurface("audit")}
           />
         </aside>
 
@@ -827,6 +890,73 @@ export function App() {
                     <StatusPill label={`${subagent.max_turns} turns`} tone={subagent.enabled ? "success" : "muted"} />
                   </div>
                 ))}
+              </div>
+            </section>
+          ) : null}
+
+          {surface === "audit" ? (
+            <section className="panel stage-panel audit-panel">
+              <div className="panel-header">
+                <div>
+                  <h1>Audit</h1>
+                  <p className="panel-kicker">
+                    {filteredAudit.length} of {auditEntries.length} tool call{auditEntries.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <button className="icon-button" type="button" onClick={() => void refreshAudit()} title="Refresh audit">
+                  {auditBusy ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                </button>
+              </div>
+              <div className="audit-controls">
+                <div className="segmented">
+                  <button type="button" className={auditFilter === "all" ? "active" : ""} onClick={() => setAuditFilter("all")}>
+                    All
+                  </button>
+                  <button type="button" className={auditFilter === "ok" ? "active" : ""} onClick={() => setAuditFilter("ok")}>
+                    OK
+                  </button>
+                  <button type="button" className={auditFilter === "failed" ? "active" : ""} onClick={() => setAuditFilter("failed")}>
+                    Failed
+                  </button>
+                </div>
+                <select value={auditTool} onChange={(event) => setAuditTool(event.target.value)} aria-label="Filter tool">
+                  <option value="">all tools</option>
+                  {auditTools.map((tool) => (
+                    <option key={tool} value={tool}>
+                      {tool}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="audit-list">
+                {filteredAudit.length > 0 ? (
+                  filteredAudit.map((entry, index) => (
+                    <article className="audit-row" key={`${entry.ts}:${entry.tool}:${index}`}>
+                      <div className="audit-row-head">
+                        <StatusPill label={entry.success ? "ok" : "failed"} tone={entry.success ? "success" : "error"} />
+                        <strong className="audit-tool">{entry.tool || "—"}</strong>
+                        <span className="audit-duration">{entry.duration_ms}ms</span>
+                        <span className="audit-ts">{formatAuditTime(entry.ts)}</span>
+                      </div>
+                      {entry.result_summary ? <p className="audit-summary">{entry.result_summary}</p> : null}
+                      <div className="audit-meta">
+                        {entry.session_id ? <span>{entry.session_id}</span> : null}
+                        {entry.trace_id ? <span>trace {entry.trace_id.slice(0, 8)}</span> : null}
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state stacked">
+                    <ScrollText size={18} />
+                    <span>
+                      {!auditLoaded
+                        ? "Loading audit trail…"
+                        : auditEntries.length === 0
+                          ? "No tool calls recorded yet."
+                          : "No entries match the current filter."}
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
           ) : null}
