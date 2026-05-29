@@ -87,7 +87,15 @@ class BasePentestTool:
             err_text = stderr.decode(errors="replace").strip()
             if err_text:
                 output += f"\n[stderr] {err_text}"
-        return output.strip()
+        output = output.strip()
+
+        # Route the output through the matching parser so findings land in the
+        # target store. No-op when no parser is registered or no store is set;
+        # ingest_output never raises. (Imported here to avoid an import cycle.)
+        from tools.parsers import ingest_output
+
+        ingest_output(self.name, action, output, self._target_store)
+        return output
 
     async def execute(self, action: str, **kwargs: Any) -> str:
         """Subclass entry point — override in each tool."""
