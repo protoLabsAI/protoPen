@@ -53,7 +53,7 @@ class TestToolInterface:
         assert "action" in p["required"]
 
     def test_execute_unknown_action(self, marauder: MarauderTool) -> None:
-        result = asyncio.get_event_loop().run_until_complete(marauder.execute(action="nope"))
+        result = asyncio.run(marauder.execute(action="nope"))
         assert "Unknown action" in result
 
 
@@ -238,7 +238,7 @@ class TestExecuteDispatch:
     """Verify async execute() routes to every method correctly."""
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_dispatch_scan_aps(self, marauder: MarauderTool, conn: MagicMock) -> None:
         self._run(marauder.execute(action="scan_aps"))
