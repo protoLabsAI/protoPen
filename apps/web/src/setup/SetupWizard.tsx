@@ -41,7 +41,7 @@ type WizardState = {
 
 function defaultState(): WizardState {
   return {
-    agentName: "protoagent",
+    agentName: "protopen",
     operatorName: "",
     apiBase: "https://api.proto-labs.ai/v1",
     apiKey: "",
@@ -67,7 +67,7 @@ function defaultState(): WizardState {
 function hydrateState(payload: ConfigPayload, status: SetupStatus | null): WizardState {
   const config = payload.config;
   return {
-    agentName: config.identity.name || "protoagent",
+    agentName: config.identity.name || "protopen",
     operatorName: config.identity.operator || "",
     apiBase: config.model.api_base || "https://api.proto-labs.ai/v1",
     apiKey: "",
@@ -206,7 +206,7 @@ export function SetupWizard({
         {
           model,
           identity: {
-            name: state.agentName.trim() || "protoagent",
+            name: state.agentName.trim() || "protopen",
             operator: state.operatorName.trim(),
           },
           middleware: state.middleware,
@@ -257,7 +257,7 @@ export function SetupWizard({
 
         <section className="setup-card">
           {step === "welcome" ? (
-            <StepBody icon={<Bot size={20} />} title="protoAgent" kicker="Setup">
+            <StepBody icon={<Bot size={20} />} title="protoPen" kicker="Setup">
               <div className="setup-summary">
                 <StatusLine icon={<KeyRound size={15} />} label="Model gateway" />
                 <StatusLine icon={<Sparkles size={15} />} label="SOUL profile" />
@@ -404,7 +404,7 @@ export function SetupWizard({
           {step === "finish" ? (
             <StepBody icon={<Check size={20} />} title="Finish" kicker="Write config">
               <div className="finish-list">
-                <StatusLine icon={<Bot size={15} />} label={state.agentName || "protoagent"} />
+                <StatusLine icon={<Bot size={15} />} label={state.agentName || "protopen"} />
                 <StatusLine icon={<KeyRound size={15} />} label={state.modelName || "model"} />
                 <StatusLine icon={<Database size={15} />} label={state.knowledgePath || "knowledge"} />
                 <StatusLine icon={<Network size={15} />} label={`${state.researcherTurns} researcher turns`} />

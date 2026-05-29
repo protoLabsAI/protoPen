@@ -80,10 +80,16 @@ function createNoteTab() {
   };
 }
 
-function useLocalStorageState(key: string, fallback: string) {
+function useLocalStorageState(key: string, fallback: string, legacyKeys: string[] = []) {
   const [value, setValue] = useState(() => {
     try {
-      return window.localStorage.getItem(key) || fallback;
+      const current = window.localStorage.getItem(key);
+      if (current) return current;
+      for (const legacyKey of legacyKeys) {
+        const legacy = window.localStorage.getItem(legacyKey);
+        if (legacy) return legacy;
+      }
+      return fallback;
     } catch {
       return fallback;
     }
@@ -157,7 +163,9 @@ function groupIssues(issues: BeadsIssue[]) {
 export function App() {
   const [surface, setSurface] = useState<Surface>("chat");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
-  const [projectPath, setProjectPath] = useLocalStorageState("protoagent.projectPath", "");
+  const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
+    "protoagent.projectPath",
+  ]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [subagents, setSubagents] = useState<Subagent[]>([]);
   const [workspace, setWorkspace] = useState<NotesWorkspace | null>(null);
@@ -499,7 +507,7 @@ export function App() {
         <div className="brand-lockup">
           <img src="/app/protolabs-icon-outline.svg" alt="" className="brand-mark" />
           <div>
-            <div className="brand-name">protoAgent</div>
+            <div className="brand-name">protoPen</div>
             <div className="brand-subline">protoLabs.studio</div>
           </div>
         </div>
@@ -676,7 +684,7 @@ export function App() {
                 <StatusPill label={runtime?.scheduler.backend || "scheduler"} tone="muted" />
               </div>
               <div className="metric-grid">
-                <Metric icon={<Bot size={16} />} label="Agent" value={runtime?.identity?.name || "protoagent"} />
+                <Metric icon={<Bot size={16} />} label="Agent" value={runtime?.identity?.name || "protopen"} />
                 <Metric icon={<Settings2 size={16} />} label="Provider" value={runtime?.model?.provider || "none"} />
                 <Metric icon={<Database size={16} />} label="Knowledge" value={runtime?.knowledge.resolved_path || runtime?.knowledge.configured_path || "disabled"} />
                 <Metric icon={<Sparkles size={16} />} label="Goal mode" value={formatBool(Boolean(runtime?.goal.enabled))} />

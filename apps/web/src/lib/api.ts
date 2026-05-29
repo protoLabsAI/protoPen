@@ -46,7 +46,10 @@ function defaultApiBase() {
   if (typeof window === "undefined") return "";
   let savedBase = "";
   try {
-    savedBase = window.localStorage.getItem("protoagent.apiBase") || "";
+    savedBase =
+      window.localStorage.getItem("protopen.apiBase") ||
+      window.localStorage.getItem("protoagent.apiBase") ||
+      "";
   } catch {
     savedBase = "";
   }

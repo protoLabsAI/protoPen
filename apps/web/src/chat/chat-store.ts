@@ -26,7 +26,8 @@ export type ChatState = PersistedChatState & {
   sessionStatusMap: Record<string, SessionStatus>;
 };
 
-const STORAGE_KEY = "protoagent.chat.sessions";
+const STORAGE_KEY = "protopen.chat.sessions";
+const LEGACY_STORAGE_KEY = "protoagent.chat.sessions";
 
 function id(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -51,7 +52,7 @@ function createSession(): ChatSession {
 
 function loadPersisted(): PersistedChatState {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) throw new Error("empty");
     const parsed = JSON.parse(raw) as Partial<PersistedChatState>;
     const sessions = Array.isArray(parsed.sessions) ? parsed.sessions.slice(0, MAX_SESSIONS) : [];

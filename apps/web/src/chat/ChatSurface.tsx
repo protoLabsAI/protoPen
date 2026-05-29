@@ -274,7 +274,7 @@ function ChatSessionSlot({
         <textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Message protoAgent"
+          placeholder="Message protoPen"
           rows={3}
         />
         {status === "streaming" ? (
