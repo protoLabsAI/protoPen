@@ -80,10 +80,16 @@ function createNoteTab() {
   };
 }
 
-function useLocalStorageState(key: string, fallback: string) {
+function useLocalStorageState(key: string, fallback: string, legacyKeys: string[] = []) {
   const [value, setValue] = useState(() => {
     try {
-      return window.localStorage.getItem(key) || fallback;
+      const current = window.localStorage.getItem(key);
+      if (current) return current;
+      for (const legacyKey of legacyKeys) {
+        const legacy = window.localStorage.getItem(legacyKey);
+        if (legacy) return legacy;
+      }
+      return fallback;
     } catch {
       return fallback;
     }
@@ -157,7 +163,9 @@ function groupIssues(issues: BeadsIssue[]) {
 export function App() {
   const [surface, setSurface] = useState<Surface>("chat");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
-  const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "");
+  const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
+    "protoagent.projectPath",
+  ]);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [subagents, setSubagents] = useState<Subagent[]>([]);
   const [workspace, setWorkspace] = useState<NotesWorkspace | null>(null);
