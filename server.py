@@ -1077,6 +1077,65 @@ def _main():
 
         fastapi_app.mount("/static", StaticFiles(directory=str(static_dir)), name="ava-static")
 
+    # --- React operator-console API + webview (ported from protoAgent #237) ---
+    # Webview-only: the Tauri desktop wrapper is intentionally not ported.
+    from operator_api.routes import register_operator_routes
+    from operator_api.runtime import build_runtime_status as _build_operator_status
+    from operator_api.subagents import (
+        list_subagents as _operator_list_subagents,
+        run_manual_subagent as _operator_run_manual_subagent,
+        run_manual_subagent_batch as _operator_run_manual_subagent_batch,
+    )
+    from operator_api.web import mount_react_app
+
+    def _operator_runtime_status():
+        # protopen is configured via env/Infisical (no template setup wizard) and
+        # has no scheduler/cache_warmer/goal_controller — omit those (default None).
+        return _build_operator_status(
+            config=_graph_config,
+            setup_complete=True,
+            graph_loaded=_graph is not None,
+            knowledge_store=_knowledge_store,
+        )
+
+    def _operator_subagent_list():
+        return _operator_list_subagents(_graph_config)
+
+    async def _operator_subagent_run(req: dict):
+        if _graph is None:
+            raise RuntimeError("agent graph is not loaded")
+        return await _operator_run_manual_subagent(
+            config=_graph_config,
+            knowledge_store=_knowledge_store,
+            scheduler=None,
+            description=req.get("description", ""),
+            prompt=req.get("prompt", ""),
+            subagent_type=req.get("type") or req.get("subagent_type", "researcher"),
+            emit_skill=bool(req.get("emit_skill", False)),
+        )
+
+    async def _operator_subagent_batch(req: dict):
+        if _graph is None:
+            raise RuntimeError("agent graph is not loaded")
+        return await _operator_run_manual_subagent_batch(
+            config=_graph_config,
+            knowledge_store=_knowledge_store,
+            scheduler=None,
+            tasks=req.get("tasks", []),
+        )
+
+    register_operator_routes(
+        fastapi_app,
+        runtime_status=_operator_runtime_status,
+        subagent_list=_operator_subagent_list,
+        subagent_run=_operator_subagent_run,
+        subagent_batch=_operator_subagent_batch,
+    )
+
+    _web_dist = Path(__file__).parent / "apps" / "web" / "dist"
+    if mount_react_app(fastapi_app, _web_dist):
+        print("[protoPen] React operator console mounted at /app")
+
     app = gr.mount_gradio_app(
         fastapi_app,
         blocks,
