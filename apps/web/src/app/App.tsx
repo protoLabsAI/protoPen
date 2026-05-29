@@ -23,6 +23,7 @@ import type { ReactNode } from "react";
 
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
+import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   BeadsIssue,
   EngagementStatus,
@@ -61,8 +62,6 @@ const emptyIssueDraft: IssueDraft = {
 };
 
 const issueStatusOrder = ["in_progress", "open", "blocked", "deferred", "closed"];
-
-const knowledgeTables = ["cves", "exploits", "advisories", "threat_intel", "topics", "digests"];
 
 function createBatchTask(type = "researcher"): BatchTask {
   return {
@@ -649,7 +648,7 @@ export function App() {
                   aria-label="Filter table"
                 >
                   <option value="">all sources</option>
-                  {knowledgeTables.map((table) => (
+                  {KNOWLEDGE_TABLES.map((table) => (
                     <option key={table} value={table}>
                       {table}
                     </option>
