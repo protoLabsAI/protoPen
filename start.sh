@@ -53,4 +53,17 @@ echo "✓ Secrets loaded from Infisical ($(echo "$SECRETS" | wc -l | tr -d ' ') 
 # Use LangGraph backend pointed at ava
 export AGENT_BACKEND=langgraph
 
+# Build the React operator console (served at /app) if its bundle is missing —
+# survives reboots / fresh clones without a manual build. The Deck has node/npm;
+# skip silently if unavailable or on failure so the server still starts
+# (mount_react_app no-ops without dist → Gradio-only, as before).
+if [ ! -f apps/web/dist/index.html ] && command -v npm >/dev/null 2>&1; then
+    echo "Operator console bundle missing — building apps/web…"
+    if npm install --no-audit --no-fund >/dev/null 2>&1 && npm run web:build >/dev/null 2>&1; then
+        echo "✓ operator console built (apps/web/dist)"
+    else
+        echo "WARN: operator console build failed — /app will 404 until built"
+    fi
+fi
+
 exec python server.py "$@"
