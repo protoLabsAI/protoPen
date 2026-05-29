@@ -16,12 +16,14 @@
   --brand-indigo-bright: var(--accent-bright);
   --brand-gradient: linear-gradient(135deg, #6ee7b7 0%, #3ee07a 50%, #10b981 100%);
 
-  --bg: #000000;
-  --bg-raised: #111111;
-  --bg-panel: #0a0a0a;
-  --bg-hover: #161616;
-  --bg-sunken: #050505;
-  --fg: #fafafa;
+  /* Near-black (not pure #000) + slightly-dimmed white: pure-black-on-bright
+     blooms/halates on OLED + webview, which reads as a glow around glyphs. */
+  --bg: #08080a;
+  --bg-raised: #161618;
+  --bg-panel: #0e0e10;
+  --bg-hover: #1c1c1f;
+  --bg-sunken: #050506;
+  --fg: #e8e8ea;
   --fg-secondary: #a1a1aa;
   --fg-muted: #52525b;
   --border: rgba(140, 140, 140, 0.16);
@@ -66,8 +68,8 @@ body {
   font-family: var(--font-mono);
   font-size: 14px;
   line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Default smoothing (not `antialiased`) keeps glyphs at full weight — the
+     thinned antialiased rendering on dark backgrounds reads as a glow. */
 }
 
 button,
