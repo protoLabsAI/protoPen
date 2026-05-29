@@ -18,7 +18,14 @@ class _Logger:
 
 
 def _entry(tool, success, **extra):
-    return {"tool": tool, "success": success, "session_id": "s1", "duration_ms": 5, "ts": "2026-05-29T00:00:00Z", **extra}
+    return {
+        "tool": tool,
+        "success": success,
+        "session_id": "s1",
+        "duration_ms": 5,
+        "ts": "2026-05-29T00:00:00Z",
+        **extra,
+    }
 
 
 def test_recent_audit_returns_newest_first_with_summary() -> None:

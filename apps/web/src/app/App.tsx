@@ -931,7 +931,7 @@ export function App() {
               <div className="audit-list">
                 {filteredAudit.length > 0 ? (
                   filteredAudit.map((entry, index) => (
-                    <article className="audit-row" key={`${entry.ts}:${entry.tool}:${index}`}>
+                    <article className="audit-row" key={`${entry.ts}:${entry.tool}:${entry.session_id}:${index}`}>
                       <div className="audit-row-head">
                         <StatusPill label={entry.success ? "ok" : "failed"} tone={entry.success ? "success" : "error"} />
                         <strong className="audit-tool">{entry.tool || "—"}</strong>

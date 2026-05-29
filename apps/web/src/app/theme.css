@@ -515,7 +515,7 @@ select:disabled {
 .message-body {
   min-width: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .composer {
@@ -1164,7 +1164,7 @@ textarea {
   font-size: 13px;
   line-height: 1.45;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .audit-panel {
@@ -1225,7 +1225,7 @@ textarea {
   font-size: 13px;
   line-height: 1.45;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .audit-meta {
