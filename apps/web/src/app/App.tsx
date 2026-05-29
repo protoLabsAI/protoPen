@@ -19,6 +19,7 @@ import {
   Search,
   Settings2,
   Sparkles,
+  Square,
   Trash2,
   X,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
+  AgentRun,
   AuditEntry,
   BeadsIssue,
   EngagementReport,
@@ -126,6 +128,13 @@ function formatBool(value: boolean) {
   return value ? "on" : "off";
 }
 
+function agentStatusTone(status: string): StatusTone {
+  if (status === "done") return "success";
+  if (status === "error") return "error";
+  if (status === "running") return "warning";
+  return "muted";
+}
+
 function formatAuditTime(ts: string) {
   if (!ts) return "—";
   const date = new Date(ts);
@@ -208,6 +217,9 @@ export function App() {
   const [emitSkill, setEmitSkill] = useState(false);
   const [subagentOutput, setSubagentOutput] = useState("");
   const [subagentBusy, setSubagentBusy] = useState(false);
+
+  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
   const [knowledgeTable, setKnowledgeTable] = useState("");
@@ -300,6 +312,16 @@ export function App() {
       void refreshAudit();
     }
   }, [surface, auditLoaded, auditBusy]);
+
+  // Live agent monitor: load on entering the surface, poll while any run is active.
+  useEffect(() => {
+    if (surface !== "subagents") return;
+    void refreshAgents();
+    const handle = window.setInterval(() => {
+      if (agentRuns.some((run) => run.status === "running")) void refreshAgents();
+    }, 3000);
+    return () => window.clearInterval(handle);
+  }, [surface, agentRuns]);
 
   // Live engagement monitor: poll while the engagement panel is open.
   useEffect(() => {
@@ -423,6 +445,50 @@ export function App() {
       else setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
       setReportBusy(false);
+    }
+  }
+
+  async function refreshAgents() {
+    try {
+      const result = await api.listAgents();
+      setAgentRuns(result.agents);
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      // Other poll errors are transient — next tick retries.
+    }
+  }
+
+  async function launchAgent() {
+    const prompt = subagentPrompt.trim();
+    if (!prompt || subagentBusy) return;
+    setSubagentBusy(true);
+    setError("");
+    try {
+      await api.launchAgent({
+        session_id: sessionId,
+        type: subagentType,
+        description: subagentDescription.trim(),
+        prompt,
+        emit_skill: emitSkill,
+      });
+      setSubagentPrompt("");
+      await refreshAgents();
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setSubagentBusy(false);
+    }
+  }
+
+  async function cancelAgent(id: string) {
+    setError("");
+    try {
+      await api.cancelAgent(id);
+      await refreshAgents();
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
     }
   }
 
@@ -900,17 +966,63 @@ export function App() {
                 <button
                   className="primary-button"
                   type="button"
-                  onClick={() => void runSubagent()}
+                  onClick={() => void (subagentMode === "single" ? launchAgent() : runSubagent())}
                   disabled={
                     subagentBusy ||
                     (subagentMode === "single" ? !subagentPrompt.trim() : !batchTasks.some((task) => task.prompt.trim()))
                   }
                 >
                   {subagentBusy ? <Loader2 className="spin" size={16} /> : <Play size={16} />}
-                  {subagentMode === "single" ? "Run" : "Run batch"}
+                  {subagentMode === "single" ? "Launch" : "Run batch"}
                 </button>
               </div>
               {subagentOutput ? <pre className="output-block">{subagentOutput}</pre> : null}
+              <div className="agent-runs">
+                <div className="agent-runs-head">
+                  <span>Tracked agents</span>
+                  <button className="icon-button" type="button" onClick={() => void refreshAgents()} title="Refresh agents">
+                    <RefreshCw size={15} />
+                  </button>
+                </div>
+                {agentRuns.length === 0 ? (
+                  <p className="panel-kicker agent-runs-empty">No launched agents yet.</p>
+                ) : (
+                  agentRuns.map((run) => {
+                    const open = selectedAgentId === run.id;
+                    const body = run.error || run.output;
+                    return (
+                      <div className="agent-run" key={run.id}>
+                        <div className="agent-run-head">
+                          <button
+                            type="button"
+                            className="agent-run-toggle"
+                            onClick={() => setSelectedAgentId(open ? null : run.id)}
+                            aria-expanded={open}
+                          >
+                            <StatusPill label={run.status} tone={agentStatusTone(run.status)} />
+                            <strong className="agent-run-type">{run.type}</strong>
+                            <span className="agent-run-desc">{run.description}</span>
+                            <span className="agent-run-dur">
+                              {run.status === "running" ? "running…" : `${run.duration_ms}ms`}
+                            </span>
+                          </button>
+                          {run.status === "running" ? (
+                            <button
+                              className="icon-button danger"
+                              type="button"
+                              onClick={() => void cancelAgent(run.id)}
+                              title="Cancel agent"
+                            >
+                              <Square size={14} />
+                            </button>
+                          ) : null}
+                        </div>
+                        {open && body ? <pre className="agent-run-output">{body}</pre> : null}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </section>
           ) : null}
 

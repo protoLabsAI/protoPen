@@ -1171,6 +1171,32 @@ def _main():
     def _operator_audit_recent(n: int = 50, session_id: str | None = None):
         return _recent_audit(_audit_logger, n=n, session_id=session_id)
 
+    # Live agent monitoring: launch manual subagents as tracked, cancellable
+    # background tasks (the synchronous /api/subagents/* path stays available).
+    from operator_api.agent_runtime import agent_registry as _agent_registry
+
+    def _operator_agent_launch(req: dict):
+        if _graph is None:
+            raise RuntimeError("agent graph is not loaded")
+        subagent_type = req.get("type") or req.get("subagent_type", "researcher")
+
+        def _factory():
+            return _operator_run_manual_subagent(
+                config=_graph_config,
+                knowledge_store=_knowledge_store,
+                scheduler=None,
+                description=req.get("description", ""),
+                prompt=req.get("prompt", ""),
+                subagent_type=subagent_type,
+                emit_skill=bool(req.get("emit_skill", False)),
+            )
+
+        return _agent_registry.launch(
+            _factory,
+            agent_type=subagent_type,
+            description=req.get("description", "") or req.get("prompt", "")[:80],
+        )
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
@@ -1182,6 +1208,10 @@ def _main():
         engagement_report_generate=_operator_engagement_report_generate,
         knowledge_search=_operator_knowledge_search,
         audit_recent=_operator_audit_recent,
+        agent_launch=_operator_agent_launch,
+        agent_list=lambda: _agent_registry.snapshot(),
+        agent_get=lambda task_id: _agent_registry.get(task_id),
+        agent_cancel=lambda task_id: _agent_registry.cancel(task_id),
         api_key=_operator_api_key,
     )
 
