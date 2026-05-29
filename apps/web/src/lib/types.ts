@@ -52,6 +52,15 @@ export type EngagementFinding = {
   severity: string;
   category: string;
   title: string;
+  detail?: string;
+  timestamp?: string;
+};
+
+export type EngagementReport = {
+  available: boolean;
+  name: string;
+  path: string;
+  markdown: string;
 };
 
 export type EngagementStatus = {

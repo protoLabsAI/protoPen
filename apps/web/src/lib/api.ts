@@ -4,6 +4,7 @@ import type {
   BeadsIssue,
   ChatMessage,
   ConfigPayload,
+  EngagementReport,
   EngagementStatus,
   KnowledgeSearchResult,
   NotesWorkspace,
@@ -215,6 +216,14 @@ export const api = {
 
   engagement() {
     return request<EngagementStatus>("/api/engagement");
+  },
+
+  engagementReport() {
+    return request<EngagementReport>("/api/engagement/report");
+  },
+
+  generateEngagementReport() {
+    return request<EngagementReport>("/api/engagement/report", { method: "POST" });
   },
 
   knowledgeSearch(query: string, options: { k?: number; table?: string } = {}) {

@@ -60,7 +60,55 @@ def build_engagement_status(engagement_mgr: Any) -> dict[str, Any]:
                 "severity": str(f.get("severity", "")),
                 "category": str(f.get("category", "")),
                 "title": str(f.get("title", "")),
+                "detail": str(f.get("detail", "")),
+                "timestamp": str(f.get("timestamp", "")),
             }
             for f in reversed(findings[-100:])
         ],
     }
+
+
+def _report_path(engagement_mgr: Any):
+    """Resolve the report.md path for the active engagement, or None."""
+    from pathlib import Path
+
+    eng = getattr(engagement_mgr, "active_engagement", None) or {}
+    workspace = eng.get("workspace")
+    if not workspace:
+        return None
+    return Path(workspace) / "report.md"
+
+
+def read_engagement_report(engagement_mgr: Any) -> dict[str, Any]:
+    """Read the already-generated report.md (no side effects).
+
+    Returns available=False when there's no active engagement or the report
+    hasn't been generated yet — the console then offers to generate one.
+    """
+    if engagement_mgr is None:
+        return {"available": False, "name": "", "path": "", "markdown": ""}
+
+    path = _report_path(engagement_mgr)
+    eng = getattr(engagement_mgr, "active_engagement", None) or {}
+    if path is None or not path.exists():
+        return {"available": False, "name": eng.get("name", ""), "path": str(path or ""), "markdown": ""}
+
+    try:
+        markdown = path.read_text()
+    except OSError:
+        markdown = ""
+    return {"available": True, "name": eng.get("name", ""), "path": str(path), "markdown": markdown}
+
+
+def generate_engagement_report(engagement_mgr: Any) -> dict[str, Any]:
+    """Generate (or regenerate) the report — writes report.md and delivers to
+    Discord, per EngagementManager.generate_report. Explicit operator action."""
+    if engagement_mgr is None:
+        raise RuntimeError("engagement manager is not loaded")
+    eng = getattr(engagement_mgr, "active_engagement", None)
+    if not eng:
+        raise ValueError("no active engagement")
+
+    markdown = engagement_mgr.generate_report()
+    path = _report_path(engagement_mgr)
+    return {"available": True, "name": eng.get("name", ""), "path": str(path or ""), "markdown": markdown}

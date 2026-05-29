@@ -40,7 +40,9 @@ class _Beads:
         return {"deleted": issue_id, "project_path": project_path}
 
 
-def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None, audit=None):
+def _client(
+    *, run=None, api_key: str = "", engagement=None, knowledge=None, audit=None, report=None, report_generate=None
+):
     app = FastAPI()
     notes = _Notes()
 
@@ -57,6 +59,8 @@ def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None, aud
         subagent_run=run or default_run,
         subagent_batch=batch,
         engagement_status=engagement,
+        engagement_report=report,
+        engagement_report_generate=report_generate,
         knowledge_search=knowledge,
         audit_recent=audit,
         notes_service=notes,
@@ -166,6 +170,33 @@ def test_audit_route_returns_empty_shape_when_unwired() -> None:
     client, _ = _client()  # audit_recent omitted
     body = client.get("/api/audit/recent").json()
     assert body == {"count": 0, "entries": [], "summary": {"total": 0, "successes": 0, "failures": 0}}
+
+
+def test_engagement_report_get_returns_payload_when_wired() -> None:
+    payload = {"available": True, "name": "op-1", "path": "/w/report.md", "markdown": "# r"}
+    client, _ = _client(report=lambda: payload)
+    assert client.get("/api/engagement/report").json() == payload
+
+
+def test_engagement_report_get_empty_shape_when_unwired() -> None:
+    client, _ = _client()
+    assert client.get("/api/engagement/report").json() == {
+        "available": False,
+        "name": "",
+        "path": "",
+        "markdown": "",
+    }
+
+
+def test_engagement_report_post_generates() -> None:
+    payload = {"available": True, "name": "op-1", "path": "/w/report.md", "markdown": "# generated"}
+    client, _ = _client(report_generate=lambda: payload)
+    assert client.post("/api/engagement/report").json() == payload
+
+
+def test_engagement_report_post_409_when_unwired() -> None:
+    client, _ = _client()
+    assert client.post("/api/engagement/report").status_code == 409
 
 
 def test_operator_routes_enforce_api_key() -> None:
