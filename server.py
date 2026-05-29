@@ -1142,6 +1142,12 @@ def _main():
         except Exception:
             return _build_engagement_status(None)
 
+    # Knowledge surface: hybrid search over the threat-intel store.
+    from operator_api.knowledge import search_knowledge as _search_knowledge
+
+    def _operator_knowledge_search(query: str, k: int = 10, table: str | None = None):
+        return _search_knowledge(_get_store(), query=query, k=k, table=table)
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
@@ -1149,6 +1155,7 @@ def _main():
         subagent_run=_operator_subagent_run,
         subagent_batch=_operator_subagent_batch,
         engagement_status=_operator_engagement_status,
+        knowledge_search=_operator_knowledge_search,
         api_key=_operator_api_key,
     )
 

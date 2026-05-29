@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  Search,
   Settings2,
   Sparkles,
   Trash2,
@@ -22,10 +23,17 @@ import type { ReactNode } from "react";
 
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
-import type { BeadsIssue, EngagementStatus, NotesWorkspace, RuntimeStatus, Subagent } from "../lib/types";
+import type {
+  BeadsIssue,
+  EngagementStatus,
+  KnowledgeHit,
+  NotesWorkspace,
+  RuntimeStatus,
+  Subagent,
+} from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "subagents" | "runtime";
+type Surface = "chat" | "knowledge" | "subagents" | "runtime";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
 type StatusTone = "success" | "warning" | "error" | "muted";
@@ -53,6 +61,8 @@ const emptyIssueDraft: IssueDraft = {
 };
 
 const issueStatusOrder = ["in_progress", "open", "blocked", "deferred", "closed"];
+
+const knowledgeTables = ["cves", "exploits", "advisories", "threat_intel", "topics", "digests"];
 
 function createBatchTask(type = "researcher"): BatchTask {
   return {
@@ -186,6 +196,12 @@ export function App() {
   const [subagentOutput, setSubagentOutput] = useState("");
   const [subagentBusy, setSubagentBusy] = useState(false);
 
+  const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [knowledgeTable, setKnowledgeTable] = useState("");
+  const [knowledgeHits, setKnowledgeHits] = useState<KnowledgeHit[]>([]);
+  const [knowledgeBusy, setKnowledgeBusy] = useState(false);
+  const [knowledgeSearched, setKnowledgeSearched] = useState(false);
+
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesDirty, setNotesDirty] = useState(false);
   const [issueDraft, setIssueDraft] = useState<IssueDraft>(emptyIssueDraft);
@@ -287,6 +303,29 @@ export function App() {
       setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
       setSubagentBusy(false);
+    }
+  }
+
+  async function searchKnowledge() {
+    const query = knowledgeQuery.trim();
+    if (!query || knowledgeBusy) return;
+    setKnowledgeBusy(true);
+    setError("");
+    try {
+      const result = await api.knowledgeSearch(query, {
+        k: 20,
+        table: knowledgeTable || undefined,
+      });
+      setKnowledgeHits(result.hits);
+      setKnowledgeSearched(true);
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) {
+        setNeedsAuth(true);
+      } else {
+        setError(exc instanceof Error ? exc.message : String(exc));
+      }
+    } finally {
+      setKnowledgeBusy(false);
     }
   }
 
@@ -547,6 +586,12 @@ export function App() {
             onClick={() => setSurface("chat")}
           />
           <RailButton
+            active={surface === "knowledge"}
+            label="Knowledge"
+            icon={<Search size={18} />}
+            onClick={() => setSurface("knowledge")}
+          />
+          <RailButton
             active={surface === "subagents"}
             label="Subagents"
             icon={<Network size={18} />}
@@ -570,6 +615,71 @@ export function App() {
 
           {surface === "chat" ? (
             <ChatSurface onError={setError} />
+          ) : null}
+
+          {surface === "knowledge" ? (
+            <section className="panel stage-panel knowledge-panel">
+              <div className="panel-header">
+                <div>
+                  <h1>Knowledge</h1>
+                  <p className="panel-kicker">hybrid search · cve / exploit / advisory intel</p>
+                </div>
+                <StatusPill
+                  label={knowledgeBusy ? "searching" : `${knowledgeHits.length} hit${knowledgeHits.length === 1 ? "" : "s"}`}
+                  tone={knowledgeBusy ? "warning" : "muted"}
+                />
+              </div>
+              <form
+                className="knowledge-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void searchKnowledge();
+                }}
+              >
+                <input
+                  value={knowledgeQuery}
+                  onChange={(event) => setKnowledgeQuery(event.target.value)}
+                  placeholder="Search advisories, exploits, CVEs…"
+                  aria-label="Knowledge query"
+                  autoFocus
+                />
+                <select
+                  value={knowledgeTable}
+                  onChange={(event) => setKnowledgeTable(event.target.value)}
+                  aria-label="Filter table"
+                >
+                  <option value="">all sources</option>
+                  {knowledgeTables.map((table) => (
+                    <option key={table} value={table}>
+                      {table}
+                    </option>
+                  ))}
+                </select>
+                <button className="primary-button" type="submit" disabled={knowledgeBusy || !knowledgeQuery.trim()}>
+                  {knowledgeBusy ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
+                  Search
+                </button>
+              </form>
+              <div className="knowledge-results">
+                {knowledgeHits.length > 0 ? (
+                  knowledgeHits.map((hit, index) => (
+                    <article className="knowledge-hit" key={`${hit.table}:${hit.source_id}:${index}`}>
+                      <div className="knowledge-hit-head">
+                        <StatusPill label={hit.table || "—"} tone="muted" />
+                        <span className="knowledge-hit-id">{hit.source_id}</span>
+                        <span className="knowledge-hit-score">{hit.score.toFixed(2)}</span>
+                      </div>
+                      <p className="knowledge-hit-preview">{hit.preview || "(no preview)"}</p>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state stacked">
+                    <Search size={18} />
+                    <span>{knowledgeSearched ? "No matches in the knowledge store." : "Search the threat-intel knowledge store."}</span>
+                  </div>
+                )}
+              </div>
+            </section>
           ) : null}
 
           {surface === "subagents" ? (

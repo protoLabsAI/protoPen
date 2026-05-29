@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   ConfigPayload,
   EngagementStatus,
+  KnowledgeSearchResult,
   NotesWorkspace,
   RuntimeStatus,
   SetupStatus,
@@ -213,6 +214,13 @@ export const api = {
 
   engagement() {
     return request<EngagementStatus>("/api/engagement");
+  },
+
+  knowledgeSearch(query: string, options: { k?: number; table?: string } = {}) {
+    const params = new URLSearchParams({ q: query });
+    if (options.k) params.set("k", String(options.k));
+    if (options.table) params.set("table", options.table);
+    return request<KnowledgeSearchResult>(`/api/knowledge/search?${params}`);
   },
 
   runSubagent(body: {
