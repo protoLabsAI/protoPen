@@ -1130,12 +1130,25 @@ def _main():
     import os as _os
 
     _operator_api_key = _os.environ.get("PROTOPEN_API_KEY", _os.environ.get("RESEARCHER_API_KEY", ""))
+
+    # Monitor view: surface the live engagement + findings (protoPen-specific).
+    from operator_api.engagement import build_engagement_status as _build_engagement_status
+
+    def _operator_engagement_status():
+        try:
+            from tools.lg_tools import get_engagement_manager
+
+            return _build_engagement_status(get_engagement_manager())
+        except Exception:
+            return _build_engagement_status(None)
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
         subagent_list=_operator_subagent_list,
         subagent_run=_operator_subagent_run,
         subagent_batch=_operator_subagent_batch,
+        engagement_status=_operator_engagement_status,
         api_key=_operator_api_key,
     )
 

@@ -3,6 +3,7 @@ import type {
   BeadsIssue,
   ChatMessage,
   ConfigPayload,
+  EngagementStatus,
   NotesWorkspace,
   RuntimeStatus,
   SetupStatus,
@@ -208,6 +209,10 @@ export const api = {
 
   subagents() {
     return request<{ subagents: Subagent[] }>("/api/subagents");
+  },
+
+  engagement() {
+    return request<EngagementStatus>("/api/engagement");
   },
 
   runSubagent(body: {

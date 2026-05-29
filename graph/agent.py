@@ -136,6 +136,96 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     return task
 
 
+async def run_manual_subagent(
+    config: LangGraphConfig,
+    knowledge_store=None,
+    scheduler=None,
+    *,
+    description: str,
+    prompt: str,
+    subagent_type: str = "threat_scanner",
+    emit_skill: bool = False,
+) -> str:
+    """Run a single subagent outside the lead agent's ``task`` tool.
+
+    Used by the React operator console's manual launch. Mirrors
+    ``_build_task_tool``'s runner: build the subagent from SUBAGENT_REGISTRY +
+    create_react_agent and run it. ``scheduler`` / ``emit_skill`` are accepted
+    for operator-API parity but unused in protoPen.
+    """
+    from langgraph.prebuilt import create_react_agent
+
+    if not prompt or not prompt.strip():
+        raise ValueError("prompt is required")
+    sub_config = SUBAGENT_REGISTRY.get(subagent_type)
+    if not sub_config:
+        available = ", ".join(SUBAGENT_REGISTRY.keys())
+        raise ValueError(f"Unknown subagent '{subagent_type}'. Available: {available}")
+
+    llm = create_llm(config)
+    tool_map = {t.name: t for t in get_combined_tools(knowledge_store)}
+    sub_tools = [tool_map[name] for name in sub_config.tools if name in tool_map]
+    if not sub_tools:
+        raise ValueError(f"No tools available for subagent '{subagent_type}'.")
+    subagent = create_react_agent(
+        model=llm,
+        tools=sub_tools,
+        prompt=build_subagent_prompt(subagent_type),
+    )
+    try:
+        result = await subagent.ainvoke(
+            {"messages": [{"role": "user", "content": prompt}]},
+            config={"recursion_limit": sub_config.max_turns},
+        )
+    except Exception as e:
+        raise ValueError(f"Subagent '{subagent_type}' failed: {e}") from e
+    for msg in reversed(result.get("messages", [])):
+        content = getattr(msg, "content", None)
+        if content:
+            text = content if isinstance(content, str) else str(content)
+            if text:
+                return f"[{subagent_type} completed: {description}]\n\n{text}"
+    return f"[{subagent_type} completed: {description}] — no output produced."
+
+
+async def run_manual_subagent_batch(
+    config: LangGraphConfig,
+    knowledge_store=None,
+    scheduler=None,
+    *,
+    tasks: list[dict],
+) -> str:
+    """Run independent manual subagent jobs concurrently (operator console)."""
+    import asyncio
+
+    if not isinstance(tasks, list) or not tasks:
+        raise ValueError("tasks must be a non-empty list")
+    sem = asyncio.Semaphore(max(1, getattr(config, "subagent_max_concurrency", 3)))
+
+    async def _one(spec: dict) -> str:
+        if not isinstance(spec, dict):
+            return f"Error: each task must be an object, got {type(spec).__name__}."
+        desc = spec.get("description") or "(no description)"
+        prm = spec.get("prompt")
+        if not prm:
+            return f"Error: task '{desc}' is missing 'prompt'."
+        async with sem:
+            try:
+                return await run_manual_subagent(
+                    config,
+                    knowledge_store=knowledge_store,
+                    scheduler=scheduler,
+                    description=desc,
+                    prompt=prm,
+                    subagent_type=spec.get("type") or spec.get("subagent_type", "threat_scanner"),
+                )
+            except Exception as e:
+                return f"Error: task '{desc}' failed: {e}"
+
+    results = await asyncio.gather(*[_one(t) for t in tasks])
+    return "\n\n---\n\n".join(results)
+
+
 def create_researcher_graph(
     config: LangGraphConfig,
     knowledge_store=None,

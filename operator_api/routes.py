@@ -83,6 +83,7 @@ def register_operator_routes(
     subagent_list: Callable[[], list[dict[str, Any]]],
     subagent_run: Callable[[dict[str, Any]], Awaitable[str]],
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
+    engagement_status: Callable[[], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     api_key: str = "",
@@ -115,6 +116,22 @@ def register_operator_routes(
     @router.get("/api/subagents")
     async def _subagents():
         return {"subagents": subagent_list()}
+
+    @router.get("/api/engagement")
+    async def _engagement():
+        if engagement_status is None:
+            return {
+                "active": False,
+                "name": "",
+                "scope": "",
+                "mode": "",
+                "phase": "",
+                "started_at": "",
+                "finding_counts": {},
+                "total_findings": 0,
+                "findings": [],
+            }
+        return engagement_status()
 
     @router.post("/api/subagents/run")
     async def _subagent_run(req: SubagentRunRequest):
