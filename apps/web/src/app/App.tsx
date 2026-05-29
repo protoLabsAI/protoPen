@@ -2,6 +2,8 @@ import {
   Bot,
   Boxes,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
   Database,
   FileText,
@@ -18,6 +20,7 @@ import {
   Settings2,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
@@ -28,6 +31,7 @@ import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   AuditEntry,
   BeadsIssue,
+  EngagementReport,
   EngagementStatus,
   KnowledgeHit,
   NotesWorkspace,
@@ -217,6 +221,11 @@ export function App() {
   const [auditFilter, setAuditFilter] = useState<AuditFilter>("all");
   const [auditTool, setAuditTool] = useState("");
 
+  const [expandedFinding, setExpandedFinding] = useState<number | null>(null);
+  const [report, setReport] = useState<EngagementReport | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false);
+
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesDirty, setNotesDirty] = useState(false);
   const [issueDraft, setIssueDraft] = useState<IssueDraft>(emptyIssueDraft);
@@ -292,6 +301,26 @@ export function App() {
     }
   }, [surface, auditLoaded, auditBusy]);
 
+  // Live engagement monitor: poll while the engagement panel is open.
+  useEffect(() => {
+    if (rightPanel !== "engagement") return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const payload = await api.engagement();
+        if (!cancelled) setEngagement(payload);
+      } catch {
+        // Transient poll errors are non-fatal; the next tick retries.
+      }
+    };
+    void tick();
+    const handle = window.setInterval(() => void tick(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [rightPanel]);
+
   async function runSubagent() {
     const prompt = subagentPrompt.trim();
     const runnableBatchTasks = batchTasks.filter((task) => task.prompt.trim());
@@ -366,6 +395,34 @@ export function App() {
       }
     } finally {
       setAuditBusy(false);
+    }
+  }
+
+  async function openReport() {
+    setReportOpen(true);
+    setReportBusy(true);
+    setError("");
+    try {
+      setReport(await api.engagementReport());
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  async function generateReport() {
+    if (reportBusy) return;
+    setReportBusy(true);
+    setError("");
+    try {
+      setReport(await api.generateEngagementReport());
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setReportBusy(false);
     }
   }
 
@@ -993,7 +1050,7 @@ export function App() {
           </div>
 
           {rightPanel === "engagement" ? (
-            <section className="panel side-panel">
+            <section className="panel side-panel engagement-panel">
               <div className="panel-header compact">
                 <div>
                   <h2>{engagement?.active ? engagement.name || "Engagement" : "No active engagement"}</h2>
@@ -1003,24 +1060,55 @@ export function App() {
                       : "protoPen is idle"}
                   </p>
                 </div>
+                <div className="notes-actions">
+                  {engagement?.active ? <StatusPill label="live" tone="success" /> : null}
+                  <button className="icon-button" type="button" onClick={() => void openReport()} title="View report">
+                    <FileText size={16} />
+                  </button>
+                </div>
               </div>
               {engagement?.active ? (
-                <div className="panel-body">
+                <div className="engagement-body">
                   {engagement.scope ? <p className="panel-kicker">Scope: {engagement.scope}</p> : null}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  <div className="severity-row">
                     {Object.entries(engagement.finding_counts).map(([sev, count]) => (
-                      <span key={sev} className={`status-pill ${sev}`}>
+                      <span key={sev} className={`status-pill sev-${sev}`}>
                         {sev}: {count}
                       </span>
                     ))}
                   </div>
-                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
-                    {engagement.findings.map((finding, index) => (
-                      <li key={index} style={{ fontSize: 13 }}>
-                        <strong>{finding.severity || "—"}</strong> · {finding.category || "—"} — {finding.title || "(untitled)"}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="finding-list">
+                    {engagement.findings.length === 0 ? (
+                      <p className="panel-kicker">No findings logged yet.</p>
+                    ) : (
+                      engagement.findings.map((finding, index) => {
+                        const open = expandedFinding === index;
+                        const hasDetail = Boolean(finding.detail);
+                        return (
+                          <div className="finding-row" key={index}>
+                            <button
+                              type="button"
+                              className="finding-head"
+                              onClick={() => setExpandedFinding(open ? null : index)}
+                              aria-expanded={open}
+                            >
+                              {hasDetail ? (
+                                open ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                              ) : (
+                                <span className="finding-bullet" />
+                              )}
+                              <span className={`status-pill sev-${finding.severity || "info"}`}>
+                                {finding.severity || "—"}
+                              </span>
+                              <span className="finding-title">{finding.title || "(untitled)"}</span>
+                            </button>
+                            <div className="finding-sub">{finding.category || "—"}</div>
+                            {open && hasDetail ? <pre className="finding-detail">{finding.detail}</pre> : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               ) : null}
             </section>
@@ -1252,6 +1340,52 @@ export function App() {
         onProjectPathChange={setProjectPath}
         onFinished={() => void refreshAll()}
       />
+      {reportOpen && (
+        <div className="setup-overlay" role="dialog" aria-modal="true" aria-label="Engagement report">
+          <div className="report-frame">
+            <div className="report-bar">
+              <div>
+                <h2>Engagement Report</h2>
+                <p className="panel-kicker">{report?.name || engagement?.name || "—"}</p>
+              </div>
+              <div className="notes-actions">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => void generateReport()}
+                  disabled={reportBusy || !engagement?.active}
+                  title="Regenerate report (writes report.md + Discord)"
+                >
+                  {reportBusy ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                  {report?.available ? "Regenerate" : "Generate"}
+                </button>
+                <button className="icon-button" type="button" onClick={() => setReportOpen(false)} title="Close">
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="report-body">
+              {reportBusy && !report ? (
+                <div className="empty-state stacked">
+                  <Loader2 className="spin" size={18} />
+                  <span>Loading report…</span>
+                </div>
+              ) : report?.available ? (
+                <pre className="report-markdown">{report.markdown}</pre>
+              ) : (
+                <div className="empty-state stacked">
+                  <FileText size={18} />
+                  <span>
+                    {engagement?.active
+                      ? "No report generated yet for this engagement."
+                      : "No active engagement — nothing to report."}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {needsAuth && (
         <div className="setup-overlay" role="dialog" aria-modal="true" aria-label="Operator login">
           <div className="setup-frame">

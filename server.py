@@ -1132,15 +1132,31 @@ def _main():
     _operator_api_key = _os.environ.get("PROTOPEN_API_KEY", _os.environ.get("RESEARCHER_API_KEY", ""))
 
     # Monitor view: surface the live engagement + findings (protoPen-specific).
-    from operator_api.engagement import build_engagement_status as _build_engagement_status
+    from operator_api.engagement import (
+        build_engagement_status as _build_engagement_status,
+        generate_engagement_report as _generate_engagement_report,
+        read_engagement_report as _read_engagement_report,
+    )
+
+    def _operator_engagement_manager():
+        from tools.lg_tools import get_engagement_manager
+
+        return get_engagement_manager()
 
     def _operator_engagement_status():
         try:
-            from tools.lg_tools import get_engagement_manager
-
-            return _build_engagement_status(get_engagement_manager())
+            return _build_engagement_status(_operator_engagement_manager())
         except Exception:
             return _build_engagement_status(None)
+
+    def _operator_engagement_report():
+        try:
+            return _read_engagement_report(_operator_engagement_manager())
+        except Exception:
+            return _read_engagement_report(None)
+
+    def _operator_engagement_report_generate():
+        return _generate_engagement_report(_operator_engagement_manager())
 
     # Knowledge surface: hybrid search over the threat-intel store.
     from operator_api.knowledge import search_knowledge as _search_knowledge
@@ -1162,6 +1178,8 @@ def _main():
         subagent_run=_operator_subagent_run,
         subagent_batch=_operator_subagent_batch,
         engagement_status=_operator_engagement_status,
+        engagement_report=_operator_engagement_report,
+        engagement_report_generate=_operator_engagement_report_generate,
         knowledge_search=_operator_knowledge_search,
         audit_recent=_operator_audit_recent,
         api_key=_operator_api_key,

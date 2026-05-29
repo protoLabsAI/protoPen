@@ -84,6 +84,8 @@ def register_operator_routes(
     subagent_run: Callable[[dict[str, Any]], Awaitable[str]],
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
     engagement_status: Callable[[], dict[str, Any]] | None = None,
+    engagement_report: Callable[[], dict[str, Any]] | None = None,
+    engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
     audit_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
@@ -134,6 +136,24 @@ def register_operator_routes(
                 "findings": [],
             }
         return engagement_status()
+
+    @router.get("/api/engagement/report")
+    async def _engagement_report():
+        if engagement_report is None:
+            return {"available": False, "name": "", "path": "", "markdown": ""}
+        try:
+            return await asyncio.to_thread(engagement_report)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.post("/api/engagement/report")
+    async def _engagement_report_generate():
+        if engagement_report_generate is None:
+            raise HTTPException(status_code=409, detail="report generation is not available")
+        try:
+            return await asyncio.to_thread(engagement_report_generate)
+        except Exception as exc:
+            raise _http_error(exc) from exc
 
     @router.get("/api/knowledge/search")
     async def _knowledge_search(q: str, k: int = 10, table: str | None = None):
