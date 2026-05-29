@@ -19,7 +19,17 @@ def build_engagement_status(engagement_mgr: Any) -> dict[str, Any]:
     findings rather than raising.
     """
     if engagement_mgr is None:
-        return {"active": False, "name": "", "scope": "", "mode": "", "phase": "", "finding_counts": {}, "findings": []}
+        return {
+            "active": False,
+            "name": "",
+            "scope": "",
+            "mode": "",
+            "phase": "",
+            "started_at": "",
+            "finding_counts": {},
+            "total_findings": 0,
+            "findings": [],
+        }
 
     eng = getattr(engagement_mgr, "active_engagement", None) or {}
     findings = list(getattr(engagement_mgr, "findings", []) or [])

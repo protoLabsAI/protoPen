@@ -165,15 +165,20 @@ async def run_manual_subagent(
     llm = create_llm(config)
     tool_map = {t.name: t for t in get_combined_tools(knowledge_store)}
     sub_tools = [tool_map[name] for name in sub_config.tools if name in tool_map]
+    if not sub_tools:
+        raise ValueError(f"No tools available for subagent '{subagent_type}'.")
     subagent = create_react_agent(
         model=llm,
         tools=sub_tools,
         prompt=build_subagent_prompt(subagent_type),
     )
-    result = await subagent.ainvoke(
-        {"messages": [{"role": "user", "content": prompt}]},
-        config={"recursion_limit": sub_config.max_turns},
-    )
+    try:
+        result = await subagent.ainvoke(
+            {"messages": [{"role": "user", "content": prompt}]},
+            config={"recursion_limit": sub_config.max_turns},
+        )
+    except Exception as e:
+        raise ValueError(f"Subagent '{subagent_type}' failed: {e}") from e
     for msg in reversed(result.get("messages", [])):
         content = getattr(msg, "content", None)
         if content:

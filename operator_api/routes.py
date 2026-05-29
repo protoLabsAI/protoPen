@@ -120,7 +120,17 @@ def register_operator_routes(
     @router.get("/api/engagement")
     async def _engagement():
         if engagement_status is None:
-            return {"active": False, "findings": [], "finding_counts": {}, "total_findings": 0}
+            return {
+                "active": False,
+                "name": "",
+                "scope": "",
+                "mode": "",
+                "phase": "",
+                "started_at": "",
+                "finding_counts": {},
+                "total_findings": 0,
+                "findings": [],
+            }
         return engagement_status()
 
     @router.post("/api/subagents/run")
