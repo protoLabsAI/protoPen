@@ -515,7 +515,7 @@ select:disabled {
 .message-body {
   min-width: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .composer {
@@ -1164,7 +1164,77 @@ textarea {
   font-size: 13px;
   line-height: 1.45;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.audit-panel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.audit-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-list {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+}
+
+.audit-row {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+}
+
+.audit-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-tool {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.audit-duration {
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.audit-ts {
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.audit-summary {
+  color: var(--fg-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 @media (max-width: 1040px) {
@@ -1226,6 +1296,7 @@ textarea {
   .subagent-grid,
   .batch-task-fields,
   .knowledge-search,
+  .audit-controls,
   .issue-create,
   .issue-create-meta,
   .notes-meta,

@@ -1,5 +1,6 @@
 import type {
   AgentConfig,
+  AuditRecent,
   BeadsIssue,
   ChatMessage,
   ConfigPayload,
@@ -221,6 +222,14 @@ export const api = {
     if (options.k) params.set("k", String(options.k));
     if (options.table) params.set("table", options.table);
     return request<KnowledgeSearchResult>(`/api/knowledge/search?${params}`);
+  },
+
+  auditRecent(options: { n?: number; sessionId?: string } = {}) {
+    const params = new URLSearchParams();
+    if (options.n) params.set("n", String(options.n));
+    if (options.sessionId) params.set("session_id", options.sessionId);
+    const qs = params.toString();
+    return request<AuditRecent>(`/api/audit/recent${qs ? `?${qs}` : ""}`);
   },
 
   runSubagent(body: {

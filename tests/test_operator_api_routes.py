@@ -40,7 +40,7 @@ class _Beads:
         return {"deleted": issue_id, "project_path": project_path}
 
 
-def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None):
+def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None, audit=None):
     app = FastAPI()
     notes = _Notes()
 
@@ -58,6 +58,7 @@ def _client(*, run=None, api_key: str = "", engagement=None, knowledge=None):
         subagent_batch=batch,
         engagement_status=engagement,
         knowledge_search=knowledge,
+        audit_recent=audit,
         notes_service=notes,
         beads_service=_Beads(),
         api_key=api_key,
@@ -144,6 +145,27 @@ def test_knowledge_route_returns_empty_shape_when_unwired() -> None:
     client, _ = _client()  # knowledge_search omitted
     body = client.get("/api/knowledge/search", params={"q": "anything"}).json()
     assert body == {"query": "anything", "table": None, "count": 0, "hits": []}
+
+
+def test_audit_route_passes_limit_and_session() -> None:
+    seen = {}
+
+    def audit(n, session_id):
+        seen["args"] = (n, session_id)
+        return {"count": 1, "entries": [{"tool": "nmap", "success": True}], "summary": {"total": 1}}
+
+    client, _ = _client(audit=audit)
+    body = client.get("/api/audit/recent", params={"n": 25, "session_id": "s1"}).json()
+
+    assert seen["args"] == (25, "s1")
+    assert body["count"] == 1
+    assert body["entries"][0]["tool"] == "nmap"
+
+
+def test_audit_route_returns_empty_shape_when_unwired() -> None:
+    client, _ = _client()  # audit_recent omitted
+    body = client.get("/api/audit/recent").json()
+    assert body == {"count": 0, "entries": [], "summary": {"total": 0, "successes": 0, "failures": 0}}
 
 
 def test_operator_routes_enforce_api_key() -> None:

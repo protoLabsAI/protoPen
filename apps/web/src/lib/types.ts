@@ -91,6 +91,23 @@ export type KnowledgeSearchResult = {
   hits: KnowledgeHit[];
 };
 
+export type AuditEntry = {
+  ts: string;
+  session_id: string;
+  tool: string;
+  success: boolean;
+  duration_ms: number;
+  result_summary: string;
+  trace_id: string;
+  args: Record<string, unknown>;
+};
+
+export type AuditRecent = {
+  count: number;
+  entries: AuditEntry[];
+  summary: { total: number; successes: number; failures: number };
+};
+
 export type ChatMessage = {
   id?: string;
   role: "user" | "assistant" | "system";

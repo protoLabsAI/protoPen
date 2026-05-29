@@ -1148,6 +1148,13 @@ def _main():
     def _operator_knowledge_search(query: str, k: int = 10, table: str | None = None):
         return _search_knowledge(_get_store(), query=query, k=k, table=table)
 
+    # Audit surface: recent tool-execution trail.
+    from audit import audit_logger as _audit_logger
+    from operator_api.audit import recent_audit as _recent_audit
+
+    def _operator_audit_recent(n: int = 50, session_id: str | None = None):
+        return _recent_audit(_audit_logger, n=n, session_id=session_id)
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
@@ -1156,6 +1163,7 @@ def _main():
         subagent_batch=_operator_subagent_batch,
         engagement_status=_operator_engagement_status,
         knowledge_search=_operator_knowledge_search,
+        audit_recent=_operator_audit_recent,
         api_key=_operator_api_key,
     )
 

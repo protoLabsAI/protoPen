@@ -85,6 +85,7 @@ def register_operator_routes(
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
     engagement_status: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
+    audit_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     api_key: str = "",
@@ -140,6 +141,15 @@ def register_operator_routes(
             return {"query": q, "table": table, "count": 0, "hits": []}
         try:
             return await asyncio.to_thread(knowledge_search, q, k, table)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/audit/recent")
+    async def _audit_recent(n: int = 50, session_id: str | None = None):
+        if audit_recent is None:
+            return {"count": 0, "entries": [], "summary": {"total": 0, "successes": 0, "failures": 0}}
+        try:
+            return await asyncio.to_thread(audit_recent, n, session_id)
         except Exception as exc:
             raise _http_error(exc) from exc
 
