@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from operator_api.beads import BeadsCommandError, BeadsService
@@ -85,20 +85,38 @@ def register_operator_routes(
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
+    api_key: str = "",
 ) -> None:
-    """Register React operator-console routes on a FastAPI app."""
+    """Register React operator-console routes on a FastAPI app.
+
+    When ``api_key`` is non-empty, every operator route requires a matching
+    ``x-api-key`` header — the same key protoPen's A2A surface authenticates
+    with. The React console stores the key and sends it on every request;
+    a 401 drives its login gate.
+    """
     beads = beads_service or BeadsService()
     notes = notes_service or NotesService()
 
-    @app.get("/api/runtime/status")
+    auth_deps: list[Any] = []
+    if api_key:
+
+        async def _require_operator_key(x_api_key: str = Header(default="")) -> None:
+            if x_api_key != api_key:
+                raise HTTPException(status_code=401, detail="Unauthorized")
+
+        auth_deps = [Depends(_require_operator_key)]
+
+    router = APIRouter(dependencies=auth_deps)
+
+    @router.get("/api/runtime/status")
     async def _runtime_status():
         return runtime_status()
 
-    @app.get("/api/subagents")
+    @router.get("/api/subagents")
     async def _subagents():
         return {"subagents": subagent_list()}
 
-    @app.post("/api/subagents/run")
+    @router.post("/api/subagents/run")
     async def _subagent_run(req: SubagentRunRequest):
         try:
             output = await subagent_run(_model_payload(req))
@@ -106,7 +124,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.post("/api/subagents/batch")
+    @router.post("/api/subagents/batch")
     async def _subagent_batch(req: SubagentBatchRequest):
         try:
             output = await subagent_batch(_model_payload(req))
@@ -114,7 +132,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.get("/api/notes/workspace")
+    @router.get("/api/notes/workspace")
     async def _notes_get(project_path: str):
         try:
             workspace = await asyncio.to_thread(notes.load_workspace, project_path)
@@ -122,7 +140,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.post("/api/notes/workspace")
+    @router.post("/api/notes/workspace")
     async def _notes_save(req: NotesSaveRequest):
         try:
             await asyncio.to_thread(notes.save_workspace, req.project_path, req.workspace)
@@ -130,21 +148,21 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.get("/api/beads/status")
+    @router.get("/api/beads/status")
     async def _beads_status(project_path: str):
         try:
             return await asyncio.to_thread(beads.status, project_path)
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.post("/api/beads/init")
+    @router.post("/api/beads/init")
     async def _beads_init(req: BeadsInitRequest):
         try:
             return await asyncio.to_thread(beads.init, req.project_path, req.prefix)
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.get("/api/beads/issues")
+    @router.get("/api/beads/issues")
     async def _beads_list(project_path: str):
         try:
             issues = await asyncio.to_thread(beads.list, project_path)
@@ -152,7 +170,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.post("/api/beads/issues")
+    @router.post("/api/beads/issues")
     async def _beads_create(req: BeadsCreateRequest):
         try:
             issue = await asyncio.to_thread(beads.create, req.project_path, _model_payload(req))
@@ -160,7 +178,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.patch("/api/beads/issues/{issue_id}")
+    @router.patch("/api/beads/issues/{issue_id}")
     async def _beads_update(issue_id: str, req: BeadsUpdateRequest):
         try:
             issue = await asyncio.to_thread(beads.update, req.project_path, issue_id, _model_payload(req))
@@ -168,7 +186,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.post("/api/beads/issues/{issue_id}/close")
+    @router.post("/api/beads/issues/{issue_id}/close")
     async def _beads_close(issue_id: str, req: BeadsCloseRequest):
         try:
             issue = await asyncio.to_thread(beads.close, req.project_path, issue_id, req.reason)
@@ -176,9 +194,11 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @app.delete("/api/beads/issues/{issue_id}")
+    @router.delete("/api/beads/issues/{issue_id}")
     async def _beads_delete(issue_id: str, project_path: str):
         try:
             return await asyncio.to_thread(beads.delete, project_path, issue_id)
         except Exception as exc:
             raise _http_error(exc) from exc
+
+    app.include_router(router)
