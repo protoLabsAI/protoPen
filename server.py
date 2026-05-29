@@ -1124,12 +1124,19 @@ def _main():
             tasks=req.get("tasks", []),
         )
 
+    # Gate the operator API on the same key protoPen's A2A surface uses. When
+    # unset (local dev), the operator routes stay open. The React console stores
+    # this key and sends it as x-api-key; a 401 drives its login gate.
+    import os as _os
+
+    _operator_api_key = _os.environ.get("PROTOPEN_API_KEY", _os.environ.get("RESEARCHER_API_KEY", ""))
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
         subagent_list=_operator_subagent_list,
         subagent_run=_operator_subagent_run,
         subagent_batch=_operator_subagent_batch,
+        api_key=_operator_api_key,
     )
 
     _web_dist = Path(__file__).parent / "apps" / "web" / "dist"

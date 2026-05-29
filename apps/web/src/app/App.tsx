@@ -21,7 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ChatSurface } from "../chat/ChatSurface";
-import { api } from "../lib/api";
+import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import type { BeadsIssue, NotesWorkspace, RuntimeStatus, Subagent } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
@@ -166,6 +166,8 @@ export function App() {
   const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
     "protoagent.projectPath",
   ]);
+  const [needsAuth, setNeedsAuth] = useState(false);
+  const [keyInput, setKeyInput] = useState(() => getOperatorKey());
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [subagents, setSubagents] = useState<Subagent[]>([]);
   const [workspace, setWorkspace] = useState<NotesWorkspace | null>(null);
@@ -227,6 +229,12 @@ export function App() {
       await refreshProjectState();
       setStatus("ready");
     } catch (exc) {
+      if (exc instanceof UnauthorizedError) {
+        setNeedsAuth(true);
+        setStatus("error");
+        setError("");
+        return;
+      }
       setStatus("error");
       setError(exc instanceof Error ? exc.message : String(exc));
     }
@@ -960,6 +968,36 @@ export function App() {
         onProjectPathChange={setProjectPath}
         onFinished={() => void refreshAll()}
       />
+      {needsAuth && (
+        <div className="setup-overlay" role="dialog" aria-modal="true" aria-label="Operator login">
+          <div className="setup-frame">
+            <section className="setup-card">
+              <h2 className="brand-name">protoPen</h2>
+              <p>Enter the operator API key to access the console.</p>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setOperatorKey(keyInput.trim());
+                  setNeedsAuth(false);
+                  void refreshAll();
+                }}
+              >
+                <input
+                  type="password"
+                  value={keyInput}
+                  onChange={(event) => setKeyInput(event.target.value)}
+                  placeholder="x-api-key"
+                  autoFocus
+                  style={{ width: "100%", marginBottom: 12 }}
+                />
+                <button type="submit" disabled={!keyInput.trim()}>
+                  Connect
+                </button>
+              </form>
+            </section>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

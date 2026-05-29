@@ -42,6 +42,35 @@ type A2AFrame = {
   };
 };
 
+const OPERATOR_KEY_STORAGE = "protopen.operatorKey";
+
+/** Thrown when an operator API call returns 401 — drives the login gate. */
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+    this.name = "UnauthorizedError";
+  }
+}
+
+export function getOperatorKey(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(OPERATOR_KEY_STORAGE) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setOperatorKey(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (key) window.localStorage.setItem(OPERATOR_KEY_STORAGE, key);
+    else window.localStorage.removeItem(OPERATOR_KEY_STORAGE);
+  } catch {
+    /* ignore */
+  }
+}
+
 function defaultApiBase() {
   if (typeof window === "undefined") return "";
   let savedBase = "";
@@ -70,6 +99,8 @@ function apiUrl(path: string) {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  const operatorKey = getOperatorKey();
+  if (operatorKey) headers.set("x-api-key", operatorKey);
   let body: BodyInit | undefined;
   if (options.body !== undefined) {
     headers.set("Content-Type", "application/json");
@@ -83,6 +114,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (!response.ok) {
+    if (response.status === 401) throw new UnauthorizedError();
     let detail = `${response.status} ${response.statusText}`;
     try {
       const payload = (await response.json()) as { detail?: string };
