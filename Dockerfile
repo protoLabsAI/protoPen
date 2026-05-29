@@ -14,10 +14,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Browser tool: agent-browser + Chromium
+# Browser tool: agent-browser CLI + a system Chromium any user can run.
+# agent-browser's own `install` downloads Chrome into the *installing* user's
+# HOME (here root), but the runtime user is `sandbox` and tools/browser.py runs
+# with HOME=/tmp — so it would never find that copy. Install a shared system
+# Chromium instead and pin it via AGENT_BROWSER_EXECUTABLE_PATH in entrypoint.sh.
 RUN npm install -g agent-browser \
-    && (agent-browser install --with-deps 2>/dev/null \
-        || (apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*))
+    && apt-get update && apt-get install -y --no-install-recommends chromium \
+    && rm -rf /var/lib/apt/lists/*
 
 
 # Install Python deps
