@@ -107,7 +107,11 @@ h2 {
 }
 
 .app-shell {
-  min-height: 100vh;
+  /* Bound the shell to the viewport (height, not min-height) so the
+     minmax(0, 1fr) rows below stay constrained and inner lists scroll
+     internally instead of growing the whole document. */
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-rows: 48px minmax(0, 1fr);
   background: var(--bg);
