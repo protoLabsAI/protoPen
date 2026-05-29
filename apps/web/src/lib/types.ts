@@ -48,6 +48,24 @@ export type Subagent = {
   allow_skill_emission: boolean;
 };
 
+export type EngagementFinding = {
+  severity: string;
+  category: string;
+  title: string;
+};
+
+export type EngagementStatus = {
+  active: boolean;
+  name: string;
+  scope: string;
+  mode: string;
+  phase: string;
+  started_at?: string;
+  finding_counts: Record<string, number>;
+  total_findings: number;
+  findings: EngagementFinding[];
+};
+
 export type ChatMessage = {
   id?: string;
   role: "user" | "assistant" | "system";

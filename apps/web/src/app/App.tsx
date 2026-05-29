@@ -22,11 +22,11 @@ import type { ReactNode } from "react";
 
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
-import type { BeadsIssue, NotesWorkspace, RuntimeStatus, Subagent } from "../lib/types";
+import type { BeadsIssue, EngagementStatus, NotesWorkspace, RuntimeStatus, Subagent } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
 type Surface = "chat" | "subagents" | "runtime";
-type RightPanel = "notes" | "beads";
+type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
 type StatusTone = "success" | "warning" | "error" | "muted";
 
@@ -170,6 +170,7 @@ export function App() {
   const [keyInput, setKeyInput] = useState(() => getOperatorKey());
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [subagents, setSubagents] = useState<Subagent[]>([]);
+  const [engagement, setEngagement] = useState<EngagementStatus | null>(null);
   const [workspace, setWorkspace] = useState<NotesWorkspace | null>(null);
   const [beadsIssues, setBeadsIssues] = useState<BeadsIssue[]>([]);
   const [beadsReady, setBeadsReady] = useState<boolean | null>(null);
@@ -193,12 +194,14 @@ export function App() {
   const activeTab = workspace?.tabs[workspace.activeTabId] || null;
 
   async function refreshRuntime() {
-    const [runtimePayload, subagentPayload] = await Promise.all([
+    const [runtimePayload, subagentPayload, engagementPayload] = await Promise.all([
       api.runtimeStatus(),
       api.subagents(),
+      api.engagement(),
     ]);
     setRuntime(runtimePayload);
     setSubagents(subagentPayload.subagents);
+    setEngagement(engagementPayload);
     if (!subagentPayload.subagents.some((item) => item.name === subagentType)) {
       setSubagentType(subagentPayload.subagents[0]?.name || "researcher");
     }
@@ -740,7 +743,49 @@ export function App() {
               <Boxes size={15} />
               Beads
             </button>
+            <button
+              type="button"
+              className={rightPanel === "engagement" ? "active" : ""}
+              onClick={() => setRightPanel("engagement")}
+            >
+              <Boxes size={15} />
+              Engagement
+            </button>
           </div>
+
+          {rightPanel === "engagement" ? (
+            <section className="panel side-panel">
+              <div className="panel-header compact">
+                <div>
+                  <h2>{engagement?.active ? engagement.name || "Engagement" : "No active engagement"}</h2>
+                  <p className="panel-kicker">
+                    {engagement?.active
+                      ? `${engagement.phase || "—"} • ${engagement.mode || "—"} • ${engagement.total_findings} finding${engagement.total_findings === 1 ? "" : "s"}`
+                      : "protoPen is idle"}
+                  </p>
+                </div>
+              </div>
+              {engagement?.active ? (
+                <div className="panel-body">
+                  {engagement.scope ? <p className="panel-kicker">Scope: {engagement.scope}</p> : null}
+                  <div className="segmented" style={{ flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                    {Object.entries(engagement.finding_counts).map(([sev, count]) => (
+                      <span key={sev} className={`status-pill ${sev}`}>
+                        {sev}: {count}
+                      </span>
+                    ))}
+                  </div>
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+                    {engagement.findings.map((finding, index) => (
+                      <li key={index} style={{ fontSize: 13 }}>
+                        <strong>{finding.severity || "—"}</strong> · {finding.category || "—"} — {finding.title || "(untitled)"}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           {rightPanel === "notes" ? (
             <section className="panel side-panel notes-panel">
