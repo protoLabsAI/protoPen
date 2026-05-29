@@ -26,7 +26,7 @@ export type ChatState = PersistedChatState & {
   sessionStatusMap: Record<string, SessionStatus>;
 };
 
-const STORAGE_KEY = "protoagent.chat.sessions";
+const STORAGE_KEY = "protopen.chat.sessions";
 
 function id(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

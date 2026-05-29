@@ -22,7 +22,9 @@ def list_subagents(config: Any) -> list[dict[str, Any]]:
                 "default_tools": list(registry_def.tools),
                 "max_turns": int(getattr(override, "max_turns", registry_def.max_turns)),
                 "default_max_turns": int(registry_def.max_turns),
-                "allow_skill_emission": bool(registry_def.allow_skill_emission),
+                # protoPen's SubagentConfig has no allow_skill_emission field
+                # (skill emission is a protoAgent-template concept); default off.
+                "allow_skill_emission": bool(getattr(registry_def, "allow_skill_emission", False)),
             }
         )
     return out
