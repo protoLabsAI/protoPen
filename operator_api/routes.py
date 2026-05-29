@@ -163,9 +163,7 @@ def register_operator_routes(
     @app.patch("/api/beads/issues/{issue_id}")
     async def _beads_update(issue_id: str, req: BeadsUpdateRequest):
         try:
-            issue = await asyncio.to_thread(
-                beads.update, req.project_path, issue_id, _model_payload(req)
-            )
+            issue = await asyncio.to_thread(beads.update, req.project_path, issue_id, _model_payload(req))
             return {"issue": issue}
         except Exception as exc:
             raise _http_error(exc) from exc
