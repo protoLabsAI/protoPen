@@ -113,7 +113,7 @@ async def check_guardrail(query: str, llm_url: str = "http://gateway:4000/v1", t
                 f"{llm_url}/chat/completions",
                 headers={"Authorization": "Bearer protopen-internal"},
                 json={
-                    "model": "claude-sonnet-4-6",
+                    "model": "protolabs/nano",
                     "messages": [{"role": "user", "content": _GUARDRAIL_PROMPT.format(query=query)}],
                     "max_tokens": 100,
                     "temperature": 0.1,
@@ -235,7 +235,7 @@ async def grade_document(query: str, content: str, llm_url: str = "http://gatewa
                 f"{llm_url}/chat/completions",
                 headers={"Authorization": "Bearer protopen-internal"},
                 json={
-                    "model": "claude-sonnet-4-6",
+                    "model": "protolabs/nano",
                     "messages": [{"role": "user", "content": _GRADE_PROMPT.format(query=query, excerpt=excerpt)}],
                     "max_tokens": 10,
                     "temperature": 0.1,
@@ -268,7 +268,7 @@ async def rewrite_query(query: str, llm_url: str = "http://gateway:4000/v1") -> 
                 f"{llm_url}/chat/completions",
                 headers={"Authorization": "Bearer protopen-internal"},
                 json={
-                    "model": "claude-sonnet-4-6",
+                    "model": "protolabs/nano",
                     "messages": [{"role": "user", "content": _REWRITE_PROMPT.format(query=query)}],
                     "max_tokens": 200,
                     "temperature": 0.3,

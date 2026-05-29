@@ -43,8 +43,8 @@ fi
 # Export all Infisical secrets into the environment (in-memory only)
 eval "$(echo "$SECRETS" | sed "s/^/export /")"
 
-# LiteLLM gateway key → OPENAI_API_KEY
-export OPENAI_API_KEY="$LITELLM_MASTER_KEY"
+# protoLabs gateway key → OPENAI_API_KEY (the gateway/LiteLLM api key)
+export OPENAI_API_KEY="$GATEWAY_API_KEY"
 # GitHub token alias
 export GITHUB_TOKEN="${GH_TOKEN:-}"
 

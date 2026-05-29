@@ -53,7 +53,7 @@ class TestToolInterface:
         assert "action" in p["required"]
 
     def test_execute_unknown_action(self, flipper: FlipperTool) -> None:
-        result = asyncio.get_event_loop().run_until_complete(flipper.execute(action="nope"))
+        result = asyncio.run(flipper.execute(action="nope"))
         assert "Unknown action" in result
 
 
@@ -253,7 +253,7 @@ class TestExecuteDispatch:
     """Verify async execute() routes to every method correctly."""
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_dispatch_subghz_rx(self, flipper: FlipperTool, conn: MagicMock) -> None:
         self._run(flipper.execute(action="subghz_rx", freq=433920000, device=0))
