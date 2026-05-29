@@ -768,7 +768,7 @@ export function App() {
               {engagement?.active ? (
                 <div className="panel-body">
                   {engagement.scope ? <p className="panel-kicker">Scope: {engagement.scope}</p> : null}
-                  <div className="segmented" style={{ flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
                     {Object.entries(engagement.finding_counts).map(([sev, count]) => (
                       <span key={sev} className={`status-pill ${sev}`}>
                         {sev}: {count}
