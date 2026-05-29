@@ -66,4 +66,32 @@ if [ ! -f apps/web/dist/index.html ] && command -v npm >/dev/null 2>&1; then
     fi
 fi
 
+# Browser tool: ensure the agent-browser CLI is available (idempotent). The
+# Docker image installs it at build time; native runtimes (e.g. the Steam Deck,
+# where the global npm prefix /usr is read-only on the immutable rootfs) install
+# it here into a user-local prefix under $HOME that survives reboots and OS image
+# updates. Always export the prefix bin onto PATH so server.py's subprocess can
+# find it even when the install was done on a previous boot.
+export NPM_CONFIG_PREFIX="${NPM_CONFIG_PREFIX:-$HOME/.npm-global}"
+export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
+if ! command -v agent-browser >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+    echo "Installing agent-browser (browser tool)…"
+    if npm install -g agent-browser >/dev/null 2>&1; then
+        # Download the bundled Chrome. Skip --with-deps: it needs apt/root and
+        # SteamOS uses pacman; the browser runs without it on the Deck.
+        agent-browser install >/dev/null 2>&1 || echo "WARN: agent-browser browser download failed"
+        echo "✓ agent-browser installed ($NPM_CONFIG_PREFIX/bin)"
+    else
+        echo "WARN: agent-browser install failed — browser tool will be unavailable"
+    fi
+fi
+
+# tools/browser.py runs the browser with HOME=/tmp (small tmpfs for the profile),
+# which hides the Chrome that `agent-browser install` placed under the real
+# $HOME. Pin the executable explicitly so it's found regardless of HOME.
+if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ]; then
+    CHROME_BIN="$(find "$HOME/.agent-browser/browsers" -maxdepth 3 -name chrome -type f 2>/dev/null | head -1)"
+    [ -n "$CHROME_BIN" ] && export AGENT_BROWSER_EXECUTABLE_PATH="$CHROME_BIN"
+fi
+
 exec python server.py "$@"
