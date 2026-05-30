@@ -36,29 +36,37 @@ class _FakeScheduler:
         return len(self.jobs) < before
 
 
-def _run(coro):
-    return asyncio.run(coro)
+def _call(tool, **kwargs):
+    """Invoke a @tool's underlying callable — robust across langchain versions
+    (StructuredTool exposes the original via .coroutine / .func; otherwise it's
+    a plain function)."""
+    fn = getattr(tool, "coroutine", None) or getattr(tool, "func", None) or tool
+    res = fn(**kwargs)
+    return asyncio.run(res) if asyncio.iscoroutine(res) else res
+
+
+def _tool_name(tool) -> str:
+    return getattr(tool, "name", getattr(tool, "__name__", ""))
 
 
 def test_schedule_task_creates_job():
     set_scheduler(_FakeScheduler())
     try:
-        out = _run(schedule_task.ainvoke({"prompt": "scan", "when": "0 9 * * *"}))
+        out = _call(schedule_task, prompt="scan", when="0 9 * * *")
         assert out.startswith("Scheduled job job-1 next at 2030-01-01T09:00:00")
     finally:
         set_scheduler(None)
 
 
 def test_list_and_cancel():
-    sched = _FakeScheduler()
-    set_scheduler(sched)
+    set_scheduler(_FakeScheduler())
     try:
-        assert _run(list_schedules.ainvoke({})) == "No scheduled jobs."
-        _run(schedule_task.ainvoke({"prompt": "sweep the LAN", "when": "0 9 * * *", "job_id": "j7"}))
-        listing = _run(list_schedules.ainvoke({}))
+        assert _call(list_schedules) == "No scheduled jobs."
+        _call(schedule_task, prompt="sweep the LAN", when="0 9 * * *", job_id="j7")
+        listing = _call(list_schedules)
         assert "j7" in listing and "sweep the LAN" in listing
-        assert _run(cancel_schedule.ainvoke({"job_id": "j7"})) == "Canceled j7."
-        assert _run(cancel_schedule.ainvoke({"job_id": "nope"})).startswith("Error:")
+        assert _call(cancel_schedule, job_id="j7") == "Canceled j7."
+        assert _call(cancel_schedule, job_id="nope").startswith("Error:")
     finally:
         set_scheduler(None)
 
@@ -70,19 +78,18 @@ def test_malformed_schedule_returns_error():
 
     set_scheduler(_Raises())
     try:
-        out = _run(schedule_task.ainvoke({"prompt": "x", "when": "bad"}))
-        assert out == "Error: invalid schedule"
+        assert _call(schedule_task, prompt="x", when="bad") == "Error: invalid schedule"
     finally:
         set_scheduler(None)
 
 
 def test_tools_report_when_scheduler_unavailable():
     set_scheduler(None)
-    assert "not available" in _run(schedule_task.ainvoke({"prompt": "x", "when": "0 9 * * *"}))
-    assert "not available" in _run(list_schedules.ainvoke({}))
-    assert "not available" in _run(cancel_schedule.ainvoke({"job_id": "x"}))
+    assert "not available" in _call(schedule_task, prompt="x", when="0 9 * * *")
+    assert "not available" in _call(list_schedules)
+    assert "not available" in _call(cancel_schedule, job_id="x")
 
 
 def test_tools_registered_in_security_tools():
-    names = {t.name for t in get_security_tools(None)}
+    names = {_tool_name(t) for t in get_security_tools(None)}
     assert {"schedule_task", "list_schedules", "cancel_schedule"} <= names
