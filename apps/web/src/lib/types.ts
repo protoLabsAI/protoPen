@@ -112,6 +112,17 @@ export type AgentRun = {
   error: string;
 };
 
+export type ScheduledJob = {
+  id: string;
+  prompt: string;
+  schedule: string;
+  next_fire?: string | null;
+  last_fire?: string | null;
+  agent_name?: string;
+  enabled?: boolean;
+  created_at?: string;
+};
+
 export type AuditEntry = {
   ts: string;
   session_id: string;

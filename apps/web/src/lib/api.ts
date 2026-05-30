@@ -10,6 +10,7 @@ import type {
   KnowledgeSearchResult,
   NotesWorkspace,
   RuntimeStatus,
+  ScheduledJob,
   SetupStatus,
   Subagent,
 } from "./types";
@@ -232,6 +233,18 @@ export const api = {
     if (options.k) params.set("k", String(options.k));
     if (options.table) params.set("table", options.table);
     return request<KnowledgeSearchResult>(`/api/knowledge/search?${params}`);
+  },
+
+  schedulerJobs() {
+    return request<{ jobs: ScheduledJob[]; backend: string }>("/api/scheduler/jobs");
+  },
+
+  addSchedule(body: { prompt: string; schedule: string; job_id?: string }) {
+    return request<{ job: ScheduledJob }>("/api/scheduler/jobs", { method: "POST", body });
+  },
+
+  cancelSchedule(jobId: string) {
+    return request<{ canceled: boolean }>(`/api/scheduler/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
   },
 
   auditRecent(options: { n?: number; sessionId?: string } = {}) {

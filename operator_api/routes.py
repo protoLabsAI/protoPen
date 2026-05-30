@@ -26,6 +26,12 @@ class SubagentBatchRequest(BaseModel):
     tasks: list[dict[str, Any]]
 
 
+class ScheduleAddRequest(BaseModel):
+    prompt: str
+    schedule: str  # 5-field cron or ISO-8601 datetime
+    job_id: str | None = None
+
+
 class NotesSaveRequest(BaseModel):
     project_path: str
     workspace: dict[str, Any]
@@ -92,6 +98,9 @@ def register_operator_routes(
     agent_list: Callable[[], list[dict[str, Any]]] | None = None,
     agent_get: Callable[[str], dict[str, Any] | None] | None = None,
     agent_cancel: Callable[[str], bool] | None = None,
+    scheduler_list: Callable[[], dict[str, Any]] | None = None,
+    scheduler_add: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    scheduler_cancel: Callable[[str], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     api_key: str = "",
@@ -217,6 +226,33 @@ def register_operator_routes(
     @router.post("/api/agents/{task_id}/cancel")
     async def _agent_cancel(task_id: str):
         return {"cancelled": bool(agent_cancel(task_id)) if agent_cancel else False}
+
+    @router.get("/api/scheduler/jobs")
+    async def _scheduler_jobs():
+        if scheduler_list is None:
+            return {"jobs": [], "backend": "disabled"}
+        try:
+            return await asyncio.to_thread(scheduler_list)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.post("/api/scheduler/jobs")
+    async def _scheduler_add(req: ScheduleAddRequest):
+        if scheduler_add is None:
+            raise HTTPException(status_code=409, detail="scheduler is not available")
+        try:
+            return {"job": await asyncio.to_thread(scheduler_add, _model_payload(req))}
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.delete("/api/scheduler/jobs/{job_id}")
+    async def _scheduler_cancel(job_id: str):
+        if scheduler_cancel is None:
+            raise HTTPException(status_code=409, detail="scheduler is not available")
+        try:
+            return await asyncio.to_thread(scheduler_cancel, job_id)
+        except Exception as exc:
+            raise _http_error(exc) from exc
 
     @router.get("/api/notes/workspace")
     async def _notes_get(project_path: str):

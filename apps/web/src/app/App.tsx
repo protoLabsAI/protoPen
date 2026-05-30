@@ -1,6 +1,7 @@
 import {
   Bot,
   Boxes,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -33,6 +34,7 @@ import type {
   AgentRun,
   AuditEntry,
   BeadsIssue,
+  ScheduledJob,
   EngagementReport,
   EngagementStatus,
   KnowledgeHit,
@@ -42,7 +44,7 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "knowledge" | "subagents" | "runtime" | "audit";
+type Surface = "chat" | "knowledge" | "subagents" | "runtime" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
@@ -227,6 +229,13 @@ export function App() {
   const [knowledgeBusy, setKnowledgeBusy] = useState(false);
   const [knowledgeSearched, setKnowledgeSearched] = useState(false);
 
+  const [scheduleJobs, setScheduleJobs] = useState<ScheduledJob[]>([]);
+  const [scheduleBackend, setScheduleBackend] = useState("");
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleLoaded, setScheduleLoaded] = useState(false);
+  const [schedulePrompt, setSchedulePrompt] = useState("");
+  const [scheduleWhen, setScheduleWhen] = useState("");
+
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
   const [auditLoaded, setAuditLoaded] = useState(false);
@@ -313,6 +322,12 @@ export function App() {
     }
   }, [surface, auditLoaded, auditBusy]);
 
+  useEffect(() => {
+    if (surface === "schedule" && !scheduleLoaded && !scheduleBusy) {
+      void refreshSchedule();
+    }
+  }, [surface, scheduleLoaded, scheduleBusy]);
+
   // Live agent monitor: load on entering the surface, poll while any run is active.
   useEffect(() => {
     if (surface !== "subagents") return;
@@ -375,6 +390,53 @@ export function App() {
       setError(exc instanceof Error ? exc.message : String(exc));
     } finally {
       setSubagentBusy(false);
+    }
+  }
+
+  async function refreshSchedule() {
+    if (scheduleBusy) return;
+    setScheduleBusy(true);
+    setError("");
+    try {
+      const result = await api.schedulerJobs();
+      setScheduleJobs(result.jobs);
+      setScheduleBackend(result.backend);
+      setScheduleLoaded(true);
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setScheduleBusy(false);
+    }
+  }
+
+  async function addSchedule() {
+    const prompt = schedulePrompt.trim();
+    const schedule = scheduleWhen.trim();
+    if (!prompt || !schedule || scheduleBusy) return;
+    setScheduleBusy(true);
+    setError("");
+    try {
+      await api.addSchedule({ prompt, schedule });
+      setSchedulePrompt("");
+      setScheduleWhen("");
+      await refreshSchedule();
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
+    } finally {
+      setScheduleBusy(false);
+    }
+  }
+
+  async function cancelSchedule(jobId: string) {
+    setError("");
+    try {
+      await api.cancelSchedule(jobId);
+      await refreshSchedule();
+    } catch (exc) {
+      if (exc instanceof UnauthorizedError) setNeedsAuth(true);
+      else setError(exc instanceof Error ? exc.message : String(exc));
     }
   }
 
@@ -788,6 +850,12 @@ export function App() {
             icon={<ScrollText size={18} />}
             onClick={() => setSurface("audit")}
           />
+          <RailButton
+            active={surface === "schedule"}
+            label="Schedule"
+            icon={<CalendarClock size={18} />}
+            onClick={() => setSurface("schedule")}
+          />
         </aside>
 
         <main className="stage">
@@ -1127,6 +1195,85 @@ export function App() {
                         : auditEntries.length === 0
                           ? "No tool calls recorded yet."
                           : "No entries match the current filter."}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {surface === "schedule" ? (
+            <section className="panel stage-panel audit-panel">
+              <div className="panel-header">
+                <div>
+                  <h1>Schedule</h1>
+                  <p className="panel-kicker">
+                    {scheduleJobs.length} job{scheduleJobs.length === 1 ? "" : "s"} · backend {scheduleBackend || "—"}
+                  </p>
+                </div>
+                <button className="icon-button" type="button" onClick={() => void refreshSchedule()} title="Refresh jobs">
+                  {scheduleBusy ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
+                </button>
+              </div>
+              <form
+                className="knowledge-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void addSchedule();
+                }}
+              >
+                <input
+                  value={schedulePrompt}
+                  onChange={(event) => setSchedulePrompt(event.target.value)}
+                  placeholder="Prompt to run on schedule…"
+                  aria-label="Scheduled prompt"
+                />
+                <input
+                  value={scheduleWhen}
+                  onChange={(event) => setScheduleWhen(event.target.value)}
+                  placeholder="cron (0 9 * * 1-5) or ISO datetime"
+                  aria-label="Schedule"
+                />
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={scheduleBusy || !schedulePrompt.trim() || !scheduleWhen.trim()}
+                >
+                  {scheduleBusy ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
+                  Add
+                </button>
+              </form>
+              <div className="audit-list">
+                {scheduleJobs.length > 0 ? (
+                  scheduleJobs.map((job) => (
+                    <article className="audit-row" key={job.id}>
+                      <div className="audit-row-head">
+                        <StatusPill label={job.schedule} tone="muted" />
+                        <strong className="audit-tool">{job.prompt}</strong>
+                        <button
+                          className="icon-button danger"
+                          type="button"
+                          onClick={() => void cancelSchedule(job.id)}
+                          title="Cancel job"
+                          style={{ marginLeft: "auto" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="audit-meta">
+                        <span>next {job.next_fire ? formatAuditTime(job.next_fire) : "—"}</span>
+                        {job.last_fire ? <span>last {formatAuditTime(job.last_fire)}</span> : null}
+                        <span>{job.id}</span>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state stacked">
+                    <CalendarClock size={18} />
+                    <span>
+                      {!scheduleLoaded
+                        ? "Loading scheduled jobs…"
+                        : "No scheduled jobs. Add a prompt + cron/ISO schedule above."}
                     </span>
                   </div>
                 )}
