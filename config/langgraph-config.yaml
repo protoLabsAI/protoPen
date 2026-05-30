@@ -43,6 +43,20 @@ middleware:
   audit: true
   memory: true
 
+# Context compaction — summarize old history near the context limit so a long
+# autonomous session doesn't overflow the window. ON by default.
+#   trigger: "fraction:0.8" | "tokens:120000" | "messages:80"
+# NOTE: "fraction:"/"tokens:" need the model's context-window profile, which the
+# custom gateway alias (protolabs/reasoning) doesn't expose — so we use an
+# explicit message-count trigger here for deterministic behavior (the wiring
+# would otherwise auto-fall back to one and log a warning each graph build).
+#   model: a cheaper/faster alias to summarize with (blank = main model).
+compaction:
+  enabled: true
+  trigger: "messages:80"
+  keep_messages: 20
+  # model: protolabs/fast
+
 knowledge:
   db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b

@@ -55,6 +55,18 @@ class LangGraphConfig:
     # Enforcement
     enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
 
+    # Context compaction — wires langchain's SummarizationMiddleware to summarize
+    # old history near the context limit. ON by default (a long autonomous
+    # session would otherwise overflow the window). trigger is
+    # "fraction:0.8" | "tokens:120000" | "messages:80"; keep = last N messages.
+    # NOTE: "fraction:"/"tokens:" triggers need the model's context-window
+    # profile; for a custom gateway alias that lacks one, the wiring falls back
+    # to a message-count trigger (see graph/agent.py) instead of crashing.
+    compaction_enabled: bool = True
+    compaction_trigger: str = "fraction:0.8"
+    compaction_keep_messages: int = 20
+    compaction_model: str = ""  # blank = summarize with the main model
+
     # Knowledge store
     knowledge_db_path: str = "/sandbox/knowledge/research.db"
     embed_model: str = "qwen3-embedding:0.6b"
@@ -76,6 +88,7 @@ class LangGraphConfig:
         subagents = data.get("subagents", {})
         middleware = data.get("middleware", {})
         knowledge = data.get("knowledge", {})
+        compaction = data.get("compaction", {})
 
         config = cls(
             model_provider=model.get("provider", cls.model_provider),
@@ -94,6 +107,10 @@ class LangGraphConfig:
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
             knowledge_search_mode=knowledge.get("search_mode", cls.knowledge_search_mode),
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
+            compaction_enabled=compaction.get("enabled", cls.compaction_enabled),
+            compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
+            compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
+            compaction_model=compaction.get("model", cls.compaction_model),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):
