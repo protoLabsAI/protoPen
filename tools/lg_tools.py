@@ -197,9 +197,11 @@ _wifi_intel: WiFiIntelTool | None = None
 _traffic_analysis: TrafficAnalysisTool | None = None
 
 
-# Discord tools — only loaded when DISCORD_BOT_TOKEN is set
+# Discord tools — loaded when a bot token (reading: scan/history/channels/digest)
+# OR a webhook (publishing) is configured. Publishing posts via DISCORD_WEBHOOK_URL
+# and needs no bot, so a webhook-only setup still lets the agent publish.
 _discord_feed_tool = None
-if os.environ.get("DISCORD_BOT_TOKEN"):
+if os.environ.get("DISCORD_BOT_TOKEN") or os.environ.get("DISCORD_WEBHOOK_URL"):
     from tools.discord_feed import DiscordFeedTool
 
     _discord_feed_tool = DiscordFeedTool()
