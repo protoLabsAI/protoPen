@@ -53,6 +53,9 @@ def _client(
     agent_list=None,
     agent_get=None,
     agent_cancel=None,
+    scheduler_list=None,
+    scheduler_add=None,
+    scheduler_cancel=None,
 ):
     app = FastAPI()
     notes = _Notes()
@@ -78,6 +81,9 @@ def _client(
         agent_list=agent_list,
         agent_get=agent_get,
         agent_cancel=agent_cancel,
+        scheduler_list=scheduler_list,
+        scheduler_add=scheduler_add,
+        scheduler_cancel=scheduler_cancel,
         notes_service=notes,
         beads_service=_Beads(),
         api_key=api_key,
@@ -251,6 +257,47 @@ def test_agent_launch_409_when_unwired() -> None:
 def test_agents_list_empty_when_unwired() -> None:
     client, _ = _client()
     assert client.get("/api/agents").json() == {"agents": []}
+
+
+def test_scheduler_routes_list_add_cancel() -> None:
+    added = {}
+    canceled = {}
+    jobs = [{"id": "j1", "prompt": "scan", "schedule": "0 9 * * *", "next_fire": "2030-01-01T09:00:00+00:00"}]
+
+    def s_list():
+        return {"jobs": jobs, "backend": "local"}
+
+    def s_add(req):
+        added["req"] = req
+        return {"id": "j2", "prompt": req["prompt"], "schedule": req["schedule"]}
+
+    def s_cancel(job_id):
+        canceled["id"] = job_id
+        return {"canceled": True}
+
+    client, _ = _client(scheduler_list=s_list, scheduler_add=s_add, scheduler_cancel=s_cancel)
+
+    assert client.get("/api/scheduler/jobs").json() == {"jobs": jobs, "backend": "local"}
+    add = client.post("/api/scheduler/jobs", json={"prompt": "digest", "schedule": "0 8 * * 1"})
+    assert add.json()["job"]["id"] == "j2"
+    assert added["req"]["prompt"] == "digest"
+    assert client.delete("/api/scheduler/jobs/j1").json() == {"canceled": True}
+    assert canceled["id"] == "j1"
+
+
+def test_scheduler_add_malformed_schedule_400() -> None:
+    def s_add(_req):
+        raise ValueError("invalid schedule")
+
+    client, _ = _client(scheduler_add=s_add)
+    assert client.post("/api/scheduler/jobs", json={"prompt": "x", "schedule": "bad"}).status_code == 400
+
+
+def test_scheduler_routes_when_unwired() -> None:
+    client, _ = _client()
+    assert client.get("/api/scheduler/jobs").json() == {"jobs": [], "backend": "disabled"}
+    assert client.post("/api/scheduler/jobs", json={"prompt": "x", "schedule": "0 9 * * *"}).status_code == 409
+    assert client.delete("/api/scheduler/jobs/j1").status_code == 409
 
 
 def test_operator_routes_enforce_api_key() -> None:

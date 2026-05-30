@@ -1223,6 +1223,17 @@ def _main():
             description=req.get("description", "") or req.get("prompt", "")[:80],
         )
 
+    # Scheduler management — list/create/cancel jobs on the local scheduler.
+    def _operator_scheduler_list():
+        return {"jobs": [j.as_dict() for j in _scheduler.list_jobs()], "backend": _scheduler.name}
+
+    def _operator_scheduler_add(req: dict):
+        job = _scheduler.add_job(req["prompt"], req["schedule"], job_id=req.get("job_id"))
+        return job.as_dict()
+
+    def _operator_scheduler_cancel(job_id: str):
+        return {"canceled": _scheduler.cancel_job(job_id)}
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
@@ -1238,6 +1249,9 @@ def _main():
         agent_list=lambda: _agent_registry.snapshot(),
         agent_get=lambda task_id: _agent_registry.get(task_id),
         agent_cancel=lambda task_id: _agent_registry.cancel(task_id),
+        scheduler_list=_operator_scheduler_list,
+        scheduler_add=_operator_scheduler_add,
+        scheduler_cancel=_operator_scheduler_cancel,
         api_key=_operator_api_key,
     )
 
