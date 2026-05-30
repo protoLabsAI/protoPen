@@ -13,6 +13,7 @@ from typing import Optional
 
 from langchain_core.tools import tool
 
+import asyncio
 import json
 import os
 
@@ -464,6 +465,78 @@ async def lab_monitor(
     )
 
 
+# ── Scheduler tools (ported from protoAgent) ──────────────────────────────────
+# Bound to the live LocalScheduler via set_scheduler() at server startup; the
+# @tool bodies read the module global lazily so they work even though the graph
+# is built before the scheduler is created.
+
+_scheduler_backend = None  # SchedulerBackend (LocalScheduler) — set by server.py
+
+
+def set_scheduler(scheduler) -> None:
+    """Wire the live scheduler so the agent's schedule_* tools can reach it."""
+    global _scheduler_backend
+    _scheduler_backend = scheduler
+
+
+@tool
+async def schedule_task(prompt: str, when: str, job_id: str | None = None) -> str:
+    """Schedule a future task. The agent receives ``prompt`` as a new turn when
+    the schedule fires.
+
+    Use for anything to do later: reminders, recurring sweeps ("every Monday,
+    summarize last week's findings"), one-off check-ins ("at 3pm, re-scan the
+    new subnet").
+
+    Args:
+        prompt: Self-contained text the agent receives when the schedule fires —
+            it has no memory of this scheduling moment.
+        when: A 5-field cron expression (``"0 9 * * 1-5"`` = weekdays 9am) or an
+            ISO-8601 datetime (``"2026-05-01T15:00:00"`` = once at 3pm UTC).
+            Use ``current_time`` to compute exact times.
+        job_id: Optional id for the job; auto-generated if omitted.
+    """
+    if _scheduler_backend is None:
+        return "Error: scheduler is not available."
+    try:
+        job = await asyncio.to_thread(_scheduler_backend.add_job, prompt, when, job_id=job_id)
+    except ValueError as exc:
+        return f"Error: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: scheduler add_job failed: {exc}"
+    return f"Scheduled job {job.id} next at {job.next_fire}."
+
+
+@tool
+async def list_schedules() -> str:
+    """List the current scheduled jobs. One per line with id, next-fire, schedule,
+    and a prompt preview. Returns ``"No scheduled jobs."`` when empty."""
+    if _scheduler_backend is None:
+        return "Error: scheduler is not available."
+    jobs = await asyncio.to_thread(_scheduler_backend.list_jobs)
+    if not jobs:
+        return "No scheduled jobs."
+    lines = []
+    for j in jobs:
+        preview = (j.prompt or "")[:80]
+        lines.append(f"{j.id}  next={j.next_fire}  schedule={j.schedule!r}  {preview}")
+    return "\n".join(lines)
+
+
+@tool
+async def cancel_schedule(job_id: str) -> str:
+    """Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``)."""
+    if _scheduler_backend is None:
+        return "Error: scheduler is not available."
+    if not job_id or not job_id.strip():
+        return "Error: job_id is required."
+    try:
+        ok = await asyncio.to_thread(_scheduler_backend.cancel_job, job_id)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: scheduler cancel_job failed: {exc}"
+    return f"Canceled {job_id}." if ok else f"Error: cancel failed or no such job {job_id}."
+
+
 def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
@@ -473,6 +546,9 @@ def get_security_tools(knowledge_store=None):
         browser,
         lab_monitor,
         create_security_memory_tool(knowledge_store),
+        schedule_task,
+        list_schedules,
+        cancel_schedule,
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)

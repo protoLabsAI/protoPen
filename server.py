@@ -1142,6 +1142,12 @@ def _main():
         api_key=_operator_api_key or None,
     )
 
+    # Let the agent's schedule_task / list_schedules / cancel_schedule tools
+    # reach the live scheduler (read lazily — the graph is already built).
+    from tools.lg_tools import set_scheduler as _set_scheduler
+
+    _set_scheduler(_scheduler)
+
     @fastapi_app.on_event("startup")
     async def _start_scheduler():
         try:
