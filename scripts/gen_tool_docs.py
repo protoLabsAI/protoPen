@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Generate the README tool catalog from the live tool registry.
+"""Generate the tool catalog from the live tool registry.
 
-The README's tool list is derived from ``get_combined_tools()`` — the same
-registry the agent loads at runtime — so adding or removing a tool keeps the
-docs in sync automatically. Run after changing the tool set:
+The catalog is derived from ``get_combined_tools()`` — the same registry the
+agent loads at runtime — so adding or removing a tool keeps the docs in sync
+automatically. The same generated block is spliced into every file in TARGETS
+(the README and the docs-site reference page). Run after changing the tool set:
 
-    python scripts/gen_tool_docs.py            # rewrite README in place
-    python scripts/gen_tool_docs.py --check    # CI: fail if README is stale
+    python scripts/gen_tool_docs.py            # rewrite every target in place
+    python scripts/gen_tool_docs.py --check    # CI: fail if any target is stale
     python scripts/gen_tool_docs.py --print    # print the block to stdout
 
 Tools are grouped by the CATEGORIES map below. A tool that is registered but
@@ -27,9 +28,14 @@ from pathlib import Path
 os.environ.setdefault("DISCORD_ALERT_WEBHOOK", "https://example.invalid/docs-gen")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-README = REPO_ROOT / "README.md"
 BEGIN = "<!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->"
 END = "<!-- END GENERATED TOOLS -->"
+
+# Every file that embeds the catalog between the markers above.
+TARGETS = [
+    REPO_ROOT / "README.md",
+    REPO_ROOT / "docs" / "reference" / "tools.md",
+]
 
 # Ordered category -> tool names. Order here is the order rendered in the README.
 CATEGORIES: list[tuple[str, list[str]]] = [
@@ -222,12 +228,12 @@ def render(registry: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def splice(readme: str, block: str) -> str:
+def splice(path: Path, text: str, block: str) -> str:
     """Replace the region between the markers (inclusive) with ``block``."""
     pattern = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END), re.DOTALL)
-    if not pattern.search(readme):
-        raise SystemExit(f"markers not found in {README} — add a block bounded by:\n  {BEGIN}\n  {END}")
-    return pattern.sub(lambda _: block, readme)
+    if not pattern.search(text):
+        raise SystemExit(f"markers not found in {path} — add a block bounded by:\n  {BEGIN}\n  {END}")
+    return pattern.sub(lambda _: block, text)
 
 
 def main() -> int:
@@ -238,21 +244,24 @@ def main() -> int:
         print(block)
         return 0
 
-    current = README.read_text()
-    updated = splice(current, block)
+    stale = False
+    for path in TARGETS:
+        current = path.read_text()
+        updated = splice(path, current, block)
+        if mode == "--check":
+            if current != updated:
+                stale = True
+                sys.stderr.write(f"{path} tool catalog is stale — run: python scripts/gen_tool_docs.py\n")
+        elif current != updated:
+            path.write_text(updated)
+            print(f"Updated tool catalog in {path}.")
+        else:
+            print(f"{path} tool catalog already up to date.")
 
     if mode == "--check":
-        if current != updated:
-            sys.stderr.write("README tool catalog is stale — run: python scripts/gen_tool_docs.py\n")
+        if stale:
             return 1
-        print("README tool catalog is up to date.")
-        return 0
-
-    if current != updated:
-        README.write_text(updated)
-        print(f"Updated tool catalog in {README}.")
-    else:
-        print("README tool catalog already up to date.")
+        print("Tool catalog is up to date in all targets.")
     return 0
 
 

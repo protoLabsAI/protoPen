@@ -788,6 +788,15 @@ def _main():
     parser.add_argument("--port", type=int, default=7870)
     parser.add_argument("--config", type=str, default=None)
     parser.add_argument("--share", action="store_true")
+    parser.add_argument(
+        "--dump-openapi",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Write the FastAPI OpenAPI spec to PATH and exit without serving. "
+        "This is the source for docs/reference/api-endpoints.md — see "
+        "scripts/gen_api_docs.py.",
+    )
     args = parser.parse_args()
 
     # Initialize observability
@@ -1264,6 +1273,16 @@ def _main():
     _web_dist = Path(__file__).parent / "apps" / "web" / "dist"
     if mount_react_app(fastapi_app, _web_dist):
         print("[protoPen] React operator console mounted at /app")
+
+    # Spec dump: emit the fully-assembled REST surface (chat, /v1, operator API)
+    # and exit before the Gradio mount and uvicorn — the spec, not the server.
+    if args.dump_openapi:
+        spec = fastapi_app.openapi()
+        out = Path(args.dump_openapi)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(spec, indent=2, ensure_ascii=False) + "\n")
+        print(f"[protoPen] Wrote OpenAPI spec to {out} ({len(spec.get('paths', {}))} paths)")
+        return
 
     app = gr.mount_gradio_app(
         fastapi_app,

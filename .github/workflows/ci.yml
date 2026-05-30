@@ -62,8 +62,11 @@ jobs:
           python -m py_compile tools/*.py tools/parsers/*.py
           echo "All tool modules parse clean"
 
-      - name: README tool catalog is in sync
+      - name: Tool catalog is in sync (README + docs)
         run: python scripts/gen_tool_docs.py --check
+
+      - name: API reference is in sync with the OpenAPI spec
+        run: python scripts/gen_api_docs.py --check
 
   build:
     name: Build & Push Docker

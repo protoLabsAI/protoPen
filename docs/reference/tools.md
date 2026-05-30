@@ -1,687 +1,147 @@
 # Tools
 
-Complete reference for all agent tools and their actions. Tools are grouped by the hardware or domain they control.
+The agent loads its tools from a single registry (`get_combined_tools()`). The
+catalog below is generated straight from that registry by
+`scripts/gen_tool_docs.py`, so it always reflects exactly what the agent can
+call — adding or removing a tool updates this page (CI fails if it drifts).
 
-## portapack
+Each entry is the tool's own one-line description. For deeper, task-oriented
+walkthroughs see the [Tutorials](/tutorials/) and [How-To Guides](/guides/);
+for the engagement-mode gating that controls when each tool is allowed, see
+[Engagement Modes](/reference/engagement-modes).
 
-Controls a PortaPack H4M (HackRF One + Mayhem firmware) via USB serial. Frequency range: 1 MHz -- 6 GHz.
+<!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-| Action | Description | Key Parameters |
-|---|---|---|
-| `list_apps` | List available Mayhem apps on the device | -- |
-| `start_app` | Start an app by short name | `app_name` |
-| `set_frequency` | Tune to a frequency | `frequency_hz` |
-| `radio_info` | Get current radio status (frequency, mode, modulation) | -- |
-| `read_screen` | Read all on-screen text (accessibility bridge) | -- |
-| `screenshot` | Capture the current screen frame | -- |
-| `tap` | Tap the touchscreen at coordinates | `x` (0--240), `y` (0--320) |
-| `press_button` | Press a hardware button | `button` (1=Right, 2=Left, 3=Down, 4=Up, 5=Select, 7=RotaryL, 8=RotaryR) |
-| `system_info` | Get device system information | -- |
-| `send_pocsag` | Transmit a POCSAG pager message | `address`, `message` |
-| `send_command` | Send a raw serial command to the device | `command` |
-| `file_list` | List files on the SD card | `path` |
-| `reboot` | Reboot the device | -- |
-| `inject_gps` | Inject a GPS position | `lat`, `lon`, `alt`, `speed` |
-| `inject_orientation` | Inject a compass orientation | `degrees` |
+_75 tools, generated from the live registry — do not edit by hand._
 
----
+### Threat Intelligence & Research
 
-## flipper
-
-Serial bridge for the Flipper Zero multi-tool. Supports Sub-GHz, NFC, RFID, IR, Bluetooth, storage, and GPIO.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `subghz_rx` | Receive/listen on a Sub-GHz frequency | `freq`, `device` |
-| `subghz_tx` | Transmit a Sub-GHz key | `freq`, `key_hex`, `te`, `repeat` |
-| `subghz_tx_from_file` | Transmit a captured Sub-GHz signal from file | `path` |
-| `subghz_decode_raw` | Decode a raw Sub-GHz capture file | `path` |
-| `subghz_bruteforce` | Brute-force Sub-GHz codes from a .sub file | `path`, `freq`, `repeat` |
-| `nfc_detect` | Detect and read an NFC tag | -- |
-| `nfc_field` | Toggle the NFC field on/off | `on` |
-| `nfc_emulate` | Emulate an NFC tag from a saved .nfc file | `path` |
-| `rfid_read` | Read an RFID tag | -- |
-| `rfid_write` | Write data to an RFID tag | `protocol`, `data_hex` |
-| `rfid_emulate` | Emulate an RFID tag | `protocol`, `data_hex` |
-| `ir_rx` | Receive an IR signal | -- |
-| `ir_tx` | Transmit an IR command | `protocol`, `address`, `command` |
-| `ir_tx_raw` | Transmit a raw IR signal | `raw_args` |
-| `ir_brute` | Brute-force IR signals from a universal remote | `remote_name`, `signal_name` |
-| `bt_info` | Get Bluetooth adapter information | -- |
-| `ble_scan` | Scan for nearby BLE peripherals | `timeout` (seconds, default 10) |
-| `storage_list` | List files/directories on the Flipper SD | `path` |
-| `storage_read` | Read a file from the Flipper SD | `path` |
-| `storage_stat` | Get file/directory stats | `path` |
-| `storage_mkdir` | Create a directory on the Flipper SD | `path` |
-| `storage_md5` | Get MD5 hash of a file on the Flipper SD | `path` |
-| `gpio_set` | Set a GPIO pin value | `pin`, `value` (0 or 1) |
-| `gpio_read` | Read a GPIO pin value | `pin` |
-| `device_info` | Get Flipper device information (firmware, HW revision) | -- |
-| `power_info` | Get battery and power status | -- |
-| `send_command` | Send a raw CLI command | `cmd` |
-
----
-
-## marauder
-
-Serial bridge for the ESP32 WiFi Marauder firmware. WiFi scanning, attacks, sniffing, BLE, evil portal, and SSID management.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `scan_aps` | Scan for WiFi access points | -- |
-| `scan_stations` | Scan for WiFi client stations | -- |
-| `stop` | Stop the current operation | -- |
-| `list_results` | List scan results | `kind` (`aps`, `stations`, `ssids`) |
-| `select_targets` | Select specific targets by index | `indices` |
-| `select_all` | Select all discovered targets | -- |
-| `set_channel` | Lock to a specific WiFi channel | `ch` |
-| `clear_list` | Clear the target/results list | -- |
-| `deauth` | Send deauthentication frames to selected targets | -- |
-| `beacon_spam` | Broadcast fake beacon frames | -- |
-| `probe_flood` | Flood probe requests | -- |
-| `rickroll` | Beacon spam with rickroll SSIDs | -- |
-| `sniff_pmkid` | Capture PMKID hashes for offline cracking | `deauth` (boolean) |
-| `sniff_deauth` | Sniff deauthentication frames | -- |
-| `sniff_beacon` | Sniff beacon frames | -- |
-| `sniff_raw` | Raw 802.11 packet sniffing | -- |
-| `bt_spam_all` | Broadcast BLE spam across all protocols | -- |
-| `sour_apple` | Apple-specific BLE denial-of-service | -- |
-| `swift_pair` | Windows Swift Pair BLE spam | -- |
-| `samsung_ble_spam` | Samsung-specific BLE spam | -- |
-| `evil_portal` | Start a captive portal attack | `html_path` |
-| `karma` | Start a karma AP (responds to all probe requests) | -- |
-| `ssid_add` | Add an SSID to the broadcast list | `name` |
-| `ssid_generate` | Auto-generate random SSIDs | `count` |
-| `info` | Get Marauder device/firmware info | -- |
-| `send_command` | Send a raw CLI command | `cmd` |
-
----
-
-## blackarch
-
-Curated wrappers for BlackArch pen testing tools installed on the system, plus a guarded shell fallback.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `nmap_scan` | Network host/service discovery scan | `target`, `ports`, `timeout` |
-| `nmap_vuln_scan` | Nmap with vulnerability detection scripts | `target`, `timeout` |
-| `airmon_start` | Put WiFi interface into monitor mode | `interface` |
-| `airmon_stop` | Take WiFi interface out of monitor mode | `interface` |
-| `airodump_scan` | Capture WiFi traffic with airodump-ng | `interface`, `timeout` |
-| `bettercap_recon` | Network reconnaissance with bettercap | `target`, `interface` |
-| `bettercap_mitm` | ARP spoof MITM with network sniffing | `target`, `interface`, `timeout` |
-| `hashcat_crack` | Crack hashes with hashcat | `hash_file`, `hash_type`, `wordlist` |
-| `nikto_scan` | Web server vulnerability scan | `url`, `timeout` |
-| `gobuster_scan` | Directory/file brute-force on web servers | `url`, `wordlist` |
-| `tshark_capture` | Capture network packets with tshark | `interface`, `count`, `output_file` |
-| `shell_exec` | Execute a shell command (guarded) | `command`, `timeout` |
-
-::: warning
-`shell_exec` filters commands against a blocklist (no `rm`, `shutdown`, `iptables`, etc.) and an allowlist of known safe tools (`nmap`, `tshark`, `curl`, `dig`, etc.). Arbitrary commands outside the allowlist are rejected.
-:::
-
----
-
-## device_manager
-
-Manages USB serial connections to all attached pen testing hardware.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `connect` | Connect to a device by name | `device_name` (`portapack`, `flipper`, `marauder`, `wifi_adapter`) |
-| `disconnect` | Disconnect a device | `device_name` |
-| `health_check` | Run a health check on a connected device | `device_name` |
-| `all_status` | Get connection status of all configured devices | -- |
-
----
-
-## engagement
-
-Mission control for pen testing operations. Manages lifecycle, mode enforcement, findings, and reports.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `start` | Start a new engagement | `name`, `scope`, `mode` |
-| `end` | End the active engagement | -- |
-| `set_mode` | Change the engagement mode | `mode` (`passive`, `active`, `redteam`) |
-| `status` | Get current engagement status | -- |
-| `log_finding` | Log a security finding | `severity`, `category`, `title`, `detail` |
-| `check_permission` | Check if a tool action is permitted at the current mode | `tool_name` |
-| `generate_report` | Generate a markdown report from all findings. Saved to `<workspace_dir>/<engagement_name>/report.md` (default workspace: `/home/deck/engagements/`). | -- |
-| `list_findings` | List all findings in the current engagement | -- |
-
----
-
-## target_intel
-
-Query and manage the target intelligence database. Tracks hosts, services, WiFi, RF, BLE, RFID, and credentials across all sensor platforms.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `upsert_host` | Add or update a host | `ip`, `mac`, `hostname`, `os`, `vendor`, `device_type` |
-| `query_hosts` | Search hosts by IP prefix, device type, or time | `ip_prefix`, `device_type`, `since` |
-| `get_host` | Get detailed info for a host by ID | `host_id` |
-| `upsert_port` | Add or update a port/service on a host | `host_id`, `port`, `protocol`, `service`, `banner` |
-| `upsert_wifi_network` | Add or update a WiFi access point | `bssid`, `ssid`, `channel`, `rssi`, `encryption` |
-| `upsert_wifi_station` | Add or update a WiFi client station | `mac`, `rssi` |
-| `add_rf_signal` | Record an RF signal capture | `frequency_hz`, `modulation`, `protocol`, `data_hex`, `source_device` |
-| `upsert_ble_device` | Add or update a BLE device | `mac`, `name`, `rssi` |
-| `upsert_rfid_nfc_tag` | Add or update an RFID/NFC tag | `tag_type`, `uid`, `label` |
-| `add_credential` | Record a harvested credential | `username`, `password`, `hash_type`, `source`, `host_id` |
-| `start_scan` | Start a scan session for temporal tracking | `tool`, `scan_action`, `engagement` |
-| `end_scan` | End a scan session | `scan_session_id` |
-| `stats` | Get entity counts across all tables | -- |
-| `diff` | Show new entities since a given timestamp | `since` (ISO 8601) |
-
----
-
-## discord_feed
-
-Discord channel scanning and webhook publishing. Reads channel history via the Discord Bot API and publishes content as rich embeds via webhook.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `publish` | Publish content as rich Discord embeds via `DISCORD_WEBHOOK_URL`. Auto-chunks content exceeding the 4096-char embed limit. | `content`, `title` |
-| `share` | Share a finding to the collaboration channel via the Discord Bot API. | `content`, `title` |
-| `scan` | Extract and classify URLs from channel messages. | `channel_id` |
-| `history` | Retrieve raw message history from a channel. | `channel_id`, `limit` |
-| `channels` | List channels in a Discord guild. | `guild_id` |
-| `digest` | Generate a structured link digest from channel history. | `channel_id` |
-
-::: tip
-The `publish` action uses `DISCORD_WEBHOOK_URL` (no channel ID needed). The `scan`, `history`, `channels`, and `digest` actions require `DISCORD_BOT_TOKEN` and a `channel_id`.
-:::
-
----
-
-## container_audit
-
-Container & Kubernetes security auditing — kube-hunter cluster scanning, kube-bench CIS benchmarks, deepce escape detection, CDK exploitation toolkit, Trivy vulnerability scanning.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `kube_hunter` | Scan K8s cluster for security weaknesses (remote) | `target` |
-| `kube_hunter_internal` | In-cluster kube-hunter scan (run from inside a pod) | -- |
-| `kube_bench` | Run CIS Kubernetes Benchmark checks on local node | -- |
-| `kube_bench_target` | CIS benchmark for specific K8s distro | `benchmark` (e.g. eks-1.1.0, gke-1.2.0) |
-| `deepce` | Detect container escape vectors from inside a container | -- |
-| `cdk_evaluate` | Evaluate container for exploitation opportunities (CDK) | -- |
-| `cdk_exploit` | Run a specific CDK exploit by name | `exploit_name` (e.g. mount-cgroup, service-account) |
-| `trivy_image` | Scan container image for known CVEs | `image`, `severity` (default: HIGH,CRITICAL) |
-| `trivy_k8s` | Scan K8s cluster resources for misconfigs and CVEs | `target` |
-| `trivy_fs` | Scan filesystem/project for dependency vulnerabilities | `path`, `severity` |
-
----
-
-## websocket_test
-
-WebSocket security testing — authentication bypass, Cross-Site WebSocket Hijacking (CSWSH), and message injection.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `auth_bypass` | Test WebSocket endpoint for authentication bypass | `url`, `origin`, `auth_token` |
-| `cswsh` | Test for Cross-Site WebSocket Hijacking via Origin validation | `url`, `origin` |
-| `injection` | Test WebSocket messages for injection vulnerabilities | `url`, `origin`, `categories` (sqli, xss, command_injection, path_traversal) |
-
----
-
-## iot_audit
-
-IoT device security assessment — nmap IoT sweep, service fingerprinting, Telnet/HTTP admin checks, MQTT broker testing, SNMP enumeration, RTSP stream discovery, firmware version exposure, and default credential spraying.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `device_discovery` | nmap IoT port sweep across a CIDR — identifies cameras, routers, NAS, smart home hubs | `target` (CIDR) |
-| `fingerprint` | Deep OS + service version + banner fingerprint on a single host | `target` |
-| `telnet_check` | Check for open Telnet on port 23 and 2323 (common IoT backdoor) | `target` |
-| `http_admin_check` | Enumerate HTTP admin UIs on common IoT ports and test default accounts | `target` |
-| `mqtt_audit` | Test MQTT broker for anonymous access via `$SYS` topic subscription | `target` |
-| `snmp_audit` | Probe SNMP with default community strings using onesixtyone | `target` |
-| `rtsp_discover` | Find RTSP camera streams and check for auth requirement | `target` |
-| `firmware_exposure` | Banner-grab common ports for firmware and version strings | `target` |
-| `default_creds` | Credential spray using common IoT defaults (hydra) | `target`, `service` |
-| `full_iot_audit` | Run all checks in sequence against a target | `target` |
-
----
-
-## ad_attack
-
-Active Directory attack chain — BloodHound graph collection, Kerberoasting, AS-REP roasting, ADCS certificate abuse (Certipy ESC1–ESC8), LDAP enumeration, and domain secrets dumping. Requires `REDTEAM` mode for exploitation steps.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `bloodhound_collect` | Collect all AD objects and relationships for BloodHound ingestion | `target`, `domain`, `username`, `password` |
-| `bloodhound_edges` | Focused collection of ACL relationships and domain trust edges | `target`, `domain`, `username`, `password` |
-| `certipy_find` | Enumerate all ADCS certificate templates across all CAs | `target`, `domain`, `username`, `password` |
-| `certipy_vuln` | Filter templates vulnerable to ESC1–ESC8 privilege escalation | `target`, `domain`, `username`, `password` |
-| `certipy_req` | Request a certificate from a vulnerable template (ESC1 exploit) | `target`, `domain`, `username`, `password`, `ca_name`, `template` |
-| `enum4linux_ng` | SMB/LDAP/RPC deep enumeration — users, groups, shares, password policy | `target`, `username`, `password`, `domain` |
-| `ldapsearch` | LDAP query for AD objects (users, computers, groups) | `target`, `domain`, `username`, `password`, `base_dn`, `filter` |
-| `kerberoast` | Request TGS tickets for SPNs — crack offline with hashcat `-m 13100` | `target`, `domain`, `username`, `password` |
-| `asreproast` | Extract AS-REP hashes for accounts without preauth — crack with hashcat `-m 18200` | `target`, `domain`, `wordlist` |
-| `secretsdump` | Dump NTDS.dit, SAM, and LSA secrets from the domain controller | `target`, `domain`, `username`, `password` |
-
----
-
-## grpc_audit
-
-gRPC security testing — server reflection enumeration, service/method description, auth testing, TLS enforcement, protobuf fuzzing, and port scanning.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `grpc_reflection` | List all services via gRPC server reflection | `target` (host:port) |
-| `grpc_describe` | Describe service methods, request/response message shapes | `target`, `service` |
-| `grpc_call` | Call a gRPC method with a data payload | `target`, `method`, `data` |
-| `grpc_fuzz` | Fuzz gRPC service methods with random/malformed inputs | `target`, `service`, `count` |
-| `grpc_auth_test` | Test gRPC method with and without an Authorization header | `target`, `method`, `auth_header` |
-| `grpc_tls_check` | Verify the endpoint requires TLS | `target` |
-| `grpc_web_test` | Test gRPC-Web endpoint with proto definitions | `target` |
-| `protoscan` | Scan for exposed protobuf/gRPC endpoints across common ports | `target` |
-
----
-
-## graphql_test
-
-GraphQL security testing — introspection, depth limit DoS, batch query amplification, and field suggestion leakage.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `gql_introspect` | Test if introspection is enabled and extract the full schema | `url`, `headers` |
-| `gql_depth_test` | Find server's depth limit via incrementally deeper nested queries | `url`, `headers` |
-| `gql_batch` | Test batch query support — amplifies brute force and bypasses rate limiting | `url`, `headers` |
-| `gql_field_suggest` | Probe for field name leakage via typo-triggered suggestion responses | `url`, `headers` |
-
----
-
-## jwt_tool
-
-JWT analysis — decode, algorithm bypass testing, HMAC secret brute-force, and claim tampering.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `jwt_decode` | Decode a JWT and display header, payload, signature; flags weak alg/claims | `token` |
-| `jwt_alg_none` | Generate algorithm=none bypass variants for manual submission | `token` |
-| `jwt_crack` | Brute-force HMAC secret (HS256/384/512) with a wordlist | `token`, `wordlist` |
-| `jwt_tamper` | Modify JWT claims and re-sign for privilege escalation testing | `token`, `claims` |
-
----
-
-## ssrf_detect
-
-SSRF detection — payload injection into URL parameters, cloud metadata endpoint probing, and blind callback server.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `ssrf_basic` | Inject standard SSRF payloads (127.0.0.1, IPv6, etc.) into a URL parameter | `url`, `inject_param` |
-| `ssrf_cloud_meta` | Probe cloud metadata endpoints (AWS/GCP/Azure/DO) directly | -- |
-| `ssrf_callback` | Blind SSRF detection via local callback HTTP server | `url`, `inject_param`, `callback_host`, `callback_port`, `wait_seconds` |
-| `ssrf_generate_payloads` | Generate SSRF bypass payload list for manual testing | -- |
-
----
-
-## rate_limit
-
-Rate limit testing — threshold detection, IP header spoofing bypass, and URL path manipulation bypass.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `rate_detect` | Send sequential requests and track HTTP 429 / Retry-After responses | `url`, `headers`, `count` |
-| `rate_bypass_headers` | Test bypass via IP spoofing headers (X-Forwarded-For, X-Real-IP, etc.) | `url`, `headers`, `spoof_ip` |
-| `rate_bypass_path` | Test bypass via URL normalization tricks (trailing slash, dot, double-slash) | `url`, `headers` |
-
----
-
-## priv_esc
-
-Linux privilege escalation enumeration — linpeas, sudo audit, SUID binary discovery, and kernel exploit suggestions.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `linpeas` | Comprehensive Linux privesc enumeration (crons, writable paths, capabilities, credentials) | -- |
-| `sudo_check` | List sudo privileges for the current user | -- |
-| `suid_find` | Find setuid binaries — results are GTFOBins-searchable | -- |
-| `kernel_exploits` | Cross-reference kernel version against known exploits | -- |
-
----
-
-## persistence
-
-Persistence mechanism testing — planting and enumerating SSH keys, cron jobs, and systemd services.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `add_ssh_key` | Add attacker public key to `~/.ssh/authorized_keys` | `pubkey` |
-| `add_cron` | Add a cron job for persistence | `cron_entry` |
-| `check_persistence` | Enumerate current cron jobs, authorized_keys, and enabled systemd services | -- |
-
----
-
-## lateral_move
-
-Lateral movement — impacket psexec/wmiexec, evil-winrm, pass-the-hash, and SSH SOCKS pivot.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `psexec` | Remote shell via SMB named pipes (impacket) | `target`, `domain`, `username`, `password` |
-| `wmiexec` | WMI execution via impacket | `target`, `domain`, `username`, `password` |
-| `evil_winrm` | Evil-WinRM shell for Windows Remote Management | `target`, `username`, `password` |
-| `pth_winrm` | Pass-the-hash authentication via evil-winrm | `target`, `username`, `hash` |
-| `ssh_pivot` | Establish SOCKS5 proxy through a compromised host | `target`, `username`, `socks_port` |
-
----
-
-## data_exfil
-
-Evidence collection — pull files from compromised hosts via SCP, SMB, or HTTP.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `scp_download` | Download file from compromised host via SCP | `target`, `username`, `remote_path`, `local_path` |
-| `smb_download` | Download file from an SMB share | `target`, `share`, `remote_path`, `local_path` |
-| `http_exfil` | Download file via HTTP/HTTPS | `url`, `local_path` |
-
----
-
-## spa_test
-
-Single-Page Application security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage, DOM XSS, and JavaScript source map exposure.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `route_bypass` | Test SPA client-side route guard bypass (access protected routes unauthenticated) | `target`, `routes_file` |
-| `state_inspect` | Inspect client-side state stores (Redux, Vuex, etc.) for sensitive data | `target`, `store_type` |
-| `postmessage_scan` | Scan for insecure `postMessage` handlers | `target` |
-| `token_leakage_audit` | Audit for token leakage in localStorage and URL fragments | `target` |
-| `dom_xss_scan` | Scan for DOM-based cross-site scripting vulnerabilities | `target` |
-| `js_source_map_check` | Check for exposed JavaScript source maps | `target` |
-
----
-
-## wifi_intel
-
-Alfa AWUS036AXML (MediaTek MT7921U, dual-band WiFi 6) — passive landscape surveys and targeted WPA capture using airodump-ng and hcxdumptool. All captures are organized under a timestamped workspace directory with metadata JSON ready for transfer to a GPU cracking box.
-
-Monitor mode is managed via `iw dev set type monitor` directly (not airmon-ng). This leaves NetworkManager and all other interfaces untouched, which is required on SteamOS/Tailscale setups where killing NM drops the SSH tunnel.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `monitor_start` | Place the adapter into monitor mode via `iw`; emits a kernel compatibility warning if >= 6.9 (see limitations below) | `interface` (default: `wlan1`) |
-| `monitor_stop` | Restore the adapter to managed mode via `iw` | `monitor_interface` (default: `wlan1mon`) |
-| `survey` | airodump-ng passive scan; ingests all APs and stations into target_intel | `band` (`2.4`/`5`/`both`), `channels` (comma-separated list, e.g. `1,6,11,36,40,44,48,149,153,157,161` — overrides `band` when set, more stable on mt76), `duration` (seconds), `interface` |
-| `capture_pmkid` | Passive PMKID/EAPOL capture via hcxdumptool; auto-converts to hashcat-ready `.hc22000` | `duration`, `bssid_filter` (optional) |
-| `capture_handshake` | Targeted WPA 4-way handshake capture via deauth + airodump-ng; writes `.cap` + metadata JSON | `bssid` (required), `channel` (required), `ssid` (label), `duration` |
-| `signal_history` | Query target_intel for a BSSID's historical RSSI readings and timestamps | `bssid` (required) |
-| `export` | Dump all known WiFi networks from target_intel to JSON; lists all capture dirs with metadata | — |
-
-### Steam Deck Limitations (SteamOS kernel 6.11 / mt76 driver)
-
-**Frame injection broken (kernel >= 6.9):** A regression in Linux >= 6.9.0 broke frame injection and active monitor mode across all mt76 devices ([ZerBea/hcxdumptool#465](https://github.com/ZerBea/hcxdumptool/discussions/465)). SteamOS 3.7.x ships kernel 6.11.x. `capture_handshake` (deauth injection) will fail silently. `monitor_start` warns automatically when this is detected. Last known-working kernels: 6.6.40 (LTS) / 6.8.12 (stable). Keep an eye on SteamOS kernel updates.
-
-**Passive capture unaffected:** `survey` and `capture_pmkid` work normally — the regression only affects injection. hcxdumptool already defaults to passive mode (no `-A` flag).
-
-**Driver stability under channel hopping:** Full `--band` hopping (all 13 2.4GHz channels) crashes the mt76 driver after ~5–15 minutes. Use the `channels` parameter with a fixed list (e.g. `1,6,11,36,40,44,48,149,153,157,161`) — confirmed stable at 5-minute runs. The `wifi_landscape_survey` playbook uses this by default.
-
-**USB hub power:** The Alfa requires ~1000mA. The official Steam Deck dock allocates 160–500mA per USB-A port — the adapter will not enumerate through it. Connect directly to the deck's USB-C port, or use an externally powered USB hub with its own AC adapter.
-
-**SteamOS config persistence:** Three files are required on the deck and must survive OS updates. Add them to `/etc/atomic-update.conf.d/protopen-keep.conf`:
-- `/etc/udev/rules.d/99-alfa-nowake.rules` — prevents USB connect events from waking the display
-- `/etc/NetworkManager/conf.d/99-alfa-unmanaged.conf` — prevents NM from managing the Alfa by MAC
-- `/etc/modprobe.d/blacklist-btusb.conf` — prevents `btusb` from claiming the adapter's Bluetooth interface, which blocks WiFi driver init
-
----
-
-## traffic_analysis
-
-Packet capture and traffic analysis for networks you own or have written authorization to test. Wraps tcpdump, tshark, tcpflow, and mitmproxy.
-
-Credentials and hosts discovered are automatically ingested into `target_store` (`add_credential`, `upsert_host`). `tls_intercept` requires **REDTEAM** engagement mode.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `pcap_capture` | Live packet capture to a `.pcap` file via tcpdump | `interface` (default: `eth0`), `duration` (seconds), `filter` (BPF expression, e.g. `host 192.168.1.100 and port 80`), `packet_count` (0 = unlimited) |
-| `pcap_parse` | Analyse an existing pcap — TCP/UDP flow table, protocol hierarchy, anomaly detection (SYN scans, long DNS queries, cleartext on 443) via tshark | `pcap_file` (required), `analysis_type` (`flows` / `protocols` / `suspicious` / `all`) |
-| `session_reconstruct` | Reassemble TCP streams via tcpflow; extracts HTTP method, URI, Host, Authorization header, and body preview for each session | `pcap_file` (required), `output_dir` |
-| `cleartext_harvest` | Extract credentials from a pcap: HTTP Basic Auth (base64-decoded), HTTP POST form fields matching password/token patterns, FTP USER+PASS, Telnet data streams, MQTT CONNECT credentials, SNMP v1/v2c community strings | `pcap_file` (required) |
-| `tls_intercept` | Transparent HTTPS MITM — ARP spoof both directions (arpspoof), iptables REDIRECT 443 → mitmproxy, capture flows to dump file; restores `net.ipv4.ip_forward` and removes iptables rule on teardown. **Own devices only. REDTEAM engagement level.** | `interface`, `target_ip` (required), `gateway_ip` (required), `listen_port` (default: 8080), `duration` (seconds) |
-
-### BPF filter examples
-
-```
-host 192.168.1.50                         # single host
-host 192.168.1.50 and port 80             # host + port
-net 192.168.1.0/24                        # subnet
-port 21 or port 23                        # FTP and Telnet
-not port 443 and not port 22              # exclude SSH and HTTPS
-```
-
-### Anomaly detection (pcap_parse / suspicious)
-
-- **SYN scan detection** — source IPs that send SYN to ≥ 20 distinct ports on the same destination
-- **Cleartext auth protocols** — any FTP, Telnet, or HTTP Basic traffic
-- **DNS tunneling heuristic** — DNS queries with names > 50 characters
-- **Plaintext on 443** — TCP port 443 traffic that is not TLS/SSL
-
-### Engagement gating
-
-| Action | Required mode |
+| Tool | Description |
 |---|---|
-| `pcap_parse`, `session_reconstruct` | PASSIVE (0) |
-| `pcap_capture`, `cleartext_harvest` | ACTIVE (1) |
-| `tls_intercept` | REDTEAM (2) |
+| `cve_search` | Search the NVD CVE database for vulnerabilities |
+| `security_feeds` | Aggregate security advisory feeds from well-known sources |
+| `github_trending` | Search GitHub for trending and notable AI/ML repositories |
+| `browser` | Automate a web browser |
+| `lab_monitor` | Monitor protoLabsAI/lab for new experiments, docs, and changes |
+| `security_memory` | Persistent security knowledge store with hybrid search |
+| `discord_feed` | Read Discord channels and publish research digests |
 
----
+### Reconnaissance & OSINT
 
-# Tier 3 — LLM, Telecom, Evasion, Phishing, Auth
+| Tool | Description |
+|---|---|
+| `external_recon` | Passive external reconnaissance from an attacker's perspective |
+| `dns_enum` | DNS enumeration — dig, nslookup, zone transfers, reverse lookups, subdomain brute force |
+| `subdomain_discovery` | Subdomain enumeration via subfinder and amass passive mode |
+| `osint_recon` | OSINT reconnaissance — theHarvester and whois lookups |
+| `recon_pipeline` | Automated recon pipeline — chained reconnaissance orchestration |
 
-> `grpc_audit` (gRPC) is documented above. Modern-auth/passkey testing is `auth_audit` below.
+### Network Enumeration
 
-## llm_audit
+| Tool | Description |
+|---|---|
+| `blackarch` | Run BlackArch security tools (nmap, aircrack, bettercap, tshark, etc) |
+| `lan_scan` | LAN discovery and enumeration (risk level 1 — active probing) |
+| `service_enum` | Service enumeration — enum4linux, SMB share listing, RPC queries |
+| `web_enum` | Web content enumeration — directory brute force, vhost discovery, parameter fuzzing |
+| `api_enum` | API enumeration — Swagger/OpenAPI discovery, endpoint brute force, method checking |
+| `ssl_audit` | SSL/TLS audit via testssl.sh — protocols, ciphers, vulnerabilities, certificates |
+| `perimeter_audit` | Network perimeter and router/CPE audit — UPnP, default creds, RouterSploit, WAN exposure |
+| `ipv6_attack` | IPv6 network attack and discovery — THC-IPv6 suite, nmap IPv6 |
 
-AI/LLM security testing — prompt injection, model abuse, RAG poisoning. Wraps garak and promptfoo plus custom jailbreak, model-extraction, and RAG-poisoning checks.
+### Vulnerability Assessment
 
-| Action | Description | Key Parameters |
-|---|---|---|
-| `garak_scan` | Full garak vulnerability scan against an LLM endpoint | `target`, `output_dir` |
-| `garak_probe` | Run a specific garak probe (e.g. promptinject, encoding) | `target`, `probe`, `output_dir` |
-| `promptfoo_eval` | Evaluate an LLM against red-team test cases | `config_path`, `output_dir` |
-| `promptfoo_redteam` | Automated red-team testing of an LLM endpoint | `target`, `output_dir` |
-| `prompt_inject_test` | Test for direct/indirect prompt injection | `target`, `payload_set` |
-| `rag_poison_check` | Detect RAG poisoning in knowledge-base content | `target`, `corpus_path` |
-| `model_extract_test` | Test for model extraction via API queries | `target`, `num_queries` |
-| `jailbreak_test` | Test jailbreak techniques against an LLM | `target`, `technique` |
+| Tool | Description |
+|---|---|
+| `vuln_scan` | Vulnerability scanning — nikto, nuclei templates, nmap NSE vuln scripts |
+| `sql_test` | SQL injection testing via sqlmap |
+| `web_vuln` | Web vulnerability testing — XSS (dalfox), CORS misconfiguration, open redirect |
+| `cve_match` | CVE matching — searchsploit, nmap vulners NSE, nuclei CVE templates |
+| `ssrf_detect` | SSRF detection — payload injection, callback server, cloud metadata checks |
+| `rate_limit` | Rate limit testing — detect and test bypass techniques |
 
----
+### Web, API & Auth Testing
 
-## telecom_attack
+| Tool | Description |
+|---|---|
+| `jwt_tool` | JWT analysis — decode, algorithm-none attack, crack weak secrets, tamper claims |
+| `auth_test` | Authentication & authorization testing — BOLA/IDOR, privilege escalation, session testing |
+| `auth_audit` | Modern authentication security testing |
+| `graphql_test` | GraphQL security testing — introspection, depth/complexity fuzzing, batch query abuse |
+| `grpc_audit` | gRPC and protobuf security testing |
+| `websocket_test` | WebSocket security testing — authentication bypass, CSWSH, injection |
+| `spa_test` | SPA client-side security testing |
 
-Telecom security — GTP scanning/fuzzing, SIP enumeration/cracking, SS7 scanning, Diameter audit, IMSI-catcher detection, STIR/SHAKEN verification.
+### Exploitation & Post-Exploitation
 
-| Action | Description | Key Parameters |
-|---|---|---|
-| `gtp_scan` | Scan for GTP-C/GTP-U endpoints | `target`, `port` |
-| `gtp_fuzzer` | Fuzz GTP protocol for crashes and anomalies | `target`, `port`, `count` |
-| `sip_enum` | SIP device enumeration | `target` |
-| `sip_crack` | SIP credential cracking | `username`, `target` |
-| `ss7_scan` | SS7 network element scanning | `target` |
-| `diameter_audit` | Diameter protocol security audit | `target`, `port` |
-| `imsi_detect` | Scan for GSM base stations / IMSI-catcher detection | `device_args` |
-| `sip_flood_test` | SIP extension enumeration via REGISTER flood | `extension_range`, `target` |
-| `stir_shaken_verify` | Verify STIR/SHAKEN caller-ID authentication | `call_id`, `target` |
+| Tool | Description |
+|---|---|
+| `msf_exploit` | Metasploit Framework — module search, exploit execution, payload generation |
+| `credential_attack` | Credential attacks — hydra brute force, password spraying, combo lists, Responder LLMNR/NBT-NS poisoning, CrackMapExec SMB enumeration/sp… |
+| `hashcat_rules` | Hash cracking — hashcat, john the ripper, hash identification |
+| `ad_attack` | Active Directory security testing — BloodHound, Certipy, impacket |
+| `priv_esc` | Privilege escalation enumeration — linpeas, sudo checks, SUID discovery |
+| `lateral_move` | Lateral movement — psexec, wmiexec, evil-winrm, SSH pivoting |
+| `data_exfil` | Data exfiltration — controlled file extraction for evidence collection |
+| `persistence` | Persistence — establish persistence for authorized engagement testing |
+| `cleanup` | Cleanup — remove engagement artifacts and persistence from targets |
+| `evasion` | Payload evasion and AV bypass — encoding, obfuscation, detection testing |
+| `phishing` | Phishing simulation — GoPhish, Evilginx, email security |
 
----
+### Wireless, RF & Hardware
 
-## evasion
+| Tool | Description |
+|---|---|
+| `device_manager` | Manage USB device connections (PortaPack, Flipper, Marauder, WiFi adapter) |
+| `portapack` | Control PortaPack H4M via Mayhem serial shell (RF 1MHz–6GHz) |
+| `flipper` | Control Flipper Zero via serial CLI |
+| `marauder` | Control WiFi Marauder on Flipper Zero (ESP32 WiFi attacks) |
+| `wifi_intel` | Alfa WiFi adapter control — passive landscape surveys and targeted WPA capture |
 
-Evasion toolkit — msfvenom encoding, Veil payloads, Shellter PE injection, Donut shellcode, ScareCrow EDR-evasive loaders, AMSI bypass, Defender checks, entropy analysis.
+### Specialized Domains
 
-| Action | Description | Key Parameters |
-|---|---|---|
-| `msfvenom_generate` | Generate an encoded payload with msfvenom | `payload`, `lhost`, `lport`, `format`, `encoder`, `iterations`, `output_path` |
-| `veil_generate` | Generate an AV-evasive payload with Veil | `payload`, `lhost`, `lport`, `output_path` |
-| `shellter_inject` | Inject shellcode into a PE with Shellter | `target_pe`, `payload` |
-| `donut_generate` | Generate position-independent shellcode from PE/.NET | `input_file`, `output_path`, `arch`, `format` |
-| `scarecrow_generate` | EDR-evasive loader generation with ScareCrow | `input_file`, `loader`, `domain`, `output_path` |
-| `amsi_test` | Test a payload against AMSI bypass techniques | `payload_path` |
-| `defender_check` | Check whether Windows Defender detects a payload | `payload_path` |
-| `entropy_analysis` | Analyze payload entropy for detection likelihood | `payload_path` |
+| Tool | Description |
+|---|---|
+| `iot_protocol` | IoT protocol security testing — MQTT, CoAP, Modbus, BACnet, UPnP, Zigbee |
+| `iot_audit` | IoT device security audit — discovery, fingerprinting, and vulnerability assessment |
+| `mobile_audit` | Mobile app security testing — APK decompilation, static/dynamic analysis |
+| `telecom_attack` | 5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI |
+| `supply_chain` | Supply chain attack testing — dependency confusion, typosquatting, secrets |
+| `serverless_audit` | Serverless/edge function security testing |
+| `cicd_audit` | CI/CD pipeline security scanning — secret detection, IaC scanning, SAST |
+| `sdn_attack` | SDN/network automation security testing |
+| `llm_audit` | AI/LLM security testing — prompt injection, model abuse, RAG poisoning |
+| `container_audit` | Container & Kubernetes security auditing and escape detection |
 
----
+### Traffic Analysis & Network Monitoring
 
-## phishing
+| Tool | Description |
+|---|---|
+| `traffic_analysis` | Packet capture and traffic analysis for networks you own or have authorization to test |
+| `net_monitor` | Network monitoring — traffic baselines, host anomaly detection, DNS monitoring |
 
-Phishing framework — GoPhish campaigns, Evilginx phishlets/lures, email-header analysis, SPF/DKIM/DMARC verification, SMTP open-relay testing.
+### Blue Team / Defensive
 
-| Action | Description | Key Parameters |
-|---|---|---|
-| `gophish_create_campaign` | Create a GoPhish phishing campaign | `campaign_name`, `template`, `target`, `api_key` |
-| `gophish_results` | Get GoPhish campaign results (clicks, submissions) | `campaign_id`, `api_key` |
-| `evilginx_phishlet` | Configure an Evilginx phishlet for a domain | `phishlet`, `domain` |
-| `evilginx_lures` | Create an Evilginx phishing lure URL | `phishlet` |
-| `email_header_analyze` | Analyze email headers for spoofing indicators | `email_file` |
-| `spf_check` | Check SPF records for an email domain | `domain` |
-| `dkim_check` | Check DKIM records for an email domain | `dkim_selector`, `domain` |
-| `dmarc_check` | Check DMARC policy for an email domain | `domain` |
-| `smtp_relay_test` | Test SMTP open relay and email spoofing | `recipient`, `sender`, `target`, `ehlo_domain` |
+| Tool | Description |
+|---|---|
+| `cis_audit` | Defensive CIS benchmark scanning and configuration auditing |
+| `hardening_check` | Per-service hardening validation with specific remediation steps |
+| `ir_toolkit` | Incident response — log correlation, IOC matching, timeline reconstruction |
+| `purple_team` | Purple team mode — correlate red-team attacks with blue-team detections |
 
----
+### Engagement & Orchestration
 
-## auth_audit
+| Tool | Description |
+|---|---|
+| `engagement` | Manage pentest engagements — mode enforcement, logging, reporting |
+| `target_intel` | Query and manage the target intelligence database |
+| `opsec` | Opsec management — MAC randomization, interface fingerprint control, nmap opsec profiles |
+| `playbook` | Playbook system — run predefined tool sequences |
+| `orchestrator` | Automated engagement orchestrator — scripted pen test pipeline with agent hand-off |
+| `chain_planner` | Recommend next tool actions based on accumulated target intelligence |
+| `technique_library` | Store and retrieve successful attack techniques for reuse |
+| `schedule_task` | Schedule a future task |
+| `list_schedules` | List the current scheduled jobs |
+| `cancel_schedule` | Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``) |
 
-Modern auth security — OAuth redirect/device-code flows, OIDC discovery and token confusion, SAML decode/injection, JWT alg-confusion and cracking, WebAuthn/passkey relay, session fixation.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `oauth_redirect_test` | Test OAuth `redirect_uri` validation (open redirect/SSRF) | `target`, `client_id`, `redirect_uri` |
-| `oauth_device_code` | Test OAuth device-code flow for phishing susceptibility | `target`, `client_id` |
-| `oidc_discovery` | Enumerate OIDC provider configuration and endpoints | `target` |
-| `oidc_token_test` | Test OIDC token validation and confusion attacks | `target`, `token` |
-| `saml_decode` | Decode and analyze a SAML response | `saml_response` |
-| `saml_inject` | Test SAML XML signature wrapping / injection | `target`, `saml_response` |
-| `jwt_scan` | JWT vulnerability scan (alg confusion, key injection, claim tampering) | `token`, `target` |
-| `jwt_crack` | Crack a JWT HMAC secret with a wordlist | `token`, `wordlist` |
-| `webauthn_test` | Test WebAuthn/passkey for relay and origin bypass | `target`, `rp_id` |
-| `session_fixation` | Test for session fixation and cookie security | `target` |
-
----
-
-# Tier 4 — Mobile, Supply Chain, Serverless, SDN, Recon
-
-> `spa_test` (single-page apps) is documented above.
-
-## mobile_audit
-
-Mobile app security — APK/IPA decompilation, static analysis, Frida instrumentation, SSL-pinning bypass, IPC auditing, keychain extraction.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `apk_decompile` | Decompile an APK with apktool | `target`, `output_dir` |
-| `static_analysis` | Run MobSF static analysis | `target` |
-| `jadx_decompile` | Decompile an APK to Java source with jadx | `target`, `output_dir` |
-| `drozer_scan` | Scan content providers for exposed URIs with drozer | `package_name`, `target` |
-| `frida_hook` | Attach a Frida hook script to a running app | `script_path`, `package_name` |
-| `ssl_pinning_bypass` | Bypass SSL pinning via objection | `package_name` |
-| `ipc_audit` | Audit IPC components (activities, services, receivers) | `package_name`, `target` |
-| `keychain_dump` | Dump Android keystore entries via objection | `package_name` |
-
----
-
-## supply_chain
-
-Supply-chain security — dependency confusion, typosquatting, package provenance, post-install script analysis, secret detection (trufflehog/gitleaks), dependency CVEs (depscan).
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `dependency_confusion_test` | Test for dependency confusion against a registry | `registry`, `packages_file` |
-| `typosquat_scan` | Scan for typosquatted package names | `package_name`, `registry` |
-| `package_provenance_audit` | Audit package provenance / supply-chain integrity | `package_name`, `registry` |
-| `postinstall_audit` | Analyze post-install scripts for malicious behavior | `target` |
-| `trufflehog_scan` | Scan a git repo for leaked secrets (trufflehog) | `target` |
-| `gitleaks_scan` | Detect hardcoded secrets in source (gitleaks) | `target` |
-| `depscan` | Dependency vulnerability scan (OWASP depscan) | `target`, `scan_type` |
-
----
-
-## serverless_audit
-
-Serverless & IaC security — Lambda injection, edge-function audit, event-trigger abuse, Terraform-state scanning, IaC checks (checkov), serverless misconfig, cold-start races.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `lambda_inject_test` | Test a Lambda for event-injection vulnerabilities | `target`, `event_type` |
-| `edge_function_audit` | Audit edge/CDN functions | `target`, `provider` |
-| `event_trigger_abuse` | Test event-trigger abuse (S3, SQS, SNS, …) | `target`, `trigger_type` |
-| `tfstate_scan` | Scan Terraform state for exposed secrets/misconfig | `target` |
-| `iac_security_scan` | Run a checkov IaC security scan | `target` |
-| `serverless_misconfig` | Detect serverless misconfigurations in an account | `profile`, `region` |
-| `cold_start_race` | Test cold-start race conditions | `target`, `concurrency` |
-
----
-
-## sdn_attack
-
-SDN / network-automation security — controller enumeration, NETCONF exploit testing, network-policy audit, YANG model enumeration, RESTCONF audit, OpenFlow analysis.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `sdn_controller_enum` | Enumerate SDN controller endpoints and APIs | `target`, `port` |
-| `netconf_exploit` | Test a NETCONF service for auth/config flaws | `target`, `netconf_port`, `username`, `password` |
-| `network_policy_audit` | Audit SDN network policies for misconfig | `target`, `api_key` |
-| `yang_model_enum` | Enumerate YANG models exposed via NETCONF | `target`, `netconf_port` |
-| `restconf_test` | Test a RESTCONF API for auth bypass / data exposure | `target`, `username`, `password` |
-| `openflow_audit` | Audit an OpenFlow implementation for weaknesses | `target`, `openflow_port` |
-
----
-
-## recon_pipeline
-
-Automated recon pipeline — subdomain enumeration, HTTP probing, nuclei scanning, screenshots, asset correlation, attack-graph generation, technology detection.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `full_pipeline` | Run the full pipeline: subdomains, probing, scanning | `domain`, `output_dir`, `threads` |
-| `subdomain_httpx` | Enumerate subdomains (subfinder) and probe (httpx) | `domain` |
-| `nuclei_scan` | Run nuclei templates against a target | `target`, `severity` |
-| `screenshot_capture` | Capture screenshots of discovered web assets | `targets_file`, `output_dir` |
-| `asset_correlate` | Correlate discovered assets across recon sources | `output_dir` |
-| `attack_graph_build` | Build an attack graph from correlated recon data | `output_dir`, `domain` |
-| `tech_detect` | Detect technologies used by a target web app | `target` |
-
----
-
-# Browser
-
-## browser
-
-Headless web browser automation via the `agent-browser` CLI (Chromium). Returns
-accessibility-tree snapshots by default (token-efficient); use `open` first,
-then `snapshot` to read page content. The CLI is installed automatically — in
-the container (Dockerfile) and on native/Deck runtimes (`start.sh`); see the
-[browser tool setup](#browser-tool-setup) note below.
-
-| Action | Description | Key Parameters |
-|---|---|---|
-| `open` | Navigate to a URL | `url` |
-| `snapshot` | Get the accessibility tree of the current page | -- |
-| `screenshot` | Take a screenshot (base64 PNG) | -- |
-| `click` | Click an element by accessibility label or selector | `selector` |
-| `fill` | Fill an input field with text | `selector`, `text` |
-| `find` | Find elements matching a query | `query` |
-| `type` | Type text (keyboard input) | `text` |
-| `wait` | Wait for a selector to appear | `selector` |
-
-### Browser tool setup
-
-`agent-browser` is a published npm CLI plus a bundled Chromium. protoPen installs
-it automatically:
-
-- **Container** — the image installs the CLI and a system `chromium`, and
-  `entrypoint.sh` exports `AGENT_BROWSER_EXECUTABLE_PATH` so it's found under the
-  sandbox user's `HOME=/tmp`.
-- **Native / Steam Deck** — `start.sh` installs the CLI into a user-local npm
-  prefix (`~/.npm-global`, since `/usr` is read-only on the immutable rootfs),
-  downloads Chromium, and exports `AGENT_BROWSER_EXECUTABLE_PATH`. Idempotent and
-  persists across reboots / OS updates.
-
-If the tool reports *"agent-browser is not installed"*, the launcher's install
-step failed (e.g. no network on first boot) — re-run it by restarting the
-service.
+<!-- END GENERATED TOOLS -->
