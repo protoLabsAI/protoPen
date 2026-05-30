@@ -11,19 +11,22 @@ from langchain_openai import ChatOpenAI
 from graph.config import LangGraphConfig
 
 
-def create_llm(config: LangGraphConfig) -> ChatOpenAI:
+def create_llm(config: LangGraphConfig, model_name: str | None = None) -> ChatOpenAI:
     """Create a LangChain ChatModel from config.
 
     Routes through the LiteLLM gateway which handles provider
     routing (Anthropic, OpenAI, vLLM, etc.) behind a single
     OpenAI-compatible endpoint.
+
+    ``model_name`` overrides the configured model — used to route auxiliary work
+    (e.g. summarization for compaction) to a cheaper/faster gateway alias.
     """
     api_key = config.api_key or os.environ.get("OPENAI_API_KEY", "")
 
     return ChatOpenAI(
         base_url=config.api_base,
         api_key=api_key,
-        model=config.model_name,
+        model=model_name or config.model_name,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
     )
