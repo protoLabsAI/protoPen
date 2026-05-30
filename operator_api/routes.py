@@ -103,6 +103,7 @@ def register_operator_routes(
     scheduler_cancel: Callable[[str], dict[str, Any]] | None = None,
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
+    chat_commands: Callable[[], dict[str, Any]] | None = None,
     api_key: str = "",
 ) -> None:
     """Register React operator-console routes on a FastAPI app.
@@ -129,6 +130,10 @@ def register_operator_routes(
     @router.get("/api/runtime/status", summary="Runtime status")
     async def _runtime_status():
         return runtime_status()
+
+    @router.get("/api/chat/commands", summary="List chat slash-commands")
+    async def _chat_commands():
+        return chat_commands() if chat_commands else {"commands": []}
 
     @router.get("/api/subagents", summary="List subagents")
     async def _subagents():

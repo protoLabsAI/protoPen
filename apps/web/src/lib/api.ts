@@ -12,6 +12,7 @@ import type {
   RuntimeStatus,
   ScheduledJob,
   SetupStatus,
+  SlashCommand,
   Subagent,
 } from "./types";
 
@@ -184,6 +185,10 @@ async function consumeSse(
 export const api = {
   runtimeStatus() {
     return request<RuntimeStatus>("/api/runtime/status");
+  },
+
+  chatCommands() {
+    return request<{ commands: SlashCommand[] }>("/api/chat/commands");
   },
 
   setupStatus() {
