@@ -7,7 +7,7 @@
   "paths": {
     "/api/chat": {
       "post": {
-        "summary": " Api Chat",
+        "summary": "Chat (programmatic)",
         "operationId": "_api_chat_api_chat_post",
         "requestBody": {
           "content": {
@@ -43,7 +43,7 @@
     },
     "/v1/chat/completions": {
       "post": {
-        "summary": " Openai Chat Completions",
+        "summary": "OpenAI-compatible chat completions",
         "operationId": "_openai_chat_completions_v1_chat_completions_post",
         "requestBody": {
           "content": {
@@ -81,7 +81,7 @@
     },
     "/v1/models": {
       "get": {
-        "summary": " Openai Models",
+        "summary": "List models (OpenAI-compatible)",
         "operationId": "_openai_models_v1_models_get",
         "responses": {
           "200": {
@@ -97,7 +97,7 @@
     },
     "/api/runtime/status": {
       "get": {
-        "summary": " Runtime Status",
+        "summary": "Runtime status",
         "operationId": "_runtime_status_api_runtime_status_get",
         "parameters": [
           {
@@ -135,7 +135,7 @@
     },
     "/api/subagents": {
       "get": {
-        "summary": " Subagents",
+        "summary": "List subagents",
         "operationId": "_subagents_api_subagents_get",
         "parameters": [
           {
@@ -173,7 +173,7 @@
     },
     "/api/engagement": {
       "get": {
-        "summary": " Engagement",
+        "summary": "Engagement snapshot",
         "operationId": "_engagement_api_engagement_get",
         "parameters": [
           {
@@ -211,7 +211,7 @@
     },
     "/api/engagement/report": {
       "get": {
-        "summary": " Engagement Report",
+        "summary": "Read engagement report",
         "operationId": "_engagement_report_api_engagement_report_get",
         "parameters": [
           {
@@ -247,7 +247,7 @@
         }
       },
       "post": {
-        "summary": " Engagement Report Generate",
+        "summary": "Generate engagement report",
         "operationId": "_engagement_report_generate_api_engagement_report_post",
         "parameters": [
           {
@@ -285,7 +285,7 @@
     },
     "/api/knowledge/search": {
       "get": {
-        "summary": " Knowledge Search",
+        "summary": "Search the knowledge store",
         "operationId": "_knowledge_search_api_knowledge_search_get",
         "parameters": [
           {
@@ -358,7 +358,7 @@
     },
     "/api/audit/recent": {
       "get": {
-        "summary": " Audit Recent",
+        "summary": "Recent audit entries",
         "operationId": "_audit_recent_api_audit_recent_get",
         "parameters": [
           {
@@ -422,7 +422,7 @@
     },
     "/api/subagents/run": {
       "post": {
-        "summary": " Subagent Run",
+        "summary": "Run a subagent",
         "operationId": "_subagent_run_api_subagents_run_post",
         "parameters": [
           {
@@ -470,7 +470,7 @@
     },
     "/api/subagents/batch": {
       "post": {
-        "summary": " Subagent Batch",
+        "summary": "Run subagents concurrently",
         "operationId": "_subagent_batch_api_subagents_batch_post",
         "parameters": [
           {
@@ -518,7 +518,7 @@
     },
     "/api/agents/launch": {
       "post": {
-        "summary": " Agent Launch",
+        "summary": "Launch a tracked agent",
         "operationId": "_agent_launch_api_agents_launch_post",
         "parameters": [
           {
@@ -566,7 +566,7 @@
     },
     "/api/agents": {
       "get": {
-        "summary": " Agents List",
+        "summary": "List agent runs",
         "operationId": "_agents_list_api_agents_get",
         "parameters": [
           {
@@ -604,7 +604,7 @@
     },
     "/api/agents/{task_id}": {
       "get": {
-        "summary": " Agent Get",
+        "summary": "Get an agent run",
         "operationId": "_agent_get_api_agents__task_id__get",
         "parameters": [
           {
@@ -651,7 +651,7 @@
     },
     "/api/agents/{task_id}/cancel": {
       "post": {
-        "summary": " Agent Cancel",
+        "summary": "Cancel an agent run",
         "operationId": "_agent_cancel_api_agents__task_id__cancel_post",
         "parameters": [
           {
@@ -698,7 +698,7 @@
     },
     "/api/scheduler/jobs": {
       "get": {
-        "summary": " Scheduler Jobs",
+        "summary": "List scheduled jobs",
         "operationId": "_scheduler_jobs_api_scheduler_jobs_get",
         "parameters": [
           {
@@ -734,7 +734,7 @@
         }
       },
       "post": {
-        "summary": " Scheduler Add",
+        "summary": "Schedule a job",
         "operationId": "_scheduler_add_api_scheduler_jobs_post",
         "parameters": [
           {
@@ -782,7 +782,7 @@
     },
     "/api/scheduler/jobs/{job_id}": {
       "delete": {
-        "summary": " Scheduler Cancel",
+        "summary": "Cancel a scheduled job",
         "operationId": "_scheduler_cancel_api_scheduler_jobs__job_id__delete",
         "parameters": [
           {
@@ -829,7 +829,7 @@
     },
     "/api/notes/workspace": {
       "get": {
-        "summary": " Notes Get",
+        "summary": "Load notes workspace",
         "operationId": "_notes_get_api_notes_workspace_get",
         "parameters": [
           {
@@ -874,7 +874,7 @@
         }
       },
       "post": {
-        "summary": " Notes Save",
+        "summary": "Save notes workspace",
         "operationId": "_notes_save_api_notes_workspace_post",
         "parameters": [
           {
@@ -922,7 +922,7 @@
     },
     "/api/beads/status": {
       "get": {
-        "summary": " Beads Status",
+        "summary": "Beads status",
         "operationId": "_beads_status_api_beads_status_get",
         "parameters": [
           {
@@ -969,7 +969,7 @@
     },
     "/api/beads/init": {
       "post": {
-        "summary": " Beads Init",
+        "summary": "Initialize beads",
         "operationId": "_beads_init_api_beads_init_post",
         "parameters": [
           {
@@ -1017,7 +1017,7 @@
     },
     "/api/beads/issues": {
       "get": {
-        "summary": " Beads List",
+        "summary": "List beads issues",
         "operationId": "_beads_list_api_beads_issues_get",
         "parameters": [
           {
@@ -1062,7 +1062,7 @@
         }
       },
       "post": {
-        "summary": " Beads Create",
+        "summary": "Create a beads issue",
         "operationId": "_beads_create_api_beads_issues_post",
         "parameters": [
           {
@@ -1110,7 +1110,7 @@
     },
     "/api/beads/issues/{issue_id}": {
       "patch": {
-        "summary": " Beads Update",
+        "summary": "Update a beads issue",
         "operationId": "_beads_update_api_beads_issues__issue_id__patch",
         "parameters": [
           {
@@ -1165,7 +1165,7 @@
         }
       },
       "delete": {
-        "summary": " Beads Delete",
+        "summary": "Delete a beads issue",
         "operationId": "_beads_delete_api_beads_issues__issue_id__delete",
         "parameters": [
           {
@@ -1221,7 +1221,7 @@
     },
     "/api/beads/issues/{issue_id}/close": {
       "post": {
-        "summary": " Beads Close",
+        "summary": "Close a beads issue",
         "operationId": "_beads_close_api_beads_issues__issue_id__close_post",
         "parameters": [
           {
