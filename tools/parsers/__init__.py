@@ -34,10 +34,19 @@ def ingest_output(
     if parser is None:
         return []
     try:
-        return parser(raw, store)
+        entities = parser(raw, store) or []
     except Exception:
         logger.exception("Parser failed for %s/%s", tool_name, action)
         return []
+    # Persist the returned entities to the generic findings table. This is the
+    # central path for the many parsers that build entity dicts but don't write a
+    # typed table themselves. No-op if the store doesn't support it.
+    if entities and hasattr(store, "add_findings"):
+        try:
+            store.add_findings(tool=tool_name, action=action, entities=entities)
+        except Exception:
+            logger.exception("add_findings failed for %s/%s", tool_name, action)
+    return entities
 
 
 # ---- register parsers (imports trigger registration) ----

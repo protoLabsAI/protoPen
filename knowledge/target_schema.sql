@@ -157,3 +157,24 @@ CREATE TABLE IF NOT EXISTS credentials (
     scan_session_id INTEGER REFERENCES scan_sessions(id),
     notes TEXT
 );
+
+-- Findings: generic parser output. Application-level findings that don't map to
+-- a typed sensor table (supply chain, SDN, SPA, mobile, serverless, web, recon,
+-- etc.). Populated centrally by tools.parsers.ingest_output from each parser's
+-- returned entities.
+CREATE TABLE IF NOT EXISTS findings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target TEXT,
+    tool TEXT NOT NULL,
+    action TEXT NOT NULL,
+    type TEXT,
+    category TEXT,
+    severity TEXT,
+    title TEXT,
+    value TEXT,
+    data TEXT,
+    first_seen TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_findings_target ON findings(target);
+CREATE INDEX IF NOT EXISTS idx_findings_tool ON findings(tool, action);

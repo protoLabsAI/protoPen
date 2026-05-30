@@ -566,6 +566,73 @@ class TargetStore:
         db.commit()
         return cur.lastrowid
 
+    # ── Findings (generic parser output) ───────────────────────────
+
+    def add_findings(self, *, tool: str, action: str, entities: list[dict]) -> int:
+        """Persist generic parser-produced entities to the ``findings`` table.
+
+        Central sink for the many parsers that build entity dicts but don't write
+        a typed table. Returns the number of rows inserted; tolerant of malformed
+        entities (skips non-dicts).
+        """
+        if not entities:
+            return 0
+        now = _now()
+        db = self._get_db()
+        count = 0
+        for e in entities:
+            if not isinstance(e, dict):
+                continue
+            db.execute(
+                "INSERT INTO findings (target, tool, action, type, category, severity, "
+                "title, value, data, first_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(e.get("target", "")),
+                    tool,
+                    action,
+                    str(e.get("type", "")),
+                    str(e.get("category", e.get("check", ""))),
+                    str(e.get("severity", "")),
+                    str(e.get("title", "")),
+                    str(e.get("value", e.get("detail", ""))),
+                    json.dumps(e, default=str),
+                    now,
+                ),
+            )
+            count += 1
+        db.commit()
+        return count
+
+    def get_findings(self, target: str = "", tool: str = "") -> list[dict]:
+        """Return finding rows, optionally filtered by target and/or tool (newest first)."""
+        db = self._get_db()
+        clauses, params = [], []
+        if target:
+            clauses.append("target = ?")
+            params.append(target)
+        if tool:
+            clauses.append("tool = ?")
+            params.append(tool)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = db.execute(f"SELECT * FROM findings {where} ORDER BY id DESC", params).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_entities(self, target: str) -> list[dict]:
+        """Return the parsed entity dicts recorded for a target (newest first).
+
+        Reads back the original entity JSON from the findings table — used by
+        the lead agent's next-step suggester.
+        """
+        db = self._get_db()
+        rows = db.execute("SELECT data FROM findings WHERE target = ? ORDER BY id DESC", (target,)).fetchall()
+        out: list[dict] = []
+        for row in rows:
+            try:
+                out.append(json.loads(row["data"]))
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return out
+
     # ── Stats & Diff ───────────────────────────────────────────────
 
     def get_stats(self) -> dict:
