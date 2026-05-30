@@ -393,6 +393,7 @@ Single-Page Application security — client-side route guard bypass, state store
 | `postmessage_scan` | Scan for insecure `postMessage` handlers | `target` |
 | `token_leakage_audit` | Audit for token leakage in localStorage and URL fragments | `target` |
 | `dom_xss_scan` | Scan for DOM-based cross-site scripting vulnerabilities | `target` |
+| `js_source_map_check` | Check for exposed JavaScript source maps | `target` |
 
 ---
 
@@ -467,3 +468,180 @@ not port 443 and not port 22              # exclude SSH and HTTPS
 | `pcap_parse`, `session_reconstruct` | PASSIVE (0) |
 | `pcap_capture`, `cleartext_harvest` | ACTIVE (1) |
 | `tls_intercept` | REDTEAM (2) |
+
+---
+
+# Tier 3 — LLM, Telecom, Evasion, Phishing, Auth
+
+> `grpc_audit` (gRPC) is documented above. Modern-auth/passkey testing is `auth_audit` below.
+
+## llm_audit
+
+AI/LLM security testing — prompt injection, model abuse, RAG poisoning. Wraps garak and promptfoo plus custom jailbreak, model-extraction, and RAG-poisoning checks.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `garak_scan` | Full garak vulnerability scan against an LLM endpoint | `target`, `output_dir` |
+| `garak_probe` | Run a specific garak probe (e.g. promptinject, encoding) | `target`, `probe`, `output_dir` |
+| `promptfoo_eval` | Evaluate an LLM against red-team test cases | `config_path`, `output_dir` |
+| `promptfoo_redteam` | Automated red-team testing of an LLM endpoint | `target`, `output_dir` |
+| `prompt_inject_test` | Test for direct/indirect prompt injection | `target`, `payload_set` |
+| `rag_poison_check` | Detect RAG poisoning in knowledge-base content | `target`, `corpus_path` |
+| `model_extract_test` | Test for model extraction via API queries | `target`, `num_queries` |
+| `jailbreak_test` | Test jailbreak techniques against an LLM | `target`, `technique` |
+
+---
+
+## telecom_attack
+
+Telecom security — GTP scanning/fuzzing, SIP enumeration/cracking, SS7 scanning, Diameter audit, IMSI-catcher detection, STIR/SHAKEN verification.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `gtp_scan` | Scan for GTP-C/GTP-U endpoints | `target`, `port` |
+| `gtp_fuzzer` | Fuzz GTP protocol for crashes and anomalies | `target`, `port`, `count` |
+| `sip_enum` | SIP device enumeration | `target` |
+| `sip_crack` | SIP credential cracking | `username`, `target` |
+| `ss7_scan` | SS7 network element scanning | `target` |
+| `diameter_audit` | Diameter protocol security audit | `target`, `port` |
+| `imsi_detect` | Scan for GSM base stations / IMSI-catcher detection | `device_args` |
+| `sip_flood_test` | SIP extension enumeration via REGISTER flood | `extension_range`, `target` |
+| `stir_shaken_verify` | Verify STIR/SHAKEN caller-ID authentication | `call_id`, `target` |
+
+---
+
+## evasion
+
+Evasion toolkit — msfvenom encoding, Veil payloads, Shellter PE injection, Donut shellcode, ScareCrow EDR-evasive loaders, AMSI bypass, Defender checks, entropy analysis.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `msfvenom_generate` | Generate an encoded payload with msfvenom | `payload`, `lhost`, `lport`, `format`, `encoder`, `iterations`, `output_path` |
+| `veil_generate` | Generate an AV-evasive payload with Veil | `payload`, `lhost`, `lport`, `output_path` |
+| `shellter_inject` | Inject shellcode into a PE with Shellter | `target_pe`, `payload` |
+| `donut_generate` | Generate position-independent shellcode from PE/.NET | `input_file`, `output_path`, `arch`, `format` |
+| `scarecrow_generate` | EDR-evasive loader generation with ScareCrow | `input_file`, `loader`, `domain`, `output_path` |
+| `amsi_test` | Test a payload against AMSI bypass techniques | `payload_path` |
+| `defender_check` | Check whether Windows Defender detects a payload | `payload_path` |
+| `entropy_analysis` | Analyze payload entropy for detection likelihood | `payload_path` |
+
+---
+
+## phishing
+
+Phishing framework — GoPhish campaigns, Evilginx phishlets/lures, email-header analysis, SPF/DKIM/DMARC verification, SMTP open-relay testing.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `gophish_create_campaign` | Create a GoPhish phishing campaign | `campaign_name`, `template`, `target`, `api_key` |
+| `gophish_results` | Get GoPhish campaign results (clicks, submissions) | `campaign_id`, `api_key` |
+| `evilginx_phishlet` | Configure an Evilginx phishlet for a domain | `phishlet`, `domain` |
+| `evilginx_lures` | Create an Evilginx phishing lure URL | `phishlet` |
+| `email_header_analyze` | Analyze email headers for spoofing indicators | `email_file` |
+| `spf_check` | Check SPF records for an email domain | `domain` |
+| `dkim_check` | Check DKIM records for an email domain | `dkim_selector`, `domain` |
+| `dmarc_check` | Check DMARC policy for an email domain | `domain` |
+| `smtp_relay_test` | Test SMTP open relay and email spoofing | `recipient`, `sender`, `target`, `ehlo_domain` |
+
+---
+
+## auth_audit
+
+Modern auth security — OAuth redirect/device-code flows, OIDC discovery and token confusion, SAML decode/injection, JWT alg-confusion and cracking, WebAuthn/passkey relay, session fixation.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `oauth_redirect_test` | Test OAuth `redirect_uri` validation (open redirect/SSRF) | `target`, `client_id`, `redirect_uri` |
+| `oauth_device_code` | Test OAuth device-code flow for phishing susceptibility | `target`, `client_id` |
+| `oidc_discovery` | Enumerate OIDC provider configuration and endpoints | `target` |
+| `oidc_token_test` | Test OIDC token validation and confusion attacks | `target`, `token` |
+| `saml_decode` | Decode and analyze a SAML response | `saml_response` |
+| `saml_inject` | Test SAML XML signature wrapping / injection | `target`, `saml_response` |
+| `jwt_scan` | JWT vulnerability scan (alg confusion, key injection, claim tampering) | `token`, `target` |
+| `jwt_crack` | Crack a JWT HMAC secret with a wordlist | `token`, `wordlist` |
+| `webauthn_test` | Test WebAuthn/passkey for relay and origin bypass | `target`, `rp_id` |
+| `session_fixation` | Test for session fixation and cookie security | `target` |
+
+---
+
+# Tier 4 — Mobile, Supply Chain, Serverless, SDN, Recon
+
+> `spa_test` (single-page apps) is documented above.
+
+## mobile_audit
+
+Mobile app security — APK/IPA decompilation, static analysis, Frida instrumentation, SSL-pinning bypass, IPC auditing, keychain extraction.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `apk_decompile` | Decompile an APK with apktool | `target`, `output_dir` |
+| `static_analysis` | Run MobSF static analysis | `target` |
+| `jadx_decompile` | Decompile an APK to Java source with jadx | `target`, `output_dir` |
+| `drozer_scan` | Scan content providers for exposed URIs with drozer | `package_name`, `target` |
+| `frida_hook` | Attach a Frida hook script to a running app | `script_path`, `package_name` |
+| `ssl_pinning_bypass` | Bypass SSL pinning via objection | `package_name` |
+| `ipc_audit` | Audit IPC components (activities, services, receivers) | `package_name`, `target` |
+| `keychain_dump` | Dump Android keystore entries via objection | `package_name` |
+
+---
+
+## supply_chain
+
+Supply-chain security — dependency confusion, typosquatting, package provenance, post-install script analysis, secret detection (trufflehog/gitleaks), dependency CVEs (depscan).
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `dependency_confusion_test` | Test for dependency confusion against a registry | `registry`, `packages_file` |
+| `typosquat_scan` | Scan for typosquatted package names | `package_name`, `registry` |
+| `package_provenance_audit` | Audit package provenance / supply-chain integrity | `package_name`, `registry` |
+| `postinstall_audit` | Analyze post-install scripts for malicious behavior | `target` |
+| `trufflehog_scan` | Scan a git repo for leaked secrets (trufflehog) | `target` |
+| `gitleaks_scan` | Detect hardcoded secrets in source (gitleaks) | `target` |
+| `depscan` | Dependency vulnerability scan (OWASP depscan) | `target`, `scan_type` |
+
+---
+
+## serverless_audit
+
+Serverless & IaC security — Lambda injection, edge-function audit, event-trigger abuse, Terraform-state scanning, IaC checks (checkov), serverless misconfig, cold-start races.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `lambda_inject_test` | Test a Lambda for event-injection vulnerabilities | `target`, `event_type` |
+| `edge_function_audit` | Audit edge/CDN functions | `target`, `provider` |
+| `event_trigger_abuse` | Test event-trigger abuse (S3, SQS, SNS, …) | `target`, `trigger_type` |
+| `tfstate_scan` | Scan Terraform state for exposed secrets/misconfig | `target` |
+| `iac_security_scan` | Run a checkov IaC security scan | `target` |
+| `serverless_misconfig` | Detect serverless misconfigurations in an account | `profile`, `region` |
+| `cold_start_race` | Test cold-start race conditions | `target`, `concurrency` |
+
+---
+
+## sdn_attack
+
+SDN / network-automation security — controller enumeration, NETCONF exploit testing, network-policy audit, YANG model enumeration, RESTCONF audit, OpenFlow analysis.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `sdn_controller_enum` | Enumerate SDN controller endpoints and APIs | `target`, `port` |
+| `netconf_exploit` | Test a NETCONF service for auth/config flaws | `target`, `netconf_port`, `username`, `password` |
+| `network_policy_audit` | Audit SDN network policies for misconfig | `target`, `api_key` |
+| `yang_model_enum` | Enumerate YANG models exposed via NETCONF | `target`, `netconf_port` |
+| `restconf_test` | Test a RESTCONF API for auth bypass / data exposure | `target`, `username`, `password` |
+| `openflow_audit` | Audit an OpenFlow implementation for weaknesses | `target`, `openflow_port` |
+
+---
+
+## recon_pipeline
+
+Automated recon pipeline — subdomain enumeration, HTTP probing, nuclei scanning, screenshots, asset correlation, attack-graph generation, technology detection.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `full_pipeline` | Run the full pipeline: subdomains, probing, scanning | `domain`, `output_dir`, `threads` |
+| `subdomain_httpx` | Enumerate subdomains (subfinder) and probe (httpx) | `domain` |
+| `nuclei_scan` | Run nuclei templates against a target | `target`, `severity` |
+| `screenshot_capture` | Capture screenshots of discovered web assets | `targets_file`, `output_dir` |
+| `asset_correlate` | Correlate discovered assets across recon sources | `output_dir` |
+| `attack_graph_build` | Build an attack graph from correlated recon data | `output_dir`, `domain` |
+| `tech_detect` | Detect technologies used by a target web app | `target` |

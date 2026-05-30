@@ -254,3 +254,64 @@ Exposed metrics:
 | `protopen_tool_calls_total` | Counter | `tool_name`, `success` | Total tool executions |
 | `protopen_tool_latency_seconds` | Histogram | `tool_name` | Tool execution latency |
 | `protopen_active_sessions` | Gauge | -- | Currently active chat sessions |
+
+## Operator Console API
+
+Routes that back the webview operator console (served at `/app`). When
+`PROTOPEN_API_KEY` (or `RESEARCHER_API_KEY`) is set, **every** route below
+requires a matching `x-api-key` header; a `401` drives the console's login gate.
+When unset (local dev) the routes are open.
+
+### Runtime & subagents
+
+| Method / Path | Description |
+|---|---|
+| `GET /api/runtime/status` | Model, identity, middleware, knowledge, scheduler, and goal-mode status. |
+| `GET /api/subagents` | Registered subagents (name, description, tools, max turns, enabled). |
+| `POST /api/subagents/run` | Run one subagent synchronously. Body: `{session_id, type, description, prompt, emit_skill}` → `{ok, session_id, output}`. |
+| `POST /api/subagents/batch` | Run independent subagent tasks concurrently. Body: `{session_id, tasks:[{type, description, prompt, emit_skill}]}`. |
+
+### Live agent monitoring
+
+Manual subagents launched as tracked, cancellable background tasks.
+
+| Method / Path | Description |
+|---|---|
+| `POST /api/agents/launch` | Launch a subagent asynchronously. Body as `/api/subagents/run` → `{task_id}`. |
+| `GET /api/agents` | All tracked runs, newest first (`id, type, description, status, started_at, ended_at, duration_ms, output, error`). `status` ∈ `running`/`done`/`error`/`cancelled`. |
+| `GET /api/agents/{task_id}` | One run, or `404` if unknown. |
+| `POST /api/agents/{task_id}/cancel` | Cancel a running task → `{cancelled: bool}`. |
+
+### Knowledge search
+
+| Method / Path | Description |
+|---|---|
+| `GET /api/knowledge/search?q=&k=&table=` | Hybrid search (vector + BM25, RRF) over the threat-intel store. `k` clamped 1–50; `table` ∈ `cves`/`exploits`/`advisories`/`threat_intel`/`topics`/`digests`. Returns `{query, table, count, hits:[{table, source_id, preview, score}]}`. |
+
+### Audit trail
+
+| Method / Path | Description |
+|---|---|
+| `GET /api/audit/recent?n=&session_id=` | Newest-first tool-execution entries (`ts, session_id, tool, success, duration_ms, result_summary, trace_id, args`) + a window `summary`. `n` clamped 1–200. |
+
+### Engagement monitor
+
+| Method / Path | Description |
+|---|---|
+| `GET /api/engagement` | Live engagement snapshot — `active, name, scope, mode, phase, finding_counts, total_findings, findings:[{severity, category, title, detail, timestamp}]`. |
+| `GET /api/engagement/report` | Read the generated `report.md` (side-effect-free) → `{available, name, path, markdown}`. |
+| `POST /api/engagement/report` | (Re)generate the report — writes `report.md` and delivers to Discord; `409` if no active engagement. |
+
+### Notes & beads
+
+| Method / Path | Description |
+|---|---|
+| `GET /api/notes/workspace?project_path=` | Load the project notes workspace. |
+| `POST /api/notes/workspace` | Save the workspace. Body: `{project_path, workspace}`. |
+| `GET /api/beads/status?project_path=` | Whether beads is initialized for the project. |
+| `POST /api/beads/init` | Initialize beads. Body: `{project_path, prefix?}`. |
+| `GET /api/beads/issues?project_path=` | List issues. |
+| `POST /api/beads/issues` | Create an issue. Body: `{project_path, title, type?, priority?, description?, assignee?}`. |
+| `PATCH /api/beads/issues/{id}` | Update an issue (status, priority, …). |
+| `POST /api/beads/issues/{id}/close` | Close an issue. |
+| `DELETE /api/beads/issues/{id}?project_path=` | Delete an issue. |
