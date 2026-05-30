@@ -876,6 +876,7 @@ export function App() {
                 </div>
                 <StatusPill label={subagentBusy ? "running" : "ready"} tone={subagentBusy ? "warning" : "muted"} />
               </div>
+              <div className="stage-body">
               <div className="subagent-mode segmented">
                 <button type="button" className={subagentMode === "single" ? "active" : ""} onClick={() => setSubagentMode("single")}>
                   Single
@@ -1023,6 +1024,7 @@ export function App() {
                   })
                 )}
               </div>
+              </div>
             </section>
           ) : null}
 
@@ -1035,6 +1037,7 @@ export function App() {
                 </div>
                 <StatusPill label={runtime?.scheduler.backend || "scheduler"} tone="muted" />
               </div>
+              <div className="stage-body">
               <div className="metric-grid">
                 <Metric icon={<Bot size={16} />} label="Agent" value={runtime?.identity?.name || "protopen"} />
                 <Metric icon={<Settings2 size={16} />} label="Provider" value={runtime?.model?.provider || "none"} />
@@ -1059,6 +1062,7 @@ export function App() {
                     <StatusPill label={`${subagent.max_turns} turns`} tone={subagent.enabled ? "success" : "muted"} />
                   </div>
                 ))}
+              </div>
               </div>
             </section>
           ) : null}
