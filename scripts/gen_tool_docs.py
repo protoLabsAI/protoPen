@@ -28,6 +28,9 @@ from pathlib import Path
 os.environ.setdefault("DISCORD_ALERT_WEBHOOK", "https://example.invalid/docs-gen")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Importable as `tools.*` no matter the working directory or how it's invoked
+# (running a script puts its own dir on sys.path, not the repo root).
+sys.path.insert(0, str(REPO_ROOT))
 BEGIN = "<!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->"
 END = "<!-- END GENERATED TOOLS -->"
 
