@@ -20,7 +20,7 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 |---|---|
 | `ANTHROPIC_API_KEY` | Anthropic API key for LLM access |
 | `DISCORD_BOT_TOKEN` | Discord bot token for Gateway + REST API |
-| `DISCORD_WEBHOOK_URL` | Discord webhook for publishing digests, security reports, and alerts |
+| `DISCORD_ALERT_WEBHOOK` | Discord webhook for publishing digests, security reports, and alerts (legacy alias: `DISCORD_WEBHOOK_URL`) |
 | `GITHUB_TOKEN` | GitHub personal access token |
 | `LANGFUSE_PUBLIC_KEY` | Langfuse tracing public key |
 | `LANGFUSE_SECRET_KEY` | Langfuse tracing secret key |
@@ -56,7 +56,7 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 |---|---|---|---|
 | `GITHUB_TOKEN` | no | -- | GitHub personal access token (higher API rate limits for trending tool) |
 | `DISCORD_BOT_TOKEN` | no | -- | Discord bot token for reading channel feeds and reacting to mentions |
-| `DISCORD_WEBHOOK_URL` | no | -- | Discord webhook URL for publishing research digests, security alerts, and engagement reports as rich embeds. Managed via Infisical in prod. |
+| `DISCORD_ALERT_WEBHOOK` | no | -- | Discord webhook URL for publishing research digests, security alerts, and engagement reports as rich embeds. Preferred over the legacy `DISCORD_WEBHOOK_URL`. Managed via Infisical in prod. |
 
 
 ## A2A Authentication

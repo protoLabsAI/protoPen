@@ -19,9 +19,14 @@ logger = logging.getLogger(__name__)
 from tools._tool_base import Tool
 
 _DISCORD_API = "https://discord.com/api/v10"
-_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 _INSTANCE_NAME = os.environ.get("INSTANCE_NAME", "")
 _URL_PATTERN = re.compile(r"https?://[^\s<>\[\]()\"\']+")
+
+
+def _webhook_url() -> str:
+    """The publish webhook — DISCORD_ALERT_WEBHOOK (preferred) or the legacy
+    DISCORD_WEBHOOK_URL. Read lazily so it picks up env set after import."""
+    return os.environ.get("DISCORD_ALERT_WEBHOOK") or os.environ.get("DISCORD_WEBHOOK_URL", "")
 
 
 def _webhook_username() -> str:
@@ -408,9 +413,9 @@ class DiscordFeedTool(Tool):
         if not kwargs.get("_engagement_override"):
             logger.warning("discord_feed.publish called outside engagement delivery pipeline")
 
-        webhook_url = _WEBHOOK_URL
+        webhook_url = _webhook_url()
         if not webhook_url:
-            return "Error: DISCORD_WEBHOOK_URL not set. Add it to your environment."
+            return "Error: DISCORD_ALERT_WEBHOOK not set. Add it to your environment."
 
         content = kwargs.get("content", "")
         title = kwargs.get("title", "Research Update")
