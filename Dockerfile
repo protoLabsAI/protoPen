@@ -23,6 +23,13 @@ RUN npm install -g agent-browser \
     && apt-get update && apt-get install -y --no-install-recommends chromium \
     && rm -rf /var/lib/apt/lists/*
 
+# Maigret (OSINT username recon) — isolated venv so its pinned deps
+# (aiohttp/requests/lxml/reportlab/…) never clash with protoPen's. The maigret
+# tool resolves the binary via MAIGRET_BIN / PATH (here /usr/local/bin/maigret).
+RUN python -m venv /opt/maigret-venv \
+    && /opt/maigret-venv/bin/pip install --no-cache-dir maigret \
+    && ln -s /opt/maigret-venv/bin/maigret /usr/local/bin/maigret
+
 
 # Install Python deps
 RUN pip install --no-cache-dir \
