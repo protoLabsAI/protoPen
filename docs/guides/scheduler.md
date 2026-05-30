@@ -21,6 +21,20 @@ Workstacean backend as in protoAgent).
 
 The runtime status reports `scheduler.backend: "local"` when it's active.
 
+## The agent schedules its own jobs
+
+The agent has three tools bound to the live scheduler, so it can schedule work
+mid-conversation (and a scheduled prompt that fires can schedule follow-ups):
+
+| Tool | Description |
+|---|---|
+| `schedule_task(prompt, when, job_id?)` | Persist a future invocation. `when` is cron (`"0 9 * * 1-5"`) or ISO-8601 (`"2026-05-01T15:00:00"`). The agent receives `prompt` as a fresh turn when it fires. |
+| `list_schedules()` | List current jobs (id · next fire · schedule · prompt preview). |
+| `cancel_schedule(job_id)` | Cancel a job by id. |
+
+E.g. "every weekday at 9am, summarize new critical CVEs and post to Discord" →
+the agent calls `schedule_task("summarize new critical CVEs…", "0 9 * * 1-5")`.
+
 ## Managing jobs from the console
 
 The operator console's **Schedule** surface lists jobs (schedule · next fire ·
