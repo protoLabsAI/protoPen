@@ -88,7 +88,7 @@ the external-attack tools follows in [External Attack Simulation](#external-atta
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_75 tools, generated from the live registry — do not edit by hand._
+_76 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -110,6 +110,7 @@ _75 tools, generated from the live registry — do not edit by hand._
 | `dns_enum` | DNS enumeration — dig, nslookup, zone transfers, reverse lookups, subdomain brute force |
 | `subdomain_discovery` | Subdomain enumeration via subfinder and amass passive mode |
 | `osint_recon` | OSINT reconnaissance — theHarvester and whois lookups |
+| `maigret` | Maigret OSINT username reconnaissance across 3000+ sites |
 | `recon_pipeline` | Automated recon pipeline — chained reconnaissance orchestration |
 
 ### Network Enumeration
@@ -474,6 +475,7 @@ Hybrid search combining vector similarity (Qwen3-Embedding-0.6B via sqlite-vec) 
 | `CENSYS_API_ID` | No | Censys API ID — enables `external_recon censys_host` |
 | `CENSYS_API_SECRET` | No | Censys API secret |
 | `PIVOT_HOST` | No | External pivot for WAN scanning — `user@host` (e.g. `root@1.2.3.4`). Required for `wan_portscan`, `tcp_probe`, `acs_fingerprint` against public IPs. |
+| `MAIGRET_BIN` | No | Path to the isolated `maigret` binary for the `maigret` OSINT username tool. Auto-set by `start.sh` (`~/.maigret-venv/bin/maigret`); the Docker image puts it on `PATH`. Falls back to `maigret` on `PATH`. |
 | `LANGFUSE_PUBLIC_KEY` | No | Langfuse tracing |
 | `LANGFUSE_SECRET_KEY` | No | Langfuse tracing |
 

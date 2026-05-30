@@ -57,6 +57,7 @@ from tools.parsers import flipper_rf  # noqa: E402,F401
 from tools.parsers import dns_enum  # noqa: E402,F401
 from tools.parsers import subdomain  # noqa: E402,F401
 from tools.parsers import osint  # noqa: E402,F401
+from tools.parsers import maigret  # noqa: E402,F401
 from tools.parsers import web_enum  # noqa: E402,F401
 from tools.parsers import service_enum  # noqa: E402,F401
 from tools.parsers import ssl_audit  # noqa: E402,F401

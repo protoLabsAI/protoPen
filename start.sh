@@ -94,4 +94,19 @@ if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ]; then
     [ -n "$CHROME_BIN" ] && export AGENT_BROWSER_EXECUTABLE_PATH="$CHROME_BIN"
 fi
 
+# Maigret (OSINT username recon) — isolated venv so its pinned deps
+# (aiohttp/requests/lxml/reportlab/…) never clash with protoPen's. The maigret
+# tool resolves the binary via MAIGRET_BIN. Idempotent; the venv lives in $HOME
+# so it survives reboots and OS image updates.
+export MAIGRET_BIN="${MAIGRET_BIN:-$HOME/.maigret-venv/bin/maigret}"
+if [ ! -x "$MAIGRET_BIN" ]; then
+    echo "Installing maigret (OSINT username recon)…"
+    if python3 -m venv "$HOME/.maigret-venv" >/dev/null 2>&1 \
+        && "$HOME/.maigret-venv/bin/pip" install -q maigret >/dev/null 2>&1; then
+        echo "✓ maigret installed ($MAIGRET_BIN)"
+    else
+        echo "WARN: maigret install failed — the maigret tool will be unavailable"
+    fi
+fi
+
 exec python server.py "$@"

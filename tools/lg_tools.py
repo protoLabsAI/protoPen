@@ -36,6 +36,7 @@ from knowledge.target_store import TargetStore
 from tools.dns_enum import DnsEnumTool
 from tools.subdomain_discovery import SubdomainDiscoveryTool
 from tools.osint_recon import OsintReconTool
+from tools.maigret import MaigretTool
 from tools.external_recon import ExternalReconTool
 from tools.perimeter_audit import PerimeterAuditTool
 from tools.web_enum import WebEnumTool
@@ -125,6 +126,7 @@ _target_intel: TargetIntelTool | None = None
 _dns_enum: DnsEnumTool | None = None
 _subdomain_discovery: SubdomainDiscoveryTool | None = None
 _osint_recon: OsintReconTool | None = None
+_maigret: MaigretTool | None = None
 _external_recon: ExternalReconTool | None = None
 _perimeter_audit: PerimeterAuditTool | None = None
 _web_enum: WebEnumTool | None = None
@@ -591,7 +593,7 @@ def _init_pentest_singletons():
     )
     _blackarch._target_store = _target_store
 
-    global _dns_enum, _subdomain_discovery, _osint_recon
+    global _dns_enum, _subdomain_discovery, _osint_recon, _maigret
     global _web_enum, _service_enum, _ssl_audit, _api_enum
     global _external_recon, _perimeter_audit
     _dns_enum = DnsEnumTool()
@@ -600,6 +602,8 @@ def _init_pentest_singletons():
     _subdomain_discovery._target_store = _target_store
     _osint_recon = OsintReconTool()
     _osint_recon._target_store = _target_store
+    _maigret = MaigretTool()
+    _maigret._target_store = _target_store
     _external_recon = ExternalReconTool()
     _external_recon._target_store = _target_store
     _perimeter_audit = PerimeterAuditTool()
@@ -1207,6 +1211,47 @@ async def osint_recon(
         source=source,
         limit=limit,
         timeout=timeout,
+    )
+
+
+@tool
+async def maigret(
+    username: str,
+    action: str = "search",
+    top_sites: int = 500,
+    all_sites: bool = False,
+    id_type: str = "username",
+    site: str = "",
+    tags: str = "",
+    recursive: bool = False,
+    timeout: int = 30,
+    max_seconds: int = 300,
+) -> str:
+    """Maigret OSINT username reconnaissance across 3000+ sites.
+
+    Passive — queries public sites only. Searches a username (or other id type)
+    and returns the found public accounts (profile URLs + extracted IDs/bios);
+    results are ingested into the target store.
+
+    - top_sites: check the N most popular sites (default 500)
+    - all_sites: check all 3000+ sites instead (slower)
+    - id_type: username (default), steam_id, vk_id, gaia_id, yandex_public_id, ...
+    - site: restrict to a single site by name
+    - tags: comma-separated site tags to filter (e.g. 'us,social')
+    - recursive: follow usernames/ids extracted from found profiles (deeper)
+    """
+    _init_pentest_singletons()
+    return await _maigret.execute(
+        action=action,
+        username=username,
+        top_sites=top_sites,
+        all_sites=all_sites,
+        id_type=id_type,
+        site=site,
+        tags=tags,
+        recursive=recursive,
+        timeout=timeout,
+        max_seconds=max_seconds,
     )
 
 
@@ -3071,6 +3116,7 @@ def get_pentest_tools():
         dns_enum,
         subdomain_discovery,
         osint_recon,
+        maigret,
         external_recon,
         perimeter_audit,
         # Phase 2 — Enumeration

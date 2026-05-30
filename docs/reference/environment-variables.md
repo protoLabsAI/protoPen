@@ -59,6 +59,17 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 | `DISCORD_ALERT_WEBHOOK` | no | -- | Discord webhook URL for publishing research digests, security alerts, and engagement reports as rich embeds. Preferred over the legacy `DISCORD_WEBHOOK_URL`. Managed via Infisical in prod. |
 
 
+## External Tools
+
+Some tools shell out to binaries installed outside protoPen's Python
+environment to avoid dependency conflicts. They resolve from `PATH` by default;
+these variables override the location.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `MAIGRET_BIN` | no | `maigret` on `PATH` | Path to the isolated [`maigret`](/reference/tools) binary used by the `maigret` OSINT username tool. `start.sh` installs maigret into `~/.maigret-venv` and sets this automatically; the Docker image installs it to `/usr/local/bin/maigret`. |
+
+
 ## A2A Authentication
 
 | Variable | Required | Default | Description |
