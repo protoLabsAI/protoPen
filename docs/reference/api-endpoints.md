@@ -2,6 +2,10 @@
 
 All HTTP endpoints exposed by the protoPen server (default port `7870`, mapped to `7872` in standard Docker Compose, `7870` in lab profile).
 
+The REST surface below is **generated from the OpenAPI spec** at [`openapi.json`](/openapi.json) by `scripts/gen_api_docs.py`. Regenerate the spec from the live app with `python server.py --dump-openapi docs/public/openapi.json` after changing a route; CI fails if this page drifts from the spec. The Agent-to-Agent (A2A) JSON-RPC surface is mounted separately and is not part of the OpenAPI schema, so it is documented by hand below — see the [A2A Integration guide](../guides/a2a-integration.md) for worked examples.
+
+**Authentication:** when `PROTOPEN_API_KEY` (or `RESEARCHER_API_KEY`) is set, every `/api/*` route requires a matching `x-api-key` header — a `401` drives the operator console's login gate. When unset (local dev) the routes are open. The universal `x-api-key` header is omitted from the per-endpoint parameter tables below.
+
 ## Chat UI
 
 ### `GET /`
@@ -10,111 +14,361 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 ---
 
-## Chat API
+## REST API
 
-### `POST /api/chat`
+<!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-Programmatic chat access for evals and scripts.
+_28 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
-**Request:**
+### Chat
 
-```json
-{
-  "message": "Scan 192.168.1.0/24 for open services",
-  "session_id": "my-session-01"
-}
-```
+#### `POST /api/chat`
 
-| Field | Type | Required | Default | Description |
+Api Chat
+
+**Request body** (`ChatRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `message` | string | yes |
+| `session_id` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### OpenAI-Compatible API
+
+#### `POST /v1/chat/completions`
+
+Openai Chat Completions
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /v1/models`
+
+Openai Models
+
+**Responses:** `200` Successful Response
+
+### Runtime
+
+#### `GET /api/runtime/status`
+
+Runtime Status
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Subagents
+
+#### `GET /api/subagents`
+
+Subagents
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/subagents/batch`
+
+Subagent Batch
+
+**Request body** (`SubagentBatchRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string | no |
+| `tasks` | object[] | yes |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/subagents/run`
+
+Subagent Run
+
+**Request body** (`SubagentRunRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string | no |
+| `type` | string | no |
+| `description` | string | no |
+| `prompt` | string | yes |
+| `emit_skill` | boolean | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Live Agents
+
+#### `GET /api/agents`
+
+Agents List
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/agents/launch`
+
+Agent Launch
+
+**Request body** (`SubagentRunRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `session_id` | string | no |
+| `type` | string | no |
+| `description` | string | no |
+| `prompt` | string | yes |
+| `emit_skill` | boolean | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/agents/{task_id}`
+
+Agent Get
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
 |---|---|---|---|---|
-| `message` | string | yes | -- | The user message |
-| `session_id` | string | no | `"api-default"` | Session identifier for conversation continuity |
+| `task_id` | path | yes | string |  |
 
-**Response:**
+**Responses:** `200` Successful Response, `422` Validation Error
 
-```json
-{
-  "response": "## Scan Results\n\nFound 12 live hosts...",
-  "messages": [
-    {"role": "assistant", "content": "## Scan Results\n\nFound 12 live hosts..."}
-  ]
-}
-```
+#### `POST /api/agents/{task_id}/cancel`
 
----
+Agent Cancel
 
-## OpenAI-Compatible API
+**Parameters**
 
-These endpoints allow protoPen to be registered as a model in LiteLLM Gateway or OpenWebUI.
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `task_id` | path | yes | string |  |
 
-### `POST /v1/chat/completions`
+**Responses:** `200` Successful Response, `422` Validation Error
 
-OpenAI-compatible chat completions endpoint. Supports both streaming and non-streaming modes.
+### Engagement
 
-**Request:**
+#### `GET /api/engagement`
 
-```json
-{
-  "model": "protopen",
-  "messages": [
-    {"role": "user", "content": "What are the latest critical CVEs affecting Linux?"}
-  ],
-  "stream": false
-}
-```
+Engagement
 
-**Response (non-streaming):**
+**Responses:** `200` Successful Response, `422` Validation Error
 
-```json
-{
-  "id": "protopen-openai-compat-1712956800",
-  "object": "chat.completion",
-  "created": 1712956800,
-  "model": "protopen",
-  "choices": [
-    {
-      "index": 0,
-      "message": {"role": "assistant", "content": "Here are the recent critical CVEs..."},
-      "finish_reason": "stop"
-    }
-  ],
-  "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-}
-```
+#### `GET /api/engagement/report`
 
-**Response (streaming, `"stream": true`):**
+Engagement Report
 
-Server-Sent Events:
+**Responses:** `200` Successful Response, `422` Validation Error
 
-```
-data: {"id":"...","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant","content":"Here are the..."},"finish_reason":null}]}
+#### `POST /api/engagement/report`
 
-data: {"id":"...","object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}]}
+Engagement Report Generate
 
-data: [DONE]
-```
+**Responses:** `200` Successful Response, `422` Validation Error
 
-### `GET /v1/models`
+### Knowledge
 
-Lists available models.
+#### `GET /api/knowledge/search`
 
-**Response:**
+Knowledge Search
 
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "protopen",
-      "object": "model",
-      "created": 1774600000,
-      "owned_by": "protolabs"
-    }
-  ]
-}
-```
+**Parameters**
 
----
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `q` | query | yes | string |  |
+| `k` | query | no | integer | `10` |
+| `table` | query | no | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Audit
+
+#### `GET /api/audit/recent`
+
+Audit Recent
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `n` | query | no | integer | `50` |
+| `session_id` | query | no | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Scheduler
+
+#### `GET /api/scheduler/jobs`
+
+Scheduler Jobs
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/scheduler/jobs`
+
+Scheduler Add
+
+**Request body** (`ScheduleAddRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `prompt` | string | yes |
+| `schedule` | string | yes |
+| `job_id` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `DELETE /api/scheduler/jobs/{job_id}`
+
+Scheduler Cancel
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `job_id` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Notes
+
+#### `GET /api/notes/workspace`
+
+Notes Get
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `project_path` | query | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/notes/workspace`
+
+Notes Save
+
+**Request body** (`NotesSaveRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `project_path` | string | yes |
+| `workspace` | object | yes |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Beads
+
+#### `POST /api/beads/init`
+
+Beads Init
+
+**Request body** (`BeadsInitRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `project_path` | string | yes |
+| `prefix` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/beads/issues`
+
+Beads List
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `project_path` | query | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/beads/issues`
+
+Beads Create
+
+**Request body** (`BeadsCreateRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `project_path` | string | yes |
+| `title` | string | yes |
+| `type` | string | no |
+| `priority` | integer | no |
+| `description` | string | no |
+| `assignee` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `DELETE /api/beads/issues/{issue_id}`
+
+Beads Delete
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `issue_id` | path | yes | string |  |
+| `project_path` | query | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `PATCH /api/beads/issues/{issue_id}`
+
+Beads Update
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `issue_id` | path | yes | string |  |
+
+**Request body** (`BeadsUpdateRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `project_path` | string | yes |
+| `title` | string | no |
+| `description` | string | no |
+| `status` | string | no |
+| `priority` | integer | no |
+| `type` | string | no |
+| `assignee` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/beads/issues/{issue_id}/close`
+
+Beads Close
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `issue_id` | path | yes | string |  |
+
+**Request body** (`BeadsCloseRequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `project_path` | string | yes |
+| `reason` | string | no |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/beads/status`
+
+Beads Status
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `project_path` | query | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+<!-- END GENERATED API -->
 
 ## Agent-to-Agent (A2A)
 
@@ -254,64 +508,3 @@ Exposed metrics:
 | `protopen_tool_calls_total` | Counter | `tool_name`, `success` | Total tool executions |
 | `protopen_tool_latency_seconds` | Histogram | `tool_name` | Tool execution latency |
 | `protopen_active_sessions` | Gauge | -- | Currently active chat sessions |
-
-## Operator Console API
-
-Routes that back the webview operator console (served at `/app`). When
-`PROTOPEN_API_KEY` (or `RESEARCHER_API_KEY`) is set, **every** route below
-requires a matching `x-api-key` header; a `401` drives the console's login gate.
-When unset (local dev) the routes are open.
-
-### Runtime & subagents
-
-| Method / Path | Description |
-|---|---|
-| `GET /api/runtime/status` | Model, identity, middleware, knowledge, scheduler, and goal-mode status. |
-| `GET /api/subagents` | Registered subagents (name, description, tools, max turns, enabled). |
-| `POST /api/subagents/run` | Run one subagent synchronously. Body: `{session_id, type, description, prompt, emit_skill}` → `{ok, session_id, output}`. |
-| `POST /api/subagents/batch` | Run independent subagent tasks concurrently. Body: `{session_id, tasks:[{type, description, prompt, emit_skill}]}`. |
-
-### Live agent monitoring
-
-Manual subagents launched as tracked, cancellable background tasks.
-
-| Method / Path | Description |
-|---|---|
-| `POST /api/agents/launch` | Launch a subagent asynchronously. Body as `/api/subagents/run` → `{task_id}`. |
-| `GET /api/agents` | All tracked runs, newest first (`id, type, description, status, started_at, ended_at, duration_ms, output, error`). `status` ∈ `running`/`done`/`error`/`cancelled`. |
-| `GET /api/agents/{task_id}` | One run, or `404` if unknown. |
-| `POST /api/agents/{task_id}/cancel` | Cancel a running task → `{cancelled: bool}`. |
-
-### Knowledge search
-
-| Method / Path | Description |
-|---|---|
-| `GET /api/knowledge/search?q=&k=&table=` | Hybrid search (vector + BM25, RRF) over the threat-intel store. `k` clamped 1–50; `table` ∈ `cves`/`exploits`/`advisories`/`threat_intel`/`topics`/`digests`. Returns `{query, table, count, hits:[{table, source_id, preview, score}]}`. |
-
-### Audit trail
-
-| Method / Path | Description |
-|---|---|
-| `GET /api/audit/recent?n=&session_id=` | Newest-first tool-execution entries (`ts, session_id, tool, success, duration_ms, result_summary, trace_id, args`) + a window `summary`. `n` clamped 1–200. |
-
-### Engagement monitor
-
-| Method / Path | Description |
-|---|---|
-| `GET /api/engagement` | Live engagement snapshot — `active, name, scope, mode, phase, finding_counts, total_findings, findings:[{severity, category, title, detail, timestamp}]`. |
-| `GET /api/engagement/report` | Read the generated `report.md` (side-effect-free) → `{available, name, path, markdown}`. |
-| `POST /api/engagement/report` | (Re)generate the report — writes `report.md` and delivers to Discord; `409` if no active engagement. |
-
-### Notes & beads
-
-| Method / Path | Description |
-|---|---|
-| `GET /api/notes/workspace?project_path=` | Load the project notes workspace. |
-| `POST /api/notes/workspace` | Save the workspace. Body: `{project_path, workspace}`. |
-| `GET /api/beads/status?project_path=` | Whether beads is initialized for the project. |
-| `POST /api/beads/init` | Initialize beads. Body: `{project_path, prefix?}`. |
-| `GET /api/beads/issues?project_path=` | List issues. |
-| `POST /api/beads/issues` | Create an issue. Body: `{project_path, title, type?, priority?, description?, assignee?}`. |
-| `PATCH /api/beads/issues/{id}` | Update an issue (status, priority, …). |
-| `POST /api/beads/issues/{id}/close` | Close an issue. |
-| `DELETE /api/beads/issues/{id}?project_path=` | Delete an issue. |

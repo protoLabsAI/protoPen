@@ -4,21 +4,39 @@ Autonomous Security Research & Pen-Testing Agent
 
 A LangGraph-powered agent that runs on a Steam Deck with attached RF/WiFi/RFID peripherals. It combines real-time threat intelligence — CVE tracking, exploit monitoring, security feed aggregation — with hardware-in-the-loop pen testing using PortaPack H4M, Flipper Zero, WiFi Marauder, and BlackArch tools. All findings flow into a hybrid-search knowledge store (SQLite + sqlite-vec + FTS5) and are correlated across sensors automatically.
 
-## Features
+## What it does
 
-- **Threat Intelligence** — CVE search (NVD/MITRE), Exploit-DB monitoring, security RSS feeds (CISA, Krebs, THN), GitHub security tool tracking
-- **Pen Testing** — WiFi (deauth, PMKID, evil portal, karma), Bluetooth (BLE spam, Swift Pair), RF (Sub-GHz capture/replay), RFID/NFC (read/write/emulate), network (nmap, bettercap, nikto)
-- **External Attack Simulation** — Full outside-in perimeter assessment: passive footprint (Shodan, BGP/ASN, cert transparency, DNS security), active perimeter attack (router fingerprint, UPnP abuse, default creds, RouterSploit), TCP flag analysis to distinguish firewalled vs IP-allowlisted ISP management ports, and ISP/CPE ACS infrastructure identification
-- **Knowledge Store** — Hybrid search across advisories, exploits, and threat intel using vector similarity + BM25 keyword matching with Reciprocal Rank Fusion
-- **Security Subagents** — Threat Scanner (feed monitoring), Vuln Analyst (deep advisory analysis + target correlation), Intel Reporter (digest generation + Discord publishing)
-- **Pen-Test Subagents** — Recon (passive enumeration), Exploit (active testing), Reporter (finding synthesis + report generation)
-- **Blue Team** — CIS benchmarks, service hardening audits, network anomaly detection, DNS exfiltration monitoring, incident response (log correlation, IOC matching, timeline reconstruction, containment)
-- **Purple Team** — MITRE ATT&CK coverage matrix, red↔blue detection gap analysis, exercise reporting
-- **Target Intelligence** — Unified SQLite database tracks hosts, ports, WiFi networks, RF signals, BLE devices, RFID tags, and credentials across all sensors
-- **Engagement Modes** — Risk-gated tool access: PASSIVE (observe only), ACTIVE (directed probing), REDTEAM (full offensive)
-- **Discord Integration** — Real-time alerts on critical/high findings, automated threat intel digests, security assessment reports published as rich embeds via webhook
-- **Agent-to-Agent (A2A)** — JSON-RPC endpoint for other agents to delegate recon, pen testing, or threat intel tasks
+protoPen is a single agent that covers the full offensive and defensive
+spectrum, then correlates everything it finds into one knowledge store. The
+exact tool set is generated live in [Tools](#tools); the domains it spans:
+
+- **Threat intelligence** — CVE tracking (NVD/MITRE), Exploit-DB and security
+  feed monitoring, GitHub trend watching, hybrid-search knowledge store
+- **Reconnaissance & enumeration** — passive OSINT, external/perimeter footprint,
+  DNS and subdomain discovery, network/service/web enumeration
+- **Vulnerability assessment** — web, API, auth, GraphQL/gRPC, SSRF, injection,
+  and CVE matching
+- **Exploitation & post-exploitation** — Metasploit, credential attacks, privilege
+  escalation, lateral movement, persistence, Active Directory, evasion, phishing
+- **Wireless, RF & hardware** — WiFi (deauth, PMKID, evil portal, karma), Sub-GHz
+  RF capture/replay, NFC/RFID, BLE — via PortaPack, Flipper, Marauder, and an Alfa
+  adapter
+- **Specialized domains** — IoT/OT protocols, mobile, telecom, serverless, CI/CD,
+  supply chain, LLM/AI, and container/Kubernetes security
+- **Blue & purple team** — CIS benchmarks, service hardening, anomaly detection,
+  incident response, and MITRE ATT&CK coverage mapping
+- **Operations** — risk-gated engagement modes, OPSEC controls, playbooks, the
+  local scheduler, Discord publishing, and an Agent-to-Agent (A2A) endpoint
 - **Observability** — Langfuse tracing, Prometheus metrics, JSONL audit trail
+
+### Subagents
+
+- **Security Research** — Threat Scanner (feed monitoring), Vuln Analyst (advisory
+  analysis + target correlation), Intel Reporter (digests + Discord publishing)
+- **Pen Testing** — Recon (passive enumeration), Exploit (active testing), Reporter
+  (finding synthesis + reports)
+- **Blue Team** — Defender (CIS/hardening), Incident Responder (correlation/IR),
+  Purple Team (red↔blue detection-gap analysis)
 
 ## Hardware
 
@@ -53,7 +71,6 @@ docker compose up --build
 # UI at http://localhost:7872
 ```
 
-```bash
 ### Local
 
 ```bash
@@ -63,42 +80,147 @@ python server.py --port 7870
 
 ## Tools
 
-### Security Research
+The catalog below is generated from the live tool registry
+(`get_combined_tools()`) by `scripts/gen_tool_docs.py` — adding or removing a
+tool updates it automatically. Run `python scripts/gen_tool_docs.py` after
+changing the tool set; CI fails if it drifts. Deeper, hand-written detail for
+the external-attack tools follows in [External Attack Simulation](#external-attack-simulation).
+
+<!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
+
+_75 tools, generated from the live registry — do not edit by hand._
+
+### Threat Intelligence & Research
 
 | Tool | Description |
 |---|---|
-| `cve_search` | Query NVD/MITRE CVE database — search by keyword, product, severity, date range |
-| `security_feeds` | Aggregate RSS/Atom feeds from CISA, NVD, Exploit-DB, security blogs |
-| `security_memory` | Store/search advisories, exploits, threat intel — hybrid search with target correlation |
-| `github_trending` | Track trending security tools, exploit PoCs, and offensive/defensive repos |
-| `browser` | Deep-read security advisories, blog posts, PoC writeups |
-| `discord_feed` | Scan Discord channels for security intel, publish digests and security reports as rich embeds via webhook |
+| `cve_search` | Search the NVD CVE database for vulnerabilities |
+| `security_feeds` | Aggregate security advisory feeds from well-known sources |
+| `github_trending` | Search GitHub for trending and notable AI/ML repositories |
+| `browser` | Automate a web browser |
+| `lab_monitor` | Monitor protoLabsAI/lab for new experiments, docs, and changes |
+| `security_memory` | Persistent security knowledge store with hybrid search |
+| `discord_feed` | Read Discord channels and publish research digests |
 
-### Pen Testing
+### Reconnaissance & OSINT
 
 | Tool | Description |
 |---|---|
-| `portapack` | PortaPack H4M control — RF scan, capture, replay, transmit, GPS inject |
-| `flipper` | Flipper Zero — Sub-GHz, NFC, RFID, IR, BLE, GPIO, storage |
-| `marauder` | WiFi Marauder — AP/station scan, deauth, PMKID, evil portal, karma, BLE spam |
-| `blackarch` | Curated wrappers — nmap, aircrack-ng, bettercap, nikto, gobuster, hashcat, tshark |
-| `iot_audit` | IoT device security — nmap IoT sweep, deep fingerprinting, Telnet/HTTP admin checks, MQTT anonymous access, SNMP default creds, RTSP stream discovery, firmware exposure, default cred spray |
-| `ad_attack` | Active Directory attack chain — BloodHound collection, Kerberoasting, AS-REP roasting, ADCS certificate abuse (Certipy ESC1–ESC8), LDAP enumeration, enum4linux-ng, secretsdump |
-| `grpc_audit` | gRPC security — server reflection enumeration, service description, auth testing, TLS enforcement, protobuf fuzzing, port scanning |
-| `graphql_test` | GraphQL security — introspection check, depth limit testing, batch query DoS, field suggestion leak |
-| `jwt_tool` | JWT analysis — decode/inspect, algorithm=none bypass, HMAC secret brute-force, claim tampering |
-| `ssrf_detect` | SSRF detection — payload injection, cloud metadata probing (AWS/GCP/Azure), blind callback server |
-| `rate_limit` | Rate limit testing — threshold detection, IP header bypass (X-Forwarded-For), path manipulation bypass |
-| `priv_esc` | Privilege escalation — linpeas, sudo enumeration, SUID discovery, kernel exploit suggestions |
-| `persistence` | Persistence mechanisms — SSH key planting, cron backdoors, persistence enumeration |
-| `lateral_move` | Lateral movement — impacket psexec/wmiexec, evil-winrm, pass-the-hash, SSH SOCKS pivot |
-| `data_exfil` | Evidence collection — SCP/SMB/HTTP file download from compromised hosts |
-| `spa_test` | SPA security — client-side route guard bypass, state store inspection, postMessage scanning, token leakage audit, DOM XSS, source map exposure |
-| `wifi_intel` | Alfa AWUS036AXML (MT7921U, dual-band WiFi 6) — passive landscape surveys (airodump-ng, 2.4+5GHz), PMKID/EAPOL capture (hcxdumptool → hc22000), WPA handshake capture (deauth + airodump-ng, requires kernel < 6.9 for injection), RSSI history, target_intel ingestion. Monitor mode via `iw` (not airmon-ng) to preserve NM/Tailscale. |
-| `traffic_analysis` | Packet capture and traffic analysis for networks you own or have authorization to test — live pcap capture (tcpdump, BPF filter), flow analysis + anomaly detection (tshark), TCP session reconstruction (tcpflow + HTTP extraction), cleartext credential harvesting (HTTP Basic, FTP, Telnet, MQTT, SNMP), and transparent TLS interception (ARP spoof + mitmproxy, REDTEAM level). Findings ingested into target_store. |
-| `device_manager` | USB serial connection management for all hardware peripherals |
-| `engagement` | Mission control — lifecycle, mode enforcement, findings, reports |
-| `target_intel` | Target database — hosts, ports, WiFi, RF, BLE, RFID, credentials |
+| `external_recon` | Passive external reconnaissance from an attacker's perspective |
+| `dns_enum` | DNS enumeration — dig, nslookup, zone transfers, reverse lookups, subdomain brute force |
+| `subdomain_discovery` | Subdomain enumeration via subfinder and amass passive mode |
+| `osint_recon` | OSINT reconnaissance — theHarvester and whois lookups |
+| `recon_pipeline` | Automated recon pipeline — chained reconnaissance orchestration |
+
+### Network Enumeration
+
+| Tool | Description |
+|---|---|
+| `blackarch` | Run BlackArch security tools (nmap, aircrack, bettercap, tshark, etc) |
+| `lan_scan` | LAN discovery and enumeration (risk level 1 — active probing) |
+| `service_enum` | Service enumeration — enum4linux, SMB share listing, RPC queries |
+| `web_enum` | Web content enumeration — directory brute force, vhost discovery, parameter fuzzing |
+| `api_enum` | API enumeration — Swagger/OpenAPI discovery, endpoint brute force, method checking |
+| `ssl_audit` | SSL/TLS audit via testssl.sh — protocols, ciphers, vulnerabilities, certificates |
+| `perimeter_audit` | Network perimeter and router/CPE audit — UPnP, default creds, RouterSploit, WAN exposure |
+| `ipv6_attack` | IPv6 network attack and discovery — THC-IPv6 suite, nmap IPv6 |
+
+### Vulnerability Assessment
+
+| Tool | Description |
+|---|---|
+| `vuln_scan` | Vulnerability scanning — nikto, nuclei templates, nmap NSE vuln scripts |
+| `sql_test` | SQL injection testing via sqlmap |
+| `web_vuln` | Web vulnerability testing — XSS (dalfox), CORS misconfiguration, open redirect |
+| `cve_match` | CVE matching — searchsploit, nmap vulners NSE, nuclei CVE templates |
+| `ssrf_detect` | SSRF detection — payload injection, callback server, cloud metadata checks |
+| `rate_limit` | Rate limit testing — detect and test bypass techniques |
+
+### Web, API & Auth Testing
+
+| Tool | Description |
+|---|---|
+| `jwt_tool` | JWT analysis — decode, algorithm-none attack, crack weak secrets, tamper claims |
+| `auth_test` | Authentication & authorization testing — BOLA/IDOR, privilege escalation, session testing |
+| `auth_audit` | Modern authentication security testing |
+| `graphql_test` | GraphQL security testing — introspection, depth/complexity fuzzing, batch query abuse |
+| `grpc_audit` | gRPC and protobuf security testing |
+| `websocket_test` | WebSocket security testing — authentication bypass, CSWSH, injection |
+| `spa_test` | SPA client-side security testing |
+
+### Exploitation & Post-Exploitation
+
+| Tool | Description |
+|---|---|
+| `msf_exploit` | Metasploit Framework — module search, exploit execution, payload generation |
+| `credential_attack` | Credential attacks — hydra brute force, password spraying, combo lists, Responder LLMNR/NBT-NS poisoning, CrackMapExec SMB enumeration/sp… |
+| `hashcat_rules` | Hash cracking — hashcat, john the ripper, hash identification |
+| `ad_attack` | Active Directory security testing — BloodHound, Certipy, impacket |
+| `priv_esc` | Privilege escalation enumeration — linpeas, sudo checks, SUID discovery |
+| `lateral_move` | Lateral movement — psexec, wmiexec, evil-winrm, SSH pivoting |
+| `data_exfil` | Data exfiltration — controlled file extraction for evidence collection |
+| `persistence` | Persistence — establish persistence for authorized engagement testing |
+| `cleanup` | Cleanup — remove engagement artifacts and persistence from targets |
+| `evasion` | Payload evasion and AV bypass — encoding, obfuscation, detection testing |
+| `phishing` | Phishing simulation — GoPhish, Evilginx, email security |
+
+### Wireless, RF & Hardware
+
+| Tool | Description |
+|---|---|
+| `device_manager` | Manage USB device connections (PortaPack, Flipper, Marauder, WiFi adapter) |
+| `portapack` | Control PortaPack H4M via Mayhem serial shell (RF 1MHz–6GHz) |
+| `flipper` | Control Flipper Zero via serial CLI |
+| `marauder` | Control WiFi Marauder on Flipper Zero (ESP32 WiFi attacks) |
+| `wifi_intel` | Alfa WiFi adapter control — passive landscape surveys and targeted WPA capture |
+
+### Specialized Domains
+
+| Tool | Description |
+|---|---|
+| `iot_protocol` | IoT protocol security testing — MQTT, CoAP, Modbus, BACnet, UPnP, Zigbee |
+| `iot_audit` | IoT device security audit — discovery, fingerprinting, and vulnerability assessment |
+| `mobile_audit` | Mobile app security testing — APK decompilation, static/dynamic analysis |
+| `telecom_attack` | 5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI |
+| `supply_chain` | Supply chain attack testing — dependency confusion, typosquatting, secrets |
+| `serverless_audit` | Serverless/edge function security testing |
+| `cicd_audit` | CI/CD pipeline security scanning — secret detection, IaC scanning, SAST |
+| `sdn_attack` | SDN/network automation security testing |
+| `llm_audit` | AI/LLM security testing — prompt injection, model abuse, RAG poisoning |
+| `container_audit` | Container & Kubernetes security auditing and escape detection |
+
+### Traffic Analysis & Network Monitoring
+
+| Tool | Description |
+|---|---|
+| `traffic_analysis` | Packet capture and traffic analysis for networks you own or have authorization to test |
+| `net_monitor` | Network monitoring — traffic baselines, host anomaly detection, DNS monitoring |
+
+### Blue Team / Defensive
+
+| Tool | Description |
+|---|---|
+| `cis_audit` | Defensive CIS benchmark scanning and configuration auditing |
+| `hardening_check` | Per-service hardening validation with specific remediation steps |
+| `ir_toolkit` | Incident response — log correlation, IOC matching, timeline reconstruction |
+| `purple_team` | Purple team mode — correlate red-team attacks with blue-team detections |
+
+### Engagement & Orchestration
+
+| Tool | Description |
+|---|---|
+| `engagement` | Manage pentest engagements — mode enforcement, logging, reporting |
+| `target_intel` | Query and manage the target intelligence database |
+| `opsec` | Opsec management — MAC randomization, interface fingerprint control, nmap opsec profiles |
+| `playbook` | Playbook system — run predefined tool sequences |
+| `orchestrator` | Automated engagement orchestrator — scripted pen test pipeline with agent hand-off |
+| `chain_planner` | Recommend next tool actions based on accumulated target intelligence |
+| `technique_library` | Store and retrieve successful attack techniques for reuse |
+| `schedule_task` | Schedule a future task |
+| `list_schedules` | List the current scheduled jobs |
+| `cancel_schedule` | Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``) |
+
+<!-- END GENERATED TOOLS -->
 
 ### External Attack Simulation
 
@@ -156,16 +278,6 @@ Two new playbooks for end-to-end external attack simulation:
 |---|---|---|
 | `external_recon` | 13 | Passive footprint: WAN IP → Shodan → BGP/ASN → cert transparency → DNS security → subdomain enum → OSINT → cloud exposure → SSL audit |
 | `perimeter_attack` | 14 | Active assault: router fingerprint → UPnP abuse → default creds → RouterSploit → WAN port scan → **TCP flag analysis** → **ACS fingerprint** → CVE correlation |
-
-### Blue Team / Defensive
-
-| Tool | Description |
-|---|---|
-| `cis_audit` | CIS benchmark scanning — SSH, TLS, firewall config audits, patch assessment, port baseline |
-| `net_monitor` | Network monitoring — passive traffic baselines, host anomaly detection, DNS exfiltration/tunneling detection |
-| `hardening_check` | Service hardening validation — SSH, Nginx, Apache, Docker, Kubernetes with specific remediation steps |
-| `ir_toolkit` | Incident response — log correlation, IOC matching, auth log analysis, timeline reconstruction, containment |
-| `purple_team` | Purple team mode — MITRE ATT&CK coverage matrix, detection gap analysis, exercise reports |
 
 ## Engagement Modes
 
