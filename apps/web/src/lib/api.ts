@@ -315,9 +315,12 @@ export const api = {
     } = {},
   ) {
     const rpcId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const streamHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    const operatorKey = getOperatorKey();
+    if (operatorKey) streamHeaders["x-api-key"] = operatorKey;
     const response = await fetch(apiUrl("/a2a"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: streamHeaders,
       signal: handlers.signal,
       body: JSON.stringify({
         jsonrpc: "2.0",
