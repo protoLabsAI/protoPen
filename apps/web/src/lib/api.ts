@@ -14,6 +14,7 @@ import type {
   SetupStatus,
   SlashCommand,
   Subagent,
+  ToolEvent,
 } from "./types";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -31,7 +32,12 @@ type A2AFrame = {
     status?: {
       state?: string;
       message?: {
-        parts?: Array<{ kind?: string; text?: string }>;
+        parts?: Array<{
+          kind?: string;
+          text?: string;
+          data?: unknown;
+          metadata?: { mimeType?: string };
+        }>;
       };
     };
     artifact?: {
@@ -140,6 +146,19 @@ function textFromParts(parts?: Array<{ kind?: string; text?: string }>) {
     .filter((part) => (part.kind === undefined || part.kind === "text") && part.text)
     .map((part) => part.text)
     .join("");
+}
+
+// Shared with the backend (a2a_handler.py TOOL_CALL_MIME).
+const TOOL_CALL_MIME = "application/vnd.protolabs.tool-call-v1+json";
+
+/** Pull a structured tool event ({id, name, phase, input|output}) off a frame's parts. */
+function toolEventFromParts(
+  parts?: Array<{ kind?: string; data?: unknown; metadata?: { mimeType?: string } }>,
+): ToolEvent | null {
+  const part = (parts || []).find(
+    (p) => p.kind === "data" && p.metadata?.mimeType === TOOL_CALL_MIME,
+  );
+  return part ? (part.data as ToolEvent) : null;
 }
 
 function textFromTerminalTask(result: NonNullable<A2AFrame["result"]>) {
@@ -316,6 +335,7 @@ export const api = {
       onTaskId?: (taskId: string) => void;
       onStatus?: (status: string) => void;
       onText?: (text: string, append: boolean) => void;
+      onToolCall?: (evt: ToolEvent) => void;
       onDone?: () => void;
     } = {},
   ) {
@@ -360,6 +380,8 @@ export const api = {
         const state = result.status?.state || "";
         const messageText = textFromParts(result.status?.message?.parts);
         handlers.onStatus?.(messageText || state);
+        const toolEvent = toolEventFromParts(result.status?.message?.parts);
+        if (toolEvent) handlers.onToolCall?.(toolEvent);
         if (result.final) handlers.onDone?.();
       }
 
