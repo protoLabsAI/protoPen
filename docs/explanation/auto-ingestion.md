@@ -22,9 +22,22 @@ def ingest_output(tool_name, action, raw, store):
     return parser(raw, store)
 ```
 
-### Post-Hook in BlackArchTool
+### Central dispatch in `BasePentestTool._run`
 
-The `BlackArchTool.execute()` method calls `ingest_output()` as a post-hook after every action completes. For example, after an `nmap_scan`, the raw XML output is routed to the nmap parser, which extracts hosts, ports, and services into the `TargetStore`.
+Action-based tools that shell out to a CLI do so through `BasePentestTool._run`,
+which calls `ingest_output(self.name, action, output, self._target_store)` after
+capturing the subprocess output. Because the dispatch lives in the base class,
+**every** tool that uses `_run` (the Tier 2/3/4 tools and others) gets parsing
+for free — no per-tool wiring. For example, after an `nmap_scan` the raw XML is
+routed to the nmap parser, which extracts hosts, ports, and services into the
+`TargetStore`.
+
+For this to take effect, two things must be true: a parser is registered for the
+`(tool, action)` pair (via `tools/parsers/__init__.py`), and the tool instance
+has a `_target_store` — injected in `tools/lg_tools.py` when the toolset is
+built. When either is missing, `ingest_output` is a safe no-op. (A few older
+tools such as `dns_enum` predate the base class and call `ingest_output` from
+their own `_run`.)
 
 ### EngagementManager Auto-Extract
 
