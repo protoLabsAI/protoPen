@@ -643,10 +643,16 @@ def _init_pentest_singletons():
     global _recon_pipeline
     _recon_pipeline = ReconPipelineTool()
 
-    # Wire the target store into the Tier 2/3/4 tools created above so their
+    # Wire the target store into the BasePentestTool subclasses created above
+    # (container/websocket/cicd/ipv6/iot + Tier 3/4) that lacked it, so their
     # registered parsers (tools/parsers) actually ingest findings at runtime —
     # BasePentestTool._run calls ingest_output, which no-ops without a store.
     for _t in (
+        _container_audit,
+        _websocket_test,
+        _cicd_audit,
+        _ipv6_attack,
+        _iot_protocol,
         _ad_attack,
         _llm_audit,
         _telecom_attack,
