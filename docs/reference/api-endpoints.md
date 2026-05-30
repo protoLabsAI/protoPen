@@ -24,7 +24,7 @@ _28 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, proto
 
 #### `POST /api/chat`
 
-Api Chat
+Chat (programmatic)
 
 **Request body** (`ChatRequest`)
 
@@ -39,7 +39,7 @@ Api Chat
 
 #### `POST /v1/chat/completions`
 
-Openai Chat Completions
+OpenAI-compatible chat completions
 
 **Request body**
 
@@ -47,7 +47,7 @@ Openai Chat Completions
 
 #### `GET /v1/models`
 
-Openai Models
+List models (OpenAI-compatible)
 
 **Responses:** `200` Successful Response
 
@@ -55,7 +55,7 @@ Openai Models
 
 #### `GET /api/runtime/status`
 
-Runtime Status
+Runtime status
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
@@ -63,13 +63,13 @@ Runtime Status
 
 #### `GET /api/subagents`
 
-Subagents
+List subagents
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/subagents/batch`
 
-Subagent Batch
+Run subagents concurrently
 
 **Request body** (`SubagentBatchRequest`)
 
@@ -82,7 +82,7 @@ Subagent Batch
 
 #### `POST /api/subagents/run`
 
-Subagent Run
+Run a subagent
 
 **Request body** (`SubagentRunRequest`)
 
@@ -100,13 +100,13 @@ Subagent Run
 
 #### `GET /api/agents`
 
-Agents List
+List agent runs
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/agents/launch`
 
-Agent Launch
+Launch a tracked agent
 
 **Request body** (`SubagentRunRequest`)
 
@@ -122,7 +122,7 @@ Agent Launch
 
 #### `GET /api/agents/{task_id}`
 
-Agent Get
+Get an agent run
 
 **Parameters**
 
@@ -134,7 +134,7 @@ Agent Get
 
 #### `POST /api/agents/{task_id}/cancel`
 
-Agent Cancel
+Cancel an agent run
 
 **Parameters**
 
@@ -148,19 +148,19 @@ Agent Cancel
 
 #### `GET /api/engagement`
 
-Engagement
+Engagement snapshot
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
 #### `GET /api/engagement/report`
 
-Engagement Report
+Read engagement report
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/engagement/report`
 
-Engagement Report Generate
+Generate engagement report
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
@@ -168,7 +168,7 @@ Engagement Report Generate
 
 #### `GET /api/knowledge/search`
 
-Knowledge Search
+Search the knowledge store
 
 **Parameters**
 
@@ -184,7 +184,7 @@ Knowledge Search
 
 #### `GET /api/audit/recent`
 
-Audit Recent
+Recent audit entries
 
 **Parameters**
 
@@ -199,13 +199,13 @@ Audit Recent
 
 #### `GET /api/scheduler/jobs`
 
-Scheduler Jobs
+List scheduled jobs
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/scheduler/jobs`
 
-Scheduler Add
+Schedule a job
 
 **Request body** (`ScheduleAddRequest`)
 
@@ -219,7 +219,7 @@ Scheduler Add
 
 #### `DELETE /api/scheduler/jobs/{job_id}`
 
-Scheduler Cancel
+Cancel a scheduled job
 
 **Parameters**
 
@@ -233,7 +233,7 @@ Scheduler Cancel
 
 #### `GET /api/notes/workspace`
 
-Notes Get
+Load notes workspace
 
 **Parameters**
 
@@ -245,7 +245,7 @@ Notes Get
 
 #### `POST /api/notes/workspace`
 
-Notes Save
+Save notes workspace
 
 **Request body** (`NotesSaveRequest`)
 
@@ -260,7 +260,7 @@ Notes Save
 
 #### `POST /api/beads/init`
 
-Beads Init
+Initialize beads
 
 **Request body** (`BeadsInitRequest`)
 
@@ -273,7 +273,7 @@ Beads Init
 
 #### `GET /api/beads/issues`
 
-Beads List
+List beads issues
 
 **Parameters**
 
@@ -285,7 +285,7 @@ Beads List
 
 #### `POST /api/beads/issues`
 
-Beads Create
+Create a beads issue
 
 **Request body** (`BeadsCreateRequest`)
 
@@ -302,7 +302,7 @@ Beads Create
 
 #### `DELETE /api/beads/issues/{issue_id}`
 
-Beads Delete
+Delete a beads issue
 
 **Parameters**
 
@@ -315,7 +315,7 @@ Beads Delete
 
 #### `PATCH /api/beads/issues/{issue_id}`
 
-Beads Update
+Update a beads issue
 
 **Parameters**
 
@@ -339,7 +339,7 @@ Beads Update
 
 #### `POST /api/beads/issues/{issue_id}/close`
 
-Beads Close
+Close a beads issue
 
 **Parameters**
 
@@ -358,7 +358,7 @@ Beads Close
 
 #### `GET /api/beads/status`
 
-Beads Status
+Beads status
 
 **Parameters**
 

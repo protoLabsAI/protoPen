@@ -846,7 +846,7 @@ def _main():
         message: str
         session_id: str = "api-default"
 
-    @fastapi_app.post("/api/chat")
+    @fastapi_app.post("/api/chat", summary="Chat (programmatic)")
     async def _api_chat(req: ChatRequest):
         result = await chat(req.message, req.session_id)
         # Extract assistant content
@@ -858,7 +858,7 @@ def _main():
     import time as _time
     from fastapi.responses import StreamingResponse as _StreamingResponse
 
-    @fastapi_app.post("/v1/chat/completions")
+    @fastapi_app.post("/v1/chat/completions", summary="OpenAI-compatible chat completions")
     async def _openai_chat_completions(req: dict):
         messages = req.get("messages", [])
         user_msgs = [m for m in messages if m.get("role") == "user"]
@@ -919,7 +919,7 @@ def _main():
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         }
 
-    @fastapi_app.get("/v1/models")
+    @fastapi_app.get("/v1/models", summary="List models (OpenAI-compatible)")
     async def _openai_models():
         return {
             "object": "list",

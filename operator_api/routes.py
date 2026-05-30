@@ -126,15 +126,15 @@ def register_operator_routes(
 
     router = APIRouter(dependencies=auth_deps)
 
-    @router.get("/api/runtime/status")
+    @router.get("/api/runtime/status", summary="Runtime status")
     async def _runtime_status():
         return runtime_status()
 
-    @router.get("/api/subagents")
+    @router.get("/api/subagents", summary="List subagents")
     async def _subagents():
         return {"subagents": subagent_list()}
 
-    @router.get("/api/engagement")
+    @router.get("/api/engagement", summary="Engagement snapshot")
     async def _engagement():
         if engagement_status is None:
             return {
@@ -150,7 +150,7 @@ def register_operator_routes(
             }
         return engagement_status()
 
-    @router.get("/api/engagement/report")
+    @router.get("/api/engagement/report", summary="Read engagement report")
     async def _engagement_report():
         if engagement_report is None:
             return {"available": False, "name": "", "path": "", "markdown": ""}
@@ -159,7 +159,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/engagement/report")
+    @router.post("/api/engagement/report", summary="Generate engagement report")
     async def _engagement_report_generate():
         if engagement_report_generate is None:
             raise HTTPException(status_code=409, detail="report generation is not available")
@@ -168,7 +168,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/knowledge/search")
+    @router.get("/api/knowledge/search", summary="Search the knowledge store")
     async def _knowledge_search(q: str, k: int = 10, table: str | None = None):
         if knowledge_search is None:
             return {"query": q, "table": table, "count": 0, "hits": []}
@@ -177,7 +177,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/audit/recent")
+    @router.get("/api/audit/recent", summary="Recent audit entries")
     async def _audit_recent(n: int = 50, session_id: str | None = None):
         if audit_recent is None:
             return {"count": 0, "entries": [], "summary": {"total": 0, "successes": 0, "failures": 0}}
@@ -186,7 +186,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/subagents/run")
+    @router.post("/api/subagents/run", summary="Run a subagent")
     async def _subagent_run(req: SubagentRunRequest):
         try:
             output = await subagent_run(_model_payload(req))
@@ -194,7 +194,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/subagents/batch")
+    @router.post("/api/subagents/batch", summary="Run subagents concurrently")
     async def _subagent_batch(req: SubagentBatchRequest):
         try:
             output = await subagent_batch(_model_payload(req))
@@ -202,7 +202,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/agents/launch")
+    @router.post("/api/agents/launch", summary="Launch a tracked agent")
     async def _agent_launch(req: SubagentRunRequest):
         if agent_launch is None:
             raise HTTPException(status_code=409, detail="agent launching is not available")
@@ -212,22 +212,22 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/agents")
+    @router.get("/api/agents", summary="List agent runs")
     async def _agents_list():
         return {"agents": agent_list() if agent_list else []}
 
-    @router.get("/api/agents/{task_id}")
+    @router.get("/api/agents/{task_id}", summary="Get an agent run")
     async def _agent_get(task_id: str):
         run = agent_get(task_id) if agent_get else None
         if run is None:
             raise HTTPException(status_code=404, detail="agent run not found")
         return run
 
-    @router.post("/api/agents/{task_id}/cancel")
+    @router.post("/api/agents/{task_id}/cancel", summary="Cancel an agent run")
     async def _agent_cancel(task_id: str):
         return {"cancelled": bool(agent_cancel(task_id)) if agent_cancel else False}
 
-    @router.get("/api/scheduler/jobs")
+    @router.get("/api/scheduler/jobs", summary="List scheduled jobs")
     async def _scheduler_jobs():
         if scheduler_list is None:
             return {"jobs": [], "backend": "disabled"}
@@ -236,7 +236,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/scheduler/jobs")
+    @router.post("/api/scheduler/jobs", summary="Schedule a job")
     async def _scheduler_add(req: ScheduleAddRequest):
         if scheduler_add is None:
             raise HTTPException(status_code=409, detail="scheduler is not available")
@@ -245,7 +245,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.delete("/api/scheduler/jobs/{job_id}")
+    @router.delete("/api/scheduler/jobs/{job_id}", summary="Cancel a scheduled job")
     async def _scheduler_cancel(job_id: str):
         if scheduler_cancel is None:
             raise HTTPException(status_code=409, detail="scheduler is not available")
@@ -254,7 +254,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/notes/workspace")
+    @router.get("/api/notes/workspace", summary="Load notes workspace")
     async def _notes_get(project_path: str):
         try:
             workspace = await asyncio.to_thread(notes.load_workspace, project_path)
@@ -262,7 +262,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/notes/workspace")
+    @router.post("/api/notes/workspace", summary="Save notes workspace")
     async def _notes_save(req: NotesSaveRequest):
         try:
             await asyncio.to_thread(notes.save_workspace, req.project_path, req.workspace)
@@ -270,21 +270,21 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/beads/status")
+    @router.get("/api/beads/status", summary="Beads status")
     async def _beads_status(project_path: str):
         try:
             return await asyncio.to_thread(beads.status, project_path)
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/beads/init")
+    @router.post("/api/beads/init", summary="Initialize beads")
     async def _beads_init(req: BeadsInitRequest):
         try:
             return await asyncio.to_thread(beads.init, req.project_path, req.prefix)
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.get("/api/beads/issues")
+    @router.get("/api/beads/issues", summary="List beads issues")
     async def _beads_list(project_path: str):
         try:
             issues = await asyncio.to_thread(beads.list, project_path)
@@ -292,7 +292,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/beads/issues")
+    @router.post("/api/beads/issues", summary="Create a beads issue")
     async def _beads_create(req: BeadsCreateRequest):
         try:
             issue = await asyncio.to_thread(beads.create, req.project_path, _model_payload(req))
@@ -300,7 +300,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.patch("/api/beads/issues/{issue_id}")
+    @router.patch("/api/beads/issues/{issue_id}", summary="Update a beads issue")
     async def _beads_update(issue_id: str, req: BeadsUpdateRequest):
         try:
             issue = await asyncio.to_thread(beads.update, req.project_path, issue_id, _model_payload(req))
@@ -308,7 +308,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.post("/api/beads/issues/{issue_id}/close")
+    @router.post("/api/beads/issues/{issue_id}/close", summary="Close a beads issue")
     async def _beads_close(issue_id: str, req: BeadsCloseRequest):
         try:
             issue = await asyncio.to_thread(beads.close, req.project_path, issue_id, req.reason)
@@ -316,7 +316,7 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
-    @router.delete("/api/beads/issues/{issue_id}")
+    @router.delete("/api/beads/issues/{issue_id}", summary="Delete a beads issue")
     async def _beads_delete(issue_id: str, project_path: str):
         try:
             return await asyncio.to_thread(beads.delete, project_path, issue_id)
