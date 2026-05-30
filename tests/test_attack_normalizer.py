@@ -282,3 +282,95 @@ class TestNormalizeStep:
 
     def test_unknown_phase(self):
         assert normalize_step("blackarch", "nmap_scan", "data", "unknown") == []
+
+
+# ── Tier 4 ATT&CK coverage ───────────────────────────────────────────
+
+
+class TestTier4Coverage:
+    """Every Tier 4 tool action must map to at least one ATT&CK technique."""
+
+    TIER4_ACTIONS = {
+        "supply_chain": [
+            "dependency_confusion_test",
+            "typosquat_scan",
+            "package_provenance_audit",
+            "postinstall_audit",
+            "trufflehog_scan",
+            "gitleaks_scan",
+            "depscan",
+        ],
+        "serverless_audit": [
+            "lambda_inject_test",
+            "edge_function_audit",
+            "event_trigger_abuse",
+            "tfstate_scan",
+            "iac_security_scan",
+            "serverless_misconfig",
+            "cold_start_race",
+        ],
+        "spa_test": [
+            "route_bypass",
+            "state_inspect",
+            "postmessage_scan",
+            "token_leakage_audit",
+            "dom_xss_scan",
+            "js_source_map_check",
+        ],
+        "sdn_attack": [
+            "sdn_controller_enum",
+            "netconf_exploit",
+            "network_policy_audit",
+            "yang_model_enum",
+            "restconf_test",
+            "openflow_audit",
+        ],
+        "mobile_audit": [
+            "apk_decompile",
+            "static_analysis",
+            "jadx_decompile",
+            "drozer_scan",
+            "frida_hook",
+            "ssl_pinning_bypass",
+            "ipc_audit",
+            "keychain_dump",
+        ],
+        "recon_pipeline": [
+            "full_pipeline",
+            "subdomain_httpx",
+            "nuclei_scan",
+            "screenshot_capture",
+            "asset_correlate",
+            "attack_graph_build",
+            "tech_detect",
+        ],
+    }
+
+    def test_every_tier4_action_has_a_rule(self):
+        from tools.parsers.attack_normalizer import _RED_RULES
+
+        missing = [
+            (tool, action)
+            for tool, actions in self.TIER4_ACTIONS.items()
+            for action in actions
+            if (tool, action) not in _RED_RULES
+        ]
+        assert missing == [], f"Tier 4 actions without ATT&CK rules: {missing}"
+
+    def test_rules_carry_valid_technique_ids(self):
+        import re
+
+        from tools.parsers.attack_normalizer import _RED_RULES
+
+        tid = re.compile(r"^T\d{4}(\.\d{3})?$")
+        for tool, actions in self.TIER4_ACTIONS.items():
+            for action in actions:
+                for rule in _RED_RULES[(tool, action)]:
+                    assert tid.match(rule["technique_id"]), f"bad id {rule} for {tool}/{action}"
+                    assert rule["technique_name"]
+
+    def test_normalize_red_marks_success_on_findings(self):
+        raw = json.dumps({"confused_packages": [{"name": "@acme/x", "severity": "critical"}]})
+        results = normalize_red("supply_chain", "dependency_confusion_test", raw)
+        assert results[0]["technique_id"] == "T1195.002"
+        assert results[0]["success"] is True
