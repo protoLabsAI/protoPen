@@ -1090,12 +1090,13 @@ def _main():
 
     def _operator_runtime_status():
         # protopen is configured via env/Infisical (no template setup wizard) and
-        # has no scheduler/cache_warmer/goal_controller — omit those (default None).
+        # has no cache_warmer/goal_controller — omit those (default None).
         return _build_operator_status(
             config=_graph_config,
             setup_complete=True,
             graph_loaded=_graph is not None,
             knowledge_store=_knowledge_store,
+            scheduler=_scheduler,
         )
 
     def _operator_subagent_list():
@@ -1130,6 +1131,31 @@ def _main():
     import os as _os
 
     _operator_api_key = _os.environ.get("PROTOPEN_API_KEY", _os.environ.get("RESEARCHER_API_KEY", ""))
+
+    # Local scheduler — sqlite + asyncio polling. Fires scheduled prompts at the
+    # agent's own /a2a endpoint. protoPen is local-only (no remote backend).
+    from scheduler import LocalScheduler
+
+    _scheduler = LocalScheduler(
+        agent_name=_os.environ.get("AGENT_NAME", "protopen"),
+        invoke_url=f"http://127.0.0.1:{args.port}",
+        api_key=_operator_api_key or None,
+    )
+
+    @fastapi_app.on_event("startup")
+    async def _start_scheduler():
+        try:
+            await _scheduler.start()
+            print(f"[scheduler] local scheduler started ({_scheduler.path})")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[scheduler] failed to start: {exc}")
+
+    @fastapi_app.on_event("shutdown")
+    async def _stop_scheduler():
+        try:
+            await _scheduler.stop()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[scheduler] failed to stop: {exc}")
 
     # Monitor view: surface the live engagement + findings (protoPen-specific).
     from operator_api.engagement import (

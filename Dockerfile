@@ -27,7 +27,7 @@ RUN npm install -g agent-browser \
 # Install Python deps
 RUN pip install --no-cache-dir \
     gradio sqlite-vec httpx uvicorn langfuse prometheus-client PyMuPDF pyyaml \
-    langchain langchain-openai langgraph websockets
+    langchain langchain-openai langgraph websockets croniter
 
 # Install protoPen
 COPY tools/ /opt/protopen/tools/
