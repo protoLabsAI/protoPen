@@ -643,6 +643,32 @@ def _init_pentest_singletons():
     global _recon_pipeline
     _recon_pipeline = ReconPipelineTool()
 
+    # Wire the target store into the BasePentestTool subclasses created above
+    # (container/websocket/cicd/ipv6/iot + Tier 3/4) that lacked it, so their
+    # registered parsers (tools/parsers) actually ingest findings at runtime —
+    # BasePentestTool._run calls ingest_output, which no-ops without a store.
+    for _t in (
+        _container_audit,
+        _websocket_test,
+        _cicd_audit,
+        _ipv6_attack,
+        _iot_protocol,
+        _ad_attack,
+        _llm_audit,
+        _telecom_attack,
+        _evasion,
+        _phishing,
+        _grpc_audit,
+        _auth_audit,
+        _mobile_audit,
+        _supply_chain,
+        _serverless_audit,
+        _spa_test,
+        _sdn_attack,
+        _recon_pipeline,
+    ):
+        _t._target_store = _target_store
+
     global _wifi_intel
     wifi_cfg = config.get("devices", {}).get("wifi_adapter", {})
     _wifi_intel = WiFiIntelTool(
