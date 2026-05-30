@@ -103,6 +103,7 @@ from tools.parsers import mobile_audit  # noqa: E402,F401
 from tools.parsers import serverless_audit  # noqa: E402,F401
 from tools.parsers import supply_chain  # noqa: E402,F401
 from tools.parsers import spa_test  # noqa: E402,F401
+from tools.parsers import recon_pipeline  # noqa: E402,F401
 from tools.parsers import lan_scan  # noqa: E402,F401
 
 # External attack simulation
