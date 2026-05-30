@@ -38,6 +38,7 @@ export default defineConfig({
           text: "How-To Guides",
           items: [
             { text: "Overview", link: "/guides/" },
+            { text: "Operator Console", link: "/guides/operator-console" },
             { text: "Deploy Updates", link: "/guides/deploy-updates" },
             { text: "A2A Integration", link: "/guides/a2a-integration" },
             { text: "Lab Mode", link: "/guides/lab-mode" },

@@ -645,3 +645,43 @@ Automated recon pipeline — subdomain enumeration, HTTP probing, nuclei scannin
 | `asset_correlate` | Correlate discovered assets across recon sources | `output_dir` |
 | `attack_graph_build` | Build an attack graph from correlated recon data | `output_dir`, `domain` |
 | `tech_detect` | Detect technologies used by a target web app | `target` |
+
+---
+
+# Browser
+
+## browser
+
+Headless web browser automation via the `agent-browser` CLI (Chromium). Returns
+accessibility-tree snapshots by default (token-efficient); use `open` first,
+then `snapshot` to read page content. The CLI is installed automatically — in
+the container (Dockerfile) and on native/Deck runtimes (`start.sh`); see the
+[browser tool setup](#browser-tool-setup) note below.
+
+| Action | Description | Key Parameters |
+|---|---|---|
+| `open` | Navigate to a URL | `url` |
+| `snapshot` | Get the accessibility tree of the current page | -- |
+| `screenshot` | Take a screenshot (base64 PNG) | -- |
+| `click` | Click an element by accessibility label or selector | `selector` |
+| `fill` | Fill an input field with text | `selector`, `text` |
+| `find` | Find elements matching a query | `query` |
+| `type` | Type text (keyboard input) | `text` |
+| `wait` | Wait for a selector to appear | `selector` |
+
+### Browser tool setup
+
+`agent-browser` is a published npm CLI plus a bundled Chromium. protoPen installs
+it automatically:
+
+- **Container** — the image installs the CLI and a system `chromium`, and
+  `entrypoint.sh` exports `AGENT_BROWSER_EXECUTABLE_PATH` so it's found under the
+  sandbox user's `HOME=/tmp`.
+- **Native / Steam Deck** — `start.sh` installs the CLI into a user-local npm
+  prefix (`~/.npm-global`, since `/usr` is read-only on the immutable rootfs),
+  downloads Chromium, and exports `AGENT_BROWSER_EXECUTABLE_PATH`. Idempotent and
+  persists across reboots / OS updates.
+
+If the tool reports *"agent-browser is not installed"*, the launcher's install
+step failed (e.g. no network on first boot) — re-run it by restarting the
+service.
