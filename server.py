@@ -89,25 +89,32 @@ def _detect_vllm_model(api_base: str) -> str | None:
 # Session commands
 # ---------------------------------------------------------------------------
 
-_HELP_TEXT = """\
-**protoPen commands:**
-| Command | Description |
-|---------|-------------|
-| `/new` | Clear chat history + session |
-| `/clear` | Clear chat display (session preserved) |
-| `/think <level>` | Set reasoning effort (low/medium/high/off) |
-| `/compact` | Force memory consolidation |
-| `/model` | Show current model |
-| `/tools` | List registered tools |
-| `/topics` | Show tracked security topics |
-| `/agenda` | Show security intelligence agenda with stats |
-| `/cves [query]` | Search stored CVEs and advisories |
-| `/recent [n]` | Show recent findings |
-| `/audit [n]` | Show recent audit log entries |
-| `/intel` | Generate security intelligence digest and publish to Discord |
-| `/purple <scope>` | Run purple team exercise (red+blue+ATT&CK report) |
-| `/help` | Show this help |
-"""
+# Single source of truth for the chat slash-commands: drives both the /help
+# table and the console composer autocomplete (GET /api/chat/commands).
+_CHAT_COMMANDS: list[dict[str, str]] = [
+    {"name": "new", "description": "Clear chat history + session", "usage": "/new"},
+    {"name": "clear", "description": "Clear chat display (session preserved)", "usage": "/clear"},
+    {"name": "think", "description": "Set reasoning effort (low/medium/high/off)", "usage": "/think <level>"},
+    {"name": "compact", "description": "Force memory consolidation", "usage": "/compact"},
+    {"name": "model", "description": "Show current model", "usage": "/model"},
+    {"name": "tools", "description": "List registered tools", "usage": "/tools"},
+    {"name": "topics", "description": "Show tracked security topics", "usage": "/topics"},
+    {"name": "agenda", "description": "Show security intelligence agenda with stats", "usage": "/agenda"},
+    {"name": "cves", "description": "Search stored CVEs and advisories", "usage": "/cves [query]"},
+    {"name": "recent", "description": "Show recent findings", "usage": "/recent [n]"},
+    {"name": "audit", "description": "Show recent audit log entries", "usage": "/audit [n]"},
+    {"name": "intel", "description": "Generate intel digest and publish to Discord", "usage": "/intel"},
+    {"name": "purple", "description": "Run purple team exercise (red+blue+ATT&CK report)", "usage": "/purple <scope>"},
+    {"name": "help", "description": "Show available commands", "usage": "/help"},
+]
+
+
+def _build_help_text() -> str:
+    rows = "\n".join(f"| `{c['usage']}` | {c['description']} |" for c in _CHAT_COMMANDS)
+    return "**protoPen commands:**\n\n| Command | Description |\n|---|---|\n" + rows
+
+
+_HELP_TEXT = _build_help_text()
 
 _THINK_LEVELS = {"low", "medium", "high", "off"}
 
@@ -1249,6 +1256,10 @@ def _main():
     def _operator_scheduler_cancel(job_id: str):
         return {"canceled": _scheduler.cancel_job(job_id)}
 
+    def _operator_chat_commands() -> dict:
+        """Slash commands the chat understands — drives the composer autocomplete."""
+        return {"commands": _CHAT_COMMANDS}
+
     register_operator_routes(
         fastapi_app,
         runtime_status=_operator_runtime_status,
@@ -1267,6 +1278,7 @@ def _main():
         scheduler_list=_operator_scheduler_list,
         scheduler_add=_operator_scheduler_add,
         scheduler_cancel=_operator_scheduler_cancel,
+        chat_commands=_operator_chat_commands,
         api_key=_operator_api_key,
     )
 

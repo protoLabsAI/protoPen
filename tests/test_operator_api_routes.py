@@ -56,6 +56,7 @@ def _client(
     scheduler_list=None,
     scheduler_add=None,
     scheduler_cancel=None,
+    chat_commands=None,
 ):
     app = FastAPI()
     notes = _Notes()
@@ -84,6 +85,7 @@ def _client(
         scheduler_list=scheduler_list,
         scheduler_add=scheduler_add,
         scheduler_cancel=scheduler_cancel,
+        chat_commands=chat_commands,
         notes_service=notes,
         beads_service=_Beads(),
         api_key=api_key,
@@ -314,3 +316,14 @@ def test_operator_routes_enforce_api_key() -> None:
 def test_operator_routes_open_when_no_api_key() -> None:
     client, _ = _client()  # api_key="" → unauthenticated
     assert client.get("/api/runtime/status").status_code == 200
+
+
+def test_chat_commands_route_returns_registry() -> None:
+    cmds = {"commands": [{"name": "purple", "description": "Run purple team", "usage": "/purple <scope>"}]}
+    client, _ = _client(chat_commands=lambda: cmds)
+    assert client.get("/api/chat/commands").json() == cmds
+
+
+def test_chat_commands_route_empty_when_unwired() -> None:
+    client, _ = _client()  # chat_commands omitted
+    assert client.get("/api/chat/commands").json() == {"commands": []}

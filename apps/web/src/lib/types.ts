@@ -148,6 +148,12 @@ export type ChatMessage = {
   status?: "streaming" | "done" | "error";
 };
 
+export type SlashCommand = {
+  name: string;
+  description: string;
+  usage: string;
+};
+
 export type NotesWorkspace = {
   version: number;
   workspaceVersion: number;
