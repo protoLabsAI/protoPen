@@ -1,0 +1,22 @@
+# beads (br) — git handling for the .beads/ workspace.
+#
+# Allowlist form: ignore everything br generates locally, then re-include only
+# the files meant to be shared. Upstream's denylist .gitignore "keeps changing
+# too frequently" as new volatile files appear (steveyegge/beads#919); an
+# allowlist stays correct without edits when br adds new local state.
+#
+# Committed (shared source of truth):
+#   issues.jsonl  — the canonical issue export; merges cleanly in git
+#   config.yaml   — shared project config (issue prefix, defaults)
+#   routes.jsonl  — cross-project prefix routing, if used
+# Ignored (local / per-machine / runtime):
+#   beads.db*, *.lock, last-touched, *.tmp  — sqlite db + locks + scratch
+#   .br_history/  — local history snapshots
+#   daemon.*      — background daemon log / pid / lock
+#   metadata.json — workspace-local db/export paths
+#   .local_version — per-machine schema version
+*
+!issues.jsonl
+!config.yaml
+!routes.jsonl
+!.gitignore
