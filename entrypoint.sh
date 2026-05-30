@@ -22,5 +22,16 @@ if [ -n "${LAB_GPU}" ] || command -v nvidia-smi &>/dev/null; then
     fi
 fi
 
+# Browser tool: pin the system Chromium (installed in the image) so agent-browser
+# finds it regardless of the runtime user / HOME=/tmp override in tools/browser.py.
+if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ]; then
+    for b in /usr/bin/chromium /usr/bin/chromium-browser /usr/bin/google-chrome; do
+        if [ -x "$b" ]; then
+            export AGENT_BROWSER_EXECUTABLE_PATH="$b"
+            break
+        fi
+    done
+fi
+
 # Start protoPen Gradio UI on port 7870
 exec python /opt/protopen/server.py
