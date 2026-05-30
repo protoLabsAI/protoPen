@@ -141,6 +141,136 @@ _RED_RULES: dict[tuple[str, str], list[dict]] = {
     ("auth_audit", "session_fixation"): [
         {"technique_id": "T1550", "technique_name": "Use Alternate Authentication Material"},
     ],
+    # Tier 4 — Supply chain
+    ("supply_chain", "dependency_confusion_test"): [
+        {"technique_id": "T1195.002", "technique_name": "Compromise Software Supply Chain"},
+    ],
+    ("supply_chain", "typosquat_scan"): [
+        {"technique_id": "T1195.002", "technique_name": "Compromise Software Supply Chain"},
+    ],
+    ("supply_chain", "package_provenance_audit"): [
+        {"technique_id": "T1195", "technique_name": "Supply Chain Compromise"},
+    ],
+    ("supply_chain", "postinstall_audit"): [
+        {"technique_id": "T1195.002", "technique_name": "Compromise Software Supply Chain"},
+        {"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter"},
+    ],
+    ("supply_chain", "trufflehog_scan"): [
+        {"technique_id": "T1552", "technique_name": "Unsecured Credentials"},
+    ],
+    ("supply_chain", "gitleaks_scan"): [
+        {"technique_id": "T1552", "technique_name": "Unsecured Credentials"},
+    ],
+    ("supply_chain", "depscan"): [
+        {"technique_id": "T1195", "technique_name": "Supply Chain Compromise"},
+    ],
+    # Tier 4 — Serverless
+    ("serverless_audit", "lambda_inject_test"): [
+        {"technique_id": "T1648", "technique_name": "Serverless Execution"},
+    ],
+    ("serverless_audit", "edge_function_audit"): [
+        {"technique_id": "T1648", "technique_name": "Serverless Execution"},
+    ],
+    ("serverless_audit", "event_trigger_abuse"): [
+        {"technique_id": "T1546", "technique_name": "Event Triggered Execution"},
+    ],
+    ("serverless_audit", "tfstate_scan"): [
+        {"technique_id": "T1552.001", "technique_name": "Credentials In Files"},
+    ],
+    ("serverless_audit", "iac_security_scan"): [
+        {"technique_id": "T1648", "technique_name": "Serverless Execution"},
+    ],
+    ("serverless_audit", "serverless_misconfig"): [
+        {"technique_id": "T1648", "technique_name": "Serverless Execution"},
+    ],
+    ("serverless_audit", "cold_start_race"): [
+        {"technique_id": "T1648", "technique_name": "Serverless Execution"},
+    ],
+    # Tier 4 — SPA (single-page app) testing
+    ("spa_test", "route_bypass"): [
+        {"technique_id": "T1190", "technique_name": "Exploit Public-Facing Application"},
+    ],
+    ("spa_test", "state_inspect"): [
+        {"technique_id": "T1213", "technique_name": "Data from Information Repositories"},
+    ],
+    ("spa_test", "postmessage_scan"): [
+        {"technique_id": "T1190", "technique_name": "Exploit Public-Facing Application"},
+    ],
+    ("spa_test", "token_leakage_audit"): [
+        {"technique_id": "T1528", "technique_name": "Steal Application Access Token"},
+    ],
+    ("spa_test", "dom_xss_scan"): [
+        {"technique_id": "T1059.007", "technique_name": "JavaScript"},
+    ],
+    ("spa_test", "js_source_map_check"): [
+        {"technique_id": "T1592.002", "technique_name": "Gather Victim Host Information: Software"},
+    ],
+    # Tier 4 — SDN / network automation
+    ("sdn_attack", "sdn_controller_enum"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("sdn_attack", "netconf_exploit"): [
+        {"technique_id": "T1190", "technique_name": "Exploit Public-Facing Application"},
+    ],
+    ("sdn_attack", "network_policy_audit"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("sdn_attack", "yang_model_enum"): [
+        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
+    ],
+    ("sdn_attack", "restconf_test"): [
+        {"technique_id": "T1190", "technique_name": "Exploit Public-Facing Application"},
+    ],
+    ("sdn_attack", "openflow_audit"): [
+        {"technique_id": "T1565", "technique_name": "Data Manipulation"},
+    ],
+    # Tier 4 — Mobile (closest MITRE Enterprise techniques)
+    ("mobile_audit", "apk_decompile"): [
+        {"technique_id": "T1592.002", "technique_name": "Gather Victim Host Information: Software"},
+    ],
+    ("mobile_audit", "static_analysis"): [
+        {"technique_id": "T1592.002", "technique_name": "Gather Victim Host Information: Software"},
+    ],
+    ("mobile_audit", "jadx_decompile"): [
+        {"technique_id": "T1592.002", "technique_name": "Gather Victim Host Information: Software"},
+    ],
+    ("mobile_audit", "drozer_scan"): [
+        {"technique_id": "T1518", "technique_name": "Software Discovery"},
+    ],
+    ("mobile_audit", "frida_hook"): [
+        {"technique_id": "T1055", "technique_name": "Process Injection"},
+    ],
+    ("mobile_audit", "ssl_pinning_bypass"): [
+        {"technique_id": "T1557", "technique_name": "Adversary-in-the-Middle"},
+    ],
+    ("mobile_audit", "ipc_audit"): [
+        {"technique_id": "T1559", "technique_name": "Inter-Process Communication"},
+    ],
+    ("mobile_audit", "keychain_dump"): [
+        {"technique_id": "T1555", "technique_name": "Credentials from Password Stores"},
+    ],
+    # Tier 4 — Recon pipeline
+    ("recon_pipeline", "full_pipeline"): [
+        {"technique_id": "T1595", "technique_name": "Active Scanning"},
+    ],
+    ("recon_pipeline", "subdomain_httpx"): [
+        {"technique_id": "T1590.002", "technique_name": "Gather Victim Network Information: DNS"},
+    ],
+    ("recon_pipeline", "nuclei_scan"): [
+        {"technique_id": "T1595.002", "technique_name": "Vulnerability Scanning"},
+    ],
+    ("recon_pipeline", "screenshot_capture"): [
+        {"technique_id": "T1595", "technique_name": "Active Scanning"},
+    ],
+    ("recon_pipeline", "asset_correlate"): [
+        {"technique_id": "T1593", "technique_name": "Search Open Websites/Domains"},
+    ],
+    ("recon_pipeline", "attack_graph_build"): [
+        {"technique_id": "T1595", "technique_name": "Active Scanning"},
+    ],
+    ("recon_pipeline", "tech_detect"): [
+        {"technique_id": "T1592.002", "technique_name": "Gather Victim Host Information: Software"},
+    ],
 }
 
 _BLUE_RULES: dict[tuple[str, str], list[dict]] = {
@@ -222,6 +352,40 @@ def _json_has_issues(raw: str) -> bool:
     except (json.JSONDecodeError, TypeError):
         pass
     return _prose_has_results(raw)
+
+
+def _tier4_has_findings(raw: str) -> bool:
+    """Tier 4 success heuristic.
+
+    Tier 4 tools emit custom JSON shapes — a dict whose finding category is an
+    array (e.g. ``{"confused_packages": [...]}``, ``{"sinks": [...]}``), a bare
+    array (gitleaks), or JSONL (trufflehog). Treat any non-empty finding array
+    (or any parseable JSONL line) as a positive result.
+    """
+    text = raw.strip()
+    if not text or text.startswith("[stderr]"):
+        return False
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # Possibly JSONL — any line that parses to a truthy object is a finding.
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                if json.loads(line):
+                    return True
+            except json.JSONDecodeError:
+                continue
+        return _prose_has_results(raw)
+    if isinstance(data, list):
+        return len(data) > 0
+    if isinstance(data, dict):
+        if data.get("error"):
+            return False
+        return any(isinstance(v, list) and len(v) > 0 for v in data.values())
+    return False
 
 
 def _prose_has_results(raw: str) -> bool:
@@ -329,6 +493,48 @@ _HEURISTIC: dict[tuple[str, str], callable] = {
     ("auth_audit", "jwt_scan"): _json_has_issues,
     ("auth_audit", "oauth_redirect_test"): _json_has_issues,
     ("auth_audit", "session_fixation"): _json_has_issues,
+    # Tier 4 — all emit structured JSON → _tier4_has_findings (any non-empty finding array).
+    ("supply_chain", "dependency_confusion_test"): _tier4_has_findings,
+    ("supply_chain", "typosquat_scan"): _tier4_has_findings,
+    ("supply_chain", "package_provenance_audit"): _tier4_has_findings,
+    ("supply_chain", "postinstall_audit"): _tier4_has_findings,
+    ("supply_chain", "trufflehog_scan"): _tier4_has_findings,
+    ("supply_chain", "gitleaks_scan"): _tier4_has_findings,
+    ("supply_chain", "depscan"): _tier4_has_findings,
+    ("serverless_audit", "lambda_inject_test"): _tier4_has_findings,
+    ("serverless_audit", "edge_function_audit"): _tier4_has_findings,
+    ("serverless_audit", "event_trigger_abuse"): _tier4_has_findings,
+    ("serverless_audit", "tfstate_scan"): _tier4_has_findings,
+    ("serverless_audit", "iac_security_scan"): _tier4_has_findings,
+    ("serverless_audit", "serverless_misconfig"): _tier4_has_findings,
+    ("serverless_audit", "cold_start_race"): _tier4_has_findings,
+    ("spa_test", "route_bypass"): _tier4_has_findings,
+    ("spa_test", "state_inspect"): _tier4_has_findings,
+    ("spa_test", "postmessage_scan"): _tier4_has_findings,
+    ("spa_test", "token_leakage_audit"): _tier4_has_findings,
+    ("spa_test", "dom_xss_scan"): _tier4_has_findings,
+    ("spa_test", "js_source_map_check"): _tier4_has_findings,
+    ("sdn_attack", "sdn_controller_enum"): _tier4_has_findings,
+    ("sdn_attack", "netconf_exploit"): _tier4_has_findings,
+    ("sdn_attack", "network_policy_audit"): _tier4_has_findings,
+    ("sdn_attack", "yang_model_enum"): _tier4_has_findings,
+    ("sdn_attack", "restconf_test"): _tier4_has_findings,
+    ("sdn_attack", "openflow_audit"): _tier4_has_findings,
+    ("mobile_audit", "apk_decompile"): _tier4_has_findings,
+    ("mobile_audit", "static_analysis"): _tier4_has_findings,
+    ("mobile_audit", "jadx_decompile"): _tier4_has_findings,
+    ("mobile_audit", "drozer_scan"): _tier4_has_findings,
+    ("mobile_audit", "frida_hook"): _tier4_has_findings,
+    ("mobile_audit", "ssl_pinning_bypass"): _tier4_has_findings,
+    ("mobile_audit", "ipc_audit"): _tier4_has_findings,
+    ("mobile_audit", "keychain_dump"): _tier4_has_findings,
+    ("recon_pipeline", "full_pipeline"): _tier4_has_findings,
+    ("recon_pipeline", "subdomain_httpx"): _tier4_has_findings,
+    ("recon_pipeline", "nuclei_scan"): _tier4_has_findings,
+    ("recon_pipeline", "screenshot_capture"): _tier4_has_findings,
+    ("recon_pipeline", "asset_correlate"): _tier4_has_findings,
+    ("recon_pipeline", "attack_graph_build"): _tier4_has_findings,
+    ("recon_pipeline", "tech_detect"): _tier4_has_findings,
 }
 
 
