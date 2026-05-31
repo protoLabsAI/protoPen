@@ -31,10 +31,13 @@ def test_threaded_sqlite_saver_persists_across_restart(tmp_path):
 
     async def turn(text: str) -> int:
         saver = build_sqlite_checkpointer(db)  # fresh saver each call = "restart"
-        app = _toy_graph(saver)
-        await app.ainvoke({"messages": [HumanMessage(content=text)]}, cfg)
-        state = await app.aget_state(cfg)
-        return len(state.values["messages"])
+        try:
+            app = _toy_graph(saver)
+            await app.ainvoke({"messages": [HumanMessage(content=text)]}, cfg)
+            state = await app.aget_state(cfg)
+            return len(state.values["messages"])
+        finally:
+            saver.conn.close()
 
     n1 = asyncio.run(turn("hello"))  # 1 human + 1 ai
     n2 = asyncio.run(turn("again"))  # reopened DB → accumulates on top
@@ -55,7 +58,10 @@ def test_threaded_sqlite_saver_isolates_threads(tmp_path):
         )
         return await app.aget_state({"configurable": {"thread_id": "B"}})
 
-    state_b = asyncio.run(main())
+    try:
+        state_b = asyncio.run(main())
+    finally:
+        saver.conn.close()
     assert not state_b.values  # thread B never written → A's history doesn't bleed in
 
 
@@ -63,5 +69,8 @@ def test_threaded_sqlite_saver_isolates_threads(tmp_path):
 async def test_threaded_saver_async_methods_work(tmp_path):
     """The async methods (delegated to worker threads) are usable directly."""
     saver = build_sqlite_checkpointer(str(tmp_path / "c.db"))
-    # No checkpoint yet for this thread → aget_tuple returns None, doesn't raise.
-    assert await saver.aget_tuple({"configurable": {"thread_id": "x"}}) is None
+    try:
+        # No checkpoint yet for this thread → aget_tuple returns None, doesn't raise.
+        assert await saver.aget_tuple({"configurable": {"thread_id": "x"}}) is None
+    finally:
+        saver.conn.close()

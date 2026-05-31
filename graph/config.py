@@ -45,6 +45,13 @@ class LangGraphConfig:
         )
     )
 
+    # Auxiliary model — a single cheap/fast alias for the non-reasoning calls
+    # (context summarization, subagent delegation). Each path uses its own
+    # specific override if set (e.g. compaction.model, a per-subagent model),
+    # else falls back to this, else the main model. Blank = main model
+    # everywhere. Set via routing.aux_model in the YAML.
+    aux_model: str = ""
+
     # Middleware toggles
     knowledge_middleware: bool = True
     knowledge_ingest_middleware: bool = True
@@ -58,6 +65,13 @@ class LangGraphConfig:
     checkpoint_keep_per_thread: int = 5
     checkpoint_max_age_days: int = 30
     checkpoint_prune_interval_hours: int = 6
+
+    # Per-tool execution backstop — caps any single tool call so a hung tool
+    # (broken/missing internal timeout, dead peer) can't wedge the whole turn.
+    # Generous by design (a backstop, not a tight bound); `task` subagent
+    # delegation is exempt. <= 0 disables. See graph/middleware/timeout.py.
+    tool_timeout_middleware: bool = True
+    tool_timeout_seconds: int = 600
 
     # Enforcement
     enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
@@ -109,6 +123,8 @@ class LangGraphConfig:
             knowledge_ingest_middleware=middleware.get("knowledge_ingest", True),
             audit_middleware=middleware.get("audit", True),
             memory_middleware=middleware.get("memory", True),
+            tool_timeout_middleware=middleware.get("tool_timeout", True),
+            tool_timeout_seconds=middleware.get("tool_timeout_seconds", cls.tool_timeout_seconds),
             knowledge_db_path=knowledge.get("db_path", cls.knowledge_db_path),
             embed_model=knowledge.get("embed_model", cls.embed_model),
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
@@ -126,6 +142,8 @@ class LangGraphConfig:
             checkpoint_prune_interval_hours=(data.get("checkpoint") or {}).get(
                 "prune_interval_hours", cls.checkpoint_prune_interval_hours
             ),
+            # `or {}` guards an empty `routing:` block (YAML parses it to None).
+            aux_model=(data.get("routing") or {}).get("aux_model", cls.aux_model),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):

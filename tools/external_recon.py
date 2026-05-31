@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.parsers import ingest_output
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -116,12 +117,11 @@ class ExternalReconTool(Tool):
             stderr=asyncio.subprocess.PIPE,
             stdin=asyncio.subprocess.PIPE if stdin else None,
         )
-        try:
-            inp = stdin.encode() if stdin else None
-            stdout, stderr = await asyncio.wait_for(proc.communicate(input=inp), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
+        inp = stdin.encode() if stdin else None
+        result = await communicate_or_kill(proc, timeout, input=inp)
+        if result is None:
             return f"Timed out after {timeout}s: {' '.join(str(a) for a in args)}"
+        stdout, stderr = result
         out = stdout.decode(errors="replace").strip()
         err = stderr.decode(errors="replace").strip()
         return out + (f"\n[stderr] {err}" if err else "")

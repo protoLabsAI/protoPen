@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from tools.parsers import ingest_output
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -238,11 +239,10 @@ class BlackArchTool(Tool):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
+        result = await communicate_or_kill(proc, timeout)
+        if result is None:
             return f"Command timed out after {timeout}s: {' '.join(args)}"
+        stdout, stderr = result
         output = stdout.decode(errors="replace")
         if stderr:
             output += f"\n[stderr] {stderr.decode(errors='replace')}"
