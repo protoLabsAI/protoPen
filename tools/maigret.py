@@ -163,7 +163,15 @@ class MaigretTool(Tool):
         return self._summarize(username, raw)
 
     async def _run(self, *args: str, timeout: int = 300) -> str:
-        """Run maigret from the workspace dir; stdout only (it's self-contained)."""
+        """Run maigret from the workspace dir; stdout only (it's self-contained).
+
+        On timeout we kill the child FIRST and then drain communicate() to EOF,
+        instead of letting asyncio.wait_for cancel it. Cancelling communicate()
+        while the subprocess is still alive can hang inside wait_for (the kill in
+        an `except` branch is never reached) — which would wedge the whole agent
+        turn rather than returning a clean timeout. Killing the child closes its
+        stdout, so the already-running communicate() returns naturally at EOF.
+        """
         logger.info("Running: %s", " ".join(args))
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -171,11 +179,16 @@ class MaigretTool(Tool):
             stderr=asyncio.subprocess.DEVNULL,
             cwd=str(self._workspace),
         )
-        try:
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
+        comm = asyncio.ensure_future(proc.communicate())
+        done, _pending = await asyncio.wait({comm}, timeout=timeout)
+        if comm not in done:
             proc.kill()
+            try:
+                await comm  # drains to EOF now that stdout is closed; also reaps
+            except Exception:
+                pass
             return f"[timeout] maigret exceeded {timeout}s — narrow the search (lower top_sites or set a site)."
+        stdout, _ = comm.result()
         return stdout.decode(errors="replace").strip()
 
     @staticmethod
