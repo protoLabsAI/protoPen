@@ -142,6 +142,30 @@ def test_registry_loads_recipes_from_dir(tmp_path):
     assert reg.get("missing") is None
 
 
+def test_registry_save_then_run_roundtrip(tmp_path):
+    """save() persists to the writable dir, reloads, and the recipe is runnable."""
+    reg = WorkflowRegistry([str(tmp_path)], writable_dir=str(tmp_path))
+    recipe = {
+        "name": "My Flow",
+        "description": "demo",
+        "steps": [{"id": "s", "subagent": "threat_scanner", "prompt": "hi"}],
+    }
+    path = reg.save(recipe)
+    assert path.endswith("my-flow.yaml")  # slugged filename
+    assert reg.get("My Flow") is not None  # reloaded, immediately available
+    assert reg.delete("My Flow") is True
+    assert reg.get("My Flow") is None
+    assert reg.delete("My Flow") is False  # already gone
+
+
+def test_registry_save_without_writable_raises(tmp_path):
+    import pytest
+
+    reg = WorkflowRegistry([], writable_dir=None)
+    with pytest.raises(RuntimeError):
+        reg.save({"name": "x", "steps": []})
+
+
 def test_bundled_threat_brief_recipe_is_valid():
     """The shipped workflows/threat-brief.yaml must validate against the real
     subagent registry — guards against recipe/subagent drift."""
