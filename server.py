@@ -1255,6 +1255,24 @@ def _main():
                 # tool/system messages are omitted from the surface view
         return {"context_id": ACTIVITY_CONTEXT, "messages": messages}
 
+    def _operator_workflows_list() -> dict:
+        """List workflow recipes for the console's Workflows surface (ADR 0002)."""
+        if _workflow_registry is None:
+            return {"workflows": []}
+        return {"workflows": _workflow_registry.list()}
+
+    async def _operator_workflow_run(name: str, inputs: dict) -> dict:
+        """Run a saved workflow from the operator console (ADR 0002)."""
+        from graph.agent import run_manual_workflow
+
+        return await run_manual_workflow(
+            _graph_config,
+            _workflow_registry,
+            knowledge_store=_get_store(),
+            name=name,
+            inputs=inputs or {},
+        )
+
     register_a2a_routes(
         app=fastapi_app,
         chat_stream_fn_factory=_chat_langgraph_stream,
@@ -1263,6 +1281,8 @@ def _main():
         agent_card=AGENT_CARD,
         on_terminal=_publish_activity_terminal,  # ADR 0003: surface Activity turns
         activity_list=_operator_activity_list,
+        workflows_list=_operator_workflows_list,  # ADR 0002: Workflows surface
+        workflows_run=_operator_workflow_run,
     )
 
     # Alias required by protoWorkstacean agent discovery

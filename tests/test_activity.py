@@ -51,6 +51,30 @@ def _register(app, **extra):
     )
 
 
+def test_workflows_routes():
+    """GET /api/workflows lists; POST /api/workflows/{name}/run runs (ADR 0002)."""
+
+    def workflows_list():
+        return {"workflows": [{"name": "wf", "description": "d", "inputs": [], "steps": []}]}
+
+    async def workflows_run(name, inputs):
+        return {"output": f"ran {name} with {inputs.get('topic', '')}", "steps": {}, "failed": []}
+
+    app = FastAPI()
+    _register(app, workflows_list=workflows_list, workflows_run=workflows_run)
+    client = TestClient(app)
+    assert client.get("/api/workflows").json()["workflows"][0]["name"] == "wf"
+    resp = client.post("/api/workflows/wf/run", json={"inputs": {"topic": "ai"}})
+    assert resp.status_code == 200
+    assert resp.json()["output"] == "ran wf with ai"
+
+
+def test_workflows_routes_absent_without_callbacks():
+    app = FastAPI()
+    _register(app)
+    assert TestClient(app).get("/api/workflows").status_code == 404
+
+
 def test_activity_route_returns_history():
     async def activity_list():
         return {

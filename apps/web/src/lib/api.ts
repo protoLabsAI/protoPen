@@ -16,6 +16,8 @@ import type {
   SlashCommand,
   Subagent,
   ToolEvent,
+  WorkflowRunResult,
+  WorkflowSummary,
 } from "./types";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
@@ -248,6 +250,17 @@ export const api = {
 
   activity() {
     return request<ActivityHistory>("/api/activity");
+  },
+
+  workflows() {
+    return request<{ workflows: WorkflowSummary[] }>("/api/workflows");
+  },
+
+  runWorkflow(name: string, inputs: Record<string, unknown>) {
+    return request<WorkflowRunResult>(`/api/workflows/${encodeURIComponent(name)}/run`, {
+      method: "POST",
+      body: { inputs },
+    });
   },
 
   setupStatus() {
