@@ -140,10 +140,34 @@ export type AuditRecent = {
   summary: { total: number; successes: number; failures: number };
 };
 
+export type ToolCall = {
+  id: string;
+  name: string;
+  input?: string;
+  output?: string;
+  status: "running" | "done" | "error";
+  /** Client wall-clock when the start frame arrived (ms epoch). */
+  startedAt?: number;
+  /** Elapsed start→end, stamped client-side when the end frame arrives. */
+  durationMs?: number;
+  /** id of the enclosing `task` tool, if this call ran inside a subagent. */
+  parentId?: string;
+};
+
+/** Wire shape of a single tool event streamed over the A2A tool-call DataPart. */
+export type ToolEvent = {
+  id: string;
+  name: string;
+  phase: "start" | "end";
+  input?: string;
+  output?: string;
+};
+
 export type ChatMessage = {
   id?: string;
   role: "user" | "assistant" | "system";
   content: string;
+  toolCalls?: ToolCall[];
   createdAt?: number;
   status?: "streaming" | "done" | "error";
 };

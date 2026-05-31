@@ -13,6 +13,7 @@ import { api } from "../lib/api";
 import type { ChatMessage, SlashCommand } from "../lib/types";
 import { chatStore, MAX_ACTIVE_SESSIONS, useChatState } from "./chat-store";
 import { Markdown } from "./LazyMarkdown";
+import { ToolCalls } from "./ToolCalls";
 
 function messageId() {
   return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -202,6 +203,48 @@ function ChatSessionSlot({
             ),
           );
         },
+        onToolCall: (evt) => {
+          const latest = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
+          if (!latest) return;
+          chatStore.updateMessages(
+            session.id,
+            latest.messages.map((message) => {
+              if (message.id !== assistantId) return message;
+              const calls = [...(message.toolCalls || [])];
+              const idx = calls.findIndex((c) => c.id === evt.id);
+              const now = Date.now();
+              if (evt.phase === "start") {
+                // A tool that starts while a `task` is still running is a child
+                // of that subagent delegation — nest it. (Last open task wins,
+                // so nested task() calls group correctly.)
+                const openTask = [...calls]
+                  .reverse()
+                  .find((c) => c.name === "task" && c.status === "running" && c.id !== evt.id);
+                const card = {
+                  id: evt.id,
+                  name: evt.name,
+                  input: evt.input,
+                  status: "running" as const,
+                  startedAt: now,
+                  parentId: openTask?.id,
+                };
+                if (idx >= 0) calls[idx] = { ...calls[idx], ...card };
+                else calls.push(card);
+              } else {
+                // end — flip the matching card to done (or create one if the
+                // start frame was missed). Stamp elapsed when we saw the start.
+                const startedAt = idx >= 0 ? calls[idx].startedAt : undefined;
+                const durationMs = startedAt !== undefined ? now - startedAt : undefined;
+                if (idx >= 0) {
+                  calls[idx] = { ...calls[idx], output: evt.output, status: "done", durationMs };
+                } else {
+                  calls.push({ id: evt.id, name: evt.name, output: evt.output, status: "done" });
+                }
+              }
+              return { ...message, toolCalls: calls };
+            }),
+          );
+        },
         onDone: () => {
           const latest = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
           if (!latest) return;
@@ -324,13 +367,16 @@ function ChatSessionSlot({
             <article className={`message message-${message.role}`} key={message.id || `${message.role}-${message.createdAt}`}>
               <div className="message-role">{message.role}</div>
               <div className="message-body">
+                {message.toolCalls && message.toolCalls.length > 0 ? (
+                  <ToolCalls calls={message.toolCalls} />
+                ) : null}
                 {message.content ? (
                   message.role === "assistant" ? (
                     <Markdown>{message.content}</Markdown>
                   ) : (
                     message.content
                   )
-                ) : message.status === "streaming" ? (
+                ) : message.status === "streaming" && !(message.toolCalls && message.toolCalls.length) ? (
                   <Loader2 className="spin" size={15} />
                 ) : null}
               </div>

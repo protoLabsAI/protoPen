@@ -596,10 +596,46 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
         tracing.end_trace()
 
 
+# Cap tool input/output previews so a single frame stays small on the wire.
+_TOOL_PREVIEW_CHARS = 800
+
+
+def _coerce_tool_value(value) -> str:
+    """Render a tool input/output for a tool-call card.
+
+    Structured values (dict/list) become compact JSON with double quotes so
+    the console can pretty-print them — Python's ``str()`` would emit a repr
+    with single quotes that no JSON parser accepts. Everything else is
+    stringified. Always truncated to keep the SSE frame small.
+    """
+    if value is None or value == "":
+        return ""
+    if isinstance(value, (dict, list)):
+        try:
+            return json.dumps(value, ensure_ascii=False, default=str)[:_TOOL_PREVIEW_CHARS]
+        except (TypeError, ValueError):
+            pass
+    return str(value)[:_TOOL_PREVIEW_CHARS]
+
+
+def _coerce_tool_output(value) -> str:
+    """Unwrap a tool result to its payload.
+
+    ``on_tool_end`` hands back the LangChain ``ToolMessage``, whose ``str()``
+    leaks ``name=``/``tool_call_id=`` noise — the card wants the actual
+    ``.content``. Falls back to the raw value for plain returns.
+    """
+    return _coerce_tool_value(getattr(value, "content", value))
+
+
 async def _chat_langgraph_stream(message: str, session_id: str):
     """Async generator that yields (event_type, payload) tuples via astream_events.
 
-    event_type is one of: "status", "tool_start", "tool_end", "text", "done", "error"
+    event_type is one of: "status", "tool_start", "tool_end", "text", "done", "error".
+    ``tool_start`` / ``tool_end`` payloads are structured dicts ({id, name,
+    input|output}) keyed by the langchain ``run_id`` so the console can pair
+    start↔end and render a live per-tool card; the A2A handler also derives a
+    text status from them for text-only consumers.
     """
     from langchain_core.messages import HumanMessage
 
@@ -621,13 +657,25 @@ async def _chat_langgraph_stream(message: str, session_id: str):
 
             if kind == "on_tool_start":
                 tool_input = event.get("data", {}).get("input", "")
-                preview = str(tool_input)[:200] if tool_input else ""
-                yield ("tool_start", f"🔧 {name}: {preview}")
+                yield (
+                    "tool_start",
+                    {
+                        "id": event.get("run_id") or name,
+                        "name": name,
+                        "input": _coerce_tool_value(tool_input),
+                    },
+                )
 
             elif kind == "on_tool_end":
                 output = event.get("data", {}).get("output", "")
-                preview = str(output)[:300] if output else ""
-                yield ("tool_end", f"✅ {name} → {preview}")
+                yield (
+                    "tool_end",
+                    {
+                        "id": event.get("run_id") or name,
+                        "name": name,
+                        "output": _coerce_tool_output(output),
+                    },
+                )
 
             elif kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk")

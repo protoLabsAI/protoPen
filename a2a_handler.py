@@ -61,6 +61,11 @@ INPUT_REQUIRED = "input-required"
 
 _TERMINAL = {COMPLETED, FAILED, CANCELED}
 
+# MIME type for the structured tool-call DataPart carried on status frames.
+# Shared with the web console (apps/web/src/lib/api.ts) so it can pick the
+# tool event out of an A2A status-update message's parts.
+TOOL_CALL_MIME = "application/vnd.protolabs.tool-call-v1+json"
+
 # ── Data types ────────────────────────────────────────────────────────────────
 
 
@@ -88,6 +93,11 @@ class TaskRecord:
     accumulated_text: str = ""
     error_message: str | None = None
     last_status_message: str | None = None
+    # Most recent structured tool event ({id, name, phase, input|output}),
+    # emitted as a tool-call-v1 DataPart on status frames so the console can
+    # render per-tool cards (vs. the flattened text in last_status_message).
+    # Cleared to None on terminal transitions.
+    last_tool_event: dict | None = None
     push_config: PushNotificationConfig | None = None
     # ── asyncio primitives (not serialised) ──
     _cancel_event: asyncio.Event = field(default_factory=asyncio.Event, repr=False)
@@ -126,6 +136,7 @@ class A2ATaskStore:
         accumulated_text: str | None = None,
         error: str | None = None,
         last_status_message: str | None = None,
+        tool_event: dict | None = None,
     ) -> TaskRecord | None:
         async with self._lock:
             record = self._tasks.get(task_id)
@@ -139,6 +150,12 @@ class A2ATaskStore:
                 record.error_message = error
             if last_status_message is not None:
                 record.last_status_message = last_status_message
+            if tool_event is not None:
+                record.last_tool_event = tool_event
+            # Terminal transitions clear the tool ping so post-run subscribers
+            # see the final state cleanly, not a stale tool event.
+            if state in _TERMINAL:
+                record.last_tool_event = None
             old_event = record._update_event
             record._update_event = asyncio.Event()
         # Wake subscribers outside the lock so they can re-acquire it
@@ -263,10 +280,21 @@ def _build_status_event(record: TaskRecord, *, final: bool = False) -> dict:
             "parts": [{"kind": "text", "text": record.error_message}],
         }
     elif record.last_status_message and record.state not in _TERMINAL:
-        evt["status"]["message"] = {
-            "role": "agent",
-            "parts": [{"kind": "text", "text": record.last_status_message}],
-        }
+        # Text status for text-only consumers, plus the structured tool event
+        # as a tool-call-v1 DataPart so the console can render live tool cards.
+        # Clients dedupe by (id, phase).
+        parts: list[dict[str, Any]] = [
+            {"kind": "text", "text": record.last_status_message},
+        ]
+        if record.last_tool_event:
+            parts.append(
+                {
+                    "kind": "data",
+                    "data": record.last_tool_event,
+                    "metadata": {"mimeType": TOOL_CALL_MIME},
+                }
+            )
+        evt["status"]["message"] = {"role": "agent", "parts": parts}
     return evt
 
 
@@ -416,8 +444,28 @@ async def _run_task_background(
                 await _store.update_state(task_id, WORKING, accumulated_text=accumulated)
 
             elif event_type in ("tool_start", "tool_end"):
-                # Persist tool message so :subscribe reconnects can show it
-                await _store.update_state(task_id, WORKING, accumulated_text=accumulated, last_status_message=payload)
+                # Structured payload is {id, name, input|output}: derive a text
+                # status (back-compat for text-only consumers / :subscribe
+                # reconnects) AND a structured tool event for the tool-call-v1
+                # DataPart (console cards). A plain-string payload (legacy
+                # producers) is used as the text status verbatim, no card.
+                if isinstance(payload, dict):
+                    if event_type == "tool_start":
+                        status_text = f"🔧 {payload.get('name', '')}: {str(payload.get('input', ''))[:200]}"
+                        tool_event = {**payload, "phase": "start"}
+                    else:
+                        status_text = f"✅ {payload.get('name', '')} → {str(payload.get('output', ''))[:300]}"
+                        tool_event = {**payload, "phase": "end"}
+                else:
+                    status_text = str(payload)
+                    tool_event = None
+                await _store.update_state(
+                    task_id,
+                    WORKING,
+                    accumulated_text=accumulated,
+                    last_status_message=status_text,
+                    tool_event=tool_event,
+                )
 
             elif event_type == "done":
                 record = await _store.update_state(
