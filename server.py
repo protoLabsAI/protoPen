@@ -1282,11 +1282,7 @@ def _main():
 
         # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
         global _checkpoint_prune_task
-        if (
-            _checkpoint_path
-            and _graph_config is not None
-            and _graph_config.checkpoint_prune_interval_hours > 0
-        ):
+        if _checkpoint_path and _graph_config is not None and _graph_config.checkpoint_prune_interval_hours > 0:
             _checkpoint_prune_task = asyncio.create_task(_checkpoint_prune_loop())
 
     @fastapi_app.on_event("shutdown")
