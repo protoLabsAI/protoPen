@@ -17,8 +17,7 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 
 # protoLabs workspace-config standard
-.beads/beads.db
-!.beads/issues.jsonl
+# beads (br) workspace handling lives in .beads/.gitignore (allowlist form)
 .worktrees/
 .automaker/features/
 .automaker/checkpoints/
