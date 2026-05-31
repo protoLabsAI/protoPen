@@ -291,11 +291,19 @@ def create_researcher_graph(
     knowledge_store=None,
     include_subagents: bool = True,
     sitrep: str = "",
+    checkpointer=None,
 ):
     """Create the main protoPen LangGraph agent.
 
+    ``checkpointer`` persists conversation state per ``thread_id``: pass one so
+    multi-turn chats keep their history (the agent sees prior turns instead of
+    starting fresh each message). Compaction middleware summarizes the old part
+    of that history near the context limit. A checkpointer set only in the invoke
+    ``config`` is ignored by LangGraph — it must be bound here at compile time.
+
     Returns a compiled graph that can be invoked with:
-        graph.ainvoke({"messages": [HumanMessage(content="...")]})
+        graph.ainvoke({"messages": [HumanMessage(content="...")]},
+                      config={"configurable": {"thread_id": "..."}})
     """
     llm = create_llm(config)
 
@@ -324,6 +332,7 @@ def create_researcher_graph(
         tools=all_tools,
         middleware=middleware,
         system_prompt=system_prompt,
+        checkpointer=checkpointer,
     )
 
     return agent

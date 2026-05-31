@@ -28,6 +28,45 @@ _graph_config = None  # LangGraphConfig
 _checkpointer = None  # LangGraph MemorySaver for session persistence
 
 
+def _resolve_checkpoint_db(configured: str) -> str:
+    """Pick a writable checkpoint DB path; fall back to ~/.protopen when the
+    configured dir (default /sandbox) isn't creatable (e.g. local dev)."""
+    import os
+
+    candidate = Path(configured).expanduser()
+    try:
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        if os.access(candidate.parent, os.W_OK):
+            return str(candidate)
+    except OSError:
+        pass
+    fallback = Path.home() / ".protopen" / "sessions.db"
+    fallback.parent.mkdir(parents=True, exist_ok=True)
+    return str(fallback)
+
+
+def _build_checkpointer(configured_db: str):
+    """Durable SQLite checkpointer (chat history survives restarts), falling back
+    to an in-memory saver if SQLite init fails so a bad path never blocks boot.
+
+    The graph compiles synchronously at boot, before the event loop, so we use a
+    wrapped sync saver (graph/checkpointer.py) rather than the loop-bound
+    AsyncSqliteSaver. Bound into the graph at compile time by the caller.
+    """
+    try:
+        from graph.checkpointer import build_sqlite_checkpointer
+
+        path = _resolve_checkpoint_db(configured_db)
+        saver = build_sqlite_checkpointer(path)
+        print(f"[sessions] Persistent checkpointer: {path}")
+        return saver
+    except Exception as exc:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        print(f"[sessions] SQLite checkpointer init failed ({exc}); using in-memory (history won't persist)")
+        return MemorySaver()
+
+
 def _init_langgraph_agent():
     """Initialize the LangGraph agent backend."""
     global _graph, _graph_config, _checkpointer
@@ -41,19 +80,10 @@ def _init_langgraph_agent():
 
     store = _get_store()
 
-    # Persistent session checkpointer — survives restarts
-    _sessions_db = Path("/sandbox/knowledge/sessions.db")
-    _sessions_db.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-        _checkpointer = AsyncSqliteSaver.from_conn_string(str(_sessions_db))
-        print(f"[sessions] Persistent checkpointer: {_sessions_db}")
-    except ImportError:
-        from langgraph.checkpoint.memory import MemorySaver
-
-        _checkpointer = MemorySaver()
-        print("[sessions] Falling back to in-memory checkpointer")
+    # Persistent session checkpointer — bound into the graph at COMPILE time
+    # below. A checkpointer set only in the invoke config is ignored by
+    # LangGraph, which gave the chat amnesia (every turn started fresh).
+    _checkpointer = _build_checkpointer("/sandbox/knowledge/sessions.db")
 
     # Run startup sitrep — hardware, network, engagement status
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
@@ -66,6 +96,7 @@ def _init_langgraph_agent():
         knowledge_store=store,
         include_subagents=True,
         sitrep=status_block,
+        checkpointer=_checkpointer,
     )
 
     print(f"[researcher] LangGraph agent initialized (model: {_graph_config.model_name})")
@@ -494,10 +525,10 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
 
     tracing.start_trace(session_id=session_id, name="researcher-chat-lg", metadata={"message_preview": message[:100]})
     try:
-        # Invoke the graph with session-scoped checkpointing
+        # thread_id keys this session's history in the checkpointer (bound at
+        # compile time in create_researcher_graph). A checkpointer in the invoke
+        # config is ignored by LangGraph, so it is intentionally not set here.
         config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
-        if _checkpointer:
-            config["checkpointer"] = _checkpointer
 
         result = await _graph.ainvoke(
             {"messages": [HumanMessage(content=message)], "session_id": session_id},
@@ -527,9 +558,10 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     """
     from langchain_core.messages import HumanMessage
 
+    # thread_id keys this session's history in the checkpointer (bound at compile
+    # time in create_researcher_graph). The a2a:/gradio: prefixes isolate the two
+    # chat paths. A checkpointer in the invoke config is ignored by LangGraph.
     config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
-    if _checkpointer:
-        config["checkpointer"] = _checkpointer
 
     accumulated_text = ""
 
@@ -728,6 +760,7 @@ def _build_settings_callbacks() -> dict:
                 config=_graph_config,
                 knowledge_store=_get_store(),
                 include_subagents=True,
+                checkpointer=_checkpointer,
             )
             return f"**Switched to:** `{_graph_config.model_name}` (graph rebuilt)"
         return "**Error:** LangGraph config not initialized."
