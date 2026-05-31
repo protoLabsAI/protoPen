@@ -1,61 +1,105 @@
-"""KnowledgeMiddleware — injects relevant knowledge context before LLM calls.
+"""KnowledgeMiddleware — retrieve knowledge + learned skills before each LLM call.
 
-Queries the KnowledgeStore with the last user message and adds
-top-k results to the state's research_context field.
+``before_model`` writes the combined context (retrieved knowledge + matching
+``<learned_skills>``) to ``state["context"]``; PromptCacheMiddleware delivers it
+into the system message at the model-call boundary (the static system prompt
+can't read state, so this is how it reaches the LLM). Works with knowledge,
+skills, or both — and no-ops cleanly when neither yields a hit.
 """
 
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 
-from langgraph.prebuilt.chat_agent_executor import AgentState
+_SKILLS_MAX_TOKENS = 1500  # budget for the <learned_skills> block (chars // 4)
+_SKILLS_CONTEXT_CHARS = 2000  # chars of the latest message used as the skills query
 
 
 class KnowledgeMiddleware(AgentMiddleware):
-    """Inject knowledge store context before each LLM call.
+    """Inject knowledge-store context + relevant learned skills before each LLM call.
 
-    Uses hybrid search (vector + BM25 keyword via RRF fusion) for better
-    retrieval quality. Falls back to vector-only if FTS5 is unavailable.
+    Uses hybrid search (vector + BM25 keyword via RRF) for knowledge; FTS5 for
+    skills. A None knowledge_store is fine — skills still work on a KB-less agent.
     """
 
-    def __init__(self, knowledge_store, top_k: int = 10, search_mode: str = "hybrid"):
+    def __init__(self, knowledge_store=None, top_k: int = 10, search_mode: str = "hybrid", skills_index=None):
         super().__init__()
         self._store = knowledge_store
         self._top_k = top_k
         self._search_mode = search_mode
+        self._skills_index = skills_index
 
     def _search(self, query: str) -> list[dict]:
         if self._search_mode == "hybrid" and hasattr(self._store, "hybrid_search"):
             return self._store.hybrid_search(query, k=self._top_k)
         return self._store.search(query, k=self._top_k)
 
+    def _last_human(self, messages) -> str | None:
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                return msg.content if isinstance(msg.content, str) else str(msg.content)
+        return None
+
+    def _format_learned_skills(self, skills) -> str:
+        """Format retrieved skills as a <learned_skills> block, under a token budget."""
+        if not skills:
+            return ""
+
+        def _tokens(text: str) -> int:
+            return max(1, len(text) // 4)
+
+        def _fmt(s) -> str:
+            pt = (s.prompt_template or "")[:500]
+            return (
+                f'  <skill name="{s.name}">\n'
+                f"    <description>{s.description}</description>\n"
+                f"    <prompt_template>{pt}</prompt_template>\n"
+                f"  </skill>"
+            )
+
+        formatted = [_fmt(s) for s in sorted(skills, key=lambda s: s.score)]  # most relevant first
+        while formatted:
+            block = "<learned_skills>\n" + "\n".join(formatted) + "\n</learned_skills>"
+            if _tokens(block) <= _SKILLS_MAX_TOKENS:
+                return block
+            formatted.pop()  # drop the least-relevant skill and retry
+        return ""
+
     def before_model(self, state, runtime) -> dict | None:
-        """Query knowledge store with last user message, inject context."""
+        """Stage retrieved knowledge + learned skills into state['context']."""
         messages = state.get("messages", [])
         if not messages:
             return None
+        parts: list[str] = []
 
-        # Find the last human message
-        last_human = None
-        for msg in reversed(messages):
-            if isinstance(msg, HumanMessage):
-                last_human = msg.content if isinstance(msg.content, str) else str(msg.content)
-                break
+        # Learned skills (matched against the latest human message).
+        if self._skills_index is not None:
+            query = (self._last_human(messages) or "")[:_SKILLS_CONTEXT_CHARS]
+            if query:
+                try:
+                    block = self._format_learned_skills(self._skills_index.load_skills(query))
+                    if block:
+                        parts.append(block)
+                except Exception:  # noqa: BLE001 — never break the turn on skill retrieval
+                    pass
 
-        if not last_human:
+        # Knowledge store hits.
+        if self._store is not None:
+            last_human = self._last_human(messages)
+            if last_human:
+                try:
+                    results = self._search(last_human)
+                except Exception:  # noqa: BLE001 — never break the turn on retrieval
+                    results = []
+                if results:
+                    kn = ["[Relevant knowledge from previous research:]"]
+                    for r in results:
+                        preview = (r.get("preview") or "")[:500]
+                        kn.append(f"- [{r.get('table')}:{r.get('source_id')}] {preview}")
+                    parts.append("\n".join(kn))
+
+        if not parts:
             return None
-
-        results = self._search(last_human)
-        if not results:
-            return None
-
-        # Format context with source info
-        context_parts = ["[Relevant knowledge from previous research:]"]
-        for r in results:
-            preview = r.get("preview", "")[:500]
-            context_parts.append(f"- [{r['table']}:{r['source_id']}] {preview}")
-
-        return {"research_context": "\n".join(context_parts)}
+        return {"context": "\n\n".join(parts)}
 
     async def abefore_model(self, state, runtime) -> dict | None:
-        """Async version — same logic."""
         return self.before_model(state, runtime)

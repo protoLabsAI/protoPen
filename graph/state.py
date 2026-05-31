@@ -31,6 +31,12 @@ class ResearcherState(AgentState):
     # Knowledge context injected by KnowledgeMiddleware before LLM call
     research_context: NotRequired[str]
 
+    # Volatile per-turn context (retrieved knowledge + learned skills) that
+    # KnowledgeMiddleware.before_model writes and PromptCacheMiddleware delivers
+    # into the system message at the model-call boundary (the static system
+    # prompt can't read state, so this is how it reaches the LLM).
+    context: NotRequired[str]
+
     # Accumulated research findings (append-only via reducer)
     findings: Annotated[list[dict], merge_findings]
 
