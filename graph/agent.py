@@ -47,7 +47,7 @@ def _parse_compaction_trigger(spec: str):
     return ("fraction", 0.8)
 
 
-def _build_middleware(config: LangGraphConfig, knowledge_store=None):
+def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_index=None):
     """Build the ordered middleware chain.
 
     Enforcement runs first — blocks disallowed tool calls before any other
@@ -65,14 +65,23 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None):
             max_phase = KillChainPhase[config.enforcement_max_phase.upper()]
         middleware.append(EnforcementMiddleware(mgr, max_phase=max_phase))
 
-    if config.knowledge_middleware and knowledge_store:
+    # KnowledgeMiddleware stages retrieved knowledge + learned skills into
+    # state["context"]; PromptCacheMiddleware delivers that into the system
+    # message. Built when knowledge OR skills is active (skills work KB-less).
+    if (config.knowledge_middleware and knowledge_store) or skills_index is not None:
         middleware.append(
             KnowledgeMiddleware(
-                knowledge_store,
+                knowledge_store if config.knowledge_middleware else None,
                 top_k=config.knowledge_top_k,
                 search_mode=config.knowledge_search_mode,
+                skills_index=skills_index,
             )
         )
+        # Deliver the volatile context into the system message (+ prompt caching).
+        # Without this the static system prompt never sees state["context"].
+        from graph.middleware.prompt_cache import PromptCacheMiddleware
+
+        middleware.append(PromptCacheMiddleware())
 
     if config.knowledge_ingest_middleware and knowledge_store:
         middleware.append(KnowledgeIngestMiddleware(knowledge_store))
@@ -434,6 +443,7 @@ def create_researcher_graph(
     sitrep: str = "",
     checkpointer=None,
     workflow_registry=None,
+    skills_index=None,
 ):
     """Create the main protoPen LangGraph agent.
 
@@ -463,7 +473,7 @@ def create_researcher_graph(
             all_tools.extend(_build_workflow_tools(config, knowledge_store, workflow_registry))
 
     # Build middleware
-    middleware = _build_middleware(config, knowledge_store)
+    middleware = _build_middleware(config, knowledge_store, skills_index=skills_index)
 
     # Build system prompt
     system_prompt = build_system_prompt(

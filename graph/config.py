@@ -102,6 +102,15 @@ class LangGraphConfig:
     workflows_enabled: bool = True
     workflow_dir: str = "/sandbox/workflows"
 
+    # Skills — human-authored SKILL.md folders (AgentSkills format) loaded into an
+    # FTS5 index and retrieved at inference by KnowledgeMiddleware (injected as a
+    # <learned_skills> block). Bundled examples ship in config/skills/; `dir` is
+    # the writable root for user drop-ins (/sandbox→~/.protopen fallback).
+    skills_enabled: bool = True
+    skills_dir: str = "/sandbox/skills"
+    skills_db_path: str = "/sandbox/skills.db"
+    skills_top_k: int = 5
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> "LangGraphConfig":
         """Load config from YAML file."""
@@ -139,6 +148,10 @@ class LangGraphConfig:
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
             workflows_enabled=(data.get("workflows") or {}).get("enabled", cls.workflows_enabled),
             workflow_dir=(data.get("workflows") or {}).get("dir", cls.workflow_dir),
+            skills_enabled=(data.get("skills") or {}).get("enabled", cls.skills_enabled),
+            skills_dir=(data.get("skills") or {}).get("dir", cls.skills_dir),
+            skills_db_path=(data.get("skills") or {}).get("db_path", cls.skills_db_path),
+            skills_top_k=(data.get("skills") or {}).get("top_k", cls.skills_top_k),
             compaction_enabled=compaction.get("enabled", cls.compaction_enabled),
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),

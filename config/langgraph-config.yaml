@@ -87,6 +87,16 @@ workflows:
   enabled: true
   dir: /sandbox/workflows
 
+# Skills — human-authored SKILL.md folders (AgentSkills format) loaded into an
+# FTS5 index and retrieved at inference (injected as a <learned_skills> block via
+# KnowledgeMiddleware + PromptCacheMiddleware). Bundled examples ship in
+# config/skills/; `dir` is the writable root for user drop-ins.
+skills:
+  enabled: true
+  dir: /sandbox/skills
+  db_path: /sandbox/skills.db
+  top_k: 5
+
 knowledge:
   db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b
