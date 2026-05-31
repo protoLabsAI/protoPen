@@ -86,7 +86,9 @@ async def _checkpoint_prune_loop() -> None:
         interval_h = getattr(cfg, "checkpoint_prune_interval_hours", 0) if cfg else 0
         if path and cfg and interval_h > 0:
             try:
-                max_age = cfg.checkpoint_max_age_days * 86400 if cfg.checkpoint_max_age_days else None
+                # > 0 only: a negative max_age_days would invert the cutoff and
+                # delete every thread. 0 / negative → no age TTL (cap-only sweep).
+                max_age = cfg.checkpoint_max_age_days * 86400 if cfg.checkpoint_max_age_days > 0 else None
                 res = await asyncio.to_thread(
                     prune_checkpoints,
                     path,
@@ -101,45 +103,6 @@ async def _checkpoint_prune_loop() -> None:
             except Exception as exc:
                 print(f"[checkpoint-prune] sweep failed: {exc}")
         await asyncio.sleep(max(1, interval_h) * 3600)
-
-
-def _resolve_checkpoint_db(configured: str) -> str:
-    """Pick a writable checkpoint DB path; fall back to ~/.protopen when the
-    configured dir (default /sandbox) isn't creatable (e.g. local dev)."""
-    import os
-
-    candidate = Path(configured).expanduser()
-    try:
-        candidate.parent.mkdir(parents=True, exist_ok=True)
-        if os.access(candidate.parent, os.W_OK):
-            return str(candidate)
-    except OSError:
-        pass
-    fallback = Path.home() / ".protopen" / "sessions.db"
-    fallback.parent.mkdir(parents=True, exist_ok=True)
-    return str(fallback)
-
-
-def _build_checkpointer(configured_db: str):
-    """Durable SQLite checkpointer (chat history survives restarts), falling back
-    to an in-memory saver if SQLite init fails so a bad path never blocks boot.
-
-    The graph compiles synchronously at boot, before the event loop, so we use a
-    wrapped sync saver (graph/checkpointer.py) rather than the loop-bound
-    AsyncSqliteSaver. Bound into the graph at compile time by the caller.
-    """
-    try:
-        from graph.checkpointer import build_sqlite_checkpointer
-
-        path = _resolve_checkpoint_db(configured_db)
-        saver = build_sqlite_checkpointer(path)
-        print(f"[sessions] Persistent checkpointer: {path}")
-        return saver
-    except Exception as exc:
-        from langgraph.checkpoint.memory import MemorySaver
-
-        print(f"[sessions] SQLite checkpointer init failed ({exc}); using in-memory (history won't persist)")
-        return MemorySaver()
 
 
 def _init_langgraph_agent():

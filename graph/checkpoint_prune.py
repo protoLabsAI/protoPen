@@ -67,9 +67,10 @@ def prune_checkpoints(
             cutoff = (now if now is not None else _time.time()) - max_age_seconds
             for thread_id in list(threads):
                 rows = conn.execute("SELECT checkpoint_id FROM checkpoints WHERE thread_id=?", (thread_id,)).fetchall()
-                stamps = [t for t in (uuidv6_unix_seconds(r[0]) for r in rows) if t is not None]
-                # Only TTL threads we can date *and* that are entirely old.
-                if stamps and max(stamps) < cutoff:
+                stamps = [uuidv6_unix_seconds(r[0]) for r in rows]
+                # Only TTL a thread we can FULLY date (an undateable row might be
+                # recent) and whose newest checkpoint is past the cutoff.
+                if stamps and all(s is not None for s in stamps) and max(stamps) < cutoff:
                     conn.execute("DELETE FROM checkpoints WHERE thread_id=?", (thread_id,))
                     conn.execute("DELETE FROM writes WHERE thread_id=?", (thread_id,))
                     threads.remove(thread_id)
