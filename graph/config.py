@@ -118,11 +118,12 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
-            checkpoint_keep_per_thread=data.get("checkpoint", {}).get(
+            # `or {}` guards an empty `checkpoint:` block (YAML parses it to None).
+            checkpoint_keep_per_thread=(data.get("checkpoint") or {}).get(
                 "keep_per_thread", cls.checkpoint_keep_per_thread
             ),
-            checkpoint_max_age_days=data.get("checkpoint", {}).get("max_age_days", cls.checkpoint_max_age_days),
-            checkpoint_prune_interval_hours=data.get("checkpoint", {}).get(
+            checkpoint_max_age_days=(data.get("checkpoint") or {}).get("max_age_days", cls.checkpoint_max_age_days),
+            checkpoint_prune_interval_hours=(data.get("checkpoint") or {}).get(
                 "prune_interval_hours", cls.checkpoint_prune_interval_hours
             ),
         )
