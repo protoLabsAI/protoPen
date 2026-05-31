@@ -349,17 +349,21 @@ export function App() {
     return () => window.clearTimeout(handle);
   }, [notesBusy, notesDirty, projectPath, workspace]);
 
+  // Lazy-load on entering the tab. Gate on `...Loaded` only (NOT `...Busy`): a
+  // failed load leaves loaded=false and busy flips back to false in finally — if
+  // busy were a dep, that flip would immediately re-fire the effect into an
+  // unbounded retry loop. Without it, a failure simply waits for the next entry.
   useEffect(() => {
-    if (surface === "system" && systemTab === "audit" && !auditLoaded && !auditBusy) {
+    if (surface === "system" && systemTab === "audit" && !auditLoaded) {
       void refreshAudit();
     }
-  }, [surface, systemTab, auditLoaded, auditBusy]);
+  }, [surface, systemTab, auditLoaded]);
 
   useEffect(() => {
-    if (surface === "system" && systemTab === "schedule" && !scheduleLoaded && !scheduleBusy) {
+    if (surface === "system" && systemTab === "schedule" && !scheduleLoaded) {
       void refreshSchedule();
     }
-  }, [surface, systemTab, scheduleLoaded, scheduleBusy]);
+  }, [surface, systemTab, scheduleLoaded]);
 
   // Live agent monitor: load on entering the surface, poll while any run is active.
   useEffect(() => {
