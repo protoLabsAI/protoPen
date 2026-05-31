@@ -1,0 +1,20 @@
+# Baseline of pre-existing hang-prone wait_for(...communicate()) call sites.
+# Pending migration to the kill-first idiom. DELETE a line when you fix it;
+# never add new ones. See scripts/check_subprocess_timeout.py.
+lab/runner.py::stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=time_budget + 120)
+tools/api_enum.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/blackarch.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/browser.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._TIMEOUT)
+tools/dns_enum.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/external_recon.py::stdout, stderr = await asyncio.wait_for(proc.communicate(input=inp), timeout=timeout)
+tools/lan_scan.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/opsec.py::stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/osint_recon.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/perimeter_audit.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/perimeter_audit.py::stdout, stderr = await asyncio.wait_for(proc.communicate(input=rsf_script.encode()), timeout=timeout)
+tools/service_enum.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/ssl_audit.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/subdomain_discovery.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/traffic_analysis.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/web_enum.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+tools/wifi_intel.py::stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
