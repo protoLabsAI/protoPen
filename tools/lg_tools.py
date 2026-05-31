@@ -16,6 +16,7 @@ from langchain_core.tools import tool
 import asyncio
 import json
 import os
+import threading
 
 from tools.cve_search import CVESearchTool
 from tools.security_feeds import SecurityFeedsTool
@@ -115,6 +116,9 @@ _browser = BrowserTool()
 _lab_monitor = LabMonitorTool()
 
 # ─── Pentest singletons (lazy — created on first get_pentest_tools() call) ───
+# Guards the lazy init so concurrent first-callers (the operator routes run via
+# asyncio.to_thread) can't observe a half-built set of singletons.
+_pentest_init_lock = threading.Lock()
 _device_manager: DeviceManager | None = None
 _portapack: PortaPackTool | None = None
 _flipper: FlipperTool | None = None
@@ -573,7 +577,20 @@ def _init_pentest_singletons():
     global _target_store, _target_intel
 
     if _device_manager is not None:
-        return  # already initialised
+        return  # already initialised — fast path, no lock
+
+    with _pentest_init_lock:
+        # Re-check under the lock: another thread may have finished init while we
+        # waited. ``_device_manager`` is assigned last (below), so seeing it set
+        # guarantees every other singleton is already built.
+        if _device_manager is not None:
+            return
+        _init_pentest_singletons_locked()
+
+
+def _init_pentest_singletons_locked():
+    global _device_manager, _portapack, _flipper, _marauder, _blackarch, _engagement
+    global _target_store, _target_intel
 
     config_path = os.path.join(os.path.dirname(__file__), "..", "config", "engagement-config.json")
     if os.path.exists(config_path):
@@ -582,7 +599,9 @@ def _init_pentest_singletons():
     else:
         config = {"devices": {}, "engagement": {}}
 
-    _device_manager = DeviceManager(config.get("devices", {}))
+    # Built into a local and published to the global LAST (see below), so the
+    # ``_device_manager is not None`` guard implies every singleton is ready.
+    device_mgr = DeviceManager(config.get("devices", {}))
     _target_store = TargetStore()
     _engagement = EngagementManager(config)
     _engagement.target_store = _target_store
@@ -784,6 +803,10 @@ def _init_pentest_singletons():
         engagement_mgr=_engagement,
         dispatch_fn=_orchestrator_dispatch,
     )
+
+    # Publish the init-complete sentinel LAST: every other singleton is now built,
+    # so a concurrent caller that sees ``_device_manager`` set gets a ready set.
+    _device_manager = device_mgr
 
 
 @tool

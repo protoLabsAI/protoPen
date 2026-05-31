@@ -138,7 +138,9 @@ def get_target(store: Any, host_id: int) -> dict[str, Any]:
             "username": c.get("username", "") or "",
             "hash_type": c.get("hash_type", "") or "",
             "cracked": bool(c.get("cracked")),
-            "has_secret": bool(c.get("password") or c.get("hash_type")),
+            # Secret material lives in the ``password`` column (plaintext or hash);
+            # ``hash_type`` is just a label, so it alone doesn't mean a secret exists.
+            "has_secret": bool(c.get("password")),
             "source": c.get("source", "") or "",
             "first_seen": c.get("first_seen", "") or "",
         }

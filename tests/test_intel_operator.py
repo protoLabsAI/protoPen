@@ -89,6 +89,17 @@ def test_get_target_not_found_raises(store):
         intel.get_target(ts, 9999)
 
 
+def test_has_secret_false_when_only_hash_type_label(tmp_path):
+    """``hash_type`` is metadata — without a stored password/hash value there is
+    no secret, so ``has_secret`` must be False (don't over-report)."""
+    ts = TargetStore(str(tmp_path / "t.db"))
+    hid = ts.upsert_host(ip="10.0.0.5")
+    ts.add_credential(username="svc", password="", hash_type="ntlm", host_id=hid)
+    cred = intel.get_target(ts, hid)["credentials"][0]
+    assert cred["hash_type"] == "ntlm"
+    assert cred["has_secret"] is False
+
+
 # ── search_intel ──────────────────────────────────────────────────────────────
 
 

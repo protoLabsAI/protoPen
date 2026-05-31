@@ -1497,11 +1497,14 @@ def _main():
     from operator_api import intel as _intel
 
     def _operator_target_store():
+        # Degrade gracefully so the console shows "no targets" rather than 500ing,
+        # but log unexpected faults instead of masking them silently.
         try:
             from tools.lg_tools import get_target_store
 
             return get_target_store()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001
+            print(f"[targets] store unavailable: {exc}")
             return None
 
     def _operator_targets_list(q: str = "", device_type: str = "", limit: int = 50):
