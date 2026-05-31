@@ -12,6 +12,7 @@ import logging
 import re
 from typing import Any
 
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -103,12 +104,13 @@ class OpsecTool(Tool):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
             )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            result = await communicate_or_kill(proc, timeout)
+            if result is None:
+                return 124, f"Timed out: {' '.join(cmd)}"
+            stdout, _ = result
             return proc.returncode or 0, stdout.decode(errors="replace").strip()
         except FileNotFoundError:
             return 127, f"Command not found: {cmd[0]}"
-        except asyncio.TimeoutError:
-            return 124, f"Timed out: {' '.join(cmd)}"
         except Exception as exc:
             return 1, str(exc)
 

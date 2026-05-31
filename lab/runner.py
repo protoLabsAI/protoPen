@@ -20,6 +20,8 @@ from typing import Any
 
 import yaml
 
+from tools._subprocess import communicate_or_kill
+
 _LAB_ROOT = Path("/sandbox/lab")
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 _LLAMA_FACTORY = "/opt/llama-factory"
@@ -225,14 +227,14 @@ class ExperimentRunner:
                 env=env,
                 cwd=str(workspace),
             )
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=time_budget + 120)
+            result = await communicate_or_kill(proc, time_budget + 120)
+            if result is None:
+                log_path.write_text("TIMEOUT: Training exceeded time budget.")
+                self._log_result(workspace, commit, status="TIMEOUT", description=description)
+                return f"Experiment timed out after {time_budget}s. Check `log` for details."
+            stdout, _ = result
             log_text = stdout.decode(errors="replace")
             log_path.write_text(log_text)
-        except asyncio.TimeoutError:
-            proc.kill()
-            log_path.write_text("TIMEOUT: Training exceeded time budget.")
-            self._log_result(workspace, commit, status="TIMEOUT", description=description)
-            return f"Experiment timed out after {time_budget}s. Check `log` for details."
         except Exception as e:
             self._log_result(workspace, commit, status="CRASH", description=f"{description} — {e}")
             return f"Error running experiment: {e}"

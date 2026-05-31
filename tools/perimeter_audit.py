@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.parsers import ingest_output
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -166,11 +167,10 @@ class PerimeterAuditTool(Tool):
             stderr=asyncio.subprocess.PIPE,
             env=run_env,
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
+        result = await communicate_or_kill(proc, timeout)
+        if result is None:
             return f"Timed out after {timeout}s"
+        stdout, stderr = result
         out = stdout.decode(errors="replace").strip()
         err = stderr.decode(errors="replace").strip()
         return out + (f"\n[stderr] {err}" if err else "")
@@ -430,13 +430,13 @@ exit
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(input=rsf_script.encode()), timeout=timeout)
+        result = await communicate_or_kill(proc, timeout, input=rsf_script.encode())
+        if result is None:
+            results.append(f"RouterSploit timed out after {timeout}s")
+        else:
+            stdout, _ = result
             out = stdout.decode(errors="replace")
             results.append(out[:3000])
-        except asyncio.TimeoutError:
-            proc.kill()
-            results.append(f"RouterSploit timed out after {timeout}s")
         return "\n".join(results)
 
     async def wan_portscan(self, external_ip: str, pivot_host: str = "", timeout: int = 120) -> str:
