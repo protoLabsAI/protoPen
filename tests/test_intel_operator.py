@@ -25,7 +25,13 @@ def store(tmp_path):
         tool="nmap",
         action="scan",
         entities=[
-            {"target": "192.168.1.10", "title": "weak ssh cipher", "severity": "medium", "category": "crypto", "value": "cbc enabled"},
+            {
+                "target": "192.168.1.10",
+                "title": "weak ssh cipher",
+                "severity": "medium",
+                "category": "crypto",
+                "value": "cbc enabled",
+            },
             {"target": "gw", "title": "default creds", "severity": "high", "category": "auth", "value": "admin/admin"},
         ],
     )
@@ -134,7 +140,11 @@ def _write_engagement(root, name, *, mode, started, ended="", findings=None):
 def test_engagement_history_reads_disk_workspaces(tmp_path):
     root = tmp_path / "engagements"
     _write_engagement(
-        root, "apt-sim", mode="REDTEAM", started="2026-05-01T00:00:00Z", ended="2026-05-02T00:00:00Z",
+        root,
+        "apt-sim",
+        mode="REDTEAM",
+        started="2026-05-01T00:00:00Z",
+        ended="2026-05-02T00:00:00Z",
         findings=[{"severity": "high"}, {"severity": "high"}, {"severity": "low"}],
     )
     _write_engagement(root, "live-eng", mode="PASSIVE", started="2026-05-30T00:00:00Z")

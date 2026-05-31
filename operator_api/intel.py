@@ -269,9 +269,7 @@ def search_intel(
         hosts = target_store.search_hosts(cleaned, limit=k)
         for rank, h in enumerate(hosts):
             label = h.get("hostname") or h.get("ip") or h.get("mac") or "host"
-            descr = " · ".join(
-                x for x in (h.get("ip"), h.get("os"), h.get("device_type")) if x and x != "unknown"
-            )
+            descr = " · ".join(x for x in (h.get("ip"), h.get("os"), h.get("device_type")) if x and x != "unknown")
             hits.append(
                 {
                     "kind": "host",
