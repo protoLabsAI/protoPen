@@ -79,7 +79,9 @@ def test_exempt_tool_is_not_capped():
     mw = ToolTimeoutMiddleware(timeout_seconds=1)
 
     async def exempt(_request):
-        await asyncio.sleep(0.05)  # would be killed at 1s if it were capped
+        # Sleeps LONGER than the 1s cap — a non-exempt tool would return
+        # [TIMEOUT] here, so completing proves the exemption bypassed wait_for.
+        await asyncio.sleep(1.3)
         return ToolMessage(content="subagent done", tool_call_id="t-1")
 
     result = asyncio.run(mw.awrap_tool_call(_req(name="task", call_id="t-1"), exempt))
