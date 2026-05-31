@@ -95,6 +95,13 @@ class LangGraphConfig:
     knowledge_search_mode: str = "hybrid"  # hybrid, vector, keyword
     knowledge_enrich_chunks: bool = True  # contextual enrichment at index time
 
+    # Workflows — declarative multi-step subagent recipes (ADR 0002), exposed via
+    # the run_workflow tool. Bundled examples ship in the repo workflows/ dir;
+    # workflow_dir is the writable root for user/agent-emitted recipes (same
+    # /sandbox→~/.protopen fallback, resolved in server.py).
+    workflows_enabled: bool = True
+    workflow_dir: str = "/sandbox/workflows"
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> "LangGraphConfig":
         """Load config from YAML file."""
@@ -130,6 +137,8 @@ class LangGraphConfig:
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
             knowledge_search_mode=knowledge.get("search_mode", cls.knowledge_search_mode),
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
+            workflows_enabled=(data.get("workflows") or {}).get("enabled", cls.workflows_enabled),
+            workflow_dir=(data.get("workflows") or {}).get("dir", cls.workflow_dir),
             compaction_enabled=compaction.get("enabled", cls.compaction_enabled),
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),

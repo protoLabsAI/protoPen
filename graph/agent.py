@@ -286,12 +286,69 @@ async def run_manual_subagent_batch(
     return "\n\n---\n\n".join(results)
 
 
+def _build_run_workflow_tool(config: LangGraphConfig, knowledge_store, workflow_registry):
+    """The run_workflow tool — run a saved declarative workflow (ADR 0002) over
+    subagents. Each step delegates to run_manual_subagent; outputs thread into
+    dependents. Lead-agent only, so workflows can't recurse."""
+    from langchain_core.tools import tool
+
+    from graph.workflows.engine import execute_workflow, resolve_inputs, validate_recipe
+
+    max_concurrency = max(1, getattr(config, "subagent_max_concurrency", 3))
+
+    @tool
+    async def run_workflow(name: str = "", inputs: dict | None = None) -> str:
+        """Run a saved multi-step workflow recipe over subagents.
+
+        Workflows chain subagent steps (some in parallel), threading each step's
+        output into the next — for repeatable jobs like research→synthesize→write.
+        Pass an empty ``name`` to list the available workflows and their inputs.
+
+        Args:
+            name: The workflow name (see the list with an empty name).
+            inputs: Mapping of the workflow's declared inputs to values.
+        """
+        if not name.strip():
+            summaries = workflow_registry.list()
+            if not summaries:
+                return "No workflows are available."
+            lines = ["Available workflows:"]
+            for s in summaries:
+                req = [i["name"] for i in s["inputs"] if i["required"]]
+                lines.append(f"- {s['name']}: {s['description']} (inputs: {', '.join(req) or 'none required'})")
+            return "\n".join(lines)
+        recipe = workflow_registry.get(name)
+        if recipe is None:
+            return f"No workflow named {name!r}. Available: {', '.join(workflow_registry.names()) or '(none)'}."
+        errs = validate_recipe(recipe, known_subagents=set(SUBAGENT_REGISTRY))
+        if errs:
+            return f"Workflow {name!r} is invalid: " + "; ".join(errs)
+        resolved, missing = resolve_inputs(recipe, inputs or {})
+        if missing:
+            return f"Workflow {name!r} needs input(s): {', '.join(missing)}."
+
+        async def _run_step(subagent_type: str, prompt: str, step_id: str) -> str:
+            return await run_manual_subagent(
+                config,
+                knowledge_store=knowledge_store,
+                description=f"workflow {name}:{step_id}",
+                prompt=prompt,
+                subagent_type=subagent_type,
+            )
+
+        result = await execute_workflow(recipe, resolved, run_step=_run_step, max_concurrency=max_concurrency)
+        return result["output"]
+
+    return run_workflow
+
+
 def create_researcher_graph(
     config: LangGraphConfig,
     knowledge_store=None,
     include_subagents: bool = True,
     sitrep: str = "",
     checkpointer=None,
+    workflow_registry=None,
 ):
     """Create the main protoPen LangGraph agent.
 
@@ -314,6 +371,11 @@ def create_researcher_graph(
     if include_subagents:
         task_tool = _build_task_tool(config, all_tools)
         all_tools.append(task_tool)
+
+        # Reusable declarative workflows (ADR 0002) — only the lead agent gets
+        # run_workflow; subagents don't, so workflows can't recurse.
+        if getattr(config, "workflows_enabled", False) and workflow_registry is not None:
+            all_tools.append(_build_run_workflow_tool(config, knowledge_store, workflow_registry))
 
     # Build middleware
     middleware = _build_middleware(config, knowledge_store)

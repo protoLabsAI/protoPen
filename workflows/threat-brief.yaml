@@ -1,0 +1,32 @@
+name: threat-brief
+description: Scan for threats on a topic, deep-analyze the significant ones, and write an intel digest.
+version: 1
+inputs:
+  - name: topic
+    required: true
+steps:
+  - id: scan
+    subagent: threat_scanner
+    prompt: |
+      Scan CVE feeds, security RSS, and GitHub for recent threats related to:
+      {{inputs.topic}}.
+      Return a structured list of findings (CVE IDs, sources, severity, 1-line summary).
+  - id: analyze
+    subagent: vuln_analyst
+    depends_on: [scan]
+    prompt: |
+      Deep-read and rate exploitability for the most significant items from this
+      threat scan. Cite evidence for each rating.
+      Scan results:
+      {{steps.scan.output}}
+  - id: brief
+    subagent: intel_reporter
+    depends_on: [scan, analyze]
+    prompt: |
+      Write a concise, actionable threat-intel digest on {{inputs.topic}} —
+      lead with the most critical item, include CVE IDs + affected versions.
+      Scan:
+      {{steps.scan.output}}
+      Analysis:
+      {{steps.analyze.output}}
+output: "{{steps.brief.output}}"

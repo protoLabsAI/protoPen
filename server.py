@@ -30,6 +30,7 @@ _graph_config = None  # LangGraphConfig
 _checkpointer = None  # session checkpointer (durable sqlite or in-memory)
 _checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
 _checkpoint_prune_task = None  # background prune-loop handle
+_workflow_registry = None  # WorkflowRegistry (declarative workflow recipes), or None.
 
 # Server→client SSE push channel (ADR 0003). Process-lifetime singleton:
 # producers (A2A terminal hook, scheduler, inbox) publish; /api/events streams
@@ -112,9 +113,38 @@ async def _checkpoint_prune_loop() -> None:
         await asyncio.sleep(max(1, interval_h) * 3600)
 
 
+def _build_workflow_registry(config):
+    """Load workflow recipes (ADR 0002) from the bundled repo workflows/ dir plus
+    a writable dir (user/agent-emitted). Best-effort; never blocks boot."""
+    if not getattr(config, "workflows_enabled", True):
+        return None
+    try:
+        import os
+
+        from graph.workflows.registry import WorkflowRegistry
+
+        dirs: list[str] = []
+        bundled = Path(__file__).resolve().parent / "workflows"
+        if bundled.is_dir():
+            dirs.append(str(bundled))
+        writable = Path(getattr(config, "workflow_dir", "") or "/sandbox/workflows").expanduser()
+        try:
+            writable.mkdir(parents=True, exist_ok=True)
+            if not os.access(writable, os.W_OK):
+                raise OSError
+        except OSError:
+            writable = Path.home() / ".protopen" / "workflows"
+            writable.mkdir(parents=True, exist_ok=True)
+        dirs.append(str(writable))
+        return WorkflowRegistry(dirs)
+    except Exception as exc:
+        print(f"[workflows] registry init failed ({exc}); workflows disabled")
+        return None
+
+
 def _init_langgraph_agent():
     """Initialize the LangGraph agent backend."""
-    global _graph, _graph_config, _checkpointer
+    global _graph, _graph_config, _checkpointer, _workflow_registry
 
     from graph.agent import create_researcher_graph
     from graph.config import LangGraphConfig
@@ -129,6 +159,7 @@ def _init_langgraph_agent():
     # below. A checkpointer set only in the invoke config is ignored by
     # LangGraph, which gave the chat amnesia (every turn started fresh).
     _checkpointer = _build_checkpointer("/sandbox/knowledge/sessions.db")
+    _workflow_registry = _build_workflow_registry(_graph_config)
 
     # Run startup sitrep — hardware, network, engagement status
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
@@ -142,6 +173,7 @@ def _init_langgraph_agent():
         include_subagents=True,
         sitrep=status_block,
         checkpointer=_checkpointer,
+        workflow_registry=_workflow_registry,
     )
 
     print(f"[researcher] LangGraph agent initialized (model: {_graph_config.model_name})")
@@ -854,6 +886,7 @@ def _build_settings_callbacks() -> dict:
                 knowledge_store=_get_store(),
                 include_subagents=True,
                 checkpointer=_checkpointer,
+                workflow_registry=_workflow_registry,
             )
             return f"**Switched to:** `{_graph_config.model_name}` (graph rebuilt)"
         return "**Error:** LangGraph config not initialized."
