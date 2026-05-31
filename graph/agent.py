@@ -341,6 +341,44 @@ async def run_manual_workflow(
     )
 
 
+def _build_save_skill_tool(skills_index):
+    """save_skill tool (#256) — the lead agent persists a reusable skill it just
+    worked out (source='emitted', survives the per-boot disk re-seed). The closed
+    self-improvement loop: a saved skill surfaces on matching future requests."""
+    from langchain_core.tools import tool
+
+    @tool
+    async def save_skill(name: str, description: str, instructions: str, tools: list[str] | None = None) -> str:
+        """Save a reusable skill so future turns can retrieve and follow it.
+
+        Capture a repeatable approach you just worked out — a disciplined process
+        for a recurring kind of request. The DESCRIPTION is the trigger signal:
+        write it as "Use this when the user asks you to ..." so it's matched to the
+        right future requests. Re-saving the same name refines it.
+
+        Args:
+            name: Short unique slug (e.g. "subdomain-recon").
+            description: When to use this skill — trigger phrasing (<=1024 chars).
+            instructions: The step-by-step approach (markdown), naming the tools to
+                use and the order to use them.
+            tools: Optional list of tool names this skill relies on.
+        """
+        name = (name or "").strip()
+        description = (description or "").strip()
+        instructions = (instructions or "").strip()
+        if not name or not description or not instructions:
+            return "Cannot save — name, description, and instructions are all required."
+        if len(description) > 1024:
+            description = description[:1024]
+        try:
+            skills_index.add_emitted_skill(name, description, instructions, tools or [])
+        except Exception as exc:  # noqa: BLE001 — readable tool error
+            return f"Error saving skill: {exc}"
+        return f"Saved skill {name!r}. It'll surface automatically on matching future requests."
+
+    return save_skill
+
+
 def _build_workflow_tools(config: LangGraphConfig, knowledge_store, workflow_registry):
     """Workflow tools (ADR 0002) for the lead agent: run_workflow runs a saved
     declarative recipe over subagents (each step delegates to run_manual_subagent;
@@ -471,6 +509,11 @@ def create_researcher_graph(
         # run_workflow; subagents don't, so workflows can't recurse.
         if getattr(config, "workflows_enabled", False) and workflow_registry is not None:
             all_tools.extend(_build_workflow_tools(config, knowledge_store, workflow_registry))
+
+        # Agent-emitted skills (#256) — the lead agent can persist a reusable
+        # skill it just worked out; it surfaces on matching future requests.
+        if getattr(config, "skills_enabled", False) and skills_index is not None:
+            all_tools.append(_build_save_skill_tool(skills_index))
 
     # Build middleware
     middleware = _build_middleware(config, knowledge_store, skills_index=skills_index)

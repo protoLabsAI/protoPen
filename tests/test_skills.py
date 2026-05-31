@@ -37,6 +37,22 @@ def test_index_clear_source_reseeds(tmp_path):
     assert idx.count() == 0
 
 
+def test_emitted_skill_survives_disk_reseed_and_overwrites(tmp_path):
+    """Agent-emitted skills (#256) persist across the per-boot disk re-seed and
+    overwrite by name rather than duplicating."""
+    idx = SkillsIndex(str(tmp_path / "s.db"))
+    idx.add_skill("from-disk", "disk skill", "body", source="disk")
+    idx.add_emitted_skill("learned", "use when X", "do X")
+    # Re-seed clears only disk skills; the emitted one stays.
+    idx.clear_source("disk")
+    assert idx.count() == 1
+    assert idx.load_skills("X")[0].name == "learned"
+    # Re-saving the same name refines (no duplicate).
+    idx.add_emitted_skill("learned", "use when X, refined", "do X better")
+    assert idx.count() == 1
+    assert idx.load_skills("refined")[0].description == "use when X, refined"
+
+
 # ── SKILL.md loader ───────────────────────────────────────────────────────────
 
 _VALID = """---
