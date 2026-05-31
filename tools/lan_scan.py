@@ -10,6 +10,7 @@ import json
 import logging
 from typing import Any
 
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 from tools.parsers import ingest_output
 
@@ -199,12 +200,10 @@ class LanScanTool(Tool):
             binary = cmd[0] if cmd else "unknown"
             logger.warning("[lan_scan] %s: binary '%s' not found", action, binary)
             return json.dumps({"error": f"{binary} not found", "tool": "lan_scan", "action": action})
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+        result = await communicate_or_kill(proc, timeout)
+        if result is None:
             return f"Command timed out after {timeout}s: {' '.join(cmd[:4])}..."
+        stdout, stderr = result
 
         output = stdout.decode(errors="replace")
         if stderr:

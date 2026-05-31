@@ -9,6 +9,7 @@ import json
 import os
 from typing import Any
 
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 
@@ -112,12 +113,12 @@ class BrowserTool(Tool):
                 stderr=asyncio.subprocess.PIPE,
                 env=env,
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self._TIMEOUT)
-        except asyncio.TimeoutError:
-            proc.kill()
-            return f"Error: browser action '{action}' timed out after {self._TIMEOUT}s."
         except FileNotFoundError:
             return "Error: agent-browser is not installed. Browser tool unavailable."
+        result = await communicate_or_kill(proc, self._TIMEOUT)
+        if result is None:
+            return f"Error: browser action '{action}' timed out after {self._TIMEOUT}s."
+        stdout, stderr = result
 
         if proc.returncode != 0:
             err = stderr.decode(errors="replace").strip()

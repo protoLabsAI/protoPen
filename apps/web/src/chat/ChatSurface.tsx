@@ -213,11 +213,39 @@ function ChatSessionSlot({
           );
         },
       });
+      // If the stream closed without a terminal frame, onDone never fired and
+      // the placeholder is still "streaming" — finalize it so it doesn't persist
+      // as a stuck spinner.
+      const settled = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
+      if (settled) {
+        chatStore.updateMessages(
+          session.id,
+          settled.messages.map((message) =>
+            message.id === assistantId && message.status === "streaming"
+              ? { ...message, status: "done" }
+              : message,
+          ),
+        );
+      }
       chatStore.setSessionStatus(session.id, "idle");
       setStatusMessage("idle");
     } catch (exc) {
       if (controller.signal.aborted) {
         setStatusMessage("stopped");
+        // Finalize the placeholder too — otherwise a stopped stream stays
+        // "streaming" and renders a spinner that never resolves (keep any
+        // partial content already streamed).
+        const stopped = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
+        if (stopped) {
+          chatStore.updateMessages(
+            session.id,
+            stopped.messages.map((message) =>
+              message.id === assistantId && message.status === "streaming"
+                ? { ...message, status: "done" }
+                : message,
+            ),
+          );
+        }
       } else {
         const message = exc instanceof Error ? exc.message : String(exc);
         onError(message);

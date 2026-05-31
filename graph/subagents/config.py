@@ -19,6 +19,10 @@ class SubagentConfig:
     tools: list[str] = field(default_factory=list)  # Tool allowlist
     disallowed_tools: list[str] = field(default_factory=lambda: ["task"])
     max_turns: int = 30
+    # Per-subagent model override. Blank = fall back to routing.aux_model, then
+    # the main model. Pin a subagent that needs heavy reasoning to the main model
+    # even when aux_model routes the others to a cheaper alias.
+    model: str = ""
 
 
 THREAT_SCANNER_CONFIG = SubagentConfig(

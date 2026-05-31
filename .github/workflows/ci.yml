@@ -33,6 +33,9 @@ jobs:
       - name: Ruff — format check
         run: ruff format --check .
 
+      - name: No hang-prone subprocess timeouts
+        run: python scripts/check_subprocess_timeout.py --check
+
   test:
     name: Test
     runs-on: namespace-profile-protolabs-linux
