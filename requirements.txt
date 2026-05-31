@@ -12,6 +12,9 @@ websockets>=12.0
 langchain>=1.2.3
 langgraph>=1.1.0
 langchain-openai>=0.3.0
+# Durable conversation history — SQLite checkpointer so multi-turn chats survive
+# a server restart (graph/checkpointer.py). Bound at graph-compile time.
+langgraph-checkpoint-sqlite>=2.0
 
 # Hardware serial interfaces
 pyserial>=3.5
