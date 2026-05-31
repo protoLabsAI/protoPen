@@ -35,6 +35,10 @@ export type RuntimeStatus = {
     loaded: boolean;
     interval_seconds?: number | null;
   };
+  skills?: {
+    enabled: boolean;
+    count: number;
+  };
 };
 
 export type Subagent = {

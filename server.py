@@ -1385,6 +1385,7 @@ def _main():
             graph_loaded=_graph is not None,
             knowledge_store=_knowledge_store,
             scheduler=_scheduler,
+            skills_index=_skills_index,
         )
 
     def _operator_subagent_list():
