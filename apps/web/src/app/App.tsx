@@ -24,6 +24,7 @@ import {
   Settings2,
   Sparkles,
   Square,
+  Target,
   Trash2,
   X,
 } from "lucide-react";
@@ -32,6 +33,7 @@ import type { ReactNode } from "react";
 
 import { ActivitySurface } from "../activity/ActivitySurface";
 import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
+import { TargetsSurface } from "../targets/TargetsSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
@@ -50,7 +52,7 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "activity" | "knowledge" | "subagents" | "workflows" | "runtime" | "audit" | "schedule";
+type Surface = "chat" | "activity" | "targets" | "knowledge" | "subagents" | "workflows" | "runtime" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
@@ -870,6 +872,12 @@ export function App() {
             badge={activityUnread}
           />
           <RailButton
+            active={surface === "targets"}
+            label="Targets"
+            icon={<Target size={18} />}
+            onClick={() => setSurface("targets")}
+          />
+          <RailButton
             active={surface === "knowledge"}
             label="Knowledge"
             icon={<Search size={18} />}
@@ -920,6 +928,8 @@ export function App() {
           ) : null}
 
           {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
+
+          {surface === "targets" ? <TargetsSurface onError={setError} /> : null}
 
           {surface === "knowledge" ? (
             <section className="panel stage-panel knowledge-panel">

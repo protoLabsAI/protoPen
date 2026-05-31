@@ -633,6 +633,65 @@ class TargetStore:
                 continue
         return out
 
+    # ── Search & correlation (operator console) ────────────────────
+
+    def search_hosts(self, query: str, limit: int = 50) -> list[dict]:
+        """Free-text host search (LIKE over ip/hostname/os/vendor/mac/device_type/tags).
+
+        Newest-seen first. Empty query returns the most recently seen hosts so the
+        console can show a default list without a search term.
+        """
+        db = self._get_db()
+        q = (query or "").strip()
+        if q:
+            like = f"%{q}%"
+            rows = db.execute(
+                "SELECT * FROM hosts WHERE ip LIKE ? OR hostname LIKE ? OR os LIKE ? "
+                "OR vendor LIKE ? OR mac LIKE ? OR device_type LIKE ? OR tags LIKE ? "
+                "ORDER BY last_seen DESC LIMIT ?",
+                (like, like, like, like, like, like, like, limit),
+            ).fetchall()
+        else:
+            rows = db.execute("SELECT * FROM hosts ORDER BY last_seen DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def search_findings(self, query: str, limit: int = 50) -> list[dict]:
+        """Free-text search over generic findings (title/value/category/target/type/tool)."""
+        db = self._get_db()
+        q = (query or "").strip()
+        if not q:
+            return []
+        like = f"%{q}%"
+        rows = db.execute(
+            "SELECT * FROM findings WHERE title LIKE ? OR value LIKE ? OR category LIKE ? "
+            "OR target LIKE ? OR type LIKE ? OR tool LIKE ? ORDER BY id DESC LIMIT ?",
+            (like, like, like, like, like, like, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def findings_for_targets(self, targets: list[str], limit: int = 200) -> list[dict]:
+        """Return findings whose ``target`` matches any of the given strings (host
+        drill-in correlates by IP and hostname). Newest first."""
+        keys = [t for t in (targets or []) if t]
+        if not keys:
+            return []
+        db = self._get_db()
+        placeholders = ",".join("?" for _ in keys)
+        rows = db.execute(
+            f"SELECT * FROM findings WHERE target IN ({placeholders}) ORDER BY id DESC LIMIT ?",
+            (*keys, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def credentials_for_host(self, host_id: int) -> list[dict]:
+        """Credentials recorded against a host (passwords redacted at the API layer)."""
+        db = self._get_db()
+        rows = db.execute(
+            "SELECT * FROM credentials WHERE host_id = ? ORDER BY id DESC",
+            (host_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
     # ── Stats & Diff ───────────────────────────────────────────────
 
     def get_stats(self) -> dict:

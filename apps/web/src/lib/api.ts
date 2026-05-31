@@ -6,9 +6,13 @@ import type {
   BeadsIssue,
   ChatMessage,
   ConfigPayload,
+  EngagementHistoryItem,
   EngagementReport,
   EngagementStatus,
+  IntelSearchResult,
   KnowledgeSearchResult,
+  TargetDetail,
+  TargetSummary,
   NotesWorkspace,
   RuntimeStatus,
   ScheduledJob,
@@ -310,6 +314,31 @@ export const api = {
     if (options.k) params.set("k", String(options.k));
     if (options.table) params.set("table", options.table);
     return request<KnowledgeSearchResult>(`/api/knowledge/search?${params}`);
+  },
+
+  targets(options: { q?: string; deviceType?: string; limit?: number } = {}) {
+    const params = new URLSearchParams();
+    if (options.q) params.set("q", options.q);
+    if (options.deviceType) params.set("device_type", options.deviceType);
+    if (options.limit) params.set("limit", String(options.limit));
+    const qs = params.toString();
+    return request<{ query: string; count: number; targets: TargetSummary[] }>(
+      `/api/targets${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  target(hostId: number) {
+    return request<TargetDetail>(`/api/targets/${encodeURIComponent(String(hostId))}`);
+  },
+
+  engagementsHistory() {
+    return request<{ count: number; engagements: EngagementHistoryItem[] }>("/api/engagements");
+  },
+
+  intelSearch(query: string, options: { k?: number } = {}) {
+    const params = new URLSearchParams({ q: query });
+    if (options.k) params.set("k", String(options.k));
+    return request<IntelSearchResult>(`/api/intel/search?${params}`);
   },
 
   schedulerJobs() {

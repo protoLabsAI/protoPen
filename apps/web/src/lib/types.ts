@@ -271,6 +271,84 @@ export type ActivityHistory = {
   messages: ActivityMessage[];
 };
 
+// Targets & Intel surface — browse captured hosts, engagements, search intel.
+export type TargetSummary = {
+  id: number;
+  ip: string;
+  mac: string;
+  hostname: string;
+  os: string;
+  vendor: string;
+  device_type: string;
+  tags: string[];
+  first_seen: string;
+  last_seen: string;
+  port_count: number;
+  open_ports: string[];
+  finding_count: number;
+};
+
+export type TargetPort = {
+  port: number;
+  protocol: string;
+  state: string;
+  service: string;
+  banner: string;
+  last_seen: string;
+};
+
+export type TargetFinding = {
+  tool: string;
+  category: string;
+  severity: string;
+  title: string;
+  value: string;
+  first_seen: string;
+};
+
+export type TargetCredential = {
+  username: string;
+  hash_type: string;
+  cracked: boolean;
+  has_secret: boolean;
+  source: string;
+  first_seen: string;
+};
+
+export type TargetDetail = TargetSummary & {
+  notes: string;
+  ports: TargetPort[];
+  findings: TargetFinding[];
+  credentials: TargetCredential[];
+};
+
+export type EngagementHistoryItem = {
+  name: string;
+  scope: string;
+  mode: string;
+  started_at: string;
+  ended_at: string;
+  finding_count: number;
+  finding_counts: Record<string, number>;
+  active: boolean;
+};
+
+export type IntelHit = {
+  kind: string;
+  source: string;
+  id: string;
+  title: string;
+  target: string;
+  preview: string;
+  score: number;
+};
+
+export type IntelSearchResult = {
+  query: string;
+  count: number;
+  hits: IntelHit[];
+};
+
 // Declarative subagent workflows (ADR 0002).
 export type WorkflowSummary = {
   name: string;
