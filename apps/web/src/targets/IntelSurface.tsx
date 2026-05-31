@@ -11,20 +11,30 @@ import {
 import { useEffect, useState } from "react";
 
 import { api } from "../lib/api";
+import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   EngagementHistoryItem,
   IntelHit,
+  KnowledgeHit,
   TargetDetail,
   TargetSummary,
 } from "../lib/types";
 
-// Targets & Intel surface — browse discovered hosts (drill into ports / findings /
-// credentials), review past engagements, and search across everything captured.
+// Intel surface — the consolidated home for everything the agent has captured.
+// The rail picks the "Intel" group; the group tab bar (in App) drives `tab`:
+//   targets · search · knowledge · engagements
 // Read-only over the target + knowledge stores; the agent's behaviour is untouched.
 
-type View = "targets" | "search" | "engagements";
+export type IntelTab = "targets" | "search" | "knowledge" | "engagements";
 
 const DEVICE_TYPES = ["", "host", "router", "phone", "iot", "unknown"];
+
+const HEADERS: Record<IntelTab, { title: string; kicker: string }> = {
+  targets: { title: "Targets", kicker: "discovered hosts · ports · findings · credentials" },
+  search: { title: "Intel search", kicker: "hosts · captured findings · knowledge base" },
+  knowledge: { title: "Knowledge", kicker: "hybrid search · cve / exploit / advisory intel" },
+  engagements: { title: "Engagements", kicker: "past assessments · severity rollups" },
+};
 
 function sevClass(severity: string): string {
   const s = (severity || "").toLowerCase();
@@ -32,9 +42,7 @@ function sevClass(severity: string): string {
   return "sev-unknown";
 }
 
-export function TargetsSurface({ onError }: { onError: (message: string) => void }) {
-  const [view, setView] = useState<View>("targets");
-
+export function IntelSurface({ tab, onError }: { tab: IntelTab; onError: (message: string) => void }) {
   // ── Targets browser ──────────────────────────────────────────────
   const [hostQuery, setHostQuery] = useState("");
   const [deviceType, setDeviceType] = useState("");
@@ -48,6 +56,12 @@ export function TargetsSurface({ onError }: { onError: (message: string) => void
   const [intelQuery, setIntelQuery] = useState("");
   const [intelHits, setIntelHits] = useState<IntelHit[] | null>(null);
   const [intelBusy, setIntelBusy] = useState(false);
+
+  // ── Knowledge store search ───────────────────────────────────────
+  const [kbQuery, setKbQuery] = useState("");
+  const [kbTable, setKbTable] = useState("");
+  const [kbHits, setKbHits] = useState<KnowledgeHit[] | null>(null);
+  const [kbBusy, setKbBusy] = useState(false);
 
   // ── Engagement history ───────────────────────────────────────────
   const [engagements, setEngagements] = useState<EngagementHistoryItem[] | null>(null);
@@ -98,6 +112,20 @@ export function TargetsSurface({ onError }: { onError: (message: string) => void
     }
   }
 
+  async function runKnowledgeSearch() {
+    if (!kbQuery.trim()) return;
+    setKbBusy(true);
+    onError("");
+    try {
+      const r = await api.knowledgeSearch(kbQuery, { table: kbTable || undefined });
+      setKbHits(r.hits);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setKbBusy(false);
+    }
+  }
+
   async function loadEngagements() {
     setEngBusy(true);
     try {
@@ -110,45 +138,36 @@ export function TargetsSurface({ onError }: { onError: (message: string) => void
     }
   }
 
-  // Lazy-load each view the first time it's opened.
+  // Lazy-load each tab's data the first time it's opened.
   useEffect(() => {
-    if (view === "targets" && targets === null) void loadTargets();
-    if (view === "engagements" && engagements === null) void loadEngagements();
-  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (tab === "targets" && targets === null) void loadTargets();
+    if (tab === "engagements" && engagements === null) void loadEngagements();
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = () => {
-    if (view === "targets") void loadTargets();
-    else if (view === "engagements") void loadEngagements();
+    if (tab === "targets") void loadTargets();
+    else if (tab === "engagements") void loadEngagements();
+    else if (tab === "knowledge") void runKnowledgeSearch();
     else void runIntelSearch();
   };
+
+  const head = HEADERS[tab];
 
   return (
     <section className="panel stage-panel targets-panel">
       <div className="panel-header">
         <div>
-          <h1>Targets &amp; Intel</h1>
-          <p className="panel-kicker">discovered hosts · captured findings · engagement history</p>
+          <h1>{head.title}</h1>
+          <p className="panel-kicker">{head.kicker}</p>
         </div>
         <button className="icon-button" type="button" onClick={refresh} title="Refresh">
           <RefreshCw size={16} />
         </button>
       </div>
 
-      <div className="targets-tabs" role="tablist">
-        <button role="tab" aria-selected={view === "targets"} className={view === "targets" ? "active" : ""} onClick={() => setView("targets")}>
-          <Target size={14} /> Targets
-        </button>
-        <button role="tab" aria-selected={view === "search"} className={view === "search" ? "active" : ""} onClick={() => setView("search")}>
-          <Search size={14} /> Intel search
-        </button>
-        <button role="tab" aria-selected={view === "engagements"} className={view === "engagements" ? "active" : ""} onClick={() => setView("engagements")}>
-          <ShieldAlert size={14} /> Engagements
-        </button>
-      </div>
-
       <div className="stage-body">
         {/* ── Targets browser ──────────────────────────────────── */}
-        {view === "targets" ? (
+        {tab === "targets" ? (
           <>
             <form
               className="knowledge-search"
@@ -268,7 +287,7 @@ export function TargetsSurface({ onError }: { onError: (message: string) => void
         ) : null}
 
         {/* ── Unified intel search ─────────────────────────────── */}
-        {view === "search" ? (
+        {tab === "search" ? (
           <>
             <form
               className="knowledge-search"
@@ -313,8 +332,61 @@ export function TargetsSurface({ onError }: { onError: (message: string) => void
           </>
         ) : null}
 
+        {/* ── Knowledge store (table-filtered browse) ──────────── */}
+        {tab === "knowledge" ? (
+          <>
+            <form
+              className="knowledge-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void runKnowledgeSearch();
+              }}
+            >
+              <input
+                value={kbQuery}
+                onChange={(event) => setKbQuery(event.target.value)}
+                placeholder="Search advisories, exploits, CVEs…"
+                aria-label="Knowledge query"
+                autoFocus
+              />
+              <select value={kbTable} onChange={(event) => setKbTable(event.target.value)} aria-label="Filter table">
+                <option value="">all sources</option>
+                {KNOWLEDGE_TABLES.map((table) => (
+                  <option key={table} value={table}>
+                    {table}
+                  </option>
+                ))}
+              </select>
+              <button className="primary-button" type="submit" disabled={kbBusy || !kbQuery.trim()}>
+                {kbBusy ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
+                Search
+              </button>
+            </form>
+
+            <div className="knowledge-results">
+              {kbHits && kbHits.length ? (
+                kbHits.map((hit, index) => (
+                  <article className="knowledge-hit" key={`${hit.table}:${hit.source_id}:${index}`}>
+                    <div className="knowledge-hit-head">
+                      <span className="intel-kind">{hit.table || "—"}</span>
+                      <span className="knowledge-hit-id">{hit.source_id}</span>
+                      <span className="knowledge-hit-score">{hit.score.toFixed(2)}</span>
+                    </div>
+                    <p className="knowledge-hit-preview">{hit.preview || "(no preview)"}</p>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state stacked">
+                  <Search size={18} />
+                  <span>{kbHits ? "No matches in the knowledge store." : "Search the threat-intel knowledge store."}</span>
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+
         {/* ── Engagement history ───────────────────────────────── */}
-        {view === "engagements" ? (
+        {tab === "engagements" ? (
           <div className="eng-list">
             {engagements && engagements.length ? (
               engagements.map((e) => (
