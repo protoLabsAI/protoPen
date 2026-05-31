@@ -75,6 +75,15 @@ class SkillsIndex:
         self._conn.execute("DELETE FROM skills WHERE source = ?", (source,))
         self._conn.commit()
 
+    def add_emitted_skill(
+        self, name: str, description: str, prompt_template: str, tools_used: list[str] | None = None
+    ) -> None:
+        """Persist an agent-authored skill (source='emitted'). Overwrites any
+        existing skill of the same name (so re-saving refines rather than
+        duplicates), and survives the per-boot disk re-seed."""
+        self._conn.execute("DELETE FROM skills WHERE name = ?", (name,))
+        self.add_skill(name, description, prompt_template, tools_used, source="emitted")
+
     def load_skills(self, query: str, k: int = 5) -> list[SkillRecord]:
         match = _build_match_query(query)
         if not match:
