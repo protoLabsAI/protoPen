@@ -29,6 +29,7 @@ import type { ReactNode } from "react";
 
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
+import { onConnectionChange } from "../lib/events";
 import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   AgentRun,
@@ -197,6 +198,11 @@ function groupIssues(issues: BeadsIssue[]) {
 export function App() {
   const [surface, setSurface] = useState<Surface>("chat");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
+  const [live, setLive] = useState(false);
+
+  // Open the server→client event stream (ADR 0003) and track its connection
+  // state for the "live" indicator. Surfaces subscribe to named events.
+  useEffect(() => onConnectionChange(setLive), []);
   const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
     "protoagent.projectPath",
   ]);
@@ -812,6 +818,14 @@ export function App() {
             tone={statusTone(runtime?.graph_loaded)}
           />
           <StatusPill label={status} tone={status === "error" ? "error" : "muted"} />
+          <span
+            className={`live-dot ${live ? "is-live" : ""}`}
+            role="status"
+            aria-label={live ? "event stream connected" : "event stream offline"}
+            title={live ? "Live — event stream connected" : "Event stream offline"}
+            data-testid="live-indicator"
+            data-live={live ? "true" : "false"}
+          />
           <button className="icon-button" type="button" onClick={() => void refreshAll()} title="Refresh">
             <RefreshCw size={16} />
           </button>

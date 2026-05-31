@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from chat_ui import create_chat_app
+from events import EventBus
+from events.sse import sse_event_stream
 
 # ---------------------------------------------------------------------------
 # Agent setup
@@ -28,6 +30,11 @@ _graph_config = None  # LangGraphConfig
 _checkpointer = None  # session checkpointer (durable sqlite or in-memory)
 _checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
 _checkpoint_prune_task = None  # background prune-loop handle
+
+# Server→client SSE push channel (ADR 0003). Process-lifetime singleton:
+# producers (A2A terminal hook, scheduler, inbox) publish; /api/events streams
+# to connected consoles. Read-only — consoles never push back through it.
+_event_bus = EventBus()
 
 
 def _resolve_checkpoint_db(configured: str) -> str:
@@ -930,6 +937,15 @@ def _main():
         # Extract assistant content
         parts = [m["content"] for m in result if m.get("role") == "assistant" and m.get("content")]
         return {"response": "\n\n".join(parts), "messages": result}
+
+    # Server→client SSE push channel (ADR 0003). The console holds one of these
+    # open for the app's lifetime; the server pushes unsolicited events (activity
+    # messages, inbox items) that the request-scoped chat stream can't.
+    @fastapi_app.get("/api/events", summary="Server→client event stream (SSE)")
+    async def _api_events():
+        from fastapi.responses import StreamingResponse
+
+        return StreamingResponse(sse_event_stream(_event_bus.subscribe), media_type="text/event-stream")
 
     # OpenAI-compatible chat completions endpoint
     # Allows protoPen to be registered as a model in LiteLLM gateway / OpenWebUI
