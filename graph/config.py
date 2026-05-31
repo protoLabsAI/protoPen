@@ -59,6 +59,13 @@ class LangGraphConfig:
     memory_middleware: bool = True
     enforcement_middleware: bool = True
 
+    # Per-tool execution backstop — caps any single tool call so a hung tool
+    # (broken/missing internal timeout, dead peer) can't wedge the whole turn.
+    # Generous by design (a backstop, not a tight bound); `task` subagent
+    # delegation is exempt. <= 0 disables. See graph/middleware/timeout.py.
+    tool_timeout_middleware: bool = True
+    tool_timeout_seconds: int = 600
+
     # Enforcement
     enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
 
@@ -109,6 +116,8 @@ class LangGraphConfig:
             knowledge_ingest_middleware=middleware.get("knowledge_ingest", True),
             audit_middleware=middleware.get("audit", True),
             memory_middleware=middleware.get("memory", True),
+            tool_timeout_middleware=middleware.get("tool_timeout", True),
+            tool_timeout_seconds=middleware.get("tool_timeout_seconds", cls.tool_timeout_seconds),
             knowledge_db_path=knowledge.get("db_path", cls.knowledge_db_path),
             embed_model=knowledge.get("embed_model", cls.embed_model),
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
