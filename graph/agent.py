@@ -286,10 +286,11 @@ async def run_manual_subagent_batch(
     return "\n\n---\n\n".join(results)
 
 
-def _build_run_workflow_tool(config: LangGraphConfig, knowledge_store, workflow_registry):
-    """The run_workflow tool — run a saved declarative workflow (ADR 0002) over
-    subagents. Each step delegates to run_manual_subagent; outputs thread into
-    dependents. Lead-agent only, so workflows can't recurse."""
+def _build_workflow_tools(config: LangGraphConfig, knowledge_store, workflow_registry):
+    """Workflow tools (ADR 0002) for the lead agent: run_workflow runs a saved
+    declarative recipe over subagents (each step delegates to run_manual_subagent;
+    outputs thread into dependents), and save_workflow persists a new recipe (the
+    closed emission loop). Lead-agent only, so workflows can't recurse."""
     from langchain_core.tools import tool
 
     from graph.workflows.engine import execute_workflow, resolve_inputs, validate_recipe
@@ -339,7 +340,45 @@ def _build_run_workflow_tool(config: LangGraphConfig, knowledge_store, workflow_
         result = await execute_workflow(recipe, resolved, run_step=_run_step, max_concurrency=max_concurrency)
         return result["output"]
 
-    return run_workflow
+    @tool
+    async def save_workflow(
+        name: str,
+        description: str,
+        steps: list[dict],
+        inputs: list[dict] | None = None,
+        output: str = "",
+    ) -> str:
+        """Save a reusable multi-step workflow so it can be re-run later with
+        run_workflow — capture a multi-step subagent process you just worked out
+        (the closed loop). Saving overwrites any existing workflow of the same name.
+
+        Args:
+            name: Unique slug for the workflow.
+            description: One-line summary of what it does.
+            steps: Ordered list of step objects, each with ``id`` (str),
+                ``subagent`` (a configured subagent type), ``prompt`` (str, may
+                reference {{inputs.x}} and {{steps.<id>.output}}), and optional
+                ``depends_on`` (list of earlier step ids that run first —
+                independent steps run in parallel).
+            inputs: Optional list of {name, required?, default?} the workflow
+                accepts (referenced as {{inputs.name}} in prompts).
+            output: Optional final-output template (default = last step's output).
+        """
+        recipe: dict = {"name": name, "description": description, "version": 1, "steps": steps}
+        if inputs:
+            recipe["inputs"] = inputs
+        if output:
+            recipe["output"] = output
+        errs = validate_recipe(recipe, known_subagents=set(SUBAGENT_REGISTRY))
+        if errs:
+            return "Cannot save — the workflow is invalid: " + "; ".join(errs)
+        try:
+            path = workflow_registry.save(recipe)
+        except Exception as exc:  # noqa: BLE001 — readable tool error
+            return f"Error saving workflow: {exc}"
+        return f"Saved workflow {name!r} ({len(steps)} step(s)) to {path}. Run it with run_workflow({name!r}, ...)."
+
+    return [run_workflow, save_workflow]
 
 
 def create_researcher_graph(
@@ -375,7 +414,7 @@ def create_researcher_graph(
         # Reusable declarative workflows (ADR 0002) — only the lead agent gets
         # run_workflow; subagents don't, so workflows can't recurse.
         if getattr(config, "workflows_enabled", False) and workflow_registry is not None:
-            all_tools.append(_build_run_workflow_tool(config, knowledge_store, workflow_registry))
+            all_tools.extend(_build_workflow_tools(config, knowledge_store, workflow_registry))
 
     # Build middleware
     middleware = _build_middleware(config, knowledge_store)

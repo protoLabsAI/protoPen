@@ -136,7 +136,7 @@ def _build_workflow_registry(config):
             writable = Path.home() / ".protopen" / "workflows"
             writable.mkdir(parents=True, exist_ok=True)
         dirs.append(str(writable))
-        return WorkflowRegistry(dirs)
+        return WorkflowRegistry(dirs, writable_dir=str(writable))
     except Exception as exc:
         print(f"[workflows] registry init failed ({exc}); workflows disabled")
         return None
