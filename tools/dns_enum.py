@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.parsers import ingest_output
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -104,11 +105,10 @@ class DnsEnumTool(Tool):
             binary = args[0] if args else "unknown"
             logger.warning("dns_enum: binary '%s' not found", binary)
             return json.dumps({"error": f"{binary} not found", "tool": "dns_enum"})
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
+        result = await communicate_or_kill(proc, timeout)
+        if result is None:
             return f"Command timed out after {timeout}s: {' '.join(args)}"
+        stdout, stderr = result
         output = stdout.decode(errors="replace")
         if stderr:
             output += f"\n[stderr] {stderr.decode(errors='replace')}"

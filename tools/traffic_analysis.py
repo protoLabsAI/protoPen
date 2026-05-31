@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from tools.parsers import ingest_output
+from tools._subprocess import communicate_or_kill
 from tools._tool_base import Tool
 
 logger = logging.getLogger(__name__)
@@ -177,12 +178,10 @@ class TrafficAnalysisTool(Tool):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+        result = await communicate_or_kill(proc, timeout)
+        if result is None:
             raise RuntimeError(f"Command timed out after {timeout}s: {' '.join(args)}")
+        stdout, stderr = result
         out = stdout.decode(errors="replace").strip()
         err = stderr.decode(errors="replace").strip()
         if proc.returncode != 0 and not allow_nonzero:
