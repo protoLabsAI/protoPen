@@ -18,8 +18,19 @@ from graph.middleware.knowledge import KnowledgeMiddleware
 from graph.middleware.knowledge_ingest import KnowledgeIngestMiddleware
 from graph.middleware.memory import MemoryMiddleware
 from graph.middleware.message_capture import MessageCaptureMiddleware
+from graph.middleware.timeout import ToolTimeoutMiddleware
 from graph.subagents.config import SUBAGENT_REGISTRY
 from tools.lg_tools import get_all_tools, get_combined_tools, get_engagement_manager
+
+
+def _resolve_aux_model(config, specific: str = "") -> str | None:
+    """Pick the model for an auxiliary (non-reasoning) call: a specific override,
+    else the shared ``routing.aux_model`` fast alias, else None (→ main model)."""
+    for candidate in (specific, getattr(config, "aux_model", "")):
+        cleaned = (candidate or "").strip()
+        if cleaned:
+            return cleaned
+    return None
 
 
 def _parse_compaction_trigger(spec: str):
@@ -75,7 +86,7 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None):
     if config.compaction_enabled:
         from langchain.agents.middleware import SummarizationMiddleware
 
-        summ_model = create_llm(config, model_name=config.compaction_model or None)
+        summ_model = create_llm(config, model_name=_resolve_aux_model(config, config.compaction_model))
         keep = ("messages", config.compaction_keep_messages)
         try:
             mw = SummarizationMiddleware(
@@ -102,6 +113,11 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None):
 
     middleware.append(MessageCaptureMiddleware())
 
+    # Last in the chain = innermost = wraps tool execution most tightly, so it
+    # times the tool itself. Enforcement (first) still blocks before this runs.
+    if config.tool_timeout_middleware:
+        middleware.append(ToolTimeoutMiddleware(timeout_seconds=config.tool_timeout_seconds))
+
     return middleware
 
 
@@ -114,8 +130,6 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     """
     from langchain_core.tools import tool
     from langgraph.prebuilt import create_react_agent
-
-    llm = create_llm(config)
 
     # Build tool registries for each subagent
     tool_map = {t.name: t for t in all_tools}
@@ -149,9 +163,12 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
         if not sub_tools:
             return f"Error: No tools available for subagent '{subagent_type}'."
 
+        # Subagent model: per-subagent override → routing.aux_model → main model.
+        sub_llm = create_llm(config, model_name=_resolve_aux_model(config, getattr(sub_config, "model", "")))
+
         # Create subagent graph
         subagent = create_react_agent(
-            model=llm,
+            model=sub_llm,
             tools=sub_tools,
             prompt=build_subagent_prompt(subagent_type),
         )
@@ -204,13 +221,14 @@ async def run_manual_subagent(
         available = ", ".join(SUBAGENT_REGISTRY.keys())
         raise ValueError(f"Unknown subagent '{subagent_type}'. Available: {available}")
 
-    llm = create_llm(config)
+    # Subagent model: per-subagent override → routing.aux_model → main model.
+    sub_llm = create_llm(config, model_name=_resolve_aux_model(config, getattr(sub_config, "model", "")))
     tool_map = {t.name: t for t in get_combined_tools(knowledge_store)}
     sub_tools = [tool_map[name] for name in sub_config.tools if name in tool_map]
     if not sub_tools:
         raise ValueError(f"No tools available for subagent '{subagent_type}'.")
     subagent = create_react_agent(
-        model=llm,
+        model=sub_llm,
         tools=sub_tools,
         prompt=build_subagent_prompt(subagent_type),
     )

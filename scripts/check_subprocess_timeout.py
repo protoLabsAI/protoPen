@@ -86,7 +86,11 @@ def find_violations(path: Path) -> list[tuple[int, str]]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not _is_wait_for(node.func):
             continue
-        if not node.args or not _is_communicate_call(node.args[0]):
+        # The awaitable can be positional (wait_for(x.communicate(), ...)) or a
+        # keyword (wait_for(fut=x.communicate(), ...)) — check both so the kwarg
+        # form can't slip the ban past the linter.
+        candidates = list(node.args) + [kw.value for kw in node.keywords]
+        if not any(_is_communicate_call(arg) for arg in candidates):
             continue
         lineno = node.lineno
         if 1 <= lineno <= len(lines) and _suppressed(lines[lineno - 1]):

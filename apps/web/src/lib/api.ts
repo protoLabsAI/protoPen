@@ -150,9 +150,16 @@ function textFromTerminalTask(result: NonNullable<A2AFrame["result"]>) {
     .join("");
 }
 
+// The backend emits SSE keepalives every ~25s, so any gap longer than this
+// means the stream has genuinely stalled (hung tool, dead connection) rather
+// than just a slow turn. Without this watchdog, reader.read() blocks forever
+// and the chat spins indefinitely.
+const SSE_IDLE_TIMEOUT_MS = 60_000;
+
 async function consumeSse(
   response: Response,
   onFrame: (frame: A2AFrame) => void,
+  idleTimeoutMs: number = SSE_IDLE_TIMEOUT_MS,
 ): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("streaming response has no body");
@@ -160,24 +167,52 @@ async function consumeSse(
   const decoder = new TextDecoder();
   let buffer = "";
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+  try {
+    while (true) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const idle = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`stream stalled — no data for ${Math.round(idleTimeoutMs / 1000)}s`)),
+          idleTimeoutMs,
+        );
+      });
+      const readPromise = reader.read();
+      // If the idle watchdog wins the race, this read is orphaned and may later
+      // reject (once we cancel the reader). Mark it handled to avoid an
+      // unhandled-rejection warning.
+      void readPromise.catch(() => {});
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await Promise.race([readPromise, idle]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
 
-    let boundary = buffer.indexOf("\n\n");
-    while (boundary !== -1) {
-      const rawEvent = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      boundary = buffer.indexOf("\n\n");
+      const { value, done } = chunk;
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-      const data = rawEvent
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trim())
-        .join("\n");
-      if (!data) continue;
-      onFrame(JSON.parse(data) as A2AFrame);
+      let boundary = buffer.indexOf("\n\n");
+      while (boundary !== -1) {
+        const rawEvent = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf("\n\n");
+
+        const data = rawEvent
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("\n");
+        if (!data) continue;
+        onFrame(JSON.parse(data) as A2AFrame);
+      }
+    }
+  } finally {
+    // Release the connection on stall/error/abort so it can't leak.
+    try {
+      await reader.cancel();
+    } catch {
+      // Reader may already be closed; nothing to release.
     }
   }
 }
