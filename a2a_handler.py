@@ -373,6 +373,22 @@ def _make_push_fn(push_config: PushNotificationConfig | None):
 
 # ── Background task runner ────────────────────────────────────────────────────
 
+# Optional terminal hook (ADR 0003). Set via register_a2a_routes; invoked with
+# the terminal TaskRecord when a turn completes, so a host can surface
+# agent-initiated output (e.g. publish to the event bus for the Activity thread).
+_ON_TERMINAL: list[Callable[[TaskRecord], None] | None] = [None]
+
+
+def _notify_terminal(record: TaskRecord) -> None:
+    """Best-effort fire the host's terminal hook. Never raises into the runner."""
+    cb = _ON_TERMINAL[0]
+    if cb is None:
+        return
+    try:
+        cb(record)
+    except Exception:  # noqa: BLE001
+        logger.exception("[a2a] terminal hook failed for task %s", record.id)
+
 
 async def _run_task_background(
     task_id: str,
@@ -410,6 +426,7 @@ async def _run_task_background(
                     accumulated_text=payload or accumulated,
                 )
                 await push_fn(record)
+                _notify_terminal(record)  # ADR 0003: surface agent-initiated output
                 return
 
             elif event_type == "error":
@@ -456,8 +473,23 @@ def register_a2a_routes(
     chat_fn: Callable,  # kept for potential future use / testing
     api_key: str,
     agent_card: dict,
+    on_terminal: Callable[[TaskRecord], None] | None = None,
+    activity_list: Callable[[], Any] | None = None,
 ) -> None:
-    """Register all A2A routes on *app* and update *agent_card* capabilities."""
+    """Register all A2A routes on *app* and update *agent_card* capabilities.
+
+    ``on_terminal`` (ADR 0003): invoked with the terminal TaskRecord when a turn
+    completes, so the host can surface agent-initiated output. ``activity_list``:
+    returns the durable Activity thread's history for ``GET /api/activity``.
+    """
+    _ON_TERMINAL[0] = on_terminal
+
+    # Durable Activity-thread history for the console's Activity surface.
+    if activity_list is not None:
+
+        @app.get("/api/activity", summary="Activity thread history (ADR 0003)")
+        async def _activity_route():
+            return await activity_list()
 
     # Update agent card capabilities
     agent_card.setdefault("capabilities", {})
