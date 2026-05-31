@@ -45,12 +45,33 @@ class LangGraphConfig:
         )
     )
 
+    # Auxiliary model — a single cheap/fast alias for the non-reasoning calls
+    # (context summarization, subagent delegation). Each path uses its own
+    # specific override if set (e.g. compaction.model, a per-subagent model),
+    # else falls back to this, else the main model. Blank = main model
+    # everywhere. Set via routing.aux_model in the YAML.
+    aux_model: str = ""
+
     # Middleware toggles
     knowledge_middleware: bool = True
     knowledge_ingest_middleware: bool = True
     audit_middleware: bool = True
     memory_middleware: bool = True
     enforcement_middleware: bool = True
+
+    # Checkpoint pruning — keeps the SQLite session DB from growing unbounded.
+    # Keep the latest N checkpoints per chat session, and TTL whole sessions idle
+    # past max_age_days. Runs every prune_interval_hours (0 disables the sweep).
+    checkpoint_keep_per_thread: int = 5
+    checkpoint_max_age_days: int = 30
+    checkpoint_prune_interval_hours: int = 6
+
+    # Per-tool execution backstop — caps any single tool call so a hung tool
+    # (broken/missing internal timeout, dead peer) can't wedge the whole turn.
+    # Generous by design (a backstop, not a tight bound); `task` subagent
+    # delegation is exempt. <= 0 disables. See graph/middleware/timeout.py.
+    tool_timeout_middleware: bool = True
+    tool_timeout_seconds: int = 600
 
     # Enforcement
     enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
@@ -102,6 +123,8 @@ class LangGraphConfig:
             knowledge_ingest_middleware=middleware.get("knowledge_ingest", True),
             audit_middleware=middleware.get("audit", True),
             memory_middleware=middleware.get("memory", True),
+            tool_timeout_middleware=middleware.get("tool_timeout", True),
+            tool_timeout_seconds=middleware.get("tool_timeout_seconds", cls.tool_timeout_seconds),
             knowledge_db_path=knowledge.get("db_path", cls.knowledge_db_path),
             embed_model=knowledge.get("embed_model", cls.embed_model),
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
@@ -111,6 +134,16 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
+            # `or {}` guards an empty `checkpoint:` block (YAML parses it to None).
+            checkpoint_keep_per_thread=(data.get("checkpoint") or {}).get(
+                "keep_per_thread", cls.checkpoint_keep_per_thread
+            ),
+            checkpoint_max_age_days=(data.get("checkpoint") or {}).get("max_age_days", cls.checkpoint_max_age_days),
+            checkpoint_prune_interval_hours=(data.get("checkpoint") or {}).get(
+                "prune_interval_hours", cls.checkpoint_prune_interval_hours
+            ),
+            # `or {}` guards an empty `routing:` block (YAML parses it to None).
+            aux_model=(data.get("routing") or {}).get("aux_model", cls.aux_model),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):

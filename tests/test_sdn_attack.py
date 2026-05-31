@@ -1,11 +1,11 @@
-"""Tests for sdn_attack — mocked subprocess."""
+"""Tests for sdn_attack â mocked subprocess."""
 
 from __future__ import annotations
 
 import json
 
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 from tools.sdn_attack import SDNAttackTool
 
@@ -185,9 +185,16 @@ class TestTimeout:
         import asyncio
 
         proc = AsyncMock()
-        proc.communicate.side_effect = asyncio.TimeoutError
-        proc.kill = AsyncMock()
-        proc.wait = AsyncMock()
+        # The kill-first _run detects a timeout via asyncio.wait (wall clock),
+        # not by communicate() raising. Simulate "didn't finish in time".
+        proc.communicate = AsyncMock(return_value=(b"", b""))
+        proc.kill = MagicMock()
         mock_exec.return_value = proc
-        result = await tool.execute("sdn_controller_enum", target="10.0.0.1")
+
+        async def _wait_times_out(aws, timeout=None):
+            return set(), set(aws)  # nothing done → _run takes the timeout branch
+
+        with patch("tools.base.asyncio.wait", _wait_times_out):
+            result = await tool.execute("sdn_controller_enum", target="10.0.0.1")
         assert "timed out" in result.lower()
+        proc.kill.assert_called_once()

@@ -42,6 +42,12 @@ middleware:
   knowledge: true
   audit: true
   memory: true
+  # Per-tool execution backstop: abort any single tool call that exceeds
+  # tool_timeout_seconds so a hung tool can't wedge the whole turn. Generous
+  # by design (a backstop, not a tight bound); `task` subagent delegation is
+  # exempt. Set tool_timeout_seconds <= 0 to disable.
+  tool_timeout: true
+  tool_timeout_seconds: 600
 
 # Context compaction — summarize old history near the context limit so a long
 # autonomous session doesn't overflow the window. ON by default.
@@ -55,7 +61,23 @@ compaction:
   enabled: true
   trigger: "messages:80"
   keep_messages: 20
-  # model: protolabs/fast
+  # model: protolabs/fast   # specific override; else routing.aux_model; else main
+
+# Model routing.
+#   aux_model: ONE cheap/fast alias for the non-reasoning calls — context
+#     summarization and subagent delegation fall back to it unless they set a
+#     specific override (compaction.model, or a per-subagent model). Blank =
+#     main model everywhere. Each path resolves: specific → aux_model → main.
+routing:
+  # aux_model: protolabs/fast
+
+# Conversation checkpoint pruning — keeps the SQLite session DB bounded. Keep the
+# latest N checkpoints per chat session; TTL whole sessions idle past
+# max_age_days (0 = never); sweep every prune_interval_hours (0 disables it).
+checkpoint:
+  keep_per_thread: 5
+  max_age_days: 30
+  prune_interval_hours: 6
 
 knowledge:
   db_path: /sandbox/knowledge/security.db

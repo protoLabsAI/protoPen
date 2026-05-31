@@ -72,15 +72,21 @@ class BasePentestTool:
             binary = cmd[0] if cmd else "unknown"
             logger.warning("[%s] %s: binary '%s' not found", self.name, action, binary)
             return json.dumps({"error": f"{binary} not found", "tool": self.name, "action": action})
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
+        # Kill-first timeout idiom (NOT wait_for(communicate())): on timeout we
+        # kill the child so its pipes close, then drain the already-running
+        # communicate() at EOF. Letting wait_for cancel communicate() while the
+        # child is still alive can hang inside wait_for — the kill never runs and
+        # the whole agent turn wedges. See scripts/check_subprocess_timeout.py.
+        comm = asyncio.ensure_future(proc.communicate())
+        done, _pending = await asyncio.wait({comm}, timeout=timeout)
+        if comm not in done:
             proc.kill()
-            await proc.wait()
+            try:
+                await comm  # drains + reaps now that stdout is closed
+            except Exception:
+                pass
             return f"Command timed out after {timeout}s: {' '.join(cmd[:4])}..."
+        stdout, stderr = comm.result()
 
         output = stdout.decode(errors="replace")
         if stderr:
