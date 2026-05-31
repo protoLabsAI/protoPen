@@ -3101,6 +3101,12 @@ def get_engagement_manager() -> EngagementManager:
     return _engagement
 
 
+def get_target_store() -> TargetStore:
+    """Return the TargetStore singleton (lazy-inits if needed)."""
+    _init_pentest_singletons()
+    return _target_store
+
+
 def get_pentest_tools():
     """Get pentest-domain tools as LangChain tool objects."""
     return [

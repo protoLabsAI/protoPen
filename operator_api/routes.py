@@ -93,6 +93,10 @@ def register_operator_routes(
     engagement_report: Callable[[], dict[str, Any]] | None = None,
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
+    targets_list: Callable[[str, str, int], dict[str, Any]] | None = None,
+    target_get: Callable[[int], dict[str, Any]] | None = None,
+    engagements_list: Callable[[], dict[str, Any]] | None = None,
+    intel_search: Callable[[str, int], dict[str, Any]] | None = None,
     audit_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
     agent_launch: Callable[[dict[str, Any]], str] | None = None,
     agent_list: Callable[[], list[dict[str, Any]]] | None = None,
@@ -179,6 +183,42 @@ def register_operator_routes(
             return {"query": q, "table": table, "count": 0, "hits": []}
         try:
             return await asyncio.to_thread(knowledge_search, q, k, table)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/targets", summary="List discovered targets")
+    async def _targets_list(q: str = "", device_type: str = "", limit: int = 50):
+        if targets_list is None:
+            return {"query": q, "count": 0, "targets": []}
+        try:
+            return await asyncio.to_thread(targets_list, q, device_type, limit)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/targets/{host_id}", summary="Target profile")
+    async def _target_get(host_id: int):
+        if target_get is None:
+            raise HTTPException(status_code=409, detail="target store is not available")
+        try:
+            return await asyncio.to_thread(target_get, host_id)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/engagements", summary="Engagement history")
+    async def _engagements_list():
+        if engagements_list is None:
+            return {"count": 0, "engagements": []}
+        try:
+            return await asyncio.to_thread(engagements_list)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/intel/search", summary="Unified intel search")
+    async def _intel_search(q: str, k: int = 20):
+        if intel_search is None:
+            return {"query": q, "count": 0, "hits": []}
+        try:
+            return await asyncio.to_thread(intel_search, q, k)
         except Exception as exc:
             raise _http_error(exc) from exc
 

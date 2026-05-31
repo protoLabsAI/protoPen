@@ -1492,6 +1492,37 @@ def _main():
     def _operator_knowledge_search(query: str, k: int = 10, table: str | None = None):
         return _search_knowledge(_get_store(), query=query, k=k, table=table)
 
+    # Targets & Intel surface: browse discovered hosts, past engagements, and
+    # search across everything captured (read-only over the existing stores).
+    from operator_api import intel as _intel
+
+    def _operator_target_store():
+        try:
+            from tools.lg_tools import get_target_store
+
+            return get_target_store()
+        except Exception:
+            return None
+
+    def _operator_targets_list(q: str = "", device_type: str = "", limit: int = 50):
+        return _intel.list_targets(_operator_target_store(), query=q, device_type=device_type, limit=limit)
+
+    def _operator_target_get(host_id: int):
+        return _intel.get_target(_operator_target_store(), host_id)
+
+    def _operator_engagements_list():
+        mgr = _operator_engagement_manager()
+        active = getattr(mgr, "active_engagement", None) or {}
+        workspace_root = ""
+        try:
+            workspace_root = str(getattr(mgr, "_workspace_root", "") or "")
+        except Exception:
+            workspace_root = ""
+        return _intel.list_engagement_history(workspace_root, active_name=active.get("name", ""))
+
+    def _operator_intel_search(q: str, k: int = 20):
+        return _intel.search_intel(_operator_target_store(), _get_store(), query=q, k=k)
+
     # Audit surface: recent tool-execution trail.
     from audit import audit_logger as _audit_logger
     from operator_api.audit import recent_audit as _recent_audit
@@ -1550,6 +1581,10 @@ def _main():
         engagement_report=_operator_engagement_report,
         engagement_report_generate=_operator_engagement_report_generate,
         knowledge_search=_operator_knowledge_search,
+        targets_list=_operator_targets_list,
+        target_get=_operator_target_get,
+        engagements_list=_operator_engagements_list,
+        intel_search=_operator_intel_search,
         audit_recent=_operator_audit_recent,
         agent_launch=_operator_agent_launch,
         agent_list=lambda: _agent_registry.snapshot(),
