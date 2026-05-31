@@ -14,6 +14,7 @@ def build_runtime_status(
     scheduler: Any = None,
     cache_warmer: Any = None,
     goal_controller: Any = None,
+    skills_index: Any = None,
 ) -> dict[str, Any]:
     """Return UI-safe runtime status.
 
@@ -31,6 +32,7 @@ def build_runtime_status(
             "scheduler": {"enabled": False, "backend": "disabled"},
             "goal": {"enabled": False, "controller_loaded": False},
             "cache_warmer": {"enabled": False, "loaded": False},
+            "skills": {"enabled": False, "count": 0},
         }
 
     return {
@@ -80,5 +82,9 @@ def build_runtime_status(
             "enabled": bool(getattr(config, "cache_warming_enabled", False)),
             "loaded": cache_warmer is not None,
             "interval_seconds": getattr(config, "cache_warming_interval_seconds", None),
+        },
+        "skills": {
+            "enabled": bool(getattr(config, "skills_enabled", False)),
+            "count": skills_index.count() if skills_index is not None else 0,
         },
     }

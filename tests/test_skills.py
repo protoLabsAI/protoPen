@@ -116,6 +116,23 @@ def test_seed_index_roundtrip(tmp_path):
     assert idx.load_skills("demo")[0].name == "demo-skill"
 
 
+def test_runtime_status_exposes_skills_count(tmp_path):
+    """build_runtime_status surfaces skills.count for the Runtime panel (#262)."""
+    from operator_api.runtime import build_runtime_status
+
+    cfg = SimpleNamespace(skills_enabled=True)
+    idx = SkillsIndex(str(tmp_path / "s.db"))
+    idx.add_skill("a", "d", "b")
+    idx.add_skill("c", "d", "b")
+    s = build_runtime_status(config=cfg, setup_complete=True, graph_loaded=True, skills_index=idx)
+    assert s["skills"] == {"enabled": True, "count": 2}
+    # None config + no index → safe defaults
+    assert build_runtime_status(config=None, setup_complete=False, graph_loaded=False)["skills"] == {
+        "enabled": False,
+        "count": 0,
+    }
+
+
 def test_bundled_recon_skill_loads():
     """The shipped config/skills/recon-sweep/SKILL.md must parse."""
     bundled = Path(__file__).resolve().parent.parent / "config" / "skills"

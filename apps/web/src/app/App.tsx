@@ -12,6 +12,7 @@ import {
   Gauge,
   Loader2,
   MessageSquare,
+  GraduationCap,
   Network,
   Workflow as WorkflowIcon,
   Play,
@@ -1162,6 +1163,7 @@ export function App() {
                 <Metric icon={<Bot size={16} />} label="Agent" value={runtime?.identity?.name || "protopen"} />
                 <Metric icon={<Settings2 size={16} />} label="Provider" value={runtime?.model?.provider || "none"} />
                 <Metric icon={<Database size={16} />} label="Knowledge" value={runtime?.knowledge.resolved_path || runtime?.knowledge.configured_path || "disabled"} />
+                <Metric icon={<GraduationCap size={16} />} label="Skills" value={runtime?.skills?.enabled ? `${runtime.skills.count} loaded` : "disabled"} />
                 <Metric icon={<Sparkles size={16} />} label="Goal mode" value={formatBool(Boolean(runtime?.goal.enabled))} />
               </div>
               <div className="table-list">
