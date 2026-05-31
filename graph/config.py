@@ -45,6 +45,13 @@ class LangGraphConfig:
         )
     )
 
+    # Auxiliary model — a single cheap/fast alias for the non-reasoning calls
+    # (context summarization, subagent delegation). Each path uses its own
+    # specific override if set (e.g. compaction.model, a per-subagent model),
+    # else falls back to this, else the main model. Blank = main model
+    # everywhere. Set via routing.aux_model in the YAML.
+    aux_model: str = ""
+
     # Middleware toggles
     knowledge_middleware: bool = True
     knowledge_ingest_middleware: bool = True
@@ -111,6 +118,8 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
+            # `or {}` guards an empty `routing:` block (YAML parses it to None).
+            aux_model=(data.get("routing") or {}).get("aux_model", cls.aux_model),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):
