@@ -657,19 +657,25 @@ async def _chat_langgraph_stream(message: str, session_id: str):
 
             if kind == "on_tool_start":
                 tool_input = event.get("data", {}).get("input", "")
-                yield ("tool_start", {
-                    "id": event.get("run_id") or name,
-                    "name": name,
-                    "input": _coerce_tool_value(tool_input),
-                })
+                yield (
+                    "tool_start",
+                    {
+                        "id": event.get("run_id") or name,
+                        "name": name,
+                        "input": _coerce_tool_value(tool_input),
+                    },
+                )
 
             elif kind == "on_tool_end":
                 output = event.get("data", {}).get("output", "")
-                yield ("tool_end", {
-                    "id": event.get("run_id") or name,
-                    "name": name,
-                    "output": _coerce_tool_output(output),
-                })
+                yield (
+                    "tool_end",
+                    {
+                        "id": event.get("run_id") or name,
+                        "name": name,
+                        "output": _coerce_tool_output(output),
+                    },
+                )
 
             elif kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk")

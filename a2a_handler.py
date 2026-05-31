@@ -287,11 +287,13 @@ def _build_status_event(record: TaskRecord, *, final: bool = False) -> dict:
             {"kind": "text", "text": record.last_status_message},
         ]
         if record.last_tool_event:
-            parts.append({
-                "kind": "data",
-                "data": record.last_tool_event,
-                "metadata": {"mimeType": TOOL_CALL_MIME},
-            })
+            parts.append(
+                {
+                    "kind": "data",
+                    "data": record.last_tool_event,
+                    "metadata": {"mimeType": TOOL_CALL_MIME},
+                }
+            )
         evt["status"]["message"] = {"role": "agent", "parts": parts}
     return evt
 

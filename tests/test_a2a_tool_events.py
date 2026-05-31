@@ -243,10 +243,13 @@ async def test_message_stream_carries_tool_call_datapart():
 
     tool_parts: list[dict] = []
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=5.0,
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+        timeout=5.0,
     ) as client:
         async with client.stream(
-            "POST", "/a2a",
+            "POST",
+            "/a2a",
             json={
                 "jsonrpc": "2.0",
                 "id": "s1",
