@@ -396,13 +396,13 @@ function ChatSessionSlot({
                   return;
                 }
               }
-              // Cmd/Ctrl+Enter sends; plain Enter keeps inserting newlines.
-              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              // Enter sends; Cmd/Ctrl/Shift+Enter inserts a newline.
+              if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && !event.shiftKey) {
                 event.preventDefault();
                 void send();
               }
             }}
-            placeholder="Message protoPen  (/ for commands · ⌘/Ctrl+Enter to send)"
+            placeholder="Message protoPen  (/ for commands · ⌘/Ctrl+Enter for newline)"
             rows={3}
           />
         {status === "streaming" ? (
