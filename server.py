@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from chat_ui import create_chat_app
-from events import EventBus
+from events import ACTIVITY_CONTEXT, EventBus
 from events.sse import sse_event_stream
 
 # ---------------------------------------------------------------------------
@@ -1134,12 +1134,54 @@ def _main():
 
     from a2a_handler import register_a2a_routes
 
+    def _publish_activity_terminal(record) -> None:
+        """Terminal hook (ADR 0003): when a turn in the Activity thread completes,
+        push the assistant's visible output to the event bus so connected consoles
+        append it live. No-op for every other context."""
+        if getattr(record, "context_id", "") != ACTIVITY_CONTEXT:
+            return
+        text = _strip_think(getattr(record, "accumulated_text", "") or "")
+        if not text.strip():
+            return
+        _event_bus.publish(
+            "activity.message",
+            {"role": "assistant", "text": text, "context_id": ACTIVITY_CONTEXT},
+        )
+
+    async def _operator_activity_list() -> dict:
+        """Return the Activity thread's message history from the checkpointer
+        (ADR 0003). The console loads this when opening the Activity surface."""
+        messages: list[dict] = []
+        if _checkpointer is not None:
+            thread_id = f"a2a:{ACTIVITY_CONTEXT}"
+            try:
+                tup = await _checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+                raw = (tup.checkpoint or {}).get("channel_values", {}).get("messages", []) if tup else []
+            except Exception:
+                print(f"[activity] failed to read thread {thread_id}")
+                raw = []
+            for m in raw:
+                role = getattr(m, "type", "")
+                content = getattr(m, "content", "")
+                if not isinstance(content, str):
+                    content = str(content)
+                if role == "human":
+                    messages.append({"role": "user", "content": content})
+                elif role == "ai":
+                    visible = _strip_think(content)
+                    if visible.strip():
+                        messages.append({"role": "assistant", "content": visible})
+                # tool/system messages are omitted from the surface view
+        return {"context_id": ACTIVITY_CONTEXT, "messages": messages}
+
     register_a2a_routes(
         app=fastapi_app,
         chat_stream_fn_factory=_chat_langgraph_stream,
         chat_fn=chat,
         api_key=_A2A_API_KEY,
         agent_card=AGENT_CARD,
+        on_terminal=_publish_activity_terminal,  # ADR 0003: surface Activity turns
+        activity_list=_operator_activity_list,
     )
 
     # Alias required by protoWorkstacean agent discovery

@@ -1,4 +1,5 @@
 import type {
+  ActivityHistory,
   AgentConfig,
   AgentRun,
   AuditRecent,
@@ -224,6 +225,10 @@ export const api = {
 
   chatCommands() {
     return request<{ commands: SlashCommand[] }>("/api/chat/commands");
+  },
+
+  activity() {
+    return request<ActivityHistory>("/api/activity");
   },
 
   setupStatus() {
