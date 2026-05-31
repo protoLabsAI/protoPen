@@ -213,6 +213,20 @@ function ChatSessionSlot({
           );
         },
       });
+      // If the stream closed without a terminal frame, onDone never fired and
+      // the placeholder is still "streaming" — finalize it so it doesn't persist
+      // as a stuck spinner.
+      const settled = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
+      if (settled) {
+        chatStore.updateMessages(
+          session.id,
+          settled.messages.map((message) =>
+            message.id === assistantId && message.status === "streaming"
+              ? { ...message, status: "done" }
+              : message,
+          ),
+        );
+      }
       chatStore.setSessionStatus(session.id, "idle");
       setStatusMessage("idle");
     } catch (exc) {
