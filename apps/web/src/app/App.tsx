@@ -365,15 +365,22 @@ export function App() {
     }
   }, [surface, systemTab, scheduleLoaded]);
 
-  // Live agent monitor: load on entering the surface, poll while any run is active.
+  // Memoized so the interval effect below only re-runs when the running-state
+  // flips, not on every agentRuns replacement (which would tear down + rebuild
+  // the interval and re-fetch immediately, ignoring the 3s throttle).
+  const hasRunningAgents = useMemo(() => agentRuns.some((run) => run.status === "running"), [agentRuns]);
+
+  // Live agent monitor: fetch once on entering the surface…
   useEffect(() => {
-    if (!(surface === "agents" && agentsTab === "subagents")) return;
-    void refreshAgents();
-    const handle = window.setInterval(() => {
-      if (agentRuns.some((run) => run.status === "running")) void refreshAgents();
-    }, 3000);
+    if (surface === "agents" && agentsTab === "subagents") void refreshAgents();
+  }, [surface, agentsTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // …then poll on a fixed 3s cadence only while a run is active.
+  useEffect(() => {
+    if (!(surface === "agents" && agentsTab === "subagents") || !hasRunningAgents) return;
+    const handle = window.setInterval(() => void refreshAgents(), 3000);
     return () => window.clearInterval(handle);
-  }, [surface, agentsTab, agentRuns]);
+  }, [surface, agentsTab, hasRunningAgents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live engagement monitor: poll while the engagement panel is open.
   useEffect(() => {
