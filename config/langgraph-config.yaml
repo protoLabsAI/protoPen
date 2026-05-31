@@ -61,7 +61,15 @@ compaction:
   enabled: true
   trigger: "messages:80"
   keep_messages: 20
-  # model: protolabs/fast
+  # model: protolabs/fast   # specific override; else routing.aux_model; else main
+
+# Model routing.
+#   aux_model: ONE cheap/fast alias for the non-reasoning calls — context
+#     summarization and subagent delegation fall back to it unless they set a
+#     specific override (compaction.model, or a per-subagent model). Blank =
+#     main model everywhere. Each path resolves: specific → aux_model → main.
+routing:
+  # aux_model: protolabs/fast
 
 knowledge:
   db_path: /sandbox/knowledge/security.db
