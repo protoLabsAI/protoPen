@@ -33,7 +33,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 logger = logging.getLogger(__name__)
@@ -552,7 +552,6 @@ def register_a2a_routes(
             return workflows_list()
 
     if workflows_run is not None:
-        from fastapi import Body, HTTPException
 
         @app.post("/api/workflows/{name}/run", summary="Run a workflow recipe (ADR 0002)")
         async def _workflows_run_route(name: str, payload: dict = Body(default={})):
