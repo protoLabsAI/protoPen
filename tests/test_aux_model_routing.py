@@ -25,6 +25,14 @@ def test_aux_model_parsed_from_routing_yaml(tmp_path):
     assert cfg.aux_model == "protolabs/fast"
 
 
+def test_empty_routing_section_does_not_crash(tmp_path):
+    """`routing:` with everything commented parses to None — must not crash."""
+    p = tmp_path / "c.yaml"
+    p.write_text("routing:\n")  # key present, value None
+    cfg = LangGraphConfig.from_yaml(p)
+    assert cfg.aux_model == ""  # falls back to the default
+
+
 def test_subagent_model_override_field_defaults_blank():
     from graph.subagents.config import SUBAGENT_REGISTRY
 

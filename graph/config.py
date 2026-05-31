@@ -118,7 +118,8 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
-            aux_model=data.get("routing", {}).get("aux_model", cls.aux_model),
+            # `or {}` guards an empty `routing:` block (YAML parses it to None).
+            aux_model=(data.get("routing") or {}).get("aux_model", cls.aux_model),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):
