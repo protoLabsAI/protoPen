@@ -79,6 +79,14 @@ checkpoint:
   max_age_days: 30
   prune_interval_hours: 6
 
+# Workflows — reusable declarative multi-step subagent recipes (ADR 0002),
+# exposed to the lead agent via the run_workflow tool. Bundled examples ship in
+# the repo workflows/ dir; `dir` is the writable root for user/agent-emitted
+# recipes (/sandbox → ~/.protopen fallback).
+workflows:
+  enabled: true
+  dir: /sandbox/workflows
+
 knowledge:
   db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b
