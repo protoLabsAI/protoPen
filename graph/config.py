@@ -59,6 +59,13 @@ class LangGraphConfig:
     memory_middleware: bool = True
     enforcement_middleware: bool = True
 
+    # Checkpoint pruning — keeps the SQLite session DB from growing unbounded.
+    # Keep the latest N checkpoints per chat session, and TTL whole sessions idle
+    # past max_age_days. Runs every prune_interval_hours (0 disables the sweep).
+    checkpoint_keep_per_thread: int = 5
+    checkpoint_max_age_days: int = 30
+    checkpoint_prune_interval_hours: int = 6
+
     # Per-tool execution backstop — caps any single tool call so a hung tool
     # (broken/missing internal timeout, dead peer) can't wedge the whole turn.
     # Generous by design (a backstop, not a tight bound); `task` subagent
@@ -127,6 +134,14 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
+            # `or {}` guards an empty `checkpoint:` block (YAML parses it to None).
+            checkpoint_keep_per_thread=(data.get("checkpoint") or {}).get(
+                "keep_per_thread", cls.checkpoint_keep_per_thread
+            ),
+            checkpoint_max_age_days=(data.get("checkpoint") or {}).get("max_age_days", cls.checkpoint_max_age_days),
+            checkpoint_prune_interval_hours=(data.get("checkpoint") or {}).get(
+                "prune_interval_hours", cls.checkpoint_prune_interval_hours
+            ),
             # `or {}` guards an empty `routing:` block (YAML parses it to None).
             aux_model=(data.get("routing") or {}).get("aux_model", cls.aux_model),
         )

@@ -25,7 +25,9 @@ from chat_ui import create_chat_app
 
 _graph = None  # LangGraph compiled graph
 _graph_config = None  # LangGraphConfig
-_checkpointer = None  # LangGraph MemorySaver for session persistence
+_checkpointer = None  # session checkpointer (durable sqlite or in-memory)
+_checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
+_checkpoint_prune_task = None  # background prune-loop handle
 
 
 def _resolve_checkpoint_db(configured: str) -> str:
@@ -53,11 +55,13 @@ def _build_checkpointer(configured_db: str):
     wrapped sync saver (graph/checkpointer.py) rather than the loop-bound
     AsyncSqliteSaver. Bound into the graph at compile time by the caller.
     """
+    global _checkpoint_path
     try:
         from graph.checkpointer import build_sqlite_checkpointer
 
         path = _resolve_checkpoint_db(configured_db)
         saver = build_sqlite_checkpointer(path)
+        _checkpoint_path = path  # the pruner sweeps this file
         print(f"[sessions] Persistent checkpointer: {path}")
         return saver
     except Exception as exc:
@@ -65,6 +69,40 @@ def _build_checkpointer(configured_db: str):
 
         print(f"[sessions] SQLite checkpointer init failed ({exc}); using in-memory (history won't persist)")
         return MemorySaver()
+
+
+async def _checkpoint_prune_loop() -> None:
+    """Periodically trim the SQLite checkpoint DB (per-thread cap + age TTL).
+
+    Reads the path + knobs from the live globals each pass so a config reload
+    takes effect without restarting the loop. Failures are logged, never fatal.
+    """
+    from graph.checkpoint_prune import prune_checkpoints
+
+    await asyncio.sleep(60)  # let boot settle before the first sweep
+    while True:
+        cfg = _graph_config
+        path = _checkpoint_path
+        interval_h = getattr(cfg, "checkpoint_prune_interval_hours", 0) if cfg else 0
+        if path and cfg and interval_h > 0:
+            try:
+                # > 0 only: a negative max_age_days would invert the cutoff and
+                # delete every thread. 0 / negative → no age TTL (cap-only sweep).
+                max_age = cfg.checkpoint_max_age_days * 86400 if cfg.checkpoint_max_age_days > 0 else None
+                res = await asyncio.to_thread(
+                    prune_checkpoints,
+                    path,
+                    keep_per_thread=cfg.checkpoint_keep_per_thread,
+                    max_age_seconds=max_age,
+                )
+                if res["threads_deleted"] or res["checkpoints_deleted"]:
+                    print(
+                        f"[checkpoint-prune] removed {res['threads_deleted']} idle thread(s), "
+                        f"{res['checkpoints_deleted']} old checkpoint(s)"
+                    )
+            except Exception as exc:
+                print(f"[checkpoint-prune] sweep failed: {exc}")
+        await asyncio.sleep(max(1, interval_h) * 3600)
 
 
 def _init_langgraph_agent():
@@ -1205,12 +1243,19 @@ def _main():
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to start: {exc}")
 
+        # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
+        global _checkpoint_prune_task
+        if _checkpoint_path and _graph_config is not None and _graph_config.checkpoint_prune_interval_hours > 0:
+            _checkpoint_prune_task = asyncio.create_task(_checkpoint_prune_loop())
+
     @fastapi_app.on_event("shutdown")
     async def _stop_scheduler():
         try:
             await _scheduler.stop()
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to stop: {exc}")
+        if _checkpoint_prune_task is not None:
+            _checkpoint_prune_task.cancel()
 
     # Monitor view: surface the live engagement + findings (protoPen-specific).
     from operator_api.engagement import (
