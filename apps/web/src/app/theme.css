@@ -227,6 +227,9 @@ h2 {
   min-height: 0;
   padding: 12px;
   border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .right-panel {
@@ -247,7 +250,8 @@ h2 {
 }
 
 .stage-panel {
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
@@ -2150,8 +2154,21 @@ textarea {
 }
 
 /* ── Targets & Intel surface ─────────────────────────────────────── */
+/* header + scrolling body (the view tabs now live in the stage group bar). */
 .targets-panel {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+/* Group sub-nav: the rail picks a group (Chat/Intel/Agents/System); this bar
+   picks the view within it. Sits above the active panel in the stage. */
+.group-tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1, rgba(255, 255, 255, 0.02));
 }
 
 .targets-tabs {
@@ -2161,6 +2178,7 @@ textarea {
   border-bottom: 1px solid var(--border);
 }
 
+.group-tabs button,
 .targets-tabs button {
   display: inline-flex;
   align-items: center;
@@ -2174,15 +2192,29 @@ textarea {
   cursor: pointer;
 }
 
+.group-tabs button:hover,
 .targets-tabs button:hover {
   color: var(--fg);
   background: var(--surface-2, rgba(255, 255, 255, 0.04));
 }
 
+.group-tabs button.active,
 .targets-tabs button.active {
   color: var(--fg);
   border-color: var(--border);
   background: var(--surface-2, rgba(255, 255, 255, 0.06));
+}
+
+.tab-badge {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent, #60a5fa);
+  color: #0b1220;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 16px;
 }
 
 .target-list,

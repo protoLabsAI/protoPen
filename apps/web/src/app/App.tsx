@@ -28,16 +28,16 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ActivitySurface } from "../activity/ActivitySurface";
 import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
-import { TargetsSurface } from "../targets/TargetsSurface";
+import { IntelSurface } from "../targets/IntelSurface";
+import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
-import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   AgentRun,
   AuditEntry,
@@ -45,14 +45,18 @@ import type {
   ScheduledJob,
   EngagementReport,
   EngagementStatus,
-  KnowledgeHit,
   NotesWorkspace,
   RuntimeStatus,
   Subagent,
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "activity" | "targets" | "knowledge" | "subagents" | "workflows" | "runtime" | "audit" | "schedule";
+// Rail groups (top-level). Each groups several related views, switched by a
+// group tab bar in the stage — keeps the rail to four entries.
+type Surface = "chat" | "intel" | "agents" | "system";
+type ChatTab = "conversation" | "activity";
+type AgentsTab = "subagents" | "workflows";
+type SystemTab = "status" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
@@ -204,9 +208,16 @@ function groupIssues(issues: BeadsIssue[]) {
 
 export function App() {
   const [surface, setSurface] = useState<Surface>("chat");
+  const [chatTab, setChatTab] = useState<ChatTab>("conversation");
+  const [intelTab, setIntelTab] = useState<IntelTab>("targets");
+  const [agentsTab, setAgentsTab] = useState<AgentsTab>("subagents");
+  const [systemTab, setSystemTab] = useState<SystemTab>("status");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
   const [live, setLive] = useState(false);
   const [activityUnread, setActivityUnread] = useState(0);
+  // Tracks whether the operator is currently looking at the Activity view, so the
+  // activity.message event handler (stable, empty-deps) knows when to badge.
+  const viewingActivityRef = useRef(false);
 
   // Open the server→client event stream (ADR 0003) and track its connection
   // state for the "live" indicator. Surfaces subscribe to named events.
@@ -217,16 +228,14 @@ export function App() {
   useEffect(
     () =>
       onServerEvent("activity.message", () => {
-        setSurface((s) => {
-          if (s !== "activity") setActivityUnread((n) => n + 1);
-          return s;
-        });
+        if (!viewingActivityRef.current) setActivityUnread((n) => n + 1);
       }),
     [],
   );
   useEffect(() => {
-    if (surface === "activity") setActivityUnread(0);
-  }, [surface]);
+    viewingActivityRef.current = surface === "chat" && chatTab === "activity";
+    if (viewingActivityRef.current) setActivityUnread(0);
+  }, [surface, chatTab]);
   const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
     "protoagent.projectPath",
   ]);
@@ -252,12 +261,6 @@ export function App() {
 
   const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-
-  const [knowledgeQuery, setKnowledgeQuery] = useState("");
-  const [knowledgeTable, setKnowledgeTable] = useState("");
-  const [knowledgeHits, setKnowledgeHits] = useState<KnowledgeHit[]>([]);
-  const [knowledgeBusy, setKnowledgeBusy] = useState(false);
-  const [knowledgeSearched, setKnowledgeSearched] = useState(false);
 
   const [scheduleJobs, setScheduleJobs] = useState<ScheduledJob[]>([]);
   const [scheduleBackend, setScheduleBackend] = useState("");
@@ -347,26 +350,26 @@ export function App() {
   }, [notesBusy, notesDirty, projectPath, workspace]);
 
   useEffect(() => {
-    if (surface === "audit" && !auditLoaded && !auditBusy) {
+    if (surface === "system" && systemTab === "audit" && !auditLoaded && !auditBusy) {
       void refreshAudit();
     }
-  }, [surface, auditLoaded, auditBusy]);
+  }, [surface, systemTab, auditLoaded, auditBusy]);
 
   useEffect(() => {
-    if (surface === "schedule" && !scheduleLoaded && !scheduleBusy) {
+    if (surface === "system" && systemTab === "schedule" && !scheduleLoaded && !scheduleBusy) {
       void refreshSchedule();
     }
-  }, [surface, scheduleLoaded, scheduleBusy]);
+  }, [surface, systemTab, scheduleLoaded, scheduleBusy]);
 
   // Live agent monitor: load on entering the surface, poll while any run is active.
   useEffect(() => {
-    if (surface !== "subagents") return;
+    if (!(surface === "agents" && agentsTab === "subagents")) return;
     void refreshAgents();
     const handle = window.setInterval(() => {
       if (agentRuns.some((run) => run.status === "running")) void refreshAgents();
     }, 3000);
     return () => window.clearInterval(handle);
-  }, [surface, agentRuns]);
+  }, [surface, agentsTab, agentRuns]);
 
   // Live engagement monitor: poll while the engagement panel is open.
   useEffect(() => {
@@ -470,28 +473,6 @@ export function App() {
     }
   }
 
-  async function searchKnowledge() {
-    const query = knowledgeQuery.trim();
-    if (!query || knowledgeBusy) return;
-    setKnowledgeBusy(true);
-    setError("");
-    try {
-      const result = await api.knowledgeSearch(query, {
-        k: 20,
-        table: knowledgeTable || undefined,
-      });
-      setKnowledgeHits(result.hits);
-      setKnowledgeSearched(true);
-    } catch (exc) {
-      if (exc instanceof UnauthorizedError) {
-        setNeedsAuth(true);
-      } else {
-        setError(exc instanceof Error ? exc.message : String(exc));
-      }
-    } finally {
-      setKnowledgeBusy(false);
-    }
-  }
 
   async function refreshAudit() {
     if (auditBusy) return;
@@ -863,55 +844,25 @@ export function App() {
             label="Chat"
             icon={<MessageSquare size={18} />}
             onClick={() => setSurface("chat")}
-          />
-          <RailButton
-            active={surface === "activity"}
-            label="Activity"
-            icon={<ActivityIcon size={18} />}
-            onClick={() => setSurface("activity")}
             badge={activityUnread}
           />
           <RailButton
-            active={surface === "targets"}
-            label="Targets"
+            active={surface === "intel"}
+            label="Intel"
             icon={<Target size={18} />}
-            onClick={() => setSurface("targets")}
+            onClick={() => setSurface("intel")}
           />
           <RailButton
-            active={surface === "knowledge"}
-            label="Knowledge"
-            icon={<Search size={18} />}
-            onClick={() => setSurface("knowledge")}
-          />
-          <RailButton
-            active={surface === "subagents"}
-            label="Subagents"
+            active={surface === "agents"}
+            label="Agents"
             icon={<Network size={18} />}
-            onClick={() => setSurface("subagents")}
+            onClick={() => setSurface("agents")}
           />
           <RailButton
-            active={surface === "workflows"}
-            label="Workflows"
-            icon={<WorkflowIcon size={18} />}
-            onClick={() => setSurface("workflows")}
-          />
-          <RailButton
-            active={surface === "runtime"}
-            label="Runtime"
+            active={surface === "system"}
+            label="System"
             icon={<Gauge size={18} />}
-            onClick={() => setSurface("runtime")}
-          />
-          <RailButton
-            active={surface === "audit"}
-            label="Audit"
-            icon={<ScrollText size={18} />}
-            onClick={() => setSurface("audit")}
-          />
-          <RailButton
-            active={surface === "schedule"}
-            label="Schedule"
-            icon={<CalendarClock size={18} />}
-            onClick={() => setSurface("schedule")}
+            onClick={() => setSurface("system")}
           />
         </aside>
 
@@ -923,82 +874,58 @@ export function App() {
             </div>
           ) : null}
 
+          {/* ── Chat group: Conversation · Activity ──────────────── */}
           {surface === "chat" ? (
-            <ChatSurface onError={setError} />
-          ) : null}
-
-          {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
-
-          {surface === "targets" ? <TargetsSurface onError={setError} /> : null}
-
-          {surface === "knowledge" ? (
-            <section className="panel stage-panel knowledge-panel">
-              <div className="panel-header">
-                <div>
-                  <h1>Knowledge</h1>
-                  <p className="panel-kicker">hybrid search · cve / exploit / advisory intel</p>
-                </div>
-                <StatusPill
-                  label={knowledgeBusy ? "searching" : `${knowledgeHits.length} hit${knowledgeHits.length === 1 ? "" : "s"}`}
-                  tone={knowledgeBusy ? "warning" : "muted"}
-                />
-              </div>
-              <form
-                className="knowledge-search"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void searchKnowledge();
-                }}
-              >
-                <input
-                  value={knowledgeQuery}
-                  onChange={(event) => setKnowledgeQuery(event.target.value)}
-                  placeholder="Search advisories, exploits, CVEs…"
-                  aria-label="Knowledge query"
-                  autoFocus
-                />
-                <select
-                  value={knowledgeTable}
-                  onChange={(event) => setKnowledgeTable(event.target.value)}
-                  aria-label="Filter table"
-                >
-                  <option value="">all sources</option>
-                  {KNOWLEDGE_TABLES.map((table) => (
-                    <option key={table} value={table}>
-                      {table}
-                    </option>
-                  ))}
-                </select>
-                <button className="primary-button" type="submit" disabled={knowledgeBusy || !knowledgeQuery.trim()}>
-                  {knowledgeBusy ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
-                  Search
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={chatTab === "conversation"} className={chatTab === "conversation" ? "active" : ""} onClick={() => setChatTab("conversation")}>
+                  <MessageSquare size={14} /> Conversation
                 </button>
-              </form>
-              <div className="knowledge-results">
-                {knowledgeHits.length > 0 ? (
-                  knowledgeHits.map((hit, index) => (
-                    <article className="knowledge-hit" key={`${hit.table}:${hit.source_id}:${index}`}>
-                      <div className="knowledge-hit-head">
-                        <StatusPill label={hit.table || "—"} tone="muted" />
-                        <span className="knowledge-hit-id">{hit.source_id}</span>
-                        <span className="knowledge-hit-score">{hit.score.toFixed(2)}</span>
-                      </div>
-                      <p className="knowledge-hit-preview">{hit.preview || "(no preview)"}</p>
-                    </article>
-                  ))
-                ) : (
-                  <div className="empty-state stacked">
-                    <Search size={18} />
-                    <span>{knowledgeSearched ? "No matches in the knowledge store." : "Search the threat-intel knowledge store."}</span>
-                  </div>
-                )}
+                <button role="tab" aria-selected={chatTab === "activity"} className={chatTab === "activity" ? "active" : ""} onClick={() => setChatTab("activity")}>
+                  <ActivityIcon size={14} /> Activity
+                  {activityUnread > 0 && chatTab !== "activity" ? <span className="tab-badge">{activityUnread}</span> : null}
+                </button>
               </div>
-            </section>
+              {chatTab === "conversation" ? <ChatSurface onError={setError} /> : <ActivitySurface onError={setError} />}
+            </>
           ) : null}
 
-          {surface === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
+          {/* ── Intel group: Targets · Search · Knowledge · Engagements ── */}
+          {surface === "intel" ? (
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={intelTab === "targets"} className={intelTab === "targets" ? "active" : ""} onClick={() => setIntelTab("targets")}>
+                  <Target size={14} /> Targets
+                </button>
+                <button role="tab" aria-selected={intelTab === "search"} className={intelTab === "search" ? "active" : ""} onClick={() => setIntelTab("search")}>
+                  <Search size={14} /> Search
+                </button>
+                <button role="tab" aria-selected={intelTab === "knowledge"} className={intelTab === "knowledge" ? "active" : ""} onClick={() => setIntelTab("knowledge")}>
+                  <Database size={14} /> Knowledge
+                </button>
+                <button role="tab" aria-selected={intelTab === "engagements"} className={intelTab === "engagements" ? "active" : ""} onClick={() => setIntelTab("engagements")}>
+                  <ScrollText size={14} /> Engagements
+                </button>
+              </div>
+              <IntelSurface tab={intelTab} onError={setError} />
+            </>
+          ) : null}
 
-          {surface === "subagents" ? (
+          {/* ── Agents group: Subagents · Workflows ──────────────── */}
+          {surface === "agents" ? (
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={agentsTab === "subagents"} className={agentsTab === "subagents" ? "active" : ""} onClick={() => setAgentsTab("subagents")}>
+                  <Network size={14} /> Subagents
+                </button>
+                <button role="tab" aria-selected={agentsTab === "workflows"} className={agentsTab === "workflows" ? "active" : ""} onClick={() => setAgentsTab("workflows")}>
+                  <WorkflowIcon size={14} /> Workflows
+                </button>
+              </div>
+
+              {agentsTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
+
+              {agentsTab === "subagents" ? (
             <section className="panel stage-panel">
               <div className="panel-header">
                 <div>
@@ -1157,9 +1084,26 @@ export function App() {
               </div>
               </div>
             </section>
+              ) : null}
+            </>
           ) : null}
 
-          {surface === "runtime" ? (
+          {/* ── System group: Status · Audit · Schedule ──────────── */}
+          {surface === "system" ? (
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={systemTab === "status"} className={systemTab === "status" ? "active" : ""} onClick={() => setSystemTab("status")}>
+                  <Gauge size={14} /> Status
+                </button>
+                <button role="tab" aria-selected={systemTab === "audit"} className={systemTab === "audit" ? "active" : ""} onClick={() => setSystemTab("audit")}>
+                  <ScrollText size={14} /> Audit
+                </button>
+                <button role="tab" aria-selected={systemTab === "schedule"} className={systemTab === "schedule" ? "active" : ""} onClick={() => setSystemTab("schedule")}>
+                  <CalendarClock size={14} /> Schedule
+                </button>
+              </div>
+
+              {systemTab === "status" ? (
             <section className="panel stage-panel">
               <div className="panel-header">
                 <div>
@@ -1199,7 +1143,7 @@ export function App() {
             </section>
           ) : null}
 
-          {surface === "audit" ? (
+          {systemTab === "audit" ? (
             <section className="panel stage-panel audit-panel">
               <div className="panel-header">
                 <div>
@@ -1266,7 +1210,7 @@ export function App() {
             </section>
           ) : null}
 
-          {surface === "schedule" ? (
+          {systemTab === "schedule" ? (
             <section className="panel stage-panel audit-panel">
               <div className="panel-header">
                 <div>
@@ -1343,6 +1287,8 @@ export function App() {
                 )}
               </div>
             </section>
+              ) : null}
+            </>
           ) : null}
         </main>
 
