@@ -1,0 +1,3 @@
+# Baseline of pre-existing hang-prone wait_for(...communicate()) call sites.
+# Pending migration to the kill-first idiom. DELETE a line when you fix it;
+# never add new ones. See scripts/check_subprocess_timeout.py.

@@ -258,3 +258,11 @@ export type SetupStatus = {
   setup_complete: boolean;
   presets: string[];
 };
+
+// Durable Activity thread (ADR 0003) — agent-initiated turns land here.
+export type ActivityMessage = { role: "user" | "assistant"; content: string };
+
+export type ActivityHistory = {
+  context_id: string;
+  messages: ActivityMessage[];
+};

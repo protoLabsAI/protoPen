@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from chat_ui import create_chat_app
+from events import ACTIVITY_CONTEXT, EventBus
+from events.sse import sse_event_stream
 
 # ---------------------------------------------------------------------------
 # Agent setup
@@ -25,7 +27,89 @@ from chat_ui import create_chat_app
 
 _graph = None  # LangGraph compiled graph
 _graph_config = None  # LangGraphConfig
-_checkpointer = None  # LangGraph MemorySaver for session persistence
+_checkpointer = None  # session checkpointer (durable sqlite or in-memory)
+_checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
+_checkpoint_prune_task = None  # background prune-loop handle
+
+# Server→client SSE push channel (ADR 0003). Process-lifetime singleton:
+# producers (A2A terminal hook, scheduler, inbox) publish; /api/events streams
+# to connected consoles. Read-only — consoles never push back through it.
+_event_bus = EventBus()
+
+
+def _resolve_checkpoint_db(configured: str) -> str:
+    """Pick a writable checkpoint DB path; fall back to ~/.protopen when the
+    configured dir (default /sandbox) isn't creatable (e.g. local dev)."""
+    import os
+
+    candidate = Path(configured).expanduser()
+    try:
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        if os.access(candidate.parent, os.W_OK):
+            return str(candidate)
+    except OSError:
+        pass
+    fallback = Path.home() / ".protopen" / "sessions.db"
+    fallback.parent.mkdir(parents=True, exist_ok=True)
+    return str(fallback)
+
+
+def _build_checkpointer(configured_db: str):
+    """Durable SQLite checkpointer (chat history survives restarts), falling back
+    to an in-memory saver if SQLite init fails so a bad path never blocks boot.
+
+    The graph compiles synchronously at boot, before the event loop, so we use a
+    wrapped sync saver (graph/checkpointer.py) rather than the loop-bound
+    AsyncSqliteSaver. Bound into the graph at compile time by the caller.
+    """
+    global _checkpoint_path
+    try:
+        from graph.checkpointer import build_sqlite_checkpointer
+
+        path = _resolve_checkpoint_db(configured_db)
+        saver = build_sqlite_checkpointer(path)
+        _checkpoint_path = path  # the pruner sweeps this file
+        print(f"[sessions] Persistent checkpointer: {path}")
+        return saver
+    except Exception as exc:
+        from langgraph.checkpoint.memory import MemorySaver
+
+        print(f"[sessions] SQLite checkpointer init failed ({exc}); using in-memory (history won't persist)")
+        return MemorySaver()
+
+
+async def _checkpoint_prune_loop() -> None:
+    """Periodically trim the SQLite checkpoint DB (per-thread cap + age TTL).
+
+    Reads the path + knobs from the live globals each pass so a config reload
+    takes effect without restarting the loop. Failures are logged, never fatal.
+    """
+    from graph.checkpoint_prune import prune_checkpoints
+
+    await asyncio.sleep(60)  # let boot settle before the first sweep
+    while True:
+        cfg = _graph_config
+        path = _checkpoint_path
+        interval_h = getattr(cfg, "checkpoint_prune_interval_hours", 0) if cfg else 0
+        if path and cfg and interval_h > 0:
+            try:
+                # > 0 only: a negative max_age_days would invert the cutoff and
+                # delete every thread. 0 / negative → no age TTL (cap-only sweep).
+                max_age = cfg.checkpoint_max_age_days * 86400 if cfg.checkpoint_max_age_days > 0 else None
+                res = await asyncio.to_thread(
+                    prune_checkpoints,
+                    path,
+                    keep_per_thread=cfg.checkpoint_keep_per_thread,
+                    max_age_seconds=max_age,
+                )
+                if res["threads_deleted"] or res["checkpoints_deleted"]:
+                    print(
+                        f"[checkpoint-prune] removed {res['threads_deleted']} idle thread(s), "
+                        f"{res['checkpoints_deleted']} old checkpoint(s)"
+                    )
+            except Exception as exc:
+                print(f"[checkpoint-prune] sweep failed: {exc}")
+        await asyncio.sleep(max(1, interval_h) * 3600)
 
 
 def _init_langgraph_agent():
@@ -41,19 +125,10 @@ def _init_langgraph_agent():
 
     store = _get_store()
 
-    # Persistent session checkpointer — survives restarts
-    _sessions_db = Path("/sandbox/knowledge/sessions.db")
-    _sessions_db.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-
-        _checkpointer = AsyncSqliteSaver.from_conn_string(str(_sessions_db))
-        print(f"[sessions] Persistent checkpointer: {_sessions_db}")
-    except ImportError:
-        from langgraph.checkpoint.memory import MemorySaver
-
-        _checkpointer = MemorySaver()
-        print("[sessions] Falling back to in-memory checkpointer")
+    # Persistent session checkpointer — bound into the graph at COMPILE time
+    # below. A checkpointer set only in the invoke config is ignored by
+    # LangGraph, which gave the chat amnesia (every turn started fresh).
+    _checkpointer = _build_checkpointer("/sandbox/knowledge/sessions.db")
 
     # Run startup sitrep — hardware, network, engagement status
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
@@ -66,6 +141,7 @@ def _init_langgraph_agent():
         knowledge_store=store,
         include_subagents=True,
         sitrep=status_block,
+        checkpointer=_checkpointer,
     )
 
     print(f"[researcher] LangGraph agent initialized (model: {_graph_config.model_name})")
@@ -494,10 +570,10 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
 
     tracing.start_trace(session_id=session_id, name="researcher-chat-lg", metadata={"message_preview": message[:100]})
     try:
-        # Invoke the graph with session-scoped checkpointing
+        # thread_id keys this session's history in the checkpointer (bound at
+        # compile time in create_researcher_graph). A checkpointer in the invoke
+        # config is ignored by LangGraph, so it is intentionally not set here.
         config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
-        if _checkpointer:
-            config["checkpointer"] = _checkpointer
 
         result = await _graph.ainvoke(
             {"messages": [HumanMessage(content=message)], "session_id": session_id},
@@ -563,9 +639,10 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     """
     from langchain_core.messages import HumanMessage
 
+    # thread_id keys this session's history in the checkpointer (bound at compile
+    # time in create_researcher_graph). The a2a:/gradio: prefixes isolate the two
+    # chat paths. A checkpointer in the invoke config is ignored by LangGraph.
     config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
-    if _checkpointer:
-        config["checkpointer"] = _checkpointer
 
     accumulated_text = ""
 
@@ -770,6 +847,7 @@ def _build_settings_callbacks() -> dict:
                 config=_graph_config,
                 knowledge_store=_get_store(),
                 include_subagents=True,
+                checkpointer=_checkpointer,
             )
             return f"**Switched to:** `{_graph_config.model_name}` (graph rebuilt)"
         return "**Error:** LangGraph config not initialized."
@@ -901,6 +979,15 @@ def _main():
         # Extract assistant content
         parts = [m["content"] for m in result if m.get("role") == "assistant" and m.get("content")]
         return {"response": "\n\n".join(parts), "messages": result}
+
+    # Server→client SSE push channel (ADR 0003). The console holds one of these
+    # open for the app's lifetime; the server pushes unsolicited events (activity
+    # messages, inbox items) that the request-scoped chat stream can't.
+    @fastapi_app.get("/api/events", summary="Server→client event stream (SSE)")
+    async def _api_events():
+        from fastapi.responses import StreamingResponse
+
+        return StreamingResponse(sse_event_stream(_event_bus.subscribe), media_type="text/event-stream")
 
     # OpenAI-compatible chat completions endpoint
     # Allows protoPen to be registered as a model in LiteLLM gateway / OpenWebUI
@@ -1089,12 +1176,54 @@ def _main():
 
     from a2a_handler import register_a2a_routes
 
+    def _publish_activity_terminal(record) -> None:
+        """Terminal hook (ADR 0003): when a turn in the Activity thread completes,
+        push the assistant's visible output to the event bus so connected consoles
+        append it live. No-op for every other context."""
+        if getattr(record, "context_id", "") != ACTIVITY_CONTEXT:
+            return
+        text = _strip_think(getattr(record, "accumulated_text", "") or "")
+        if not text.strip():
+            return
+        _event_bus.publish(
+            "activity.message",
+            {"role": "assistant", "text": text, "context_id": ACTIVITY_CONTEXT},
+        )
+
+    async def _operator_activity_list() -> dict:
+        """Return the Activity thread's message history from the checkpointer
+        (ADR 0003). The console loads this when opening the Activity surface."""
+        messages: list[dict] = []
+        if _checkpointer is not None:
+            thread_id = f"a2a:{ACTIVITY_CONTEXT}"
+            try:
+                tup = await _checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+                raw = (tup.checkpoint or {}).get("channel_values", {}).get("messages", []) if tup else []
+            except Exception:
+                print(f"[activity] failed to read thread {thread_id}")
+                raw = []
+            for m in raw:
+                role = getattr(m, "type", "")
+                content = getattr(m, "content", "")
+                if not isinstance(content, str):
+                    content = str(content)
+                if role == "human":
+                    messages.append({"role": "user", "content": content})
+                elif role == "ai":
+                    visible = _strip_think(content)
+                    if visible.strip():
+                        messages.append({"role": "assistant", "content": visible})
+                # tool/system messages are omitted from the surface view
+        return {"context_id": ACTIVITY_CONTEXT, "messages": messages}
+
     register_a2a_routes(
         app=fastapi_app,
         chat_stream_fn_factory=_chat_langgraph_stream,
         chat_fn=chat,
         api_key=_A2A_API_KEY,
         agent_card=AGENT_CARD,
+        on_terminal=_publish_activity_terminal,  # ADR 0003: surface Activity turns
+        activity_list=_operator_activity_list,
     )
 
     # Alias required by protoWorkstacean agent discovery
@@ -1214,12 +1343,19 @@ def _main():
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to start: {exc}")
 
+        # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
+        global _checkpoint_prune_task
+        if _checkpoint_path and _graph_config is not None and _graph_config.checkpoint_prune_interval_hours > 0:
+            _checkpoint_prune_task = asyncio.create_task(_checkpoint_prune_loop())
+
     @fastapi_app.on_event("shutdown")
     async def _stop_scheduler():
         try:
             await _scheduler.stop()
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to stop: {exc}")
+        if _checkpoint_prune_task is not None:
+            _checkpoint_prune_task.cancel()
 
     # Monitor view: surface the live engagement + findings (protoPen-specific).
     from operator_api.engagement import (

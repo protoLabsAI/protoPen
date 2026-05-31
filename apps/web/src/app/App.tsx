@@ -1,4 +1,5 @@
 import {
+  Activity as ActivityIcon,
   Bot,
   Boxes,
   CalendarClock,
@@ -27,8 +28,10 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
+import { ActivitySurface } from "../activity/ActivitySurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
+import { onConnectionChange, onServerEvent } from "../lib/events";
 import { KNOWLEDGE_TABLES } from "../lib/types";
 import type {
   AgentRun,
@@ -44,7 +47,7 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "knowledge" | "subagents" | "runtime" | "audit" | "schedule";
+type Surface = "chat" | "activity" | "knowledge" | "subagents" | "runtime" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
@@ -197,6 +200,28 @@ function groupIssues(issues: BeadsIssue[]) {
 export function App() {
   const [surface, setSurface] = useState<Surface>("chat");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
+  const [live, setLive] = useState(false);
+  const [activityUnread, setActivityUnread] = useState(0);
+
+  // Open the server→client event stream (ADR 0003) and track its connection
+  // state for the "live" indicator. Surfaces subscribe to named events.
+  useEffect(() => onConnectionChange(setLive), []);
+
+  // Unread badge on the Activity rail button: count agent-initiated messages
+  // that arrive while the operator isn't looking at the Activity surface.
+  useEffect(
+    () =>
+      onServerEvent("activity.message", () => {
+        setSurface((s) => {
+          if (s !== "activity") setActivityUnread((n) => n + 1);
+          return s;
+        });
+      }),
+    [],
+  );
+  useEffect(() => {
+    if (surface === "activity") setActivityUnread(0);
+  }, [surface]);
   const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
     "protoagent.projectPath",
   ]);
@@ -812,6 +837,14 @@ export function App() {
             tone={statusTone(runtime?.graph_loaded)}
           />
           <StatusPill label={status} tone={status === "error" ? "error" : "muted"} />
+          <span
+            className={`live-dot ${live ? "is-live" : ""}`}
+            role="status"
+            aria-label={live ? "event stream connected" : "event stream offline"}
+            title={live ? "Live — event stream connected" : "Event stream offline"}
+            data-testid="live-indicator"
+            data-live={live ? "true" : "false"}
+          />
           <button className="icon-button" type="button" onClick={() => void refreshAll()} title="Refresh">
             <RefreshCw size={16} />
           </button>
@@ -825,6 +858,13 @@ export function App() {
             label="Chat"
             icon={<MessageSquare size={18} />}
             onClick={() => setSurface("chat")}
+          />
+          <RailButton
+            active={surface === "activity"}
+            label="Activity"
+            icon={<ActivityIcon size={18} />}
+            onClick={() => setSurface("activity")}
+            badge={activityUnread}
           />
           <RailButton
             active={surface === "knowledge"}
@@ -869,6 +909,8 @@ export function App() {
           {surface === "chat" ? (
             <ChatSurface onError={setError} />
           ) : null}
+
+          {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
 
           {surface === "knowledge" ? (
             <section className="panel stage-panel knowledge-panel">
@@ -1692,16 +1734,19 @@ function RailButton({
   label,
   icon,
   onClick,
+  badge = 0,
 }: {
   active: boolean;
   label: string;
   icon: ReactNode;
   onClick: () => void;
+  badge?: number;
 }) {
   return (
     <button className={active ? "active" : ""} type="button" onClick={onClick} title={label} aria-label={label}>
       {icon}
       <span>{label}</span>
+      {badge > 0 ? <span className="rail-badge">{badge > 99 ? "99+" : badge}</span> : null}
     </button>
   );
 }

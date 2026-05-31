@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import sys
+
 from tools.maigret import MaigretTool
 from tools.parsers.maigret import parse_search
 
@@ -49,6 +52,29 @@ def test_parser_extracts_unique_accounts():
     sites = {e["site"] for e in entities}
     assert "GitHub" in sites
     assert "GitHubGist [GitHub]" in sites
+
+
+def test_run_timeout_kills_child_and_returns(tmp_path):
+    """A hung subprocess must not wedge the turn: _run kills it and returns the
+    timeout marker within the wall-clock cap (regression for the wait_for cancel
+    hang)."""
+    tool = MaigretTool(workspace=str(tmp_path))
+    # A child that ignores SIGTERM-via-cancel and would otherwise outlive us.
+    sleeper = [sys.executable, "-c", "import time; time.sleep(120)"]
+
+    async def go():
+        return await asyncio.wait_for(tool._run(*sleeper, timeout=1), timeout=15)
+
+    out = asyncio.run(go())
+    assert out.startswith("[timeout]")
+    assert "exceeded 1s" in out
+
+
+def test_run_returns_stdout_on_success(tmp_path):
+    tool = MaigretTool(workspace=str(tmp_path))
+    echo = [sys.executable, "-c", "print('hello-maigret')"]
+    out = asyncio.run(tool._run(*echo, timeout=15))
+    assert out == "hello-maigret"
 
 
 def test_parser_ignores_database_line():
