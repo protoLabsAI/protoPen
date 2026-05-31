@@ -13,6 +13,7 @@ import {
   Loader2,
   MessageSquare,
   Network,
+  Workflow as WorkflowIcon,
   Play,
   Plus,
   RefreshCw,
@@ -29,6 +30,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ActivitySurface } from "../activity/ActivitySurface";
+import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
@@ -47,7 +49,7 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-type Surface = "chat" | "activity" | "knowledge" | "subagents" | "runtime" | "audit" | "schedule";
+type Surface = "chat" | "activity" | "knowledge" | "subagents" | "workflows" | "runtime" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
 type SubagentMode = "single" | "batch";
@@ -879,6 +881,12 @@ export function App() {
             onClick={() => setSurface("subagents")}
           />
           <RailButton
+            active={surface === "workflows"}
+            label="Workflows"
+            icon={<WorkflowIcon size={18} />}
+            onClick={() => setSurface("workflows")}
+          />
+          <RailButton
             active={surface === "runtime"}
             label="Runtime"
             icon={<Gauge size={18} />}
@@ -976,6 +984,8 @@ export function App() {
               </div>
             </section>
           ) : null}
+
+          {surface === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
 
           {surface === "subagents" ? (
             <section className="panel stage-panel">

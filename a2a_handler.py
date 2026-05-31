@@ -33,7 +33,7 @@ from urllib.parse import urlparse
 from uuid import uuid4
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 logger = logging.getLogger(__name__)
@@ -523,12 +523,16 @@ def register_a2a_routes(
     agent_card: dict,
     on_terminal: Callable[[TaskRecord], None] | None = None,
     activity_list: Callable[[], Any] | None = None,
+    workflows_list: Callable[[], Any] | None = None,
+    workflows_run: Callable[[str, dict], Any] | None = None,
 ) -> None:
     """Register all A2A routes on *app* and update *agent_card* capabilities.
 
     ``on_terminal`` (ADR 0003): invoked with the terminal TaskRecord when a turn
     completes, so the host can surface agent-initiated output. ``activity_list``:
     returns the durable Activity thread's history for ``GET /api/activity``.
+    ``workflows_list`` / ``workflows_run`` (ADR 0002): back the operator console's
+    Workflows surface (``GET /api/workflows`` + ``POST /api/workflows/{name}/run``).
     """
     _ON_TERMINAL[0] = on_terminal
 
@@ -538,6 +542,24 @@ def register_a2a_routes(
         @app.get("/api/activity", summary="Activity thread history (ADR 0003)")
         async def _activity_route():
             return await activity_list()
+
+    # Workflows surface (ADR 0002): list recipes + run one (operator-authenticated,
+    # same posture as /api/subagents/run — operator-driven, not external inbound).
+    if workflows_list is not None:
+
+        @app.get("/api/workflows", summary="List workflow recipes (ADR 0002)")
+        async def _workflows_list_route():
+            return workflows_list()
+
+    if workflows_run is not None:
+
+        @app.post("/api/workflows/{name}/run", summary="Run a workflow recipe (ADR 0002)")
+        async def _workflows_run_route(name: str, payload: dict = Body(default={})):
+            inputs = payload.get("inputs", {}) if isinstance(payload, dict) else {}
+            try:
+                return await workflows_run(name, inputs or {})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
 
     # Update agent card capabilities
     agent_card.setdefault("capabilities", {})

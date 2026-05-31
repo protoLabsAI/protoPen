@@ -266,3 +266,17 @@ export type ActivityHistory = {
   context_id: string;
   messages: ActivityMessage[];
 };
+
+// Declarative subagent workflows (ADR 0002).
+export type WorkflowSummary = {
+  name: string;
+  description: string;
+  inputs: { name: string; required: boolean; default?: unknown }[];
+  steps: { id: string; subagent: string; depends_on: string[] }[];
+};
+
+export type WorkflowRunResult = {
+  output: string;
+  steps: Record<string, string>;
+  failed: string[];
+};
