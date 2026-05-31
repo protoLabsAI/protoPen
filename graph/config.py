@@ -52,6 +52,13 @@ class LangGraphConfig:
     memory_middleware: bool = True
     enforcement_middleware: bool = True
 
+    # Checkpoint pruning — keeps the SQLite session DB from growing unbounded.
+    # Keep the latest N checkpoints per chat session, and TTL whole sessions idle
+    # past max_age_days. Runs every prune_interval_hours (0 disables the sweep).
+    checkpoint_keep_per_thread: int = 5
+    checkpoint_max_age_days: int = 30
+    checkpoint_prune_interval_hours: int = 6
+
     # Enforcement
     enforcement_max_phase: str = ""  # kill-chain ceiling (e.g. "enumeration"), empty = no ceiling
 
@@ -111,6 +118,13 @@ class LangGraphConfig:
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
             compaction_model=compaction.get("model", cls.compaction_model),
+            checkpoint_keep_per_thread=data.get("checkpoint", {}).get(
+                "keep_per_thread", cls.checkpoint_keep_per_thread
+            ),
+            checkpoint_max_age_days=data.get("checkpoint", {}).get("max_age_days", cls.checkpoint_max_age_days),
+            checkpoint_prune_interval_hours=data.get("checkpoint", {}).get(
+                "prune_interval_hours", cls.checkpoint_prune_interval_hours
+            ),
         )
 
         for name in ("threat_scanner", "vuln_analyst", "intel_reporter"):

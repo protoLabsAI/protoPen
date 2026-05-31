@@ -57,6 +57,14 @@ compaction:
   keep_messages: 20
   # model: protolabs/fast
 
+# Conversation checkpoint pruning — keeps the SQLite session DB bounded. Keep the
+# latest N checkpoints per chat session; TTL whole sessions idle past
+# max_age_days (0 = never); sweep every prune_interval_hours (0 disables it).
+checkpoint:
+  keep_per_thread: 5
+  max_age_days: 30
+  prune_interval_hours: 6
+
 knowledge:
   db_path: /sandbox/knowledge/security.db
   embed_model: qwen3-embedding:0.6b
