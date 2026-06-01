@@ -110,6 +110,16 @@ knowledge:
   top_k: 10
   search_mode: hybrid
   enrich_chunks: true
+
+# Progressive tool disclosure (ADR 0005). OFF by default. protoPen binds ~80
+# tools; with deferral on, most tool schemas are withheld from the model each
+# turn (every tool stays callable) and the agent loads them on demand via the
+# `search_tools` meta-tool. `keep` overrides the always-exposed base set
+# (orchestration + task/schedule management + search_tools).
+tools:
+  deferred:
+    enabled: false
+    keep: []          # e.g. [task, run_workflow, create_task, search_tools]
 ```
 
 ### Key Sections
@@ -120,6 +130,9 @@ knowledge:
 | `subagents` | Per-subagent tool allowlists, enable/disable, max turns |
 | `middleware` | Toggle knowledge injection, audit logging, memory consolidation |
 | `knowledge` | Embedding model, vector search config, contextual enrichment setting |
+| `skills` | SKILL.md retrieval — enable, dir, db path, top-k |
+| `workflows` | Declarative subagent recipes — enable, writable dir |
+| `tools.deferred` | Progressive tool disclosure (ADR 0005) — `enabled`, `keep` |
 
 ---
 

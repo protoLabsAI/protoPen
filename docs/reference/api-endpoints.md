@@ -370,6 +370,22 @@ Beads status
 
 <!-- END GENERATED API -->
 
+## Operator Console — newer routes
+
+These back the console's Intel / Agents surfaces. They're mounted directly on the
+app (not yet captured in the generated OpenAPI block above) and are
+**operator-key-gated** (`x-api-key`, same as the rest of the console).
+
+| Method · Path | Purpose |
+|---|---|
+| `GET /api/targets?q=&device_type=&limit=` | List discovered hosts with port/finding rollups. |
+| `GET /api/targets/{host_id}` | Full host profile — ports, findings, redacted credentials. |
+| `GET /api/engagements` | Engagement history (from on-disk workspaces). |
+| `GET /api/intel/search?q=&k=` | Unified search across hosts, target findings, and the knowledge store. |
+| `GET /api/workflows` · `POST /api/workflows/{name}/run` | List / run declarative subagent recipes (ADR 0002). |
+| `GET /api/playbooks` · `POST /api/playbooks/{name}/run` | List / fire declarative tool-chain playbooks. Run body: `{"variables": {…}}`. Returns the per-step result; **`409`** when the engagement/scope gate blocks an offensive fire (see [Playbooks](./playbooks.md)). |
+| `GET /api/activity` | Durable Activity-thread history (ADR 0003). |
+
 ## Agent-to-Agent (A2A)
 
 All A2A tasks are fully async. `message/send` and `POST /message:send` return `submitted` in under a second; the LangGraph agent runs in the background. See the [A2A Integration guide](../guides/a2a-integration.md) for full workflow examples.
