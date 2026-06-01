@@ -111,6 +111,14 @@ class LangGraphConfig:
     skills_db_path: str = "/sandbox/skills.db"
     skills_top_k: int = 5
 
+    # Deferred tools (ADR 0005 #3 — progressive tool disclosure). OFF by default.
+    # When on, most tool *schemas* are withheld from the model each turn (every
+    # tool stays callable) and the agent loads them on demand via the
+    # `search_tools` meta-tool. `keep` overrides the always-exposed base set
+    # (orchestration + task/schedule management + search_tools).
+    tools_deferred_enabled: bool = False
+    tools_deferred_keep: list[str] = field(default_factory=list)
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> "LangGraphConfig":
         """Load config from YAML file."""
@@ -152,6 +160,10 @@ class LangGraphConfig:
             skills_dir=(data.get("skills") or {}).get("dir", cls.skills_dir),
             skills_db_path=(data.get("skills") or {}).get("db_path", cls.skills_db_path),
             skills_top_k=(data.get("skills") or {}).get("top_k", cls.skills_top_k),
+            tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
+                "enabled", cls.tools_deferred_enabled
+            ),
+            tools_deferred_keep=list(((data.get("tools") or {}).get("deferred") or {}).get("keep", []) or []),
             compaction_enabled=compaction.get("enabled", cls.compaction_enabled),
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),
