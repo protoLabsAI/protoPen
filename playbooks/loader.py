@@ -58,6 +58,7 @@ def load_playbook_file(path: Path, variables: dict[str, str] | None = None) -> P
         steps=steps,
         variables=merged_vars,
         tags=data.get("tags", []),
+        requires_engagement=bool(data.get("requires_engagement", False)),
     )
 
 

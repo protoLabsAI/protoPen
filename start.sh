@@ -109,4 +109,35 @@ if [ ! -x "$MAIGRET_BIN" ]; then
     fi
 fi
 
+# holehe (OSINT email→accounts recon) — isolated venv (pins httpx/trio). The
+# holehe tool resolves the binary via HOLEHE_BIN. Idempotent; venv in $HOME.
+export HOLEHE_BIN="${HOLEHE_BIN:-$HOME/.holehe-venv/bin/holehe}"
+if [ ! -x "$HOLEHE_BIN" ]; then
+    echo "Installing holehe (OSINT email recon)…"
+    if python3 -m venv "$HOME/.holehe-venv" >/dev/null 2>&1 \
+        && "$HOME/.holehe-venv/bin/pip" install -q holehe >/dev/null 2>&1; then
+        echo "✓ holehe installed ($HOLEHE_BIN)"
+    else
+        echo "WARN: holehe install failed — the holehe tool will be unavailable"
+    fi
+fi
+
+# PhoneInfoga (OSINT phone-number recon) — prebuilt Go binary via the official
+# installer. NOTE: `go install` does NOT work for phoneinfoga v2 (its embedded
+# web client/dist isn't present in the module), so we fetch the release binary.
+# Resolved via PHONEINFOGA_BIN. Idempotent.
+export PHONEINFOGA_BIN="${PHONEINFOGA_BIN:-$HOME/.local/bin/phoneinfoga}"
+if [ ! -x "$PHONEINFOGA_BIN" ]; then
+    echo "Installing phoneinfoga (OSINT phone recon)…"
+    mkdir -p "$HOME/.local/bin"
+    if (cd "$(mktemp -d)" \
+        && curl -sSL https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install | bash \
+        && mv ./phoneinfoga "$PHONEINFOGA_BIN") >/dev/null 2>&1; then
+        chmod +x "$PHONEINFOGA_BIN"
+        echo "✓ phoneinfoga installed ($PHONEINFOGA_BIN)"
+    else
+        echo "WARN: phoneinfoga install failed — the phoneinfoga tool will be unavailable"
+    fi
+fi
+
 exec python server.py "$@"

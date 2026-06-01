@@ -52,6 +52,10 @@ class Playbook:
     steps: list[PlaybookStep] = field(default_factory=list)
     variables: dict[str, str] = field(default_factory=dict)
     tags: list[str] = field(default_factory=list)
+    # Opt-in: require an active engagement (+ scope) to fire, even when every step
+    # is passive (risk 0). Use for passive-but-sensitive playbooks like personal
+    # OSINT, where collection should only happen inside an authorized engagement.
+    requires_engagement: bool = False
 
     @property
     def completed(self) -> bool:

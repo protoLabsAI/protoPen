@@ -30,6 +30,19 @@ RUN python -m venv /opt/maigret-venv \
     && /opt/maigret-venv/bin/pip install --no-cache-dir maigret \
     && ln -s /opt/maigret-venv/bin/maigret /usr/local/bin/maigret
 
+# holehe (OSINT email→accounts recon) — isolated venv (pins httpx/trio). The
+# holehe tool resolves the binary via HOLEHE_BIN / PATH (/usr/local/bin/holehe).
+RUN python -m venv /opt/holehe-venv \
+    && /opt/holehe-venv/bin/pip install --no-cache-dir holehe \
+    && ln -s /opt/holehe-venv/bin/holehe /usr/local/bin/holehe
+
+# PhoneInfoga (OSINT phone-number recon) — prebuilt Go binary via the official
+# installer (no Go toolchain needed in the image). Resolved via PATH / PHONEINFOGA_BIN.
+RUN cd /tmp \
+    && curl -sSL https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install | bash \
+    && mv /tmp/phoneinfoga /usr/local/bin/phoneinfoga \
+    && chmod +x /usr/local/bin/phoneinfoga
+
 
 # Install Python deps
 RUN pip install --no-cache-dir \

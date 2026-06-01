@@ -100,7 +100,7 @@ def list_playbooks_for_console() -> dict[str, Any]:
                 "description": pb.description or summary.get("description", ""),
                 "tags": tags,
                 "mode": _RISK_MODE.get(risk, "passive"),
-                "requires_engagement": risk > 0,
+                "requires_engagement": risk > 0 or bool(getattr(pb, "requires_engagement", False)),
                 "variables": dict(pb.variables or {}),
                 "steps": [{"name": s.name, "tool": s.tool, "action": s.action} for s in pb.steps],
             }
@@ -135,16 +135,24 @@ def _scope_config_from_string(scope: str) -> dict:
 
 def _enforce_gate(playbook, engagement_mgr) -> str:
     """Raise PlaybookGateError if this manual fire isn't permitted; return the
-    playbook's mode name. Passive playbooks always pass."""
+    playbook's mode name. Passive playbooks pass unless they self-declare
+    ``requires_engagement`` (e.g. personal OSINT — passive tools, but collection
+    must happen inside an authorized, scoped engagement)."""
     risk = _playbook_risk(playbook.steps, getattr(playbook, "tags", ()))
     mode_name = _RISK_MODE.get(risk, "passive")
-    if risk <= 0:
-        return mode_name  # passive — always allowed
+    needs_engagement = risk > 0 or getattr(playbook, "requires_engagement", False)
+    if not needs_engagement:
+        return mode_name  # passive and engagement-free — always allowed
 
     active = getattr(engagement_mgr, "active_engagement", None) if engagement_mgr else None
     if not active:
+        detail = (
+            f"This playbook runs {mode_name} tools"
+            if risk > 0
+            else "This playbook collects OSINT on a personal/in-scope target"
+        )
         raise PlaybookGateError(
-            f"This playbook runs {mode_name} tools — start an engagement (active/redteam mode) before firing it from the console."
+            f"{detail} — start an engagement (with the target recorded in scope) before firing it from the console."
         )
 
     eng_mode = getattr(engagement_mgr, "mode", None)
