@@ -16,6 +16,7 @@ Slash commands available in the protoPen chat UI. These are handled locally befo
 | `/recent [n]` | optional count (default 10) | Show recent advisories and threat intel. |
 | `/audit [n]` | optional count (default 20) | Show recent audit log entries for the current session with tool name, duration, and status. |
 | `/intel` | -- | Generate a weekly threat intel digest and publish it to Discord via the configured webhook. |
+| `/goal <condition>` | text, or a JSON `{condition, verifier}` spec | Set an autonomous goal — the agent is re-invoked each turn until a verifier passes. `/goal` alone shows status; `/goal clear` stops it. See [Goals](goals.md). |
 | `/help` | -- | Show the command help table. |
 
 ::: tip

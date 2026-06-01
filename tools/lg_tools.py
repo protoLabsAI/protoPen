@@ -16,6 +16,7 @@ from langchain_core.tools import tool
 import asyncio
 import json
 import os
+import re
 import threading
 
 from tools.cve_search import CVESearchTool
@@ -703,6 +704,7 @@ async def set_goal(
     severity: str = "",
     category: str = "",
     min_count: int = 1,
+    target: str = "",
 ) -> str:
     """Commit to an autonomous goal — keep working across turns until a verifier
     confirms it's met (or the iteration budget runs out).
@@ -719,13 +721,16 @@ async def set_goal(
         verifier: How completion is checked —
             "findings" (≥ min_count engagement findings; pair with severity/category),
             "targets" (≥ min_count discovered hosts; ``category`` filters host text),
-            "task" (every tracked beads task is done), or
+            "task" (a tracked beads task is done — scope with ``target``), or
             "llm" (an evaluator judges the condition — the default, for fuzzy goals).
         severity: For verifier="findings": minimum severity
             (info|low|medium|high|critical).
         category: For "findings": finding-category substring. For "targets":
             free-text host filter (ip/hostname/os/device_type/…).
         min_count: Minimum matching findings/hosts required (default 1).
+        target: For verifier="task": which task must be done — a task id
+            (e.g. "protopen-15t", exact) or a title substring. Omit to require that
+            *every* tracked task is done.
     """
     if _goal_controller is None:
         return "Error: goal mode is not available."
@@ -752,9 +757,14 @@ async def set_goal(
         if category.strip():
             spec["query"] = category.strip()
         spec["min"] = max(1, int(min_count or 1))
+    elif vtype == "task" and target.strip():
+        # A beads id (prefix-hash, e.g. "protopen-15t") → exact match; anything
+        # else is treated as a title substring.
+        ref = target.strip()
+        spec["id" if re.fullmatch(r"[a-z][a-z0-9]*-[a-z0-9]+", ref) else "title"] = ref
 
     try:
-        state = await asyncio.to_thread(_goal_controller.program_set, session_id, condition.strip(), spec)
+        state = await asyncio.to_thread(_goal_controller.start_goal, session_id, condition.strip(), spec)
     except Exception as exc:  # noqa: BLE001
         return f"Error: could not set goal: {exc}"
     return (

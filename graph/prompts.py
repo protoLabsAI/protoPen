@@ -13,11 +13,31 @@ from typing import Union
 from graph.subagents.config import SUBAGENT_REGISTRY
 
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent  # graph/ → repo root
+
+
 def _read_file(path: Union[str, Path]) -> str:
     """Read a file if it exists, return empty string otherwise."""
     p = Path(path)
     if p.exists():
         return p.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def _read_soul(workspace: str) -> str:
+    """SOUL.md identity — try the workspace copy first, then the repo's
+    ``config/SOUL.md``.
+
+    The workspace copy is NOT reliably populated: native ``start.sh`` symlinks
+    ``/sandbox`` but copies no SOUL, and the Docker entrypoint copies skills but
+    not SOUL. Without the ``config/SOUL.md`` fallback the agent silently runs on a
+    3-line stub identity instead of its full operating doc (engagement modes,
+    opsec mandates, response structure, goal mode, …).
+    """
+    for candidate in (Path(workspace) / "SOUL.md", _REPO_ROOT / "config" / "SOUL.md"):
+        text = _read_file(candidate)
+        if text:
+            return text
     return ""
 
 
@@ -30,8 +50,8 @@ def build_system_prompt(
     """Build the complete system prompt for the lead agent."""
     parts = []
 
-    # 1. Identity from SOUL.md
-    soul = _read_file(f"{workspace}/SOUL.md")
+    # 1. Identity from SOUL.md (workspace copy, else the repo's config/SOUL.md)
+    soul = _read_soul(workspace)
     if soul:
         parts.append(soul)
     else:

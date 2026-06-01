@@ -15,6 +15,7 @@ Complete technical reference for the protoPen API, tools, and configuration.
 
 - **[Tools](./tools.md)** -- All agent tools and their actions.
 - **[Playbooks](./playbooks.md)** -- Declarative tool-chain recipes, modes, and the operator firing gate.
+- **[Goals (Autonomy)](./goals.md)** -- Verifier-backed goal mode: `/goal`, the `set_goal` tool, and the re-invocation loop.
 - **[Target Intel](./target-intel.md)** -- Target intelligence database schema (9 SQLite tables).
 
 ## Configuration
