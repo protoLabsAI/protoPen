@@ -2720,3 +2720,17 @@ textarea {
 .primary-button.danger:hover {
   background: color-mix(in srgb, var(--error) 26%, transparent);
 }
+
+/* Notes/Beads load gate: fill the panel body and guide the operator to set a
+   project path when no workspace is loaded. */
+.notes-empty {
+  grid-row: 2 / -1;
+  padding: 20px;
+}
+
+.notes-empty-hint {
+  max-width: 280px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}

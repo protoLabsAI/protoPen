@@ -1315,7 +1315,7 @@ export function App() {
             <input
               value={projectPath}
               onChange={(event) => setProjectPath(event.target.value)}
-              placeholder="Project path"
+              placeholder="Project path (host folder, e.g. /home/deck/protoPen)"
             />
             <button className="icon-button" type="button" onClick={() => void loadProject()} title="Load project">
               {notesBusy || beadsBusy ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
@@ -1440,51 +1440,71 @@ export function App() {
                 </div>
               </div>
               {workspace ? (
-                <div className="notes-tabbar">
-                  {workspace.tabOrder.map((tabId) => {
-                    const tab = workspace.tabs[tabId];
-                    if (!tab) return null;
-                    const active = tab.id === workspace.activeTabId;
-                    return (
-                      <button className={active ? "active" : ""} type="button" key={tab.id} onClick={() => updateWorkspace({ ...workspace, activeTabId: tab.id })}>
-                        {tab.name || "Notes"}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-              {activeTab ? (
-                <div className="notes-meta">
-                  <input
-                    value={activeTab.name}
-                    onChange={(event) => renameActiveNote(event.target.value)}
-                    aria-label="Note name"
+                <>
+                  <div className="notes-tabbar">
+                    {workspace.tabOrder.map((tabId) => {
+                      const tab = workspace.tabs[tabId];
+                      if (!tab) return null;
+                      const active = tab.id === workspace.activeTabId;
+                      return (
+                        <button className={active ? "active" : ""} type="button" key={tab.id} onClick={() => updateWorkspace({ ...workspace, activeTabId: tab.id })}>
+                          {tab.name || "Notes"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {activeTab ? (
+                    <div className="notes-meta">
+                      <input
+                        value={activeTab.name}
+                        onChange={(event) => renameActiveNote(event.target.value)}
+                        aria-label="Note name"
+                      />
+                      <label className="checkbox-field">
+                        <input
+                          type="checkbox"
+                          checked={activeTab.permissions.agentRead}
+                          onChange={(event) => toggleActiveNotePermission("agentRead", event.target.checked)}
+                        />
+                        <span>Agent read</span>
+                      </label>
+                      <label className="checkbox-field">
+                        <input
+                          type="checkbox"
+                          checked={activeTab.permissions.agentWrite}
+                          onChange={(event) => toggleActiveNotePermission("agentWrite", event.target.checked)}
+                        />
+                        <span>Agent write</span>
+                      </label>
+                    </div>
+                  ) : null}
+                  <textarea
+                    className="notes-editor"
+                    value={activeTab?.content || ""}
+                    onChange={(event) => saveActiveNote(event.target.value)}
+                    placeholder="Project notes"
                   />
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={activeTab.permissions.agentRead}
-                      onChange={(event) => toggleActiveNotePermission("agentRead", event.target.checked)}
-                    />
-                    <span>Agent read</span>
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={activeTab.permissions.agentWrite}
-                      onChange={(event) => toggleActiveNotePermission("agentWrite", event.target.checked)}
-                    />
-                    <span>Agent write</span>
-                  </label>
+                </>
+              ) : (
+                <div className="empty-state stacked notes-empty">
+                  <FileText size={20} />
+                  <span>Notes are saved per project.</span>
+                  <span className="notes-empty-hint">
+                    {projectPath.trim()
+                      ? "Load this project to open its notes."
+                      : "Enter a project path above — a folder on the host (e.g. /home/deck/protoPen) — then load."}
+                  </span>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => void loadProject()}
+                    disabled={!projectPath.trim() || notesBusy}
+                  >
+                    {notesBusy ? <Loader2 className="spin" size={15} /> : <RefreshCw size={15} />}
+                    Load project
+                  </button>
                 </div>
-              ) : null}
-              <textarea
-                className="notes-editor"
-                value={activeTab?.content || ""}
-                onChange={(event) => saveActiveNote(event.target.value)}
-                placeholder="Project notes"
-                disabled={!workspace}
-              />
+              )}
             </section>
           ) : null}
 
