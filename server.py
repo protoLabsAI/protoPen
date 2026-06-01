@@ -1437,6 +1437,16 @@ def _main():
 
     _set_scheduler(_scheduler)
 
+    # Let the agent's create_task / list_tasks / update_task / close_task tools
+    # track long-running work in beads. Defaults to this repo's .beads/ store so
+    # agent tasks and the console Beads panel share one tracker; override with
+    # PROTOPEN_BEADS_PATH.
+    from operator_api.beads import BeadsService as _BeadsService
+    from tools.lg_tools import set_beads as _set_beads
+
+    _beads_path = os.environ.get("PROTOPEN_BEADS_PATH") or str(Path(__file__).parent)
+    _set_beads(_BeadsService(), _beads_path)
+
     @fastapi_app.on_event("startup")
     async def _start_scheduler():
         try:
