@@ -2658,3 +2658,65 @@ textarea {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* ── Confirm dialog (custom, replaces window.confirm) ────────────── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(8, 8, 10, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-card {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+.confirm-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.confirm-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.confirm-icon-danger {
+  flex: 0 0 auto;
+  color: var(--error);
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--fg-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.primary-button.danger {
+  border-color: var(--error);
+  background: color-mix(in srgb, var(--error) 16%, transparent);
+  color: var(--error);
+}
+
+.primary-button.danger:hover {
+  background: color-mix(in srgb, var(--error) 26%, transparent);
+}

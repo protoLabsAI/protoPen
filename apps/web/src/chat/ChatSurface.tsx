@@ -2,6 +2,7 @@ import { Loader2, MessageSquarePlus, Send, Square, TerminalSquare, X } from "luc
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../lib/api";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import type { ChatMessage, SlashCommand } from "../lib/types";
 import { chatStore, MAX_ACTIVE_SESSIONS, useChatState } from "./chat-store";
 import { Markdown } from "./LazyMarkdown";
@@ -20,6 +21,10 @@ export function ChatSurface({ onError }: { onError: (message: string) => void })
   const chat = useChatState();
   const currentSession = chat.sessions.find((session) => session.id === chat.currentSessionId) || null;
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingDelete = pendingDeleteId
+    ? chat.sessions.find((session) => session.id === pendingDeleteId) || null
+    : null;
 
   useEffect(() => {
     if (!chat.currentSessionId && chat.sessions.length === 0) {
@@ -73,7 +78,7 @@ export function ChatSurface({ onError }: { onError: (message: string) => void })
                   className="chat-tab-close"
                   title="Delete session"
                   disabled={status === "streaming"}
-                  onClick={() => chatStore.deleteSession(session.id)}
+                  onClick={() => setPendingDeleteId(session.id)}
                 >
                   <X size={13} />
                 </button>
@@ -103,6 +108,22 @@ export function ChatSurface({ onError }: { onError: (message: string) => void })
           />
         ))}
       </div>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete session?"
+        message={
+          pendingDelete
+            ? `“${pendingDelete.title}” and its messages will be permanently removed. This can't be undone.`
+            : undefined
+        }
+        confirmLabel="Delete session"
+        onConfirm={() => {
+          if (pendingDeleteId) chatStore.deleteSession(pendingDeleteId);
+          setPendingDeleteId(null);
+        }}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </section>
   );
 }
