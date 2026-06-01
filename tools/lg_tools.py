@@ -543,6 +543,137 @@ async def cancel_schedule(job_id: str) -> str:
     return f"Canceled {job_id}." if ok else f"Error: cancel failed or no such job {job_id}."
 
 
+# ── Task-tracker tools (beads / `br`) ─────────────────────────────────────────
+# The agent's durable to-do list for long-running, multi-step work — distinct
+# from schedule_task (time-based future turns) and subagent delegation (one-shot).
+# Bound to a BeadsService + project dir via set_beads() at server startup; bodies
+# read the globals lazily so they work with a graph built before wiring.
+
+_beads_service = None  # operator_api.beads.BeadsService
+_beads_project_path = ""  # directory holding the .beads/ store
+
+
+def set_beads(service, project_path: str) -> None:
+    """Wire the live beads task tracker for the agent's task tools."""
+    global _beads_service, _beads_project_path
+    _beads_service = service
+    _beads_project_path = project_path or ""
+
+
+def _beads_unavailable() -> str | None:
+    if _beads_service is None or not _beads_project_path:
+        return "Error: task tracker (beads) is not available."
+    return None
+
+
+def _fmt_task(issue: dict) -> str:
+    return f"{issue.get('id', '?')} [{issue.get('status', '?')}] p{issue.get('priority', '?')} {issue.get('title', '')}".rstrip()
+
+
+@tool
+async def create_task(title: str, description: str = "", priority: int = 2, task_type: str = "task") -> str:
+    """Track a long-running or multi-step task in the persistent tracker (beads).
+
+    Use this to remember intent across turns — e.g. "monitor 10.0.0.0/24 for new
+    hosts", "finish the web-app assessment", "follow up on the SMB finding". This
+    is durable to-do tracking, distinct from schedule_task (fires a future turn at
+    a set time) and from delegating a one-shot subagent. Manage tasks afterwards
+    with list_tasks / update_task / close_task.
+
+    Args:
+        title: Short imperative summary of the task.
+        description: Optional detail — scope, acceptance criteria, next steps.
+        priority: 0 (highest) … 4 (lowest); default 2.
+        task_type: task | feature | bug | epic | chore (default "task").
+    """
+    err = _beads_unavailable()
+    if err:
+        return err
+    if not title.strip():
+        return "Error: title is required."
+    try:
+        issue = await asyncio.to_thread(
+            _beads_service.create,
+            _beads_project_path,
+            {"title": title, "description": description, "priority": priority, "type": task_type},
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not create task: {exc}"
+    return f"Created task {issue.get('id', '?')} — {issue.get('title', title)}"
+
+
+@tool
+async def list_tasks(status: str = "") -> str:
+    """List tracked tasks. Optionally filter by status (open, in_progress, blocked,
+    closed). Use to recall outstanding work before deciding what to do next.
+    Returns "No tasks." when empty.
+
+    Args:
+        status: Optional status filter; empty = all tasks.
+    """
+    err = _beads_unavailable()
+    if err:
+        return err
+    try:
+        issues = await asyncio.to_thread(_beads_service.list, _beads_project_path)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not list tasks: {exc}"
+    if status.strip():
+        issues = [i for i in issues if str(i.get("status", "")) == status.strip()]
+    if not issues:
+        return "No tasks." if not status.strip() else f"No tasks with status {status!r}."
+    return "\n".join(_fmt_task(i) for i in issues[:50])
+
+
+@tool
+async def update_task(task_id: str, status: str = "", priority: int | None = None) -> str:
+    """Advance or re-prioritize a tracked task — set its status (open →
+    in_progress → closed, or blocked) and/or its priority.
+
+    Args:
+        task_id: The task id from create_task / list_tasks (e.g. "protopen-15t").
+        status: New status — open | in_progress | blocked | closed.
+        priority: New priority 0 (highest) … 4 (lowest).
+    """
+    err = _beads_unavailable()
+    if err:
+        return err
+    if not task_id.strip():
+        return "Error: task_id is required."
+    update: dict = {}
+    if status.strip():
+        update["status"] = status.strip()
+    if priority is not None:
+        update["priority"] = priority
+    if not update:
+        return "Error: nothing to update — provide status and/or priority."
+    try:
+        issue = await asyncio.to_thread(_beads_service.update, _beads_project_path, task_id, update)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not update task: {exc}"
+    return f"Updated {issue.get('id', task_id)} → status={issue.get('status', '?')} p{issue.get('priority', '?')}"
+
+
+@tool
+async def close_task(task_id: str, reason: str = "") -> str:
+    """Mark a tracked task done/closed once its work is complete.
+
+    Args:
+        task_id: The task id to close.
+        reason: Optional short note on the outcome.
+    """
+    err = _beads_unavailable()
+    if err:
+        return err
+    if not task_id.strip():
+        return "Error: task_id is required."
+    try:
+        await asyncio.to_thread(_beads_service.close, _beads_project_path, task_id, reason or None)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not close task: {exc}"
+    return f"Closed task {task_id}." + (f" ({reason})" if reason else "")
+
+
 def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
@@ -555,6 +686,10 @@ def get_security_tools(knowledge_store=None):
         schedule_task,
         list_schedules,
         cancel_schedule,
+        create_task,
+        list_tasks,
+        update_task,
+        close_task,
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)
