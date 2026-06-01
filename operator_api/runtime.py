@@ -75,10 +75,10 @@ def build_runtime_status(
             "backend": getattr(scheduler, "name", "disabled") if scheduler else "disabled",
         },
         "goal": {
-            "enabled": bool(getattr(config, "goal_enabled", False)),
+            "enabled": bool(getattr(config, "goals_enabled", False)),
             "controller_loaded": goal_controller is not None,
-            "max_iterations": getattr(config, "goal_max_iterations", None),
-            "no_progress_limit": getattr(config, "goal_no_progress_limit", None),
+            "max_iterations": getattr(config, "goals_max_iterations", None),
+            "no_progress_limit": getattr(config, "goals_no_progress_limit", None),
         },
         "cache_warmer": {
             "enabled": bool(getattr(config, "cache_warming_enabled", False)),
