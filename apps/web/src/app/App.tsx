@@ -10,6 +10,7 @@ import {
   Database,
   FileText,
   Gauge,
+  ListChecks,
   Loader2,
   MessageSquare,
   GraduationCap,
@@ -34,6 +35,7 @@ import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 
 import { ActivitySurface } from "../activity/ActivitySurface";
 import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
+import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
 import { IntelSurface } from "../targets/IntelSurface";
 import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
@@ -58,7 +60,7 @@ import { SetupWizard } from "../setup/SetupWizard";
 // group tab bar in the stage — keeps the rail to four entries.
 type Surface = "chat" | "intel" | "agents" | "system";
 type ChatTab = "conversation" | "activity";
-type AgentsTab = "subagents" | "workflows";
+type AgentsTab = "subagents" | "workflows" | "playbooks";
 type SystemTab = "status" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
@@ -996,7 +998,7 @@ export function App() {
             </>
           ) : null}
 
-          {/* ── Agents group: Subagents · Workflows ──────────────── */}
+          {/* ── Agents group: Subagents · Workflows · Playbooks ───── */}
           {surface === "agents" ? (
             <>
               <div className="group-tabs" role="tablist">
@@ -1006,9 +1008,14 @@ export function App() {
                 <button role="tab" aria-selected={agentsTab === "workflows"} className={agentsTab === "workflows" ? "active" : ""} onClick={() => setAgentsTab("workflows")}>
                   <WorkflowIcon size={14} /> Workflows
                 </button>
+                <button role="tab" aria-selected={agentsTab === "playbooks"} className={agentsTab === "playbooks" ? "active" : ""} onClick={() => setAgentsTab("playbooks")}>
+                  <ListChecks size={14} /> Playbooks
+                </button>
               </div>
 
               {agentsTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
+
+              {agentsTab === "playbooks" ? <PlaybooksSurface onError={setError} /> : null}
 
               {agentsTab === "subagents" ? (
             <section className="panel stage-panel">

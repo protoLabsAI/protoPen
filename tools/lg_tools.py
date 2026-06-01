@@ -1791,21 +1791,22 @@ async def playbook(
     """
     _init_pentest_singletons()
 
-    async def _dispatch(tool_name: str, action_name: str, params: dict) -> str:
-        """Dispatch a tool call from the playbook runner."""
-        from tools.lg_tools import get_pentest_tools
-
-        for t in get_pentest_tools():
-            if t.name == tool_name:
-                return await t.ainvoke({"action": action_name, **params})
-        return f"Error: Tool '{tool_name}' not found"
-
     return await execute_playbook_action(
         action=action,
         name=name,
         variables=variables,
-        dispatch_fn=_dispatch,
+        dispatch_fn=dispatch_pentest_tool,
     )
+
+
+async def dispatch_pentest_tool(tool_name: str, action_name: str, params: dict) -> str:
+    """Dispatch one tool call for the playbook runner — invoke the named pentest
+    tool with ``{action, **params}``. Shared by the agent's ``playbook`` tool and
+    the operator's manual playbook run so both use identical step semantics."""
+    for t in get_pentest_tools():
+        if t.name == tool_name:
+            return await t.ainvoke({"action": action_name, **params})
+    return f"Error: Tool '{tool_name}' not found"
 
 
 @tool
