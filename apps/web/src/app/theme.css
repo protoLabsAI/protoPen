@@ -215,11 +215,6 @@ h2 {
   background: color-mix(in srgb, var(--accent, #7c8cff) 45%, transparent);
 }
 
-/* Dim a collapse toggle when its panel is hidden. */
-.icon-button.is-off {
-  color: var(--fg-muted);
-}
-
 .rail button {
   min-height: 48px;
   display: flex;
@@ -2932,6 +2927,8 @@ textarea {
   flex: none;
 }
 
+/* When a panel is collapsed its toggle accents (not dims) — the label reads
+   "Show …", so the highlight draws the eye to the restore affordance. */
 .util-btn.is-off {
-  color: var(--accent, #7c8cff);
+  color: var(--accent);
 }
