@@ -41,6 +41,29 @@ def test_load_skills_surfaces_tools_used(tmp_path):
     assert hits["noted"].tools_used == ()
 
 
+def test_all_skills_lists_with_source_and_tools(tmp_path):
+    """The console's Skills surface browses disk + emitted skills with their
+    declared tools and source."""
+    idx = SkillsIndex(str(tmp_path / "s.db"))
+    idx.add_skill("recon", "recon a host or network", "b", ["nmap_scan"], source="disk")
+    idx.add_emitted_skill("pivot", "pivot over smb shares", "b")
+    rows = {s["name"]: s for s in idx.all_skills()}
+    assert rows["recon"]["source"] == "disk" and rows["recon"]["tools"] == ["nmap_scan"]
+    assert rows["pivot"]["source"] == "emitted" and rows["pivot"]["tools"] == []
+    assert [s["name"] for s in idx.all_skills("recon network")] == ["recon"]
+
+
+def test_list_skills_for_console_handles_missing_index():
+    from operator_api.skills import list_skills_for_console
+
+    assert list_skills_for_console(None) == {"enabled": False, "count": 0, "skills": []}
+    # With an index → enabled + the rows.
+    idx = SkillsIndex(":memory:")
+    idx.add_skill("a", "desc", "b")
+    out = list_skills_for_console(idx)
+    assert out["enabled"] is True and out["count"] == 1
+
+
 def test_index_clear_source_reseeds(tmp_path):
     idx = SkillsIndex(str(tmp_path / "s.db"))
     idx.add_skill("a", "desc one", "body")

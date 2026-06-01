@@ -993,6 +993,9 @@ export function App() {
                 <button role="tab" aria-selected={intelTab === "engagements"} className={intelTab === "engagements" ? "active" : ""} onClick={() => setIntelTab("engagements")}>
                   <ScrollText size={14} /> Engagements
                 </button>
+                <button role="tab" aria-selected={intelTab === "skills"} className={intelTab === "skills" ? "active" : ""} onClick={() => setIntelTab("skills")}>
+                  <GraduationCap size={14} /> Skills
+                </button>
               </div>
               <IntelSurface tab={intelTab} onError={setError} />
             </>
@@ -1012,6 +1015,13 @@ export function App() {
                   <ListChecks size={14} /> Playbooks
                 </button>
               </div>
+              <p className="group-subhead">
+                {agentsTab === "subagents"
+                  ? "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."
+                  : agentsTab === "workflows"
+                    ? "Orchestration — a saved recipe of subagent steps (judgment per step)."
+                    : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
+              </p>
 
               {agentsTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
 

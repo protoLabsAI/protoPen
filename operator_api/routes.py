@@ -93,6 +93,7 @@ def register_operator_routes(
     engagement_report: Callable[[], dict[str, Any]] | None = None,
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
+    skills_list: Callable[[str], dict[str, Any]] | None = None,
     targets_list: Callable[[str, str, int], dict[str, Any]] | None = None,
     target_get: Callable[[int], dict[str, Any]] | None = None,
     engagements_list: Callable[[], dict[str, Any]] | None = None,
@@ -183,6 +184,15 @@ def register_operator_routes(
             return {"query": q, "table": table, "count": 0, "hits": []}
         try:
             return await asyncio.to_thread(knowledge_search, q, k, table)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/skills", summary="List/search learned skills")
+    async def _skills_list(q: str = ""):
+        if skills_list is None:
+            return {"enabled": False, "count": 0, "skills": []}
+        try:
+            return await asyncio.to_thread(skills_list, q)
         except Exception as exc:
             raise _http_error(exc) from exc
 

@@ -80,6 +80,7 @@ export default defineConfig({
           items: [
             { text: "Overview", link: "/explanation/" },
             { text: "Architecture", link: "/explanation/architecture" },
+            { text: "The Control Stack", link: "/explanation/control-stack" },
             {
               text: "Knowledge Search",
               link: "/explanation/knowledge-search",

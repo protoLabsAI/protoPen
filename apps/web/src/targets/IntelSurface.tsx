@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  GraduationCap,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -16,16 +17,16 @@ import type {
   EngagementHistoryItem,
   IntelHit,
   KnowledgeHit,
+  SkillSummary,
   TargetDetail,
   TargetSummary,
 } from "../lib/types";
 
-// Intel surface — the consolidated home for everything the agent has captured.
-// The rail picks the "Intel" group; the group tab bar (in App) drives `tab`:
-//   targets · search · knowledge · engagements
-// Read-only over the target + knowledge stores; the agent's behaviour is untouched.
+// Intel surface — the consolidated home for everything the agent has captured +
+// learned. The rail picks the "Intel" group; the group tab bar (in App) drives
+// `tab`: targets · search · knowledge · engagements · skills. Read-only.
 
-export type IntelTab = "targets" | "search" | "knowledge" | "engagements";
+export type IntelTab = "targets" | "search" | "knowledge" | "engagements" | "skills";
 
 const DEVICE_TYPES = ["", "host", "router", "phone", "iot", "unknown"];
 
@@ -34,6 +35,7 @@ const HEADERS: Record<IntelTab, { title: string; kicker: string }> = {
   search: { title: "Intel search", kicker: "hosts · captured findings · knowledge base" },
   knowledge: { title: "Knowledge", kicker: "hybrid search · cve / exploit / advisory intel" },
   engagements: { title: "Engagements", kicker: "past assessments · severity rollups" },
+  skills: { title: "Skills", kicker: "learned methodology (memory) — SKILL.md + agent-emitted" },
 };
 
 function sevClass(severity: string): string {
@@ -66,6 +68,11 @@ export function IntelSurface({ tab, onError }: { tab: IntelTab; onError: (messag
   // ── Engagement history ───────────────────────────────────────────
   const [engagements, setEngagements] = useState<EngagementHistoryItem[] | null>(null);
   const [engBusy, setEngBusy] = useState(false);
+
+  // ── Skills (learned methodology) ─────────────────────────────────
+  const [skillQuery, setSkillQuery] = useState("");
+  const [skills, setSkills] = useState<SkillSummary[] | null>(null);
+  const [skillsBusy, setSkillsBusy] = useState(false);
 
   async function loadTargets() {
     setTargetsBusy(true);
@@ -138,16 +145,30 @@ export function IntelSurface({ tab, onError }: { tab: IntelTab; onError: (messag
     }
   }
 
+  async function loadSkills() {
+    setSkillsBusy(true);
+    try {
+      const r = await api.skills(skillQuery);
+      setSkills(r.skills);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSkillsBusy(false);
+    }
+  }
+
   // Lazy-load each tab's data the first time it's opened.
   useEffect(() => {
     if (tab === "targets" && targets === null) void loadTargets();
     if (tab === "engagements" && engagements === null) void loadEngagements();
+    if (tab === "skills" && skills === null) void loadSkills();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = () => {
     if (tab === "targets") void loadTargets();
     else if (tab === "engagements") void loadEngagements();
     else if (tab === "knowledge") void runKnowledgeSearch();
+    else if (tab === "skills") void loadSkills();
     else void runIntelSearch();
   };
 
@@ -420,6 +441,65 @@ export function IntelSurface({ tab, onError }: { tab: IntelTab; onError: (messag
               </div>
             )}
           </div>
+        ) : null}
+
+        {/* ── Skills (learned methodology / memory) ───────────────── */}
+        {tab === "skills" ? (
+          <>
+            <form
+              className="knowledge-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void loadSkills();
+              }}
+            >
+              <input
+                value={skillQuery}
+                onChange={(event) => setSkillQuery(event.target.value)}
+                placeholder="Search learned skills…"
+                aria-label="Skill query"
+                autoFocus
+              />
+              <button className="primary-button" type="submit" disabled={skillsBusy}>
+                {skillsBusy ? <Loader2 className="spin" size={16} /> : <Search size={16} />}
+                Search
+              </button>
+            </form>
+
+            <div className="eng-list">
+              {skills && skills.length ? (
+                skills.map((s) => (
+                  <article className="skill-card" key={s.name}>
+                    <div className="skill-head">
+                      <span className="skill-name">{s.name}</span>
+                      <span className={`skill-source ${s.source === "emitted" ? "emitted" : "disk"}`}>{s.source}</span>
+                    </div>
+                    {s.description ? <p className="skill-desc">{s.description}</p> : null}
+                    {s.tools.length ? (
+                      <div className="skill-tools">
+                        {s.tools.map((t) => (
+                          <span className="tag-chip" key={t}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state stacked">
+                  <GraduationCap size={18} />
+                  <span>
+                    {skillsBusy
+                      ? "Loading skills…"
+                      : skills
+                        ? "No skills match."
+                        : "No learned skills yet — drop a SKILL.md or let the agent emit one."}
+                  </span>
+                </div>
+              )}
+            </div>
+          </>
         ) : null}
       </div>
     </section>

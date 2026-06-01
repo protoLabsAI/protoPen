@@ -13,6 +13,7 @@ import type {
   KnowledgeSearchResult,
   PlaybookRunResult,
   PlaybookSummary,
+  SkillSummary,
   TargetDetail,
   TargetSummary,
   NotesWorkspace,
@@ -342,6 +343,11 @@ export const api = {
 
   target(hostId: number) {
     return request<TargetDetail>(`/api/targets/${encodeURIComponent(String(hostId))}`);
+  },
+
+  skills(query = "") {
+    const qs = query ? `?q=${encodeURIComponent(query)}` : "";
+    return request<{ enabled: boolean; count: number; skills: SkillSummary[] }>(`/api/skills${qs}`);
   },
 
   engagementsHistory() {

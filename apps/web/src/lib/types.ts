@@ -349,6 +349,14 @@ export type IntelSearchResult = {
   hits: IntelHit[];
 };
 
+// Skills — retrieved methodology memory (SKILL.md + agent-emitted).
+export type SkillSummary = {
+  name: string;
+  description: string;
+  tools: string[];
+  source: string; // "disk" | "emitted"
+};
+
 // Playbooks — declarative tool-chain recipes (playbooks/library/*.yaml).
 export type PlaybookStepInfo = { name: string; tool: string; action: string };
 

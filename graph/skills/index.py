@@ -111,3 +111,30 @@ class SkillsIndex:
 
     def count(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
+
+    def all_skills(self, query: str = "", limit: int = 200) -> list[dict]:
+        """List skills for the operator console — name, description, declared
+        tools, and source (disk vs emitted). Newest-ish first, or relevance-ranked
+        when a query is given. Never raises into the caller."""
+        q = (query or "").strip()
+        try:
+            if q:
+                match = _build_match_query(q)
+                if not match:
+                    return []
+                rows = self._conn.execute(
+                    "SELECT name, description, tools_used, source FROM skills "
+                    "WHERE skills MATCH ? ORDER BY bm25(skills) LIMIT ?",
+                    (match, max(1, int(limit))),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT name, description, tools_used, source FROM skills LIMIT ?",
+                    (max(1, int(limit)),),
+                ).fetchall()
+        except sqlite3.OperationalError as exc:
+            log.debug("[skills] all_skills failed: %s", exc)
+            return []
+        return [
+            {"name": r[0], "description": r[1], "tools": (r[2] or "").split(), "source": r[3] or "disk"} for r in rows
+        ]
