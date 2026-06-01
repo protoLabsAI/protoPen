@@ -1,12 +1,4 @@
-import {
-  Loader2,
-  MessageSquarePlus,
-  MoreHorizontal,
-  Send,
-  Square,
-  TerminalSquare,
-  Trash2,
-} from "lucide-react";
+import { Loader2, MessageSquarePlus, Send, Square, TerminalSquare, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../lib/api";
@@ -27,6 +19,7 @@ function useSession(sessionId: string) {
 export function ChatSurface({ onError }: { onError: (message: string) => void }) {
   const chat = useChatState();
   const currentSession = chat.sessions.find((session) => session.id === chat.currentSessionId) || null;
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!chat.currentSessionId && chat.sessions.length === 0) {
@@ -34,40 +27,70 @@ export function ChatSurface({ onError }: { onError: (message: string) => void })
     }
   }, [chat.currentSessionId, chat.sessions.length]);
 
+  const atSessionCap = chat.sessions.length >= MAX_ACTIVE_SESSIONS;
+
+  // One toolbar: a tab per session (status dot · title · close), then "+ New".
+  // Double-click a tab to rename it inline. Replaces the old triple-stacked
+  // header (title block + tab strip + per-slot title/id/status row).
   return (
     <section className="panel stage-panel chat-stage">
-      <div className="chat-header">
-        <div className="chat-title-group">
-          <h1>Chat</h1>
-          <p className="panel-kicker">
-            {chat.activeSessions.length}/{MAX_ACTIVE_SESSIONS} mounted
-          </p>
+      <div className="chat-header" role="tablist" aria-label="Chat sessions">
+        <div className="chat-session-tabs">
+          {chat.sessions.map((session) => {
+            const active = session.id === chat.currentSessionId;
+            const status = chat.sessionStatusMap[session.id] || "idle";
+            const editing = editingId === session.id;
+            return (
+              <div className={`chat-tab ${active ? "active" : ""}`} key={session.id}>
+                <span className={`session-dot ${status}`} title={status} />
+                {editing ? (
+                  <input
+                    className="chat-tab-rename"
+                    autoFocus
+                    value={session.title}
+                    onChange={(event) => chatStore.renameSession(session.id, event.target.value)}
+                    onBlur={() => setEditingId(null)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === "Escape") setEditingId(null);
+                    }}
+                    aria-label="Rename session"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className="chat-tab-label"
+                    title={`${session.title}\n${session.id}  (double-click to rename)`}
+                    onClick={() => chatStore.switchSession(session.id)}
+                    onDoubleClick={() => setEditingId(session.id)}
+                  >
+                    {session.title}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="chat-tab-close"
+                  title="Delete session"
+                  disabled={status === "streaming"}
+                  onClick={() => chatStore.deleteSession(session.id)}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            );
+          })}
         </div>
-        <button className="secondary-button" type="button" onClick={() => chatStore.createSession()}>
+        <button
+          className="chat-tab-new"
+          type="button"
+          onClick={() => chatStore.createSession()}
+          disabled={atSessionCap}
+          title={atSessionCap ? `Session limit reached (${MAX_ACTIVE_SESSIONS})` : "New session"}
+        >
           <MessageSquarePlus size={15} />
           New
         </button>
-      </div>
-
-      <div className="chat-session-tabs" role="tablist" aria-label="Chat sessions">
-        {chat.sessions.map((session) => {
-          const active = session.id === chat.currentSessionId;
-          const status = chat.sessionStatusMap[session.id] || "idle";
-          return (
-            <button
-              className={active ? "active" : ""}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              key={session.id}
-              onClick={() => chatStore.switchSession(session.id)}
-              title={session.title}
-            >
-              <span className={`session-dot ${status}`} />
-              <span>{session.title}</span>
-            </button>
-          );
-        })}
       </div>
 
       <div className="chat-session-pool">
@@ -329,33 +352,6 @@ function ChatSessionSlot({
 
   return (
     <div className="chat-session-slot" hidden={!visible}>
-      <div className="panel-header chat-session-header">
-        <div>
-          <input
-            className="session-title-input"
-            value={session.title}
-            onChange={(event) => chatStore.renameSession(session.id, event.target.value)}
-            aria-label="Session title"
-          />
-          <p className="panel-kicker">{session.id}</p>
-        </div>
-        <div className="chat-session-actions">
-          <StatusPill label={status === "streaming" ? statusMessage || "streaming" : status} tone={status === "error" ? "error" : status === "streaming" ? "warning" : "muted"} />
-          <button className="icon-button" type="button" title="Session menu">
-            <MoreHorizontal size={16} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            title="Delete session"
-            disabled={status === "streaming"}
-            onClick={() => chatStore.deleteSession(session.id)}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-
       <div className="message-list" ref={listRef}>
         {messages.length === 0 ? (
           <div className="empty-state">
@@ -452,10 +448,13 @@ function ChatSessionSlot({
             rows={3}
           />
         {status === "streaming" ? (
-          <button className="secondary-button" type="button" onClick={() => void stop()}>
-            <Square size={15} />
-            Stop
-          </button>
+          <div className="composer-actions">
+            {statusMessage ? <span className="composer-status">{statusMessage}</span> : null}
+            <button className="secondary-button" type="button" onClick={() => void stop()}>
+              <Square size={15} />
+              Stop
+            </button>
+          </div>
         ) : (
           <button className="primary-button" type="submit" disabled={!canSend}>
             <Send size={16} />
@@ -466,8 +465,4 @@ function ChatSessionSlot({
       </div>
     </div>
   );
-}
-
-function StatusPill({ label, tone }: { label: string; tone: "warning" | "error" | "muted" }) {
-  return <span className={`status-pill ${tone}`}>{label}</span>;
 }
