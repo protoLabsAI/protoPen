@@ -1,10 +1,14 @@
 # Operator Console
 
-The operator console is a webview UI for driving protoPen — chat, knowledge
-search, manual subagent launches with live monitoring, runtime status, the audit
-trail, and a live engagement monitor. It's served by the protoPen server at
-**`/app`** (e.g. `http://localhost:7870/app/` locally, or `http://steamdeck:7870/app/`
-over Tailscale on the Deck) and is built automatically on startup.
+The operator console is a webview UI for driving protoPen — chat, browsing
+captured target intel, unified search, manual subagent / workflow / playbook
+runs, runtime status, the audit trail, and a live engagement monitor. It's served
+by the protoPen server at **`/app`** (e.g. `http://localhost:7870/app/` locally,
+or `http://steamdeck:7870/app/` over Tailscale on the Deck) and is built
+automatically on startup.
+
+> Note: `/app` is the console. The server's `/` is a separate legacy PWA shell —
+> don't use it to check the console.
 
 ## Login
 
@@ -15,26 +19,36 @@ gate. When no key is configured (local dev), the console is open.
 
 ## Layout
 
-A left rail switches the main **surface**; a right panel holds project-scoped
-tools (Notes / Beads / Engagement).
+The shell is a topbar, a left rail of **groups**, the active surface, a right
+panel, and a bottom utility bar.
 
-### Surfaces (left rail)
+- **Topbar** — brand on the left; on the right a single **health dot** (worst-of:
+  setup / graph / event-stream / status; green = ready). Hover it for the full
+  breakdown in a popover; click it to refresh.
+- **Left rail** — four groups; clicking one shows its surface, which carries its
+  own **tab bar** for the views within it (below).
+- **Bottom utility bar** — a toggle to hide/show the right panel. The right panel
+  is also **drag-resizable** by its left edge (width persists).
 
-| Surface | What it does |
-|---|---|
-| **Chat** | Converse with the agent over the A2A streaming endpoint; multiple sessions in tabs. |
-| **Knowledge** | Hybrid search (vector + BM25, RRF) over the threat-intel store. Filter by source table (`cves`, `exploits`, `advisories`, `threat_intel`, `topics`, `digests`); ranked hits show source id, table, preview, and score. |
-| **Subagents** | Launch a subagent — **Single** (async, tracked) or **Batch** (concurrent). The **Tracked Agents** list shows each run's status (`running`/`done`/`error`/`cancelled`) + duration, expands to its output, and lets you **cancel** running agents. Polls while any agent is active. |
-| **Runtime** | Model, provider, identity, knowledge path, goal mode, middleware toggles, and the registered subagents. |
-| **Audit** | The tool-execution trail (newest first) from `audit.jsonl` — status pill, tool, duration, timestamp, result summary, session/trace. Filter by All / OK / Failed and per-tool. |
+### Rail groups & their tabs
 
-### Right panel
+| Group | Tabs | What they do |
+|---|---|---|
+| **Chat** | Conversation · Activity | Converse with the agent over the A2A streaming endpoint (multiple sessions as tabs; double-click a tab to rename, ✕ to delete with a confirm). **Activity** is the durable agent-initiated thread (badge counts unread). |
+| **Intel** | Targets · Search · Knowledge · Engagements | **Targets**: browse discovered hosts (ports, services, findings, redacted creds). **Search**: unified search across hosts, captured findings, and the knowledge store. **Knowledge**: table-filtered hybrid search (vector + BM25) over `cves`/`exploits`/`advisories`/`threat_intel`/`topics`/`digests`. **Engagements**: past engagement history with severity rollups. |
+| **Agents** | Subagents · Workflows · Playbooks | **Subagents**: launch one (Single/Batch), live-tracked with status/duration/cancel. **Workflows**: run a declarative subagent recipe (ADR 0002). **Playbooks**: browse + fire the 23 declarative tool-chain recipes — see [Playbooks](../reference/playbooks.md). |
+| **System** | Status · Audit · Schedule | **Status**: model/provider/identity, knowledge path, goal mode, middleware toggles, skills count, registered subagents. **Audit**: the tool-execution trail (filter All/OK/Failed, per-tool). **Schedule**: scheduled jobs. |
+
+### Right panel (project-scoped)
+
+Keyed to a **project path** (a host folder, e.g. `/home/deck/protoPen`) entered at
+the top — set it and load to populate Notes + Beads. Toggle which tab shows:
 
 | Tab | What it does |
 |---|---|
-| **Notes** | Per-project notes workspace (tabs, agent read/write permissions), autosaved. |
-| **Beads** | The project's beads issue board — create, start/close, delete, grouped by status. |
-| **Engagement** | Live monitor of the active engagement — phase, mode, severity counts, and findings that expand to show detail. Polls every 5s while open; a **report** action reads (or regenerates) the engagement `report.md`. |
+| **Notes** | Per-project notes workspace (tabs, agent read/write permissions), autosaved. Delete asks to confirm. |
+| **Beads** | The project's beads issue board — create, start/close, delete (with confirm), grouped by status. Requires the `br` CLI on the server. |
+| **Engagement** | Live monitor of the active engagement — phase, mode, severity counts, findings that expand. Polls every 5s; a **report** action reads/regenerates `report.md`. |
 
 ## Theme
 

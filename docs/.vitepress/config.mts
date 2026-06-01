@@ -59,6 +59,7 @@ export default defineConfig({
             { text: "API Endpoints", link: "/reference/api-endpoints" },
             { text: "Chat Commands", link: "/reference/chat-commands" },
             { text: "Tools", link: "/reference/tools" },
+            { text: "Playbooks", link: "/reference/playbooks" },
             { text: "Target Intel Schema", link: "/reference/target-intel" },
             {
               text: "Engagement Modes",
