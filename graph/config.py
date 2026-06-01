@@ -7,6 +7,18 @@ from typing import Any
 import yaml
 
 
+def _as_name_list(value: Any) -> list[str]:
+    """Normalize a config value into a list of names. Accepts a YAML list, or a
+    scalar string ("a, b" / "a b") — never split a string into characters."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [s.strip() for s in value.replace(",", " ").split() if s.strip()]
+    if isinstance(value, (list, tuple)):
+        return [str(s).strip() for s in value if str(s).strip()]
+    return []
+
+
 @dataclass
 class SubagentDef:
     enabled: bool = True
@@ -163,7 +175,7 @@ class LangGraphConfig:
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled
             ),
-            tools_deferred_keep=list(((data.get("tools") or {}).get("deferred") or {}).get("keep", []) or []),
+            tools_deferred_keep=_as_name_list(((data.get("tools") or {}).get("deferred") or {}).get("keep")),
             compaction_enabled=compaction.get("enabled", cls.compaction_enabled),
             compaction_trigger=compaction.get("trigger", cls.compaction_trigger),
             compaction_keep_messages=compaction.get("keep_messages", cls.compaction_keep_messages),

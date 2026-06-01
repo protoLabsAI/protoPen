@@ -3428,15 +3428,16 @@ def build_search_tools_tool(all_tools, keep_names):
         When your visible tools don't cover the task, call this with a few
         keywords describing what you need (e.g. "nmap port scan", "crack hashes",
         "search CVEs", "wifi capture"). Matching tools become available to call
-        on your next step. Leave ``query`` empty to list every available tool.
-        Returns a bulleted list of ``name — purpose``.
+        on your next step. Leave ``query`` empty to browse available tools (up to
+        ``limit``); raise ``limit`` to see more. Returns ``name — purpose`` lines.
         """
         if not catalog:
             return "No additional tools are available beyond the ones already shown."
         terms = (query or "").lower().split()
         lim = max(1, min(int(limit or 10), 50))
         if not terms:
-            return _render(catalog[:lim], "All additional tools — now available to call:")
+            header = f"Additional tools (showing {min(lim, len(catalog))} of {len(catalog)}) — now available to call:"
+            return _render(catalog[:lim], header)
         scored = []
         for name, summary in catalog:
             hay = f"{name} {summary}".lower()
