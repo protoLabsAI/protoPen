@@ -296,35 +296,32 @@ h2 {
 }
 
 .chat-stage {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
+/* Single chat toolbar: session tabs (scrollable) + a pinned New button. */
 .chat-header {
   min-height: 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.chat-title-group {
-  min-width: 0;
-}
-
-.chat-session-tabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
+  gap: 8px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
 }
 
-.chat-session-tabs button {
+.chat-session-tabs {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+/* A session tab: status dot · title · close. */
+.chat-tab {
   max-width: 220px;
-  min-width: 112px;
+  min-width: 96px;
   height: 32px;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -332,23 +329,103 @@ h2 {
   border-radius: var(--radius);
   background: transparent;
   color: var(--fg-muted);
-  padding: 0 10px;
-  cursor: pointer;
+  padding: 0 6px 0 10px;
   transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
-.chat-session-tabs button.active,
-.chat-session-tabs button:hover {
+.chat-tab.active,
+.chat-tab:hover {
   border-color: var(--border);
   background: var(--bg-hover);
   color: var(--fg);
 }
 
-.chat-session-tabs button span:last-child {
+.chat-tab-label {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.chat-tab.active .chat-tab-label {
+  font-weight: 600;
+}
+
+.chat-tab-rename {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  color: var(--fg);
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-tab-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.chat-tab:hover .chat-tab-close,
+.chat-tab.active .chat-tab-close {
+  opacity: 1;
+}
+
+.chat-tab-close:hover:not(:disabled) {
+  background: var(--bg-sunken);
+  color: var(--fg);
+}
+
+.chat-tab-close:disabled {
+  opacity: 0;
+  cursor: default;
+}
+
+.chat-tab-new {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.chat-tab-new:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.chat-tab-new:disabled {
+  color: var(--fg-muted);
+  cursor: default;
 }
 
 .session-dot {
@@ -376,36 +453,28 @@ h2 {
 .chat-session-slot {
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .chat-session-slot[hidden] {
   display: none;
 }
 
-.chat-session-header {
-  min-height: 48px;
-}
-
-.chat-session-actions {
+/* Live turn status, shown inline next to Stop while streaming. The wrapper keeps
+   status + Stop in the composer grid's single action column. */
+.composer-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.session-title-input {
-  height: 24px;
-  border-color: transparent;
-  background: transparent;
-  padding: 0;
-  color: var(--fg);
-  font-weight: 600;
-}
-
-.session-title-input:focus {
-  border-color: var(--border);
-  background: var(--bg-sunken);
-  padding: 0 6px;
+.composer-status {
+  color: var(--fg-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .status-pill {
