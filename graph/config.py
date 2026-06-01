@@ -123,6 +123,13 @@ class LangGraphConfig:
     skills_db_path: str = "/sandbox/skills.db"
     skills_top_k: int = 5
 
+    # Goal mode (autonomy) — re-invoke the agent toward a verifier-backed condition.
+    # ON by default with moderate caps; verifiers are engagement/LLM-backed (no
+    # shell). See graph/goals/ and docs/explanation/control-stack.md.
+    goals_enabled: bool = True
+    goals_max_iterations: int = 10
+    goals_no_progress_limit: int = 4
+
     # Deferred tools (ADR 0005 #3 — progressive tool disclosure). OFF by default.
     # When on, most tool *schemas* are withheld from the model each turn (every
     # tool stays callable) and the agent loads them on demand via the
@@ -172,6 +179,9 @@ class LangGraphConfig:
             skills_dir=(data.get("skills") or {}).get("dir", cls.skills_dir),
             skills_db_path=(data.get("skills") or {}).get("db_path", cls.skills_db_path),
             skills_top_k=(data.get("skills") or {}).get("top_k", cls.skills_top_k),
+            goals_enabled=(data.get("goals") or {}).get("enabled", cls.goals_enabled),
+            goals_max_iterations=(data.get("goals") or {}).get("max_iterations", cls.goals_max_iterations),
+            goals_no_progress_limit=(data.get("goals") or {}).get("no_progress_limit", cls.goals_no_progress_limit),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled
             ),
