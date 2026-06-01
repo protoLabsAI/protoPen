@@ -566,6 +566,12 @@ def _beads_unavailable() -> str | None:
     return None
 
 
+def get_beads_handle():
+    """Return ``(service, project_path)`` for read-only introspection (e.g. the
+    goal ``task`` verifier). Either may be falsy when the tracker isn't wired."""
+    return _beads_service, _beads_project_path
+
+
 def _fmt_task(issue: dict) -> str:
     return f"{issue.get('id', '?')} [{issue.get('status', '?')}] p{issue.get('priority', '?')} {issue.get('title', '')}".rstrip()
 
@@ -674,6 +680,89 @@ async def close_task(task_id: str, reason: str = "") -> str:
     return f"Closed task {task_id}." + (f" ({reason})" if reason else "")
 
 
+# ── Goal mode (autonomy) ──────────────────────────────────────────────────────
+# Lets the agent commit to a multi-turn goal: after the turn, the server's goal
+# loop re-invokes it with a continuation prompt until a verifier passes. Bound to
+# the GoalController via set_goal_controller() at startup; the body reads the
+# global lazily (graph is built before wiring) and the session_id from the
+# per-turn contextvar the server sets.
+
+_goal_controller = None  # graph.goals.controller.GoalController — set by server.py
+
+
+def set_goal_controller(controller) -> None:
+    """Wire the goal controller so the agent's set_goal tool can set goals."""
+    global _goal_controller
+    _goal_controller = controller
+
+
+@tool
+async def set_goal(
+    condition: str,
+    verifier: str = "llm",
+    severity: str = "",
+    category: str = "",
+    min_count: int = 1,
+) -> str:
+    """Commit to an autonomous goal — keep working across turns until a verifier
+    confirms it's met (or the iteration budget runs out).
+
+    Use when the operator asks for an outcome that needs several turns: "find a
+    critical vuln on the target", "enumerate the subnet", "close out the web
+    assessment". After you set a goal you'll be re-invoked automatically with a
+    continuation prompt after each turn until it's met. Maintain a running
+    ``<goal_plan>...</goal_plan>`` checklist each turn; emit
+    ``<goal_unachievable reason="..."/>`` to give up if it's impossible/out of scope.
+
+    Args:
+        condition: Plain-language description of the finish line.
+        verifier: How completion is checked —
+            "findings" (≥ min_count engagement findings; pair with severity/category),
+            "targets" (≥ min_count discovered hosts; ``category`` filters host text),
+            "task" (every tracked beads task is done), or
+            "llm" (an evaluator judges the condition — the default, for fuzzy goals).
+        severity: For verifier="findings": minimum severity
+            (info|low|medium|high|critical).
+        category: For "findings": finding-category substring. For "targets":
+            free-text host filter (ip/hostname/os/device_type/…).
+        min_count: Minimum matching findings/hosts required (default 1).
+    """
+    if _goal_controller is None:
+        return "Error: goal mode is not available."
+    from graph.goals.context import get_current_session
+
+    session_id = get_current_session()
+    if not session_id:
+        return "Error: no active session to attach the goal to."
+    if not condition.strip():
+        return "Error: condition is required."
+
+    vtype = (verifier or "llm").strip().lower()
+    if vtype not in ("findings", "targets", "task", "llm"):
+        return f"Error: unknown verifier {vtype!r} (use findings|targets|task|llm)."
+
+    spec: dict = {"type": vtype}
+    if vtype == "findings":
+        if severity.strip():
+            spec["severity"] = severity.strip().lower()
+        if category.strip():
+            spec["category"] = category.strip()
+        spec["min"] = max(1, int(min_count or 1))
+    elif vtype == "targets":
+        if category.strip():
+            spec["query"] = category.strip()
+        spec["min"] = max(1, int(min_count or 1))
+
+    try:
+        state = await asyncio.to_thread(_goal_controller.program_set, session_id, condition.strip(), spec)
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not set goal: {exc}"
+    return (
+        f"Goal set ({vtype}): {state.condition}. I'll keep working across turns "
+        f"until the verifier passes (max {state.max_iterations} iterations)."
+    )
+
+
 def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
@@ -690,6 +779,7 @@ def get_security_tools(knowledge_store=None):
         list_tasks,
         update_task,
         close_task,
+        set_goal,
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)

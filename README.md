@@ -88,7 +88,7 @@ the external-attack tools follows in [External Attack Simulation](#external-atta
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_80 tools, generated from the live registry — do not edit by hand._
+_81 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -224,6 +224,7 @@ _80 tools, generated from the live registry — do not edit by hand._
 | `list_tasks` | List tracked tasks |
 | `update_task` | Advance or re-prioritize a tracked task — set its status (open → in_progress → closed, or blocked) and/or its priority |
 | `close_task` | Mark a tracked task done/closed once its work is complete |
+| `set_goal` | Commit to an autonomous goal — keep working across turns until a verifier confirms it's met (or the iteration budget runs out) |
 
 <!-- END GENERATED TOOLS -->
 

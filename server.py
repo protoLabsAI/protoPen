@@ -660,6 +660,11 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
         # config is ignored by LangGraph, so it is intentionally not set here.
         config = {"configurable": {"thread_id": f"gradio:{session_id}"}, "recursion_limit": 200}
 
+        # Mark the session for any goal-aware tool (set_goal) running this turn.
+        from graph.goals.context import set_current_session
+
+        set_current_session(session_id)
+
         result = await _graph.ainvoke(
             {"messages": [HumanMessage(content=message)], "session_id": session_id},
             config=config,
@@ -736,6 +741,11 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     # time in create_researcher_graph). The a2a:/gradio: prefixes isolate the two
     # chat paths. A checkpointer in the invoke config is ignored by LangGraph.
     config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
+
+    # Mark the session for any goal-aware tool (set_goal) running this turn.
+    from graph.goals.context import set_current_session
+
+    set_current_session(session_id)
 
     # Goal mode: run the turn, then — if an active goal isn't met — re-invoke on
     # the same thread with a continuation prompt until the verifier passes, the
@@ -1500,8 +1510,11 @@ def _main():
     if getattr(_graph_config, "goals_enabled", True):
         from graph.goals.controller import GoalController
         from graph.goals.store import GoalStore
+        from tools.lg_tools import set_goal_controller as _set_goal_controller
 
         _goal_controller = GoalController(_graph_config, GoalStore())
+        # Let the agent's set_goal tool reach the controller (read lazily).
+        _set_goal_controller(_goal_controller)
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
