@@ -36,6 +36,7 @@ import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
 import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
 import type {
@@ -241,6 +242,13 @@ export function App() {
   ]);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [keyInput, setKeyInput] = useState(() => getOperatorKey());
+  // Generic confirm-dialog state for destructive actions (beads/notes delete).
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message?: string;
+    confirmLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
   const [subagents, setSubagents] = useState<Subagent[]>([]);
   const [engagement, setEngagement] = useState<EngagementStatus | null>(null);
@@ -778,7 +786,6 @@ export function App() {
 
   async function deleteIssue(issue: BeadsIssue) {
     if (!projectPath.trim() || beadsBusy) return;
-    if (!window.confirm(`Delete ${issue.id}?`)) return;
     setBeadsBusy(true);
     setError("");
     try {
@@ -1411,7 +1418,20 @@ export function App() {
                   <button className="icon-button" type="button" onClick={createNote} disabled={!workspace} title="New note">
                     <Plus size={16} />
                   </button>
-                  <button className="icon-button" type="button" onClick={deleteActiveNote} disabled={!workspace || workspace.tabOrder.length <= 1} title="Delete note">
+                  <button
+                    className="icon-button"
+                    type="button"
+                    onClick={() =>
+                      setConfirmAction({
+                        title: "Delete note?",
+                        message: `“${activeTab?.name || "Untitled"}” will be permanently removed.`,
+                        confirmLabel: "Delete note",
+                        onConfirm: deleteActiveNote,
+                      })
+                    }
+                    disabled={!workspace || workspace.tabOrder.length <= 1}
+                    title="Delete note"
+                  >
                     <Trash2 size={16} />
                   </button>
                   <button className="icon-button" type="button" onClick={() => void persistNotes()} disabled={!workspace || notesBusy} title="Save notes">
@@ -1600,7 +1620,14 @@ export function App() {
                               <button
                                 className="icon-button danger"
                                 type="button"
-                                onClick={() => void deleteIssue(issue)}
+                                onClick={() =>
+                                  setConfirmAction({
+                                    title: "Delete issue?",
+                                    message: `${issue.id}${issue.title ? ` — “${issue.title}”` : ""} will be permanently deleted.`,
+                                    confirmLabel: "Delete issue",
+                                    onConfirm: () => void deleteIssue(issue),
+                                  })
+                                }
                                 disabled={beadsBusy}
                                 title="Delete issue"
                               >
@@ -1700,6 +1727,18 @@ export function App() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        title={confirmAction?.title ?? ""}
+        message={confirmAction?.message}
+        confirmLabel={confirmAction?.confirmLabel}
+        onConfirm={() => {
+          confirmAction?.onConfirm();
+          setConfirmAction(null);
+        }}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }
