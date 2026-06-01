@@ -2761,7 +2761,7 @@ textarea {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--fg-tertiary, #555);
+  background: var(--fg-muted);
   cursor: pointer;
   flex: none;
   transition: background 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
@@ -2778,8 +2778,8 @@ textarea {
 }
 
 .status-dot.tone-error {
-  background: var(--danger, #ff6b6b);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger, #ff6b6b) 22%, transparent);
+  background: var(--error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 22%, transparent);
 }
 
 .status-dot:hover {
@@ -2875,7 +2875,7 @@ textarea {
   height: 7px;
   flex: none;
   border-radius: 50%;
-  background: var(--fg-tertiary, #555);
+  background: var(--fg-muted);
 }
 
 .mini-dot.tone-ok {
@@ -2887,11 +2887,11 @@ textarea {
 }
 
 .mini-dot.tone-error {
-  background: var(--danger, #ff6b6b);
+  background: var(--error);
 }
 
 .mini-dot.tone-muted {
-  background: var(--fg-tertiary, #555);
+  background: var(--fg-muted);
 }
 
 /* ── Bottom utility bar — panel collapse toggles, pinned to their sides. ── */
@@ -2924,7 +2924,7 @@ textarea {
 }
 
 .util-btn:hover {
-  background: var(--bg-elevated, #1a1a1f);
+  background: var(--bg-raised);
   color: var(--fg);
 }
 
