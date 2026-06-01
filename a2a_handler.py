@@ -538,43 +538,51 @@ def register_a2a_routes(
     """
     _ON_TERMINAL[0] = on_terminal
 
+    # These operator-console routes are mounted directly on the app (not the
+    # auth-gated operator router), so each must enforce the operator key itself —
+    # esp. the POST /run endpoints, which execute subagents/tools. Same posture as
+    # /api/subagents/run; operator-driven, not external inbound.
+
     # Durable Activity-thread history for the console's Activity surface.
     if activity_list is not None:
 
         @app.get("/api/activity", summary="Activity thread history (ADR 0003)")
-        async def _activity_route():
+        async def _activity_route(request: Request):
+            _check_auth(request, api_key)
             return await activity_list()
 
-    # Workflows surface (ADR 0002): list recipes + run one (operator-authenticated,
-    # same posture as /api/subagents/run — operator-driven, not external inbound).
+    # Workflows surface (ADR 0002): list recipes + run one.
     if workflows_list is not None:
 
         @app.get("/api/workflows", summary="List workflow recipes (ADR 0002)")
-        async def _workflows_list_route():
+        async def _workflows_list_route(request: Request):
+            _check_auth(request, api_key)
             return workflows_list()
 
     if workflows_run is not None:
 
         @app.post("/api/workflows/{name}/run", summary="Run a workflow recipe (ADR 0002)")
-        async def _workflows_run_route(name: str, payload: dict = Body(default={})):
+        async def _workflows_run_route(request: Request, name: str, payload: dict = Body(default={})):
+            _check_auth(request, api_key)
             inputs = payload.get("inputs", {}) if isinstance(payload, dict) else {}
             try:
                 return await workflows_run(name, inputs or {})
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
 
-    # Playbooks surface: browse the declarative tool-chain library + fire one
-    # manually (operator-authenticated, same posture as /api/subagents/run).
+    # Playbooks surface: browse the declarative tool-chain library + fire one.
     if playbooks_list is not None:
 
         @app.get("/api/playbooks", summary="List playbooks")
-        async def _playbooks_list_route():
+        async def _playbooks_list_route(request: Request):
+            _check_auth(request, api_key)
             return playbooks_list()
 
     if playbooks_run is not None:
 
         @app.post("/api/playbooks/{name}/run", summary="Run a playbook")
-        async def _playbooks_run_route(name: str, payload: dict = Body(default={})):
+        async def _playbooks_run_route(request: Request, name: str, payload: dict = Body(default={})):
+            _check_auth(request, api_key)
             variables = payload.get("variables", {}) if isinstance(payload, dict) else {}
             try:
                 return await playbooks_run(name, variables or {})

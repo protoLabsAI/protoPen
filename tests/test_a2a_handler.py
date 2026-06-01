@@ -443,3 +443,43 @@ async def test_agent_card_route():
     assert resp.status_code == 200
     assert resp.json()["capabilities"]["streaming"] is True
     assert resp.json()["capabilities"]["pushNotifications"] is True
+
+
+@pytest.mark.asyncio
+async def test_operator_routes_require_api_key():
+    """The A2A-mounted console routes (workflows/playbooks/activity) enforce the
+    operator key themselves — esp. the POST /run endpoints that execute tools."""
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    card = {"name": "test", "capabilities": {}}
+
+    async def _fake_stream(text, context_id):
+        yield ("done", "")
+
+    async def _fake_chat(text, session_id):
+        return []
+
+    async def _run(name, variables):
+        return {"ran": name}
+
+    register_a2a_routes(
+        app=app,
+        chat_stream_fn_factory=_fake_stream,
+        chat_fn=_fake_chat,
+        api_key="secret",
+        agent_card=card,
+        workflows_list=lambda: {"workflows": []},
+        playbooks_list=lambda: {"count": 0, "playbooks": []},
+        playbooks_run=_run,
+    )
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        # No key → 401 on both read and the tool-executing run.
+        assert (await client.get("/api/playbooks")).status_code == 401
+        assert (await client.post("/api/playbooks/x/run", json={})).status_code == 401
+        assert (await client.get("/api/workflows")).status_code == 401
+        # Correct key → allowed.
+        h = {"x-api-key": "secret"}
+        assert (await client.get("/api/playbooks", headers=h)).status_code == 200
+        assert (await client.post("/api/playbooks/x/run", json={}, headers=h)).status_code == 200
