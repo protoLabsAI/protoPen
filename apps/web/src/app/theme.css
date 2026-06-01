@@ -113,7 +113,7 @@ h2 {
   height: 100vh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: 48px minmax(0, 1fr) 28px;
   background: var(--bg);
 }
 
@@ -213,11 +213,6 @@ h2 {
 .resize-handle:hover,
 .resize-handle:active {
   background: color-mix(in srgb, var(--accent, #7c8cff) 45%, transparent);
-}
-
-/* Dim a collapse toggle when its panel is hidden. */
-.icon-button.is-off {
-  color: var(--fg-muted);
 }
 
 .rail button {
@@ -2081,21 +2076,6 @@ textarea {
 }
 
 /* Live event-stream indicator (ADR 0003) ------------------------------------ */
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--fg-tertiary, #555);
-  flex: none;
-  transition:
-    background 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.live-dot.is-live {
-  background: var(--success, #3fb950);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #3fb950) 25%, transparent);
-}
 
 /* Activity surface + rail badge (ADR 0003) ---------------------------------- */
 .rail-badge {
@@ -2767,4 +2747,188 @@ textarea {
   font-size: 12px;
   line-height: 1.5;
   color: var(--fg-muted);
+}
+
+/* ── Topbar health light + custom hover popover ──────────────────── */
+.status-dot {
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  cursor: pointer;
+  flex: none;
+  transition: background 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.status-dot.tone-ok {
+  background: var(--success, #3fb950);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success, #3fb950) 22%, transparent);
+}
+
+.status-dot.tone-warning {
+  background: var(--warning, #d29922);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning, #d29922) 22%, transparent);
+}
+
+.status-dot.tone-error {
+  background: var(--error);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 22%, transparent);
+}
+
+.status-dot:hover {
+  filter: brightness(1.15);
+}
+
+/* Custom hover popover (replaces native title tooltips). */
+.popover-anchor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.popover {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: popover-in 90ms ease-out;
+}
+
+.popover-bottom-end {
+  right: 0;
+}
+
+.popover-bottom-start {
+  left: 0;
+}
+
+.popover-bottom-center {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.popover-top-end {
+  top: auto;
+  bottom: calc(100% + 8px);
+  right: 0;
+}
+
+@keyframes popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+.popover-bottom-center.popover {
+  animation: none;
+}
+
+/* Status breakdown rows inside the popover. */
+.status-popover {
+  display: grid;
+  gap: 6px;
+}
+
+.status-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-popover-label {
+  color: var(--fg-muted);
+}
+
+.status-popover-value {
+  margin-left: auto;
+  color: var(--fg-secondary);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-popover-hint {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.mini-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.mini-dot.tone-ok {
+  background: var(--success, #3fb950);
+}
+
+.mini-dot.tone-warning {
+  background: var(--warning, #d29922);
+}
+
+.mini-dot.tone-error {
+  background: var(--error);
+}
+
+.mini-dot.tone-muted {
+  background: var(--fg-muted);
+}
+
+/* ── Bottom utility bar — panel collapse toggles, pinned to their sides. ── */
+.utility-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+}
+
+.utility-bar .util-spacer {
+  flex: 1;
+}
+
+.util-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--fg-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.util-btn:hover {
+  background: var(--bg-raised);
+  color: var(--fg);
+}
+
+.util-btn svg {
+  flex: none;
+}
+
+/* When a panel is collapsed its toggle accents (not dims) — the label reads
+   "Show …", so the highlight draws the eye to the restore affordance. */
+.util-btn.is-off {
+  color: var(--accent);
 }
