@@ -144,6 +144,20 @@ def test_runtime_status_exposes_skills_count(tmp_path):
     }
 
 
+def test_runtime_status_scheduler_reflects_live_instance():
+    """scheduler.enabled tracks the wired instance, not a (non-existent) config
+    flag — the scheduler is started at boot unconditionally."""
+    from operator_api.runtime import build_runtime_status
+
+    cfg = SimpleNamespace()  # no scheduler_enabled field, like the real config
+    sched = SimpleNamespace(name="local")
+    on = build_runtime_status(config=cfg, setup_complete=True, graph_loaded=True, scheduler=sched)
+    assert on["scheduler"] == {"enabled": True, "backend": "local"}
+    assert on["middleware"]["scheduler"] is True
+    off = build_runtime_status(config=cfg, setup_complete=True, graph_loaded=True, scheduler=None)
+    assert off["scheduler"] == {"enabled": False, "backend": "disabled"}
+
+
 def test_bundled_recon_skill_loads():
     """The shipped config/skills/recon-sweep/SKILL.md must parse."""
     bundled = Path(__file__).resolve().parent.parent / "config" / "skills"
