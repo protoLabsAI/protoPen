@@ -2931,3 +2931,101 @@ textarea {
 .util-btn.is-off {
   color: var(--accent);
 }
+
+/* ── Playbooks surface ───────────────────────────────────────────── */
+.playbook-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+}
+
+.mode-pill {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+}
+
+.mode-pill.mode-passive {
+  border-color: rgba(96, 165, 250, 0.3);
+  background: rgba(96, 165, 250, 0.12);
+  color: #a9c7f4;
+}
+
+.mode-pill.mode-active {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+
+.tag-chip {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.playbook-warn {
+  margin-right: auto;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.playbook-run-steps {
+  display: grid;
+  gap: 4px;
+}
+
+.playbook-run-step > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.playbook-run-step > summary::-webkit-details-marker {
+  display: none;
+}
+
+.playbook-run-step > summary:hover {
+  background: var(--bg-raised);
+}
+
+.playbook-run-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-transform: lowercase;
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fg-muted);
+}
+
+.step-dot.tone-ok {
+  background: var(--success, #3fb950);
+}
+
+.step-dot.tone-warning {
+  background: var(--warning, #d29922);
+}
+
+.step-dot.tone-error {
+  background: var(--error, #f87171);
+}
+
+.output-block.error {
+  color: #fca5a5;
+}

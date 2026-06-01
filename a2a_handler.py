@@ -525,6 +525,8 @@ def register_a2a_routes(
     activity_list: Callable[[], Any] | None = None,
     workflows_list: Callable[[], Any] | None = None,
     workflows_run: Callable[[str, dict], Any] | None = None,
+    playbooks_list: Callable[[], Any] | None = None,
+    playbooks_run: Callable[[str, dict], Any] | None = None,
 ) -> None:
     """Register all A2A routes on *app* and update *agent_card* capabilities.
 
@@ -558,6 +560,24 @@ def register_a2a_routes(
             inputs = payload.get("inputs", {}) if isinstance(payload, dict) else {}
             try:
                 return await workflows_run(name, inputs or {})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
+    # Playbooks surface: browse the declarative tool-chain library + fire one
+    # manually (operator-authenticated, same posture as /api/subagents/run).
+    if playbooks_list is not None:
+
+        @app.get("/api/playbooks", summary="List playbooks")
+        async def _playbooks_list_route():
+            return playbooks_list()
+
+    if playbooks_run is not None:
+
+        @app.post("/api/playbooks/{name}/run", summary="Run a playbook")
+        async def _playbooks_run_route(name: str, payload: dict = Body(default={})):
+            variables = payload.get("variables", {}) if isinstance(payload, dict) else {}
+            try:
+                return await playbooks_run(name, variables or {})
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
 

@@ -349,6 +349,36 @@ export type IntelSearchResult = {
   hits: IntelHit[];
 };
 
+// Playbooks — declarative tool-chain recipes (playbooks/library/*.yaml).
+export type PlaybookStepInfo = { name: string; tool: string; action: string };
+
+export type PlaybookSummary = {
+  name: string;
+  description: string;
+  tags: string[];
+  variables: Record<string, string>;
+  steps: PlaybookStepInfo[];
+};
+
+export type PlaybookRunStep = {
+  name: string;
+  tool: string;
+  action: string;
+  params: Record<string, unknown>;
+  status: string;
+  output: string;
+  error: string;
+};
+
+export type PlaybookRunResult = {
+  name: string;
+  description: string;
+  progress: string;
+  completed: boolean;
+  failed: boolean;
+  steps: PlaybookRunStep[];
+};
+
 // Declarative subagent workflows (ADR 0002).
 export type WorkflowSummary = {
   name: string;

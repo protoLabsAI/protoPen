@@ -1315,6 +1315,17 @@ def _main():
             inputs=inputs or {},
         )
 
+    # Playbooks surface: browse the 23-recipe library + fire one manually.
+    def _operator_playbooks_list() -> dict:
+        from operator_api.playbooks import list_playbooks_for_console
+
+        return list_playbooks_for_console()
+
+    async def _operator_playbook_run(name: str, variables: dict) -> dict:
+        from operator_api.playbooks import run_manual_playbook
+
+        return await run_manual_playbook(name, variables or {})
+
     register_a2a_routes(
         app=fastapi_app,
         chat_stream_fn_factory=_chat_langgraph_stream,
@@ -1325,6 +1336,8 @@ def _main():
         activity_list=_operator_activity_list,
         workflows_list=_operator_workflows_list,  # ADR 0002: Workflows surface
         workflows_run=_operator_workflow_run,
+        playbooks_list=_operator_playbooks_list,
+        playbooks_run=_operator_playbook_run,
     )
 
     # Alias required by protoWorkstacean agent discovery

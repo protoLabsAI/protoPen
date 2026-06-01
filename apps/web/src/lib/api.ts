@@ -11,6 +11,8 @@ import type {
   EngagementStatus,
   IntelSearchResult,
   KnowledgeSearchResult,
+  PlaybookRunResult,
+  PlaybookSummary,
   TargetDetail,
   TargetSummary,
   NotesWorkspace,
@@ -264,6 +266,17 @@ export const api = {
     return request<WorkflowRunResult>(`/api/workflows/${encodeURIComponent(name)}/run`, {
       method: "POST",
       body: { inputs },
+    });
+  },
+
+  playbooks() {
+    return request<{ count: number; playbooks: PlaybookSummary[] }>("/api/playbooks");
+  },
+
+  runPlaybook(name: string, variables: Record<string, string>) {
+    return request<PlaybookRunResult>(`/api/playbooks/${encodeURIComponent(name)}/run`, {
+      method: "POST",
+      body: { variables },
     });
   },
 
