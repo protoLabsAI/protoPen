@@ -83,6 +83,16 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
 
         middleware.append(PromptCacheMiddleware())
 
+    # Progressive tool disclosure (ADR 0005 #3) — withhold most tool schemas from
+    # the model each turn; the agent loads them on demand via search_tools. Sits
+    # after the knowledge/skills + prompt-cache pair (which surface <relevant_tools>
+    # hints), before audit/memory. Off unless tools.deferred.enabled.
+    if getattr(config, "tools_deferred_enabled", False):
+        from graph.middleware.tool_deferral import ToolDeferralMiddleware
+        from tools.lg_tools import resolve_deferred_keep
+
+        middleware.append(ToolDeferralMiddleware(resolve_deferred_keep(config.tools_deferred_keep)))
+
     if config.knowledge_ingest_middleware and knowledge_store:
         middleware.append(KnowledgeIngestMiddleware(knowledge_store))
 
@@ -514,6 +524,14 @@ def create_researcher_graph(
         # skill it just worked out; it surfaces on matching future requests.
         if getattr(config, "skills_enabled", False) and skills_index is not None:
             all_tools.append(_build_save_skill_tool(skills_index))
+
+    # Progressive tool disclosure (ADR 0005 #3): add the search_tools meta-tool
+    # LAST so its catalog covers every other tool. create_agent still receives
+    # the full list — ToolDeferralMiddleware only trims what the model sees.
+    if getattr(config, "tools_deferred_enabled", False):
+        from tools.lg_tools import build_search_tools_tool, resolve_deferred_keep
+
+        all_tools.append(build_search_tools_tool(all_tools, resolve_deferred_keep(config.tools_deferred_keep)))
 
     # Build middleware
     middleware = _build_middleware(config, knowledge_store, skills_index=skills_index)

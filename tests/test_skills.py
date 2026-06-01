@@ -30,6 +30,17 @@ def test_index_add_and_retrieve(tmp_path):
     assert idx.load_skills('"]) OR (', k=5) == [] or True
 
 
+def test_load_skills_surfaces_tools_used(tmp_path):
+    """ADR 0005 #2 — a skill's declared tools flow through load_skills so the
+    KnowledgeMiddleware can surface them as a <relevant_tools> hint."""
+    idx = SkillsIndex(str(tmp_path / "s.db"))
+    idx.add_skill("recon", "recon a host or network", "scan it", ["nmap_scan", "service_enum"])
+    idx.add_skill("noted", "take notes", "write it down")  # no tools
+    hits = {h.name: h for h in idx.load_skills("recon host network notes", k=5)}
+    assert hits["recon"].tools_used == ("nmap_scan", "service_enum")
+    assert hits["noted"].tools_used == ()
+
+
 def test_index_clear_source_reseeds(tmp_path):
     idx = SkillsIndex(str(tmp_path / "s.db"))
     idx.add_skill("a", "desc one", "body")

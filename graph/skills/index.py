@@ -38,6 +38,7 @@ class SkillRecord(NamedTuple):
     description: str
     prompt_template: str
     score: float
+    tools_used: tuple[str, ...] = ()
 
 
 class SkillsIndex:
@@ -90,14 +91,23 @@ class SkillsIndex:
             return []
         try:
             rows = self._conn.execute(
-                "SELECT name, description, prompt_template, bm25(skills) AS score "
+                "SELECT name, description, prompt_template, tools_used, bm25(skills) AS score "
                 "FROM skills WHERE skills MATCH ? ORDER BY score LIMIT ?",
                 (match, max(1, int(k))),
             ).fetchall()
         except sqlite3.OperationalError as exc:  # malformed MATCH — never raise into the turn
             log.debug("[skills] match query failed: %s", exc)
             return []
-        return [SkillRecord(name=r[0], description=r[1], prompt_template=r[2], score=r[3]) for r in rows]
+        return [
+            SkillRecord(
+                name=r[0],
+                description=r[1],
+                prompt_template=r[2],
+                score=r[4],
+                tools_used=tuple((r[3] or "").split()),
+            )
+            for r in rows
+        ]
 
     def count(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
