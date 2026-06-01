@@ -3060,12 +3060,17 @@ textarea {
 }
 
 .skill-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 14px;
   font-weight: 600;
   color: var(--fg);
 }
 
 .skill-source {
+  flex: 0 0 auto;
   padding: 1px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
