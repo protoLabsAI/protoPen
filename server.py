@@ -32,6 +32,7 @@ _checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
 _checkpoint_prune_task = None  # background prune-loop handle
 _workflow_registry = None  # WorkflowRegistry (declarative workflow recipes), or None.
 _skills_index = None  # SkillsIndex (human-authored SKILL.md skills), or None.
+_goal_controller = None  # GoalController (goal mode / autonomy), or None.
 
 # Server→client SSE push channel (ADR 0003). Process-lifetime singleton:
 # producers (A2A terminal hook, scheduler, inbox) publish; /api/events streams
@@ -254,6 +255,11 @@ _CHAT_COMMANDS: list[dict[str, str]] = [
     {"name": "audit", "description": "Show recent audit log entries", "usage": "/audit [n]"},
     {"name": "intel", "description": "Generate intel digest and publish to Discord", "usage": "/intel"},
     {"name": "purple", "description": "Run purple team exercise (red+blue+ATT&CK report)", "usage": "/purple <scope>"},
+    {
+        "name": "goal",
+        "description": "Set/show/clear a goal — loop until a verifier passes",
+        "usage": "/goal <condition>  ·  /goal  ·  /goal clear",
+    },
     {"name": "help", "description": "Show available commands", "usage": "/help"},
 ]
 
@@ -622,6 +628,12 @@ import queue as _queue_mod
 
 async def chat(message: str, session_id: str) -> list[dict[str, Any]]:
     """Route to the active backend."""
+    # /goal control messages (set / status / clear) short-circuit the turn.
+    if _goal_controller is not None:
+        reply = await _goal_controller.parse_control(message, session_id)
+        if reply is not None:
+            return [{"role": "assistant", "content": reply}]
+
     # Slash commands are handled identically by both backends
     stripped = message.strip()
     if stripped.startswith("/"):
@@ -712,56 +724,87 @@ async def _chat_langgraph_stream(message: str, session_id: str):
     """
     from langchain_core.messages import HumanMessage
 
+    # /goal control messages (set / status / clear) short-circuit the turn.
+    if _goal_controller is not None:
+        reply = await _goal_controller.parse_control(message, session_id)
+        if reply is not None:
+            yield ("text", reply)
+            yield ("done", reply)
+            return
+
     # thread_id keys this session's history in the checkpointer (bound at compile
     # time in create_researcher_graph). The a2a:/gradio: prefixes isolate the two
     # chat paths. A checkpointer in the invoke config is ignored by LangGraph.
     config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
 
-    accumulated_text = ""
+    # Goal mode: run the turn, then — if an active goal isn't met — re-invoke on
+    # the same thread with a continuation prompt until the verifier passes, the
+    # iteration budget runs out, or it's flagged unachievable. ``hard_cap`` is an
+    # absolute backstop above the goal's own iteration cap.
+    turn_input = message
+    guard = 0
+    hard_cap = 30
 
     try:
-        async for event in _graph.astream_events(
-            {"messages": [HumanMessage(content=message)], "session_id": session_id},
-            config=config,
-            version="v2",
-        ):
-            kind = event.get("event", "")
-            name = event.get("name", "")
+        while True:
+            accumulated_text = ""
+            async for event in _graph.astream_events(
+                {"messages": [HumanMessage(content=turn_input)], "session_id": session_id},
+                config=config,
+                version="v2",
+            ):
+                kind = event.get("event", "")
+                name = event.get("name", "")
 
-            if kind == "on_tool_start":
-                tool_input = event.get("data", {}).get("input", "")
-                yield (
-                    "tool_start",
-                    {
-                        "id": event.get("run_id") or name,
-                        "name": name,
-                        "input": _coerce_tool_value(tool_input),
-                    },
-                )
+                if kind == "on_tool_start":
+                    tool_input = event.get("data", {}).get("input", "")
+                    yield (
+                        "tool_start",
+                        {
+                            "id": event.get("run_id") or name,
+                            "name": name,
+                            "input": _coerce_tool_value(tool_input),
+                        },
+                    )
 
-            elif kind == "on_tool_end":
-                output = event.get("data", {}).get("output", "")
-                yield (
-                    "tool_end",
-                    {
-                        "id": event.get("run_id") or name,
-                        "name": name,
-                        "output": _coerce_tool_output(output),
-                    },
-                )
+                elif kind == "on_tool_end":
+                    output = event.get("data", {}).get("output", "")
+                    yield (
+                        "tool_end",
+                        {
+                            "id": event.get("run_id") or name,
+                            "name": name,
+                            "output": _coerce_tool_output(output),
+                        },
+                    )
 
-            elif kind == "on_chat_model_stream":
-                chunk = event.get("data", {}).get("chunk")
-                if chunk and hasattr(chunk, "content") and chunk.content:
-                    content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                    content = _strip_think(content)
-                    if content:
-                        accumulated_text += content
-                        yield ("text", content)
+                elif kind == "on_chat_model_stream":
+                    chunk = event.get("data", {}).get("chunk")
+                    if chunk and hasattr(chunk, "content") and chunk.content:
+                        content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                        content = _strip_think(content)
+                        if content:
+                            accumulated_text += content
+                            yield ("text", content)
 
-        # Final response
-        final = _strip_think(accumulated_text)
-        yield ("done", final)
+            final = _strip_think(accumulated_text)
+
+            # No active goal → this is a normal turn; finish.
+            if _goal_controller is None or _goal_controller.active_goal(session_id) is None:
+                yield ("done", final)
+                return
+
+            guard += 1
+            decision = await _goal_controller.evaluate(session_id, last_text=final)
+            if decision is None or decision.action == "done" or guard >= hard_cap:
+                if decision is not None and decision.note:
+                    yield ("text", f"\n\n_{decision.note}_")
+                yield ("done", final)
+                return
+
+            # Goal not met — re-invoke with the continuation prompt.
+            yield ("status", decision.note)
+            turn_input = decision.message
 
     except Exception as e:
         yield ("error", str(e))
@@ -1399,6 +1442,7 @@ def _main():
             knowledge_store=_knowledge_store,
             scheduler=_scheduler,
             skills_index=_skills_index,
+            goal_controller=_goal_controller,
         )
 
     def _operator_subagent_list():
@@ -1449,6 +1493,15 @@ def _main():
     from tools.lg_tools import set_scheduler as _set_scheduler
 
     _set_scheduler(_scheduler)
+
+    # Goal mode (autonomy): the chat-stream path checks /goal control messages +
+    # runs the verifier-backed re-invocation loop. Off when goals_enabled=false.
+    global _goal_controller
+    if getattr(_graph_config, "goals_enabled", True):
+        from graph.goals.controller import GoalController
+        from graph.goals.store import GoalStore
+
+        _goal_controller = GoalController(_graph_config, GoalStore())
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
@@ -1520,6 +1573,17 @@ def _main():
         from operator_api.skills import list_skills_for_console
 
         return list_skills_for_console(_skills_index, query)
+
+    # Goals surface: list active/past goals + clear one (autonomy layer).
+    def _operator_goals_list():
+        if _goal_controller is None:
+            return {"enabled": False, "goals": []}
+        return {"enabled": True, "goals": [g.to_dict() for g in _goal_controller.store.all()]}
+
+    def _operator_goal_clear(session_id: str):
+        if _goal_controller is None:
+            return {"cleared": False}
+        return {"cleared": _goal_controller.store.clear(session_id)}
 
     # Targets & Intel surface: browse discovered hosts, past engagements, and
     # search across everything captured (read-only over the existing stores).
@@ -1614,6 +1678,8 @@ def _main():
         engagement_report_generate=_operator_engagement_report_generate,
         knowledge_search=_operator_knowledge_search,
         skills_list=_operator_skills_list,
+        goals_list=_operator_goals_list,
+        goal_clear=_operator_goal_clear,
         targets_list=_operator_targets_list,
         target_get=_operator_target_get,
         engagements_list=_operator_engagements_list,

@@ -94,6 +94,8 @@ def register_operator_routes(
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
     skills_list: Callable[[str], dict[str, Any]] | None = None,
+    goals_list: Callable[[], dict[str, Any]] | None = None,
+    goal_clear: Callable[[str], dict[str, Any]] | None = None,
     targets_list: Callable[[str, str, int], dict[str, Any]] | None = None,
     target_get: Callable[[int], dict[str, Any]] | None = None,
     engagements_list: Callable[[], dict[str, Any]] | None = None,
@@ -193,6 +195,24 @@ def register_operator_routes(
             return {"enabled": False, "count": 0, "skills": []}
         try:
             return await asyncio.to_thread(skills_list, q)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/goals", summary="List goals (autonomy layer)")
+    async def _goals_list():
+        if goals_list is None:
+            return {"enabled": False, "goals": []}
+        try:
+            return await asyncio.to_thread(goals_list)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.delete("/api/goal/{session_id}", summary="Clear a goal")
+    async def _goal_clear(session_id: str):
+        if goal_clear is None:
+            return {"cleared": False}
+        try:
+            return await asyncio.to_thread(goal_clear, session_id)
         except Exception as exc:
             raise _http_error(exc) from exc
 

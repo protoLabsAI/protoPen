@@ -349,6 +349,18 @@ export type IntelSearchResult = {
   hits: IntelHit[];
 };
 
+// Goals — the autonomy layer (loop the agent toward a verifier).
+export type GoalState = {
+  session_id: string;
+  condition: string;
+  verifier: Record<string, unknown>;
+  status: string; // active | achieved | exhausted | unachievable
+  iteration: number;
+  max_iterations: number;
+  last_reason: string;
+  checklist?: string;
+};
+
 // Skills — retrieved methodology memory (SKILL.md + agent-emitted).
 export type SkillSummary = {
   name: string;

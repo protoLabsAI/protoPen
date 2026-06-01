@@ -12,7 +12,7 @@ orchestration primitives — workflows *and* playbooks — where protoAgent has 
 ## The stack
 
 ```
-GOAL       autonomy        decides WHEN to stop   (re-invoke the agent until a verifier passes)
+GOAL       autonomy        decides WHEN to stop   (re-invoke the agent until a findings/llm verifier passes)
   ▲ drives
 WORKFLOW   orchestration   decides the ORDER      (a saved DAG of SUBAGENT steps — reasoning per step)
 PLAYBOOK   orchestration   decides the ORDER      (a fixed sequence of TOOL actions — deterministic, no LLM)
@@ -45,7 +45,9 @@ runs **subagents** (LLM workers that reason per step); a playbook runs **tools**
   ([Playbooks](../reference/playbooks.md)). Deterministic.
 - **Goal** *(autonomy)* — re-invokes whole agent turns until a testable finish
   condition passes (or the budget runs out). Owns *when-to-stop*, defines no
-  steps. *Thin in protoPen today — a config/status flag, not a full loop.*
+  steps. Set with `/goal <condition>` in chat; verifiers are **findings**
+  (assert over the engagement) or **llm** (fuzzy) — read-only, no shell. Caps:
+  `goals_max_iterations` (10) + `goals_no_progress_limit` (4). See `graph/goals/`.
 
 ## How they compose
 
