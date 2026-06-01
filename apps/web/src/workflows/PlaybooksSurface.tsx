@@ -9,12 +9,6 @@ import type { PlaybookRunResult, PlaybookSummary } from "../lib/types";
 // fire it manually; the run reuses the same dispatch + runner the agent's
 // `playbook` tool uses. Mirrors WorkflowsSurface's list→configure→run shape.
 
-const ACTIVE_TAGS = new Set(["active", "redteam", "exploit", "attack"]);
-
-function modeFromTags(tags: string[]): "passive" | "active" {
-  return tags.some((t) => ACTIVE_TAGS.has(t.toLowerCase())) ? "active" : "passive";
-}
-
 function stepTone(status: string): string {
   if (status === "completed") return "ok";
   if (status === "failed") return "error";
@@ -53,7 +47,7 @@ export function PlaybooksSurface({ onError }: { onError: (message: string) => vo
     setResult(null);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mode = current ? modeFromTags(current.tags) : "passive";
+  const mode = current?.mode ?? "passive";
 
   async function run() {
     if (!current) return;
@@ -146,8 +140,10 @@ export function PlaybooksSurface({ onError }: { onError: (message: string) => vo
             ) : null}
 
             <div className="panel-actions">
-              {mode === "active" ? (
-                <span className="playbook-warn">⚠ active — runs offensive tools within the current engagement scope</span>
+              {current.requires_engagement ? (
+                <span className="playbook-warn">
+                  ⚠ {mode} — needs an active engagement; targets must fall within its scope
+                </span>
               ) : null}
               <button className="primary-button" type="button" onClick={() => void run()} disabled={running}>
                 {running ? <Loader2 className="spin" size={16} /> : <Play size={16} />}

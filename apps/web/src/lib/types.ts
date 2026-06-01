@@ -356,6 +356,8 @@ export type PlaybookSummary = {
   name: string;
   description: string;
   tags: string[];
+  mode: "passive" | "active" | "redteam";
+  requires_engagement: boolean;
   variables: Record<string, string>;
   steps: PlaybookStepInfo[];
 };
