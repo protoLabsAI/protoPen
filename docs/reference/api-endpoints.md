@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_28 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_39 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -34,6 +34,12 @@ Chat (programmatic)
 | `session_id` | string | no |
 
 **Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/chat/commands`
+
+List chat slash-commands
+
+**Responses:** `200` Successful Response
 
 ### OpenAI-Compatible API
 
@@ -57,7 +63,7 @@ List models (OpenAI-compatible)
 
 Runtime status
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Subagents
 
@@ -65,7 +71,7 @@ Runtime status
 
 List subagents
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/subagents/batch`
 
@@ -102,7 +108,7 @@ Run a subagent
 
 List agent runs
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/agents/launch`
 
@@ -150,19 +156,19 @@ Cancel an agent run
 
 Engagement snapshot
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `GET /api/engagement/report`
 
 Read engagement report
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/engagement/report`
 
 Generate engagement report
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Knowledge
 
@@ -201,7 +207,7 @@ Recent audit entries
 
 List scheduled jobs
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/scheduler/jobs`
 
@@ -368,23 +374,122 @@ Beads status
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
+### Activity
+
+#### `GET /api/activity`
+
+Activity thread history (ADR 0003)
+
+**Responses:** `200` Successful Response
+
+### Engagements
+
+#### `GET /api/engagements`
+
+Engagement history
+
+**Responses:** `200` Successful Response
+
+### Events
+
+#### `GET /api/events`
+
+Server→client event stream (SSE)
+
+**Responses:** `200` Successful Response
+
+### Intel
+
+#### `GET /api/intel/search`
+
+Unified intel search
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `q` | query | yes | string |  |
+| `k` | query | no | integer | `20` |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Playbooks
+
+#### `GET /api/playbooks`
+
+List playbooks
+
+**Responses:** `200` Successful Response
+
+#### `POST /api/playbooks/{name}/run`
+
+Run a playbook
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `name` | path | yes | string |  |
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Targets
+
+#### `GET /api/targets`
+
+List discovered targets
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `q` | query | no | string |  |
+| `device_type` | query | no | string |  |
+| `limit` | query | no | integer | `50` |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/targets/{host_id}`
+
+Target profile
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `host_id` | path | yes | integer |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Workflows
+
+#### `GET /api/workflows`
+
+List workflow recipes (ADR 0002)
+
+**Responses:** `200` Successful Response
+
+#### `POST /api/workflows/{name}/run`
+
+Run a workflow recipe (ADR 0002)
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `name` | path | yes | string |  |
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
 <!-- END GENERATED API -->
 
-## Operator Console — newer routes
-
-These back the console's Intel / Agents surfaces. They're mounted directly on the
-app (not yet captured in the generated OpenAPI block above) and are
-**operator-key-gated** (`x-api-key`, same as the rest of the console).
-
-| Method · Path | Purpose |
-|---|---|
-| `GET /api/targets?q=&device_type=&limit=` | List discovered hosts with port/finding rollups. |
-| `GET /api/targets/{host_id}` | Full host profile — ports, findings, redacted credentials. |
-| `GET /api/engagements` | Engagement history (from on-disk workspaces). |
-| `GET /api/intel/search?q=&k=` | Unified search across hosts, target findings, and the knowledge store. |
-| `GET /api/workflows` · `POST /api/workflows/{name}/run` | List / run declarative subagent recipes (ADR 0002). |
-| `GET /api/playbooks` · `POST /api/playbooks/{name}/run` | List / fire declarative tool-chain playbooks. Run body: `{"variables": {…}}`. Returns the per-step result; **`409`** when the engagement/scope gate blocks an offensive fire (see [Playbooks](./playbooks.md)). |
-| `GET /api/activity` | Durable Activity-thread history (ADR 0003). |
+> The Targets / Intel / Playbooks / Workflows routes above are operator-key-gated
+> (`x-api-key`). `POST /api/playbooks/{name}/run` returns **`409`** when the
+> engagement/scope gate blocks an offensive fire — see [Playbooks](./playbooks.md).
 
 ## Agent-to-Agent (A2A)
 
