@@ -58,7 +58,7 @@ runs under is enforced (`POST /api/playbooks/{name}/run`):
 A blocked fire returns **HTTP 409** with the reason (no engagement / mode too low
 / target out of scope). Scope is checked with the same `ScopeValidator` the
 agent's enforcement middleware uses (`extract_target(action, params)` →
-`is_in_scope`), so a redteam recipe can't be loosed at a host outside the
+`is_in_scope`), so a redteam recipe can't be run against a host outside the
 engagement's declared scope. See [Engagement Modes](./engagement-modes.md).
 
 Every manual fire is recorded in the [audit trail](../guides/operator-console.md)
