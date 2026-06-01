@@ -55,7 +55,9 @@ def build_runtime_status(
             "knowledge": bool(getattr(config, "knowledge_middleware", False)),
             "audit": bool(getattr(config, "audit_middleware", False)),
             "memory": bool(getattr(config, "memory_middleware", False)),
-            "scheduler": bool(getattr(config, "scheduler_enabled", False)),
+            # The scheduler is wired at server startup (not a config flag), so the
+            # live instance is the source of truth — not a non-existent config key.
+            "scheduler": scheduler is not None,
             "enforcement": bool(getattr(config, "enforcement_enabled", False)),
             "ingest": bool(getattr(config, "ingest_enabled", False)),
             "prompt_cache": bool(getattr(config, "prompt_cache_enabled", False)),
@@ -69,7 +71,7 @@ def build_runtime_status(
             "top_k": getattr(config, "knowledge_top_k", None),
         },
         "scheduler": {
-            "enabled": bool(getattr(config, "scheduler_enabled", False)),
+            "enabled": scheduler is not None,
             "backend": getattr(scheduler, "name", "disabled") if scheduler else "disabled",
         },
         "goal": {
