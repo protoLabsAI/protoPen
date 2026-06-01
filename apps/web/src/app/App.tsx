@@ -39,6 +39,7 @@ import { IntelSurface } from "../targets/IntelSurface";
 import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { HoverPopover } from "../components/HoverPopover";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
 import type {
@@ -157,11 +158,6 @@ function formatAuditTime(ts: string) {
   const date = new Date(ts);
   if (Number.isNaN(date.getTime())) return ts;
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function statusTone(ok?: boolean) {
-  if (ok === undefined) return "muted";
-  return ok ? "success" : "error";
 }
 
 function issueStatus(issue: BeadsIssue) {
@@ -859,6 +855,26 @@ export function App() {
   // columns; display:none would shift items into the wrong tracks.
   const workspaceCols = `${railCollapsed ? "0px" : "72px"} minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`;
 
+  // One glanceable health light for the topbar (detail in the hover popover; full
+  // status in System → Runtime). Worst-state wins.
+  const health: { tone: "ok" | "warning" | "error"; label: string } =
+    runtime && !runtime.setup_complete
+      ? { tone: "warning", label: "setup pending" }
+      : runtime && !runtime.graph_loaded
+        ? { tone: "error", label: "graph offline" }
+        : status === "error"
+          ? { tone: "error", label: "error" }
+          : status !== "ready"
+            ? { tone: "warning", label: status }
+            : { tone: "ok", label: "ready" };
+
+  const statusRows: { label: string; value: string; tone: "ok" | "warning" | "error" | "muted" }[] = [
+    { label: "Setup", value: runtime?.setup_complete ? "complete" : "pending", tone: runtime?.setup_complete ? "ok" : "warning" },
+    { label: "Graph", value: runtime?.graph_loaded ? "loaded" : "offline", tone: runtime?.graph_loaded ? "ok" : "error" },
+    { label: "Event stream", value: live ? "connected" : "offline", tone: live ? "ok" : "muted" },
+    { label: "Status", value: status, tone: status === "error" ? "error" : status === "ready" ? "ok" : "warning" },
+  ];
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -870,46 +886,38 @@ export function App() {
           </div>
         </div>
         <div className="topbar-status">
-          <StatusPill
-            label={runtime?.setup_complete ? "setup complete" : "setup pending"}
-            tone={statusTone(runtime?.setup_complete)}
-          />
-          <StatusPill
-            label={runtime?.graph_loaded ? "graph loaded" : "graph offline"}
-            tone={statusTone(runtime?.graph_loaded)}
-          />
-          <StatusPill label={status} tone={status === "error" ? "error" : "muted"} />
-          <span
-            className={`live-dot ${live ? "is-live" : ""}`}
-            role="status"
-            aria-label={live ? "event stream connected" : "event stream offline"}
-            title={live ? "Live — event stream connected" : "Event stream offline"}
-            data-testid="live-indicator"
-            data-live={live ? "true" : "false"}
-          />
-          <button
-            className={`icon-button ${railCollapsed ? "is-off" : ""}`}
-            type="button"
-            onClick={() => setRailCollapsed(railCollapsed ? "" : "1")}
-            title={railCollapsed ? "Show rail" : "Hide rail"}
-            aria-label="Toggle rail"
-            data-testid="toggle-rail"
+          <HoverPopover
+            placement="bottom-end"
+            label="System status"
+            content={
+              <div className="status-popover">
+                {statusRows.map((row) => (
+                  <div className="status-popover-row" key={row.label}>
+                    <span className={`mini-dot tone-${row.tone}`} />
+                    <span className="status-popover-label">{row.label}</span>
+                    <span className="status-popover-value">{row.value}</span>
+                  </div>
+                ))}
+                {error ? (
+                  <div className="status-popover-row">
+                    <span className="mini-dot tone-error" />
+                    <span className="status-popover-label">Error</span>
+                    <span className="status-popover-value">{error}</span>
+                  </div>
+                ) : null}
+                <div className="status-popover-hint">Click to refresh</div>
+              </div>
+            }
           >
-            <PanelLeft size={16} />
-          </button>
-          <button
-            className={`icon-button ${rightCollapsed ? "is-off" : ""}`}
-            type="button"
-            onClick={() => setRightCollapsed(rightCollapsed ? "" : "1")}
-            title={rightCollapsed ? "Show side panel" : "Hide side panel"}
-            aria-label="Toggle side panel"
-            data-testid="toggle-right"
-          >
-            <PanelRight size={16} />
-          </button>
-          <button className="icon-button" type="button" onClick={() => void refreshAll()} title="Refresh">
-            <RefreshCw size={16} />
-          </button>
+            <button
+              type="button"
+              className={`status-dot tone-${health.tone}`}
+              onClick={() => void refreshAll()}
+              aria-label={`Status: ${health.label}. Click to refresh.`}
+              data-testid="live-indicator"
+              data-live={live ? "true" : "false"}
+            />
+          </HoverPopover>
         </div>
       </header>
 
@@ -1736,6 +1744,33 @@ export function App() {
           ) : null}
         </aside>
       </div>
+
+      <footer className="utility-bar">
+        <button
+          type="button"
+          className={`util-btn ${railCollapsed ? "is-off" : ""}`}
+          onClick={() => setRailCollapsed(railCollapsed ? "" : "1")}
+          title={railCollapsed ? "Show rail" : "Hide rail"}
+          aria-label="Toggle rail"
+          data-testid="toggle-rail"
+        >
+          <PanelLeft size={14} />
+          <span>{railCollapsed ? "Show rail" : "Hide rail"}</span>
+        </button>
+        <div className="util-spacer" />
+        <button
+          type="button"
+          className={`util-btn ${rightCollapsed ? "is-off" : ""}`}
+          onClick={() => setRightCollapsed(rightCollapsed ? "" : "1")}
+          title={rightCollapsed ? "Show side panel" : "Hide side panel"}
+          aria-label="Toggle side panel"
+          data-testid="toggle-right"
+        >
+          <span>{rightCollapsed ? "Show panel" : "Hide panel"}</span>
+          <PanelRight size={14} />
+        </button>
+      </footer>
+
       <SetupWizard
         open={runtime?.setup_complete === false}
         projectPath={projectPath}
