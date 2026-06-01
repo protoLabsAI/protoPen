@@ -122,7 +122,8 @@ tools:
     keep: []          # e.g. [task, run_workflow, create_task, search_tools]
 
 # Goal mode (autonomy) — re-invoke the agent toward a verifier-backed condition
-# (set with /goal in chat). Verifiers are findings/llm only (read-only, no shell).
+# (set with /goal in chat, or by the agent via the set_goal tool). Verifiers are
+# read-only, no shell: findings / targets / task / llm.
 goals:
   enabled: true
   max_iterations: 10

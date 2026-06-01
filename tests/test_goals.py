@@ -14,7 +14,13 @@ from graph.goals import verifiers
 from graph.goals.controller import GoalController
 from graph.goals.store import GoalStore
 from graph.goals.types import GoalState
-from graph.goals.verifiers import VerifyContext, _verify_findings
+from graph.goals.verifiers import (
+    VerifyContext,
+    _verify_findings,
+    _verify_targets,
+    _verify_task,
+    run_verifier,
+)
 
 
 def _ctrl(tmp_path, **cfg):
@@ -78,6 +84,68 @@ def test_findings_verifier_severity_and_category(monkeypatch):
     assert _run(_verify_findings({"category": "rce", "min": 1}, VerifyContext())).met
     # not enough criticals
     assert not _run(_verify_findings({"severity": "critical", "min": 2}, VerifyContext())).met
+
+
+# ── targets verifier ──────────────────────────────────────────────────────────
+
+
+def test_targets_verifier_min_and_device_type(monkeypatch):
+    monkeypatch.setattr(
+        verifiers,
+        "_search_hosts",
+        lambda q="": [
+            {"ip": "10.0.0.1", "device_type": "router"},
+            {"ip": "10.0.0.2", "device_type": "camera"},
+            {"ip": "10.0.0.3", "device_type": "camera"},
+        ],
+    )
+    assert _run(_verify_targets({"min": 3}, VerifyContext())).met
+    assert not _run(_verify_targets({"min": 4}, VerifyContext())).met
+    # device_type filter narrows the set
+    assert _run(_verify_targets({"min": 2, "device_type": "camera"}, VerifyContext())).met
+    assert not _run(_verify_targets({"min": 2, "device_type": "router"}, VerifyContext())).met
+
+
+# ── task verifier ─────────────────────────────────────────────────────────────
+
+
+def test_task_verifier_by_id_and_all(monkeypatch):
+    monkeypatch.setattr(
+        verifiers,
+        "_list_tasks",
+        lambda: [
+            {"id": "protopen-1", "title": "web assessment", "status": "closed"},
+            {"id": "protopen-2", "title": "smb follow-up", "status": "open"},
+        ],
+    )
+    # specific id that's closed → met
+    assert _run(_verify_task({"id": "protopen-1"}, VerifyContext())).met
+    # specific id still open → not met
+    assert not _run(_verify_task({"id": "protopen-2"}, VerifyContext())).met
+    # title substring
+    assert _run(_verify_task({"title": "web"}, VerifyContext())).met
+    # no selector → all must be done (one is open) → not met
+    assert not _run(_verify_task({}, VerifyContext())).met
+    # unknown id → not met, explains no match
+    r = _run(_verify_task({"id": "nope"}, VerifyContext()))
+    assert not r.met and "no tracked task" in r.reason
+
+
+def test_run_verifier_dispatches_new_types(monkeypatch):
+    monkeypatch.setattr(verifiers, "_search_hosts", lambda q="": [{"ip": "1.1.1.1"}])
+    assert _run(run_verifier({"type": "targets", "min": 1}, VerifyContext())).met
+    assert not _run(run_verifier({"type": "bogus"}, VerifyContext())).met
+
+
+def test_program_set_uses_config_cap(tmp_path):
+    c = _ctrl(tmp_path, goals_max_iterations=7)
+    state = c.program_set("s", "enumerate the subnet", {"type": "targets", "min": 5})
+    assert state.condition == "enumerate the subnet"
+    assert state.verifier == {"type": "targets", "min": 5}
+    assert state.max_iterations == 7
+    assert c.active_goal("s") is not None
+    # missing type defaults to llm
+    assert c.program_set("t", "vague goal").verifier == {"type": "llm"}
 
 
 # ── decision loop ─────────────────────────────────────────────────────────────

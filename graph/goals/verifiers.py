@@ -9,12 +9,22 @@ from protoAgent, whose command/test/ci verifiers run on the host).
   findings — assert over the active engagement's findings: ``severity`` (this
              level or higher), ``category`` (substring), ``min`` count. Met when
              at least ``min`` findings match. The precise, no-LLM check.
+  targets  — assert over discovered hosts: ``query`` (free-text over host fields),
+             ``device_type`` (substring), ``min`` count. Met when at least ``min``
+             hosts match. Recon/enumeration goals ("find ≥5 live hosts").
+  task     — assert over the beads task tracker: ``id`` (exact) or ``title``
+             (substring) selects task(s); met when all selected reach ``status``
+             (default: any done-state). With no selector, met when every tracked
+             task is done ("clear the board").
   llm      — fuzzy judgment: an LLM decides if the goal's condition is met given
              the engagement state + the agent's latest message. The fallback.
+
+All checks read existing stores only — no shell, no host execution.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -58,6 +68,41 @@ def _active_findings() -> list[dict]:
     return list(getattr(mgr, "findings", []) or [])
 
 
+def _search_hosts(query: str = "") -> list[dict]:
+    """Discovered hosts (empty query → most-recently-seen). Read-only TargetStore."""
+    try:
+        from tools.lg_tools import get_target_store
+
+        store = get_target_store()
+    except Exception:
+        return []
+    if store is None:
+        return []
+    try:
+        return list(store.search_hosts(query or "", limit=500) or [])
+    except Exception:
+        return []
+
+
+def _list_tasks() -> list[dict]:
+    """Tracked beads tasks (empty if the tracker isn't wired). Read-only."""
+    try:
+        from tools.lg_tools import get_beads_handle
+
+        service, project = get_beads_handle()
+    except Exception:
+        return []
+    if service is None or not project:
+        return []
+    try:
+        return list(service.list(project) or [])
+    except Exception:
+        return []
+
+
+_TASK_DONE = {"closed", "done", "resolved", "completed"}
+
+
 async def _verify_findings(spec: dict, ctx: VerifyContext) -> VerifyResult:
     findings = _active_findings()
     sev = str(spec.get("severity", "")).lower().strip()
@@ -78,6 +123,49 @@ async def _verify_findings(spec: dict, ctx: VerifyContext) -> VerifyResult:
     # tracks the *count* — when findings advance, this changes and the streak resets.
     line = f"{matched} finding(s) matching [{desc}] (need {minimum})"
     return VerifyResult(matched >= minimum, line, line)
+
+
+async def _verify_targets(spec: dict, ctx: VerifyContext) -> VerifyResult:
+    query = str(spec.get("query", spec.get("q", "")) or "").strip()
+    device_type = str(spec.get("device_type", "")).lower().strip()
+    minimum = max(1, int(spec.get("min", 1) or 1))
+
+    hosts = await asyncio.to_thread(_search_hosts, query)
+    if device_type:
+        hosts = [h for h in hosts if device_type in str(h.get("device_type", "")).lower()]
+
+    desc = (
+        " · ".join(p for p in [f"q~{query}" if query else "", f"type~{device_type}" if device_type else ""] if p)
+        or "any"
+    )
+    # reason == evidence so the controller's no-progress signature tracks the count.
+    line = f"{len(hosts)} host(s) matching [{desc}] (need {minimum})"
+    return VerifyResult(len(hosts) >= minimum, line, line)
+
+
+async def _verify_task(spec: dict, ctx: VerifyContext) -> VerifyResult:
+    task_id = str(spec.get("id", "")).strip()
+    title_sub = str(spec.get("title", "")).lower().strip()
+    want = str(spec.get("status", "")).lower().strip()
+    done = {want} if want else _TASK_DONE
+
+    tasks = await asyncio.to_thread(_list_tasks)
+    if task_id:
+        matched = [t for t in tasks if str(t.get("id", "")) == task_id]
+    elif title_sub:
+        matched = [t for t in tasks if title_sub in str(t.get("title", "")).lower()]
+    else:
+        matched = list(tasks)
+
+    if not matched:
+        sel = task_id or (f"title~{title_sub}" if title_sub else "any")
+        line = f"no tracked task matching [{sel}]"
+        return VerifyResult(False, line, line)
+
+    done_ct = sum(1 for t in matched if str(t.get("status", "")).lower() in done)
+    target = "/".join(sorted(done))
+    line = f"{done_ct}/{len(matched)} matched task(s) at [{target}]"
+    return VerifyResult(done_ct == len(matched), line, line)
 
 
 async def _verify_llm(spec: dict, ctx: VerifyContext) -> VerifyResult:
@@ -119,6 +207,8 @@ async def _verify_llm(spec: dict, ctx: VerifyContext) -> VerifyResult:
 
 VERIFIERS = {
     "findings": _verify_findings,
+    "targets": _verify_targets,
+    "task": _verify_task,
     "llm": _verify_llm,
 }
 

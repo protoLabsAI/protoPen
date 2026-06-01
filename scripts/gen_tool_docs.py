@@ -175,6 +175,7 @@ CATEGORIES: list[tuple[str, list[str]]] = [
             "list_tasks",
             "update_task",
             "close_task",
+            "set_goal",
         ],
     ),
 ]

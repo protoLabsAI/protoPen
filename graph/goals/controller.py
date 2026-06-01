@@ -91,6 +91,24 @@ class GoalController:
         self._store.set(state)
         return f"Goal set. {state.status_line()}"
 
+    def program_set(self, session_id: str, condition: str, verifier: dict | None = None) -> GoalState:
+        """Set a goal programmatically — the agent's ``set_goal`` tool path.
+
+        Mirrors the ``/goal <text>`` set branch (same defaults + config iteration
+        cap) but takes an explicit verifier spec instead of parsing a message.
+        """
+        spec = dict(verifier) if verifier else {"type": "llm"}
+        if "type" not in spec:
+            spec["type"] = "llm"
+        state = GoalState(
+            session_id=session_id,
+            condition=condition,
+            verifier=spec,
+            max_iterations=getattr(self._config, "goals_max_iterations", 10),
+        )
+        self._store.set(state)
+        return state
+
     def _parse_set(self, rest: str):
         """Return (verifier_spec, condition, max_iterations|None)."""
         if rest.lstrip().startswith("{"):
