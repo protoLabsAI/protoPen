@@ -14,7 +14,6 @@ import {
   MessageSquare,
   GraduationCap,
   Network,
-  PanelLeft,
   PanelRight,
   Workflow as WorkflowIcon,
   Play,
@@ -212,9 +211,8 @@ export function App() {
   const [agentsTab, setAgentsTab] = useState<AgentsTab>("subagents");
   const [systemTab, setSystemTab] = useState<SystemTab>("status");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
-  // Collapsible/resizable layout (persisted). Flags are "1"/"" strings; width is
-  // a px string clamped on read.
-  const [railCollapsed, setRailCollapsed] = useLocalStorageState("protopen.railCollapsed", "");
+  // Collapsible/resizable right panel (persisted). Flag is "1"/"" string; width
+  // is a px string clamped on read. (The rail is fixed.)
   const [rightCollapsed, setRightCollapsed] = useLocalStorageState("protopen.rightCollapsed", "");
   const [rightWidthStr, setRightWidthStr] = useLocalStorageState("protopen.rightWidth", "360");
   const rightWidth = Math.min(720, Math.max(280, parseInt(rightWidthStr, 10) || 360));
@@ -853,7 +851,7 @@ export function App() {
 
   // Collapsed panels keep their grid slot (track → 0) so siblings keep their
   // columns; display:none would shift items into the wrong tracks.
-  const workspaceCols = `${railCollapsed ? "0px" : "72px"} minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`;
+  const workspaceCols = `72px minmax(0, 1fr) ${rightCollapsed ? "0px" : `${rightWidth}px`}`;
 
   // One glanceable health light for the topbar (detail in the hover popover; full
   // status in System → Runtime). Worst-state wins.
@@ -922,7 +920,7 @@ export function App() {
       </header>
 
       <div
-        className={`workspace ${railCollapsed ? "rail-collapsed" : ""} ${rightCollapsed ? "right-collapsed" : ""}`}
+        className={`workspace ${rightCollapsed ? "right-collapsed" : ""}`}
         style={{ gridTemplateColumns: workspaceCols }}
       >
         <aside className="rail" aria-label="Workspace surfaces">
@@ -1746,17 +1744,6 @@ export function App() {
       </div>
 
       <footer className="utility-bar">
-        <button
-          type="button"
-          className={`util-btn ${railCollapsed ? "is-off" : ""}`}
-          onClick={() => setRailCollapsed(railCollapsed ? "" : "1")}
-          title={railCollapsed ? "Show rail" : "Hide rail"}
-          aria-label="Toggle rail"
-          data-testid="toggle-rail"
-        >
-          <PanelLeft size={14} />
-          <span>{railCollapsed ? "Show rail" : "Hide rail"}</span>
-        </button>
         <div className="util-spacer" />
         <button
           type="button"
@@ -1766,7 +1753,6 @@ export function App() {
           aria-label="Toggle side panel"
           data-testid="toggle-right"
         >
-          <span>{rightCollapsed ? "Show panel" : "Hide panel"}</span>
           <PanelRight size={14} />
         </button>
       </footer>

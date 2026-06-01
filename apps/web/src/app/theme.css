@@ -189,10 +189,9 @@ h2 {
   overflow: hidden;
 }
 
-/* Collapsed panels: the workspace grid sets their track to 0; zero the box so
+/* Collapsed right panel: the workspace grid sets its track to 0; zero the box so
    no residual padding/border shows. The element stays a grid item — using
    display:none would shift the other items into the wrong tracks. */
-.workspace.rail-collapsed .rail,
 .workspace.right-collapsed .right-panel {
   padding: 0;
   border: 0;
