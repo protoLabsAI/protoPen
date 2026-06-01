@@ -60,6 +60,7 @@ export default defineConfig({
             { text: "Chat Commands", link: "/reference/chat-commands" },
             { text: "Tools", link: "/reference/tools" },
             { text: "Playbooks", link: "/reference/playbooks" },
+            { text: "Goals (Autonomy)", link: "/reference/goals" },
             { text: "Target Intel Schema", link: "/reference/target-intel" },
             {
               text: "Engagement Modes",

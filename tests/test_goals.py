@@ -137,15 +137,15 @@ def test_run_verifier_dispatches_new_types(monkeypatch):
     assert not _run(run_verifier({"type": "bogus"}, VerifyContext())).met
 
 
-def test_program_set_uses_config_cap(tmp_path):
+def test_start_goal_uses_config_cap(tmp_path):
     c = _ctrl(tmp_path, goals_max_iterations=7)
-    state = c.program_set("s", "enumerate the subnet", {"type": "targets", "min": 5})
+    state = c.start_goal("s", "enumerate the subnet", {"type": "targets", "min": 5})
     assert state.condition == "enumerate the subnet"
     assert state.verifier == {"type": "targets", "min": 5}
     assert state.max_iterations == 7
     assert c.active_goal("s") is not None
     # missing type defaults to llm
-    assert c.program_set("t", "vague goal").verifier == {"type": "llm"}
+    assert c.start_goal("t", "vague goal").verifier == {"type": "llm"}
 
 
 # ── decision loop ─────────────────────────────────────────────────────────────

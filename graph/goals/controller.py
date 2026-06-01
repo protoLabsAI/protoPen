@@ -91,7 +91,7 @@ class GoalController:
         self._store.set(state)
         return f"Goal set. {state.status_line()}"
 
-    def program_set(self, session_id: str, condition: str, verifier: dict | None = None) -> GoalState:
+    def start_goal(self, session_id: str, condition: str, verifier: dict | None = None) -> GoalState:
         """Set a goal programmatically — the agent's ``set_goal`` tool path.
 
         Mirrors the ``/goal <text>`` set branch (same defaults + config iteration

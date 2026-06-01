@@ -366,7 +366,18 @@ The lead agent delegates to nine specialized subagents via the `task` tool:
 | `/think <level>` | Set reasoning effort |
 | `/tools` | List registered tools |
 | `/audit [n]` | Show recent audit log entries |
+| `/goal <condition>` | Set an autonomous goal — re-invoke the agent until a verifier passes ([Goals](docs/reference/goals.md)) |
 | `/help` | Show all commands |
+
+## Goals (Autonomy)
+
+For outcomes that need several turns, the agent can be pointed at a **goal** — set
+by the operator with `/goal <condition>` or by the agent itself via the `set_goal`
+tool. protoPen then re-invokes the agent each turn until a **verifier** confirms
+completion, the iteration budget runs out, or it's flagged unreachable. Verifiers
+are read-only (no shell): `findings` (engagement findings), `targets` (discovered
+hosts), `task` (a tracked task is done), or `llm` (a judge). The console's **Goals**
+tab browses active/past goals. See **[Goals (Autonomy)](docs/reference/goals.md)**.
 
 ## Playbooks
 
