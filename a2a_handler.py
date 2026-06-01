@@ -588,6 +588,12 @@ def register_a2a_routes(
                 return await playbooks_run(name, variables or {})
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
+            except Exception as exc:
+                # PlaybookGateError (engagement/scope block) carries status_code=409.
+                status = getattr(exc, "status_code", None)
+                if status:
+                    raise HTTPException(status_code=status, detail=str(exc))
+                raise
 
     # Update agent card capabilities
     agent_card.setdefault("capabilities", {})

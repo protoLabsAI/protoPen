@@ -2957,8 +2957,14 @@ textarea {
 }
 
 .mode-pill.mode-active {
-  border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.14);
+  color: #eadf9a;
+}
+
+.mode-pill.mode-redteam {
+  border-color: rgba(248, 113, 113, 0.4);
+  background: rgba(248, 113, 113, 0.16);
   color: #fca5a5;
 }
 
