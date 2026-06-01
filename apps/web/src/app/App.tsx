@@ -829,6 +829,11 @@ export function App() {
     [auditEntries, auditFilter, auditTool],
   );
 
+  // Detaches any in-flight drag listeners; also run on unmount so a drag that's
+  // active when the component goes away can't leak listeners or setState.
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => resizeCleanupRef.current?.(), []);
+
   // Drag the right panel's left edge to resize (clamped 280–720px, persisted).
   function startRightResize(e: ReactMouseEvent) {
     e.preventDefault();
@@ -842,7 +847,9 @@ export function App() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       document.body.style.userSelect = "";
+      resizeCleanupRef.current = null;
     };
+    resizeCleanupRef.current = onUp;
     document.body.style.userSelect = "none";
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
