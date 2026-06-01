@@ -120,6 +120,13 @@ tools:
   deferred:
     enabled: false
     keep: []          # e.g. [task, run_workflow, create_task, search_tools]
+
+# Goal mode (autonomy) — re-invoke the agent toward a verifier-backed condition
+# (set with /goal in chat). Verifiers are findings/llm only (read-only, no shell).
+goals:
+  enabled: true
+  max_iterations: 10
+  no_progress_limit: 4
 ```
 
 ### Key Sections
@@ -133,6 +140,7 @@ tools:
 | `skills` | SKILL.md retrieval — enable, dir, db path, top-k |
 | `workflows` | Declarative subagent recipes — enable, writable dir |
 | `tools.deferred` | Progressive tool disclosure (ADR 0005) — `enabled`, `keep` |
+| `goals` | Goal mode (autonomy) — `enabled`, `max_iterations`, `no_progress_limit` |
 
 ---
 

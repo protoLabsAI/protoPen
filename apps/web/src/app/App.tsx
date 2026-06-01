@@ -36,6 +36,7 @@ import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { ActivitySurface } from "../activity/ActivitySurface";
 import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
+import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
 import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
@@ -60,7 +61,7 @@ import { SetupWizard } from "../setup/SetupWizard";
 // group tab bar in the stage — keeps the rail to four entries.
 type Surface = "chat" | "intel" | "agents" | "system";
 type ChatTab = "conversation" | "activity";
-type AgentsTab = "subagents" | "workflows" | "playbooks";
+type AgentsTab = "goals" | "subagents" | "workflows" | "playbooks";
 type SystemTab = "status" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
@@ -1005,6 +1006,9 @@ export function App() {
           {surface === "agents" ? (
             <>
               <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={agentsTab === "goals"} className={agentsTab === "goals" ? "active" : ""} onClick={() => setAgentsTab("goals")}>
+                  <Sparkles size={14} /> Goals
+                </button>
                 <button role="tab" aria-selected={agentsTab === "subagents"} className={agentsTab === "subagents" ? "active" : ""} onClick={() => setAgentsTab("subagents")}>
                   <Network size={14} /> Subagents
                 </button>
@@ -1016,12 +1020,16 @@ export function App() {
                 </button>
               </div>
               <p className="group-subhead">
-                {agentsTab === "subagents"
-                  ? "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."
-                  : agentsTab === "workflows"
-                    ? "Orchestration — a saved recipe of subagent steps (judgment per step)."
-                    : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
+                {agentsTab === "goals"
+                  ? "Autonomy — loop the agent toward a verifier (set with /goal in chat)."
+                  : agentsTab === "subagents"
+                    ? "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."
+                    : agentsTab === "workflows"
+                      ? "Orchestration — a saved recipe of subagent steps (judgment per step)."
+                      : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
               </p>
+
+              {agentsTab === "goals" ? <GoalsSurface onError={setError} /> : null}
 
               {agentsTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
 

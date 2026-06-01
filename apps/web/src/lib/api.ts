@@ -9,6 +9,7 @@ import type {
   EngagementHistoryItem,
   EngagementReport,
   EngagementStatus,
+  GoalState,
   IntelSearchResult,
   KnowledgeSearchResult,
   PlaybookRunResult,
@@ -268,6 +269,14 @@ export const api = {
       method: "POST",
       body: { inputs },
     });
+  },
+
+  goals() {
+    return request<{ enabled: boolean; goals: GoalState[] }>("/api/goals");
+  },
+
+  clearGoal(sessionId: string) {
+    return request<{ cleared: boolean }>(`/api/goal/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   },
 
   playbooks() {
