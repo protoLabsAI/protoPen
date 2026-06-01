@@ -4,6 +4,11 @@ import type { ReactNode } from "react";
 // Lightweight custom popover shown on hover/focus of its trigger (a styled
 // replacement for native title tooltips — richer content, themed). Anchored to
 // the trigger; `placement` controls which way it opens.
+//
+// Keyboard: the wrapper's onFocus/onBlur catch focus bubbling from the trigger,
+// so `children` must be a focusable element (e.g. a <button>) for keyboard users
+// to reveal it — we don't put tabIndex on the wrapper to avoid a duplicate tab
+// stop around an already-focusable trigger. Escape dismisses.
 export function HoverPopover({
   children,
   content,
@@ -23,6 +28,9 @@ export function HoverPopover({
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
     >
       {children}
       {open ? (
