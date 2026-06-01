@@ -4,11 +4,37 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from operator_api.paths import resolve_project_path
+
+
+def _resolve_br_bin() -> str:
+    """Locate the `br` (beads_rust) binary.
+
+    The server runs under a minimal systemd PATH that often excludes user-local
+    install dirs (e.g. cargo installs to ~/.cargo/bin), so fall back to common
+    locations and a BEADS_BR_BIN override before giving up. Returns "br" as a last
+    resort so the caller still surfaces the clear "not installed" error.
+    """
+    override = os.environ.get("BEADS_BR_BIN")
+    if override:
+        return override
+    found = shutil.which("br")
+    if found:
+        return found
+    for candidate in (
+        Path.home() / ".cargo" / "bin" / "br",
+        Path.home() / ".local" / "bin" / "br",
+        Path("/usr/local/bin/br"),
+    ):
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return "br"
 
 
 @dataclass
@@ -30,8 +56,10 @@ class BeadsService:
     locking, JSONL flushes, and store-discovery semantics.
     """
 
-    def __init__(self, *, timeout_s: float = 15.0):
+    def __init__(self, *, timeout_s: float = 15.0, br_bin: str | None = None):
         self.timeout_s = timeout_s
+        # Resolve once at construction so a found binary is reused for every call.
+        self.br_bin = br_bin or _resolve_br_bin()
 
     def status(self, project_path: str) -> dict[str, bool]:
         result = self._run_allow_fail(project_path, ["list", "--json"])
@@ -115,7 +143,7 @@ class BeadsService:
         cwd = resolve_project_path(project_path)
         try:
             return subprocess.run(
-                ["br", *args],
+                [self.br_bin, *args],
                 cwd=str(cwd),
                 env={**os.environ, "RUST_LOG": "error"},
                 text=True,
@@ -124,7 +152,10 @@ class BeadsService:
                 check=False,
             )
         except FileNotFoundError as exc:
-            raise RuntimeError("`br` (beads_rust) is not installed or not on PATH") from exc
+            raise RuntimeError(
+                "`br` (beads_rust) is not installed or not on PATH — "
+                "install it (`cargo install beads_rust`) or set BEADS_BR_BIN to its path"
+            ) from exc
 
     def _parse_json(self, raw: str) -> Any:
         text = raw.strip()
