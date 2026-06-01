@@ -1515,6 +1515,12 @@ def _main():
     def _operator_knowledge_search(query: str, k: int = 10, table: str | None = None):
         return _search_knowledge(_get_store(), query=query, k=k, table=table)
 
+    # Skills surface: browse the memory layer (learned methodology).
+    def _operator_skills_list(query: str = ""):
+        from operator_api.skills import list_skills_for_console
+
+        return list_skills_for_console(_skills_index, query)
+
     # Targets & Intel surface: browse discovered hosts, past engagements, and
     # search across everything captured (read-only over the existing stores).
     from operator_api import intel as _intel
@@ -1607,6 +1613,7 @@ def _main():
         engagement_report=_operator_engagement_report,
         engagement_report_generate=_operator_engagement_report_generate,
         knowledge_search=_operator_knowledge_search,
+        skills_list=_operator_skills_list,
         targets_list=_operator_targets_list,
         target_get=_operator_target_get,
         engagements_list=_operator_engagements_list,
