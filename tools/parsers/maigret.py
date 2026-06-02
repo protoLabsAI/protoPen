@@ -17,10 +17,15 @@ if TYPE_CHECKING:
 
 # [+] GitHubGist [GitHub]: https://gist.github.com/johnsmith
 _FOUND_RE = re.compile(r"^\[\+\]\s+(?P<site>.+?):\s+(?P<url>https?://\S+)\s*$")
+# Header: "maigret: 3 account(s) found for 'johnsmith'"
+_USERNAME_RE = re.compile(r"found for\s+'(?P<username>[^']+)'")
 
 
 def parse_search(raw: str, store: "TargetStore") -> list[dict]:
-    """Extract found accounts (site + profile URL) from maigret output."""
+    """Extract found accounts (site + profile URL) from maigret output, keyed to
+    the searched username so they correlate to the person in the target store."""
+    um = _USERNAME_RE.search(raw)
+    username = um.group("username").strip() if um else ""
     entities: list[dict] = []
     seen: set[str] = set()
     for line in raw.splitlines():
@@ -34,7 +39,19 @@ def parse_search(raw: str, store: "TargetStore") -> list[dict]:
         if url in seen:
             continue
         seen.add(url)
-        entities.append({"type": "account", "site": site, "url": url})
+        entities.append(
+            {
+                "type": "account",
+                "category": "osint-account",
+                "severity": "info",
+                "target": username,
+                "title": site,
+                "value": url,
+                "site": site,
+                "url": url,
+                "source": "maigret",
+            }
+        )
     return entities
 
 

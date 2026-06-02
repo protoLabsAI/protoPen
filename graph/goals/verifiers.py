@@ -57,15 +57,47 @@ def _tail(text: str, cap: int = _EVIDENCE_CAP) -> str:
     return text if len(text) <= cap else "…" + text[-cap:]
 
 
-def _active_findings() -> list[dict]:
-    """The active engagement's findings (empty if no engagement / unavailable)."""
+def _engagement_manager():
+    """The EngagementManager singleton, or None (lazy lg_tools import isolated)."""
     try:
         from tools.lg_tools import get_engagement_manager
 
-        mgr = get_engagement_manager()
+        return get_engagement_manager()
     except Exception:
+        return None
+
+
+def _merge_findings(mgr) -> list[dict]:
+    """Engagement-logged findings PLUS target-store (parser-produced) findings
+    recorded since the engagement started.
+
+    The agent logs key findings via ``engagement log_finding`` (in-memory list),
+    while tool parsers persist structured findings (OSINT accounts, scan results,
+    …) to the target store. Goals should see both. Scoping target-store findings
+    to ``started_at`` avoids counting stale findings from prior engagements (the
+    store is global; the engagement's logged list resets each engagement).
+    """
+    if mgr is None:
         return []
-    return list(getattr(mgr, "findings", []) or [])
+    findings = list(getattr(mgr, "findings", []) or [])
+
+    active = getattr(mgr, "active_engagement", None)
+    started = active.get("started_at", "") if isinstance(active, dict) else ""
+    store = getattr(mgr, "target_store", None)
+    if store is not None and started and hasattr(store, "get_findings"):
+        try:
+            for f in store.get_findings():
+                # ISO-8601 UTC timestamps compare lexically (same format on both).
+                if str(f.get("first_seen", "")) >= started:
+                    findings.append(f)
+        except Exception:
+            pass
+    return findings
+
+
+def _active_findings() -> list[dict]:
+    """Findings visible to a goal verifier (engagement + scoped target-store)."""
+    return _merge_findings(_engagement_manager())
 
 
 def _search_hosts(query: str = "") -> list[dict]:

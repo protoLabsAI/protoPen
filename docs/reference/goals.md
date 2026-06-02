@@ -32,7 +32,7 @@ with a continuation prompt until the verifier passes. See the
 
 | Type | Met when… | Spec fields | Reads |
 |---|---|---|---|
-| `findings` | ≥ `min` engagement findings match | `severity` (≥ level), `category` (substring), `min` | active engagement findings |
+| `findings` | ≥ `min` findings match | `severity` (≥ level), `category` (substring), `min` | engagement-logged findings **+** target-store (parser) findings since the engagement started — so OSINT hits (`osint-account`, `osint-phone`, …) and scan results both count |
 | `targets` | ≥ `min` discovered hosts match | `query` (host free-text), `device_type`, `min` | `TargetStore` |
 | `task` | the selected beads task(s) are done | `id` (exact) **or** `title` (substring); `status` (default: any done-state) | beads tracker |
 | `llm` | an aux-model judge rules the condition met | `condition` (defaults to the goal text) | engagement summary + last message |
