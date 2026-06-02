@@ -133,10 +133,20 @@ class HoleheTool(Tool):
 
     @staticmethod
     def _summarize(email: str, raw: str) -> str:
-        """Keep the [+] used-account lines; count them in the header."""
+        """Keep the [+] used-account lines; count them in the header.
+
+        holehe always prints a legend line — ``[+] Email used, [-] Email not used,
+        [x] Rate limit`` — which carries all three markers; real result lines have
+        only ``[+]``. Drop any line containing ``[-]`` or ``[x]`` so the legend
+        isn't counted as an account.
+        """
         if raw.startswith("[timeout]"):
             return raw
-        used = [ln.rstrip() for ln in raw.splitlines() if ln.strip().startswith("[+]")]
+        used = [
+            ln.rstrip()
+            for ln in raw.splitlines()
+            if ln.strip().startswith("[+]") and "[-]" not in ln and "[x]" not in ln
+        ]
         header = f"holehe: {len(used)} site(s) with an account for {email}"
         if not used:
             # No [+] lines — either truly none, or --only-used suppressed everything.

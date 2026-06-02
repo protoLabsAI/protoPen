@@ -25,6 +25,7 @@ Line type: mobile
 
 HOLEHE_OUT = """holehe: 3 site(s) with an account for test@gmail.com
 
+[+] Email used, [-] Email not used, [x] Rate limit
 [+] amazon.com
 [+] twitter.com
 [+] amazon.com
@@ -67,6 +68,14 @@ def test_holehe_parser_extracts_accounts_keyed_to_email():
 
 def test_holehe_parser_handles_none():
     assert holehe_parse("holehe: 0 site(s) ... — none found among the checked sites.", store=None) == []
+
+
+def test_holehe_parser_drops_legend_line():
+    # holehe's legend "[+] Email used, [-] ... [x] ..." must not become an account.
+    out = holehe_parse(
+        "holehe: 0 site(s) for a@b.com\n\n[+] Email used, [-] Email not used, [x] Rate limit", store=None
+    )
+    assert out == []
 
 
 # ── maigret parser (now keyed to the username) ────────────────────────────────
