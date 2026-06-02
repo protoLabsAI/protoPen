@@ -72,7 +72,9 @@ def test_holehe_parser_handles_none():
 
 def test_holehe_parser_drops_legend_line():
     # holehe's legend "[+] Email used, [-] ... [x] ..." must not become an account.
-    out = holehe_parse("holehe: 0 site(s) for a@b.com\n\n[+] Email used, [-] Email not used, [x] Rate limit", store=None)
+    out = holehe_parse(
+        "holehe: 0 site(s) for a@b.com\n\n[+] Email used, [-] Email not used, [x] Rate limit", store=None
+    )
     assert out == []
 
 
