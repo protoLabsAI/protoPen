@@ -42,8 +42,11 @@ def test_summarize_passes_timeout_marker_through():
 
 
 def test_parser_extracts_unique_accounts():
-    entities = parse_search(SAMPLE, store=None)  # parser does not touch the store
-    assert all(e["type"] == "account" for e in entities)
+    # The parser receives the *summarized* output (that's what execute() ingests),
+    # whose header carries the username it keys findings to.
+    summarized = MaigretTool._summarize("johnsmith", SAMPLE)
+    entities = parse_search(summarized, store=None)  # parser does not touch the store
+    assert all(e["type"] == "account" and e["target"] == "johnsmith" for e in entities)
     assert {e["url"] for e in entities} == {
         "https://github.com/johnsmith",
         "https://gist.github.com/johnsmith",

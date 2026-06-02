@@ -26,6 +26,9 @@ def parse_search(raw: str, store: "TargetStore") -> list[dict]:
     the searched username so they correlate to the person in the target store."""
     um = _USERNAME_RE.search(raw)
     username = um.group("username").strip() if um else ""
+    if not username:
+        # No parsed username → don't emit anonymous (target="") account findings.
+        return []
     entities: list[dict] = []
     seen: set[str] = set()
     for line in raw.splitlines():

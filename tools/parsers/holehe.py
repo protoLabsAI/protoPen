@@ -27,6 +27,9 @@ def parse_search(raw: str, store: "TargetStore") -> list[dict]:
         return []
     em = _EMAIL_RE.search(raw)
     email = em.group("email").strip() if em else ""
+    if not email:
+        # No parsed email → don't emit anonymous (target="") account findings.
+        return []
 
     entities: list[dict] = []
     seen: set[str] = set()
