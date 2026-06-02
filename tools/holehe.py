@@ -110,7 +110,9 @@ class HoleheTool(Tool):
 
     async def _run(self, *args: str, timeout: int = 120) -> str:
         """Run holehe; stdout only. Kill-first-on-timeout idiom (see maigret)."""
-        logger.info("Running: %s", " ".join(args))
+        # Redacted: argv carries the target email (PII) — log the binary + arg
+        # count only, never the value.
+        logger.info("Running %s (%d args)", Path(args[0]).name if args else "?", max(0, len(args) - 1))
         proc = await asyncio.create_subprocess_exec(
             *args,
             stdout=asyncio.subprocess.PIPE,

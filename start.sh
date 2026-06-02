@@ -122,22 +122,29 @@ if [ ! -x "$HOLEHE_BIN" ]; then
     fi
 fi
 
-# PhoneInfoga (OSINT phone-number recon) — prebuilt Go binary via the official
-# installer. NOTE: `go install` does NOT work for phoneinfoga v2 (its embedded
-# web client/dist isn't present in the module), so we fetch the release binary.
-# Resolved via PHONEINFOGA_BIN. Idempotent.
+# PhoneInfoga (OSINT phone-number recon) — pinned release binary + checksum.
+# NOTE: `go install` does NOT work for phoneinfoga v2 (its embedded web
+# client/dist isn't in the module), and piping master/install to bash is
+# unpinned, so we fetch a specific release asset and verify its sha256.
+# Resolved via PHONEINFOGA_BIN. Idempotent. x86_64 Linux (Deck + the image).
+PHONEINFOGA_VERSION="${PHONEINFOGA_VERSION:-2.11.0}"
+PHONEINFOGA_SHA256="6173dfc4ec009a6fe688068bac5a250646f5a8f56409098f5edcc7e404b12a52"
 export PHONEINFOGA_BIN="${PHONEINFOGA_BIN:-$HOME/.local/bin/phoneinfoga}"
 if [ ! -x "$PHONEINFOGA_BIN" ]; then
-    echo "Installing phoneinfoga (OSINT phone recon)…"
+    echo "Installing phoneinfoga v${PHONEINFOGA_VERSION} (OSINT phone recon)…"
     mkdir -p "$HOME/.local/bin"
-    if (cd "$(mktemp -d)" \
-        && curl -sSL https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install | bash \
-        && mv ./phoneinfoga "$PHONEINFOGA_BIN") >/dev/null 2>&1; then
+    _pidir="$(mktemp -d)"
+    _piurl="https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz"
+    if curl -sSL "$_piurl" -o "$_pidir/pi.tar.gz" \
+        && echo "${PHONEINFOGA_SHA256}  $_pidir/pi.tar.gz" | sha256sum -c - >/dev/null 2>&1 \
+        && tar -xzf "$_pidir/pi.tar.gz" -C "$_pidir" phoneinfoga \
+        && mv "$_pidir/phoneinfoga" "$PHONEINFOGA_BIN"; then
         chmod +x "$PHONEINFOGA_BIN"
         echo "✓ phoneinfoga installed ($PHONEINFOGA_BIN)"
     else
-        echo "WARN: phoneinfoga install failed — the phoneinfoga tool will be unavailable"
+        echo "WARN: phoneinfoga install failed (download/checksum) — the phoneinfoga tool will be unavailable"
     fi
+    rm -rf "$_pidir"
 fi
 
 exec python server.py "$@"

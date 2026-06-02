@@ -107,7 +107,9 @@ class PhoneInfogaTool(Tool):
         cancelling communicate() while the child is alive can wedge the turn, so we
         kill the child (closing its stdout) and let the running communicate() drain
         to EOF, instead of letting wait_for cancel it."""
-        logger.info("Running: %s", " ".join(args))
+        # Redacted: argv carries the target phone number (PII) — log the binary +
+        # arg count only, never the value.
+        logger.info("Running %s (%d args)", Path(args[0]).name if args else "?", max(0, len(args) - 1))
         proc = await asyncio.create_subprocess_exec(
             *args,
             stdout=asyncio.subprocess.PIPE,
