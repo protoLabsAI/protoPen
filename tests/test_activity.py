@@ -2,77 +2,40 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-import a2a_handler
-from a2a_handler import register_a2a_routes
+import a2a_executor
+from a2a_executor import TurnOutcome
+from operator_api.routes import register_operator_routes
 
 
 def test_notify_terminal_invokes_hook_and_is_exception_safe():
-    record = SimpleNamespace(id="t1", context_id="system:activity", accumulated_text="hi")
+    outcome = TurnOutcome(
+        task_id="t1",
+        context_id="system:activity",
+        state="completed",
+        text="hi",
+    )
     seen = []
-    prior = a2a_handler._ON_TERMINAL[0]
+    prior = a2a_executor._ON_TERMINAL[0]
     try:
-        a2a_handler._ON_TERMINAL[0] = seen.append
-        a2a_handler._notify_terminal(record)
-        assert seen == [record]
+        a2a_executor.set_terminal_hook(seen.append)
+        a2a_executor._notify_terminal(outcome)
+        assert seen == [outcome]
 
-        # A throwing hook must not propagate into the background runner.
+        # A throwing hook must not propagate into the executor.
         def boom(_):
             raise RuntimeError("nope")
 
-        a2a_handler._ON_TERMINAL[0] = boom
-        a2a_handler._notify_terminal(record)  # no raise
+        a2a_executor.set_terminal_hook(boom)
+        a2a_executor._notify_terminal(outcome)  # no raise
 
         # No hook registered → no-op.
-        a2a_handler._ON_TERMINAL[0] = None
-        a2a_handler._notify_terminal(record)
+        a2a_executor.set_terminal_hook(None)
+        a2a_executor._notify_terminal(outcome)
     finally:
-        a2a_handler._ON_TERMINAL[0] = prior
-
-
-def _register(app, **extra):
-    """Register the A2A routes on *app* with harmless stubs (+ optional kwargs)."""
-
-    async def _stub_stream(_message, _session_id):  # pragma: no cover - not invoked
-        if False:
-            yield ("text", "")
-
-    register_a2a_routes(
-        app=app,
-        chat_stream_fn_factory=_stub_stream,
-        chat_fn=lambda *a, **k: [],
-        api_key="",
-        agent_card={},
-        **extra,
-    )
-
-
-def test_workflows_routes():
-    """GET /api/workflows lists; POST /api/workflows/{name}/run runs (ADR 0002)."""
-
-    def workflows_list():
-        return {"workflows": [{"name": "wf", "description": "d", "inputs": [], "steps": []}]}
-
-    async def workflows_run(name, inputs):
-        return {"output": f"ran {name} with {inputs.get('topic', '')}", "steps": {}, "failed": []}
-
-    app = FastAPI()
-    _register(app, workflows_list=workflows_list, workflows_run=workflows_run)
-    client = TestClient(app)
-    assert client.get("/api/workflows").json()["workflows"][0]["name"] == "wf"
-    resp = client.post("/api/workflows/wf/run", json={"inputs": {"topic": "ai"}})
-    assert resp.status_code == 200
-    assert resp.json()["output"] == "ran wf with ai"
-
-
-def test_workflows_routes_absent_without_callbacks():
-    app = FastAPI()
-    _register(app)
-    assert TestClient(app).get("/api/workflows").status_code == 404
+        a2a_executor._ON_TERMINAL[0] = prior
 
 
 def test_activity_route_returns_history():
@@ -86,8 +49,16 @@ def test_activity_route_returns_history():
         }
 
     app = FastAPI()
-    _register(app, activity_list=activity_list)
-    resp = TestClient(app).get("/api/activity")
+    register_operator_routes(
+        app,
+        runtime_status=lambda: {},
+        subagent_list=lambda: [],
+        subagent_run=_unused,
+        subagent_batch=_unused,
+        activity_list=activity_list,
+    )
+    client = TestClient(app)
+    resp = client.get("/api/activity")
     assert resp.status_code == 200
     body = resp.json()
     assert body["context_id"] == "system:activity"
@@ -95,7 +66,18 @@ def test_activity_route_returns_history():
 
 
 def test_activity_route_absent_without_callback():
-    """No activity_list wired → the route isn't registered (404)."""
+    """No activity_list wired → route isn't registered (404)."""
     app = FastAPI()
-    _register(app)
-    assert TestClient(app).get("/api/activity").status_code == 404
+    register_operator_routes(
+        app,
+        runtime_status=lambda: {},
+        subagent_list=lambda: [],
+        subagent_run=_unused,
+        subagent_batch=_unused,
+    )
+    client = TestClient(app)
+    assert client.get("/api/activity").status_code == 404
+
+
+async def _unused(*_a, **_k):  # pragma: no cover - placeholder callable
+    return ""
