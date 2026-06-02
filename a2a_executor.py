@@ -323,17 +323,34 @@ def _is_input_required(task: Any) -> bool:
         return False
 
 
+def _request_metadata(context: RequestContext) -> dict:
+    """Merged A2A request metadata: message-level (fallback) overlaid by
+    request-level (preferred). The a2a-sdk surfaces ``SendMessageRequest``-level
+    metadata on ``context.metadata`` (a dict) — that's where clients (e.g. the
+    hub, the scheduler loopback) put routing keys like ``a2a.trace``, so
+    request-level must win. Reading only ``context.message.metadata`` silently
+    misses all of it (ported from protoAgent #481 / #476)."""
+    merged: dict = {}
+    msg = getattr(context, "message", None)
+    if msg is not None and getattr(msg, "metadata", None):
+        try:
+            merged.update(json_format.MessageToDict(msg.metadata))
+        except Exception:  # noqa: BLE001
+            pass
+    req = getattr(context, "metadata", None)
+    if isinstance(req, dict):
+        merged.update(req)
+    elif req is not None:
+        try:
+            merged.update(json_format.MessageToDict(req))
+        except Exception:  # noqa: BLE001
+            pass
+    return merged
+
+
 def _extract_caller_trace(context: RequestContext) -> dict:
-    """Pull the ``a2a.trace`` metadata off the inbound message (Langfuse
-    cross-trace propagation), or {} when absent."""
-    msg = context.message
-    if msg is None:
-        return {}
-    try:
-        meta = json_format.MessageToDict(msg.metadata) if msg.metadata else {}
-    except Exception:  # noqa: BLE001
-        return {}
-    trace = meta.get("a2a.trace")
+    """The ``a2a.trace`` metadata (Langfuse cross-trace propagation), or {}."""
+    trace = _request_metadata(context).get("a2a.trace")
     return trace if isinstance(trace, dict) else {}
 
 
