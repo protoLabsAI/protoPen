@@ -34,11 +34,15 @@ def parse_search(raw: str, store: "TargetStore") -> list[dict]:
     entities: list[dict] = []
     seen: set[str] = set()
     for line in raw.splitlines():
+        # Skip holehe's legend line "[+] Email used, [-] ... [x] ...": real result
+        # lines carry only [+]. The legend's token would also fail the domain check.
+        if "[-]" in line or "[x]" in line:
+            continue
         um = _USED_RE.match(line.strip())
         if not um:
             continue
         site = um.group("site").strip().rstrip(".,")
-        if not site or site in seen:
+        if not site or "." not in site or site in seen:
             continue
         seen.add(site)
         entities.append(

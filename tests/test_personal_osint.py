@@ -58,10 +58,11 @@ def test_phoneinfoga_requires_number(tmp_path):
 
 
 def test_holehe_summarize_counts_used():
-    raw = "[+] twitter.com\n[+] spotify.com\n[-] github.com\n"
+    # Includes holehe's legend line, which must NOT be counted as an account.
+    raw = "[+] Email used, [-] Email not used, [x] Rate limit\n[+] twitter.com\n[+] spotify.com\n[-] github.com\n"
     out = HoleheTool._summarize("a@b.com", raw)
     assert out.startswith("holehe: 2 site(s) with an account for a@b.com")
-    assert "twitter.com" in out and "github.com" not in out
+    assert "twitter.com" in out and "github.com" not in out and "Email used" not in out
 
 
 def test_holehe_summarize_none():
