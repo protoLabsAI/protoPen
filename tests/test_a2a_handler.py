@@ -605,3 +605,35 @@ async def test_allowed_origin_passes():
             },
         )
     assert r.status_code == 200
+
+
+# ── Request-level metadata (caller trace) — ported from protoAgent #481/#476 ──
+
+
+def test_caller_trace_read_from_request_level_metadata():
+    """The hub (and the scheduler loopback) puts a2a.trace at SendMessageRequest
+    level (context.metadata), not on the message. The executor must read it there
+    — reading only message.metadata silently dropped cross-agent Langfuse traces."""
+    from a2a_executor import _extract_caller_trace, _request_metadata
+
+    msg = type("Msg", (), {"metadata": None})()
+    ctx = type("Ctx", (), {"metadata": {"a2a.trace": {"trace_id": "T1"}, "origin": "scheduler"}, "message": msg})()
+    assert _request_metadata(ctx)["origin"] == "scheduler"
+    assert _extract_caller_trace(ctx) == {"trace_id": "T1"}
+
+
+def test_caller_trace_request_level_wins_over_message_level():
+    """Request-level metadata is preferred when both carry the key."""
+    from a2a_executor import _request_metadata
+
+    msg = type("Msg", (), {"metadata": None})()  # message-level proto omitted in unit test
+    ctx = type("Ctx", (), {"metadata": {"k": "request"}, "message": msg})()
+    assert _request_metadata(ctx)["k"] == "request"
+
+
+def test_caller_trace_empty_when_absent():
+    from a2a_executor import _extract_caller_trace
+
+    msg = type("Msg", (), {"metadata": None})()
+    ctx = type("Ctx", (), {"metadata": {}, "message": msg})()
+    assert _extract_caller_trace(ctx) == {}
