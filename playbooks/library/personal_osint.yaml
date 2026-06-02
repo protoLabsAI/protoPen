@@ -70,15 +70,18 @@ steps:
 
   # ── Associated domain → emails/names (theHarvester) ──────────────────────────
   # Employer/personal domain often yields the person's email + colleagues' names.
+  # NOTE: source "all" queries ~40 backends and routinely blows the timeout — use a
+  # fast, keyless subset (CT logs + search + passive DNS) so the chained run lands.
   - name: domain_harvest
     tool: osint_recon
     action: theharvester
     condition: "${domain} != ''"
     params:
       target: "${domain}"
-      source: "all"
+      source: "crtsh,certspotter,hackertarget,rapiddns,duckduckgo,otx,urlscan"
       limit: 500
-    timeout: 120
+      timeout: 100
+    timeout: 110
     on_fail: continue
 
   # ── Associated domain → ownership (whois) ────────────────────────────────────
