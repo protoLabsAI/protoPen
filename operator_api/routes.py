@@ -426,8 +426,12 @@ def register_operator_routes(
         @router.post("/api/workflows/{name}/run", summary="Run a workflow recipe (ADR 0002)")
         async def _workflows_run(name: str, payload: dict = Body(default={})):
             inputs = payload.get("inputs", {}) if isinstance(payload, dict) else {}
+            if inputs is None:
+                inputs = {}
+            if not isinstance(inputs, dict):
+                raise HTTPException(status_code=400, detail="'inputs' must be a JSON object")
             try:
-                return await workflows_run(name, inputs or {})
+                return await workflows_run(name, inputs)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
 
@@ -442,8 +446,12 @@ def register_operator_routes(
         @router.post("/api/playbooks/{name}/run", summary="Run a playbook")
         async def _playbooks_run(name: str, payload: dict = Body(default={})):
             variables = payload.get("variables", {}) if isinstance(payload, dict) else {}
+            if variables is None:
+                variables = {}
+            if not isinstance(variables, dict):
+                raise HTTPException(status_code=400, detail="'variables' must be a JSON object")
             try:
-                return await playbooks_run(name, variables or {})
+                return await playbooks_run(name, variables)
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
             except Exception as exc:
