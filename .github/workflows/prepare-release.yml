@@ -2,8 +2,11 @@ name: "Prepare Release"
 
 # Runs after any non-release PR merges to main, OR manually.
 # Bumps the version in pyproject.toml, opens a prepare-release/vX.Y.Z branch,
-# commits it as "chore: release vX.Y.Z", and auto-merges back to main.
-# The merge to main triggers release.yml.
+# and commits it as "chore: release vX.Y.Z". It does NOT merge or tag — a
+# human merges the bump PR through the normal CI/review gate, then dispatches
+# release.yml (tag vX.Y.Z) which builds the image and cuts the release. We do
+# not auto-merge (fleet policy, 2026-06-02: auto-merge fires on stale SHAs +
+# breaks stacked PRs).
 
 on:
   pull_request:
@@ -93,40 +96,12 @@ jobs:
             --base main \
             --head "${BRANCH}" \
             --title "chore: release v${VERSION}" \
-            --body "Automated version bump to \`v${VERSION}\`.")
-          echo "PR: ${PR_URL}"
+            --body "Automated version bump to \`v${VERSION}\`. Review + merge through the normal CI/review gate, then dispatch release.yml (tag \`v${VERSION}\`) to tag main and cut the release.")
+          echo "Opened: ${PR_URL}"
 
-          # Enable auto-merge — GitHub merges once CI checks pass
-          gh pr merge "${PR_URL}" --squash --auto
-
-          # Poll until the PR is merged (CI must pass first; timeout 10 min)
-          # Capture the exact merge commit SHA so the tag is deterministic even
-          # if main advances while we wait.
-          echo "Waiting for PR to merge…"
-          MERGE_SHA=""
-          for i in $(seq 1 120); do
-            STATE=$(gh pr view "${PR_URL}" --json state -q .state)
-            if [ "$STATE" = "MERGED" ]; then
-              MERGE_SHA=$(gh pr view "${PR_URL}" --json mergeCommit -q .mergeCommit.oid)
-              echo "PR merged at ${MERGE_SHA}."
-              break
-            fi
-            if [ "$i" -eq 120 ]; then
-              echo "Timeout waiting for PR to merge." && exit 1
-            fi
-            sleep 5
-          done
-
-          if [ -z "$MERGE_SHA" ]; then
-            echo "Missing merge commit SHA." && exit 1
-          fi
-
-          # Push the semver tag — this is what triggers release.yml
-          # Fetch origin so the merge commit is available locally before tagging.
-          git fetch origin main
-          git cat-file -e "${MERGE_SHA}^{commit}" || {
-            echo "Merged commit ${MERGE_SHA} not available locally." && exit 1
-          }
-          git tag -a "v${VERSION}" "${MERGE_SHA}" -m "v${VERSION}"
-          git push origin "v${VERSION}"
-          echo "Tagged v${VERSION} → release.yml will fire"
+          # We do NOT auto-merge or tag here (fleet policy, 2026-06-02:
+          # auto-merge fires on stale SHAs + breaks stacked PRs). A human
+          # merges this bump PR through the normal CI/review gate, then
+          # dispatches release.yml with tag v${VERSION} to tag main and
+          # cut the GitHub release + Discord notes.
+          echo "Next: review + merge that PR (we do not auto-merge), then run release.yml (tag v${VERSION})."

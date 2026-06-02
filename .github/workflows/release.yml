@@ -41,6 +41,11 @@ jobs:
           TAG="${{ inputs.tag || github.ref_name }}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          # Previous tag for the release-notes diff range. Falls back to the
+          # repo's first commit if this is the first tagged release.
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null \
+            || git rev-list --max-parents=0 HEAD | head -n1)
+          echo "prev_tag=${PREV}" >> "$GITHUB_OUTPUT"
 
       # ── Docker ────────────────────────────────────────────────────────────────
 
@@ -98,16 +103,18 @@ jobs:
             --notes "${{ steps.notes.outputs.notes }}"
 
       # ── Discord ───────────────────────────────────────────────────────────────
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+      # Shared fleet tooling: rewrites the commit range into themed notes via
+      # the protoLabs gateway and posts the Discord embed. See
+      # protoLabsAI/release-tools. Replaces the former local
+      # scripts/post-release-notes.mjs. SHA-pinned because this action has
+      # access to release-channel credentials and the job has contents:write.
 
       - name: Post release notes to Discord
         continue-on-error: true
+        uses: protoLabsAI/release-tools@b7c3531dd67accb57ca09242f47d8c0eb1ace8eb # v1.1.0
+        with:
+          version: ${{ steps.version.outputs.tag }}
+          previous-version: ${{ steps.version.outputs.prev_tag }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
-        run: |
-          node scripts/post-release-notes.mjs \
-            --title "${{ steps.version.outputs.tag }}"
+          GATEWAY_API_KEY: ${{ secrets.GATEWAY_API_KEY }}
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
