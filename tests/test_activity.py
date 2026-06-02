@@ -81,3 +81,47 @@ def test_activity_route_absent_without_callback():
 
 async def _unused(*_a, **_k):  # pragma: no cover - placeholder callable
     return ""
+
+
+# ── Workflows/Playbooks run-payload validation ───────────────────────────────
+
+
+def _run_app(**callbacks):
+    app = FastAPI()
+    register_operator_routes(
+        app,
+        runtime_status=lambda: {},
+        subagent_list=lambda: [],
+        subagent_run=_unused,
+        subagent_batch=_unused,
+        **callbacks,
+    )
+    return TestClient(app)
+
+
+def test_workflows_run_rejects_non_object_inputs():
+    seen = []
+
+    async def workflows_run(name, inputs):
+        seen.append((name, inputs))
+        return {"ok": True}
+
+    client = _run_app(workflows_list=lambda: {"workflows": []}, workflows_run=workflows_run)
+    # Non-object inputs → clean 400, callback never invoked.
+    assert client.post("/api/workflows/wf/run", json={"inputs": [1, 2, 3]}).status_code == 400
+    assert client.post("/api/workflows/wf/run", json={"inputs": "nope"}).status_code == 400
+    assert seen == []
+    # Valid object (and omitted/null) → 200, callback gets a dict.
+    assert client.post("/api/workflows/wf/run", json={"inputs": {"k": "v"}}).status_code == 200
+    assert client.post("/api/workflows/wf/run", json={"inputs": None}).status_code == 200
+    assert client.post("/api/workflows/wf/run", json={}).status_code == 200
+    assert all(isinstance(i, dict) for _, i in seen)
+
+
+def test_playbooks_run_rejects_non_object_variables():
+    async def playbooks_run(name, variables):
+        return {"ok": True}
+
+    client = _run_app(playbooks_list=lambda: {"playbooks": []}, playbooks_run=playbooks_run)
+    assert client.post("/api/playbooks/pb/run", json={"variables": 5}).status_code == 400
+    assert client.post("/api/playbooks/pb/run", json={"variables": {"a": 1}}).status_code == 200

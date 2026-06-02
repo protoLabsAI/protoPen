@@ -244,6 +244,17 @@ class ProtoPenExecutor(AgentExecutor):
                         expl = payload.get("explanation")
                         confidence_expl = expl.strip() if isinstance(expl, str) and expl.strip() else None
 
+                elif event_type == "status":
+                    # protoPen's goal-mode loop emits ("status", note) progress
+                    # notes between retries; surface them as a working-status text
+                    # update so A2A clients see the progress instead of it being
+                    # dropped. Not accumulated into the final answer text.
+                    if payload:
+                        await updater.update_status(
+                            TaskState.TASK_STATE_WORKING,
+                            message=updater.new_agent_message([_text_part(str(payload))]),
+                        )
+
                 elif event_type == "input_required":
                     # Human-readable prompt for plain consumers; the full
                     # form/approval payload rides a protoPen-local hitl-v1

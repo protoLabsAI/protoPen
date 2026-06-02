@@ -428,6 +428,47 @@ async def test_input_required_form_carries_hitl_datapart():
     assert hitl["steps"][0]["id"] == "env"
 
 
+@pytest.mark.asyncio
+async def test_status_event_surfaces_as_working_frame():
+    """protoPen's goal loop emits ("status", note) between retries; the executor
+    must surface it as a working-status text frame (observed on the stream), not
+    drop it."""
+    import json
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None):
+        yield ("status", "re-running: goal not yet met")
+        yield ("text", "final answer")
+        yield ("done", "final answer")
+
+    app = _build_app(stream)
+    seen_status = []
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        async with c.stream(
+            "POST",
+            "/a2a",
+            headers=A2A_HEADERS,
+            json={
+                "jsonrpc": "2.0",
+                "id": "s",
+                "method": "SendStreamingMessage",
+                "params": {"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"text": "hi"}]}},
+            },
+        ) as resp:
+            assert resp.status_code == 200
+            async for line in resp.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                frame = json.loads(line[5:].strip())
+                status = frame.get("result", {}).get("statusUpdate", {}).get("status", {})
+                msg = status.get("message")
+                if not msg:
+                    continue
+                for part in msg.get("parts", []):
+                    if "re-running: goal not yet met" in part.get("text", ""):
+                        seen_status.append(part["text"])
+    assert seen_status, "status note was dropped — never surfaced on a working frame"
+
+
 # ── Terminal hook (telemetry + Activity feed) ─────────────────────────────────
 
 
