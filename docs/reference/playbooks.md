@@ -2,7 +2,7 @@
 
 Playbooks are **declarative tool-chains** — an ordered sequence of tool actions
 run by the playbook engine, with no LLM in the loop. They live as YAML in
-`playbooks/library/*.yaml` (23 bundled) and are reachable two ways:
+`playbooks/library/*.yaml` (24 bundled) and are reachable two ways:
 
 - **The agent** — via the `playbook` tool (`playbook(action="list" | "run" | "status", name=…, variables=…)`).
 - **The operator** — the **Agents → Playbooks** tab in the [operator console](../guides/operator-console.md): browse the library, fill a recipe's variables, fire it, and watch per-step results.
@@ -45,15 +45,23 @@ server-side as the **max risk across its steps**. Risk comes from
 `config/engagement-config.json` `tool_risk`, which is keyed by **action**
 (`cve_nmap` = 2, `wifi_deauth` = 2, `secretsdump` = 3 → clamped to redteam); a
 clearly-offensive tag (`redteam`/`exploit`/`post-exploitation`/…) sets a floor.
-Across the 23 bundled recipes: ~13 redteam, ~6 active, ~4 passive.
+Across the 24 bundled recipes: ~13 redteam, ~6 active, ~5 passive.
 
 When the **operator** fires a playbook from the console, the same gate the agent
 runs under is enforced (`POST /api/playbooks/{name}/run`):
 
 | Playbook mode | Requirement |
 |---|---|
-| **passive** | Fires freely. |
+| **passive** | Fires freely — *unless* the recipe sets `requires_engagement: true` (see below). |
 | **active / redteam** | Needs an **active engagement** whose mode permits it (`risk ≤ mode.value`, same rule as `EngagementManager.is_allowed`) **and** whose **scope covers each step's target**. |
+
+**`requires_engagement` (passive opt-in).** A passive recipe (risk 0) can declare
+`requires_engagement: true` to demand an **active engagement + in-scope target**
+anyway — without bumping its mode. Used for passive-but-sensitive collection like
+**personal OSINT** (profiling a real person), where the tools send nothing to the
+target but PII collection should only happen inside an authorized, scoped, logged
+engagement. The mode stays `passive`; the engagement (any mode) + scope check still
+apply.
 
 A blocked fire returns **HTTP 409** with the reason (no engagement / mode too low
 / target out of scope). Scope is checked with the same `ScopeValidator` the
@@ -69,6 +77,7 @@ tagged `source=operator_manual` (`tool=playbook:<name>`).
 | Playbook | Mode | Gist |
 |---|---|---|
 | `external_recon` | passive | OSINT + DNS + perimeter recon on a domain/WAN IP. |
+| `personal_osint` | passive¹ | Profile a person from a name/username/email/phone/domain — maigret + holehe + phoneinfoga + theHarvester. ¹`requires_engagement`. |
 | `lan_discovery` | redteam | LAN host/service discovery (includes `cve_nmap`). |
 | `web_vuln_assessment` | redteam | nikto + nuclei + targeted web checks. |
 | `ad_attack` | redteam | AD enumeration → BloodHound → Kerberoast → Certipy. |

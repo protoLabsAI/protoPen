@@ -1,0 +1,92 @@
+name: personal_osint
+description: >
+  Build a profile on a person from any seed you have — a name, username, email,
+  phone number, or associated domain — by pivoting across public sources. Maigret
+  fans a username across 3000+ sites, holehe checks 120+ sites for an email's
+  accounts, PhoneInfoga profiles a phone number (country/carrier/line type +
+  footprint), and theHarvester pulls emails/names from an associated domain. Each
+  step runs only when its seed is provided, so partial inputs still work. Fully
+  passive — no contact is made with the target. Requires an active engagement with
+  the person/handle/number recorded in scope.
+tags: [osint, passive, person, recon, username, email, phone]
+
+# Passive tools, but PII on a real person — only collect inside an authorized,
+# scoped engagement (the operator gate enforces this even though risk is 0).
+requires_engagement: true
+
+variables:
+  name: ""        # Full name (used to seed nothing directly yet — recorded for context/scope)
+  username: ""    # Handle to fan out across sites (maigret)
+  email: ""       # Email address to check for registered accounts (holehe)
+  phone: ""       # Phone number in international format, e.g. "+14155552671" (phoneinfoga)
+  domain: ""      # Associated domain (employer/personal site) to harvest from (theHarvester)
+
+steps:
+
+  # ── Phase marker ─────────────────────────────────────────────────────────────
+  # Records the engagement phase. The hard engagement/scope requirement is enforced
+  # by the operator fire gate (requires_engagement above), not this step.
+  - name: phase_recon
+    tool: engagement
+    action: transition_phase
+    params:
+      phase: recon
+    on_fail: continue
+
+  # ── Username → accounts (maigret) ────────────────────────────────────────────
+  # Fan the handle across 3000+ sites; collect profile URLs + extracted IDs/bios.
+  - name: username_accounts
+    tool: maigret
+    action: search
+    condition: "${username} != ''"
+    params:
+      username: "${username}"
+      top_sites: 500
+    timeout: 300
+    on_fail: continue
+
+  # ── Email → accounts (holehe) ────────────────────────────────────────────────
+  # Which of 120+ sites have an account registered to this email.
+  - name: email_accounts
+    tool: holehe
+    action: search
+    condition: "${email} != ''"
+    params:
+      email: "${email}"
+      only_used: true
+    timeout: 120
+    on_fail: continue
+
+  # ── Phone → profile (phoneinfoga) ────────────────────────────────────────────
+  # Country, carrier, line type + OSINT footprint for the number.
+  - name: phone_profile
+    tool: phoneinfoga
+    action: scan
+    condition: "${phone} != ''"
+    params:
+      number: "${phone}"
+    timeout: 60
+    on_fail: continue
+
+  # ── Associated domain → emails/names (theHarvester) ──────────────────────────
+  # Employer/personal domain often yields the person's email + colleagues' names.
+  - name: domain_harvest
+    tool: osint_recon
+    action: theharvester
+    condition: "${domain} != ''"
+    params:
+      target: "${domain}"
+      source: "all"
+      limit: 500
+    timeout: 120
+    on_fail: continue
+
+  # ── Associated domain → ownership (whois) ────────────────────────────────────
+  - name: domain_whois
+    tool: osint_recon
+    action: whois_lookup
+    condition: "${domain} != ''"
+    params:
+      target: "${domain}"
+    timeout: 30
+    on_fail: continue

@@ -88,7 +88,7 @@ the external-attack tools follows in [External Attack Simulation](#external-atta
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_81 tools, generated from the live registry — do not edit by hand._
+_83 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -111,6 +111,8 @@ _81 tools, generated from the live registry — do not edit by hand._
 | `subdomain_discovery` | Subdomain enumeration via subfinder and amass passive mode |
 | `osint_recon` | OSINT reconnaissance — theHarvester and whois lookups |
 | `maigret` | Maigret OSINT username reconnaissance across 3000+ sites |
+| `phoneinfoga` | PhoneInfoga OSINT phone-number reconnaissance |
+| `holehe` | holehe OSINT email reconnaissance — which sites have an account for an email |
 | `recon_pipeline` | Automated recon pipeline — chained reconnaissance orchestration |
 
 ### Network Enumeration
@@ -386,6 +388,7 @@ protoPen ships with pre-built playbooks that chain tools into multi-step workflo
 | Playbook | Steps | Description |
 |---|---|---|
 | `external_recon` | 13 | **Passive external footprint** — WAN IP discovery, Shodan/BGP/ASN, cert transparency, DNS security posture, subdomain enum, OSINT, cloud storage exposure, SSL audit |
+| `personal_osint` | 6 | **Passive personal profiling** — pivot a person across username (maigret), email→accounts (holehe), phone (phoneinfoga), and an associated domain (theHarvester). Each step runs only if its seed is given. `requires_engagement`. |
 | `perimeter_attack` | 14 | **Active perimeter assault** — router fingerprint, UPnP abuse, default creds, RouterSploit, WAN scan (SYN+ACK via pivot), TCP flag analysis, ACS fingerprint, CVE correlation |
 | `post_exploitation` | 16 | **Post-exploitation chain** — sudo enum, SUID discovery, kernel exploits, linpeas, persistence check, SSH key plant, SSH pivot, pass-the-hash, psexec, evidence collection |
 | `ad_attack` | 16 | **Active Directory attack chain** — LDAP enum, enum4linux-ng, BloodHound collection, ADCS enumeration (certipy), AS-REP roasting, Kerberoasting, certificate abuse (ESC1), secretsdump |

@@ -39,6 +39,8 @@ from tools.dns_enum import DnsEnumTool
 from tools.subdomain_discovery import SubdomainDiscoveryTool
 from tools.osint_recon import OsintReconTool
 from tools.maigret import MaigretTool
+from tools.phoneinfoga import PhoneInfogaTool
+from tools.holehe import HoleheTool
 from tools.external_recon import ExternalReconTool
 from tools.perimeter_audit import PerimeterAuditTool
 from tools.web_enum import WebEnumTool
@@ -132,6 +134,8 @@ _dns_enum: DnsEnumTool | None = None
 _subdomain_discovery: SubdomainDiscoveryTool | None = None
 _osint_recon: OsintReconTool | None = None
 _maigret: MaigretTool | None = None
+_phoneinfoga: PhoneInfogaTool | None = None
+_holehe: HoleheTool | None = None
 _external_recon: ExternalReconTool | None = None
 _perimeter_audit: PerimeterAuditTool | None = None
 _web_enum: WebEnumTool | None = None
@@ -847,7 +851,7 @@ def _init_pentest_singletons_locked():
     )
     _blackarch._target_store = _target_store
 
-    global _dns_enum, _subdomain_discovery, _osint_recon, _maigret
+    global _dns_enum, _subdomain_discovery, _osint_recon, _maigret, _phoneinfoga, _holehe
     global _web_enum, _service_enum, _ssl_audit, _api_enum
     global _external_recon, _perimeter_audit
     _dns_enum = DnsEnumTool()
@@ -858,6 +862,10 @@ def _init_pentest_singletons_locked():
     _osint_recon._target_store = _target_store
     _maigret = MaigretTool()
     _maigret._target_store = _target_store
+    _phoneinfoga = PhoneInfogaTool()
+    _phoneinfoga._target_store = _target_store
+    _holehe = HoleheTool()
+    _holehe._target_store = _target_store
     _external_recon = ExternalReconTool()
     _external_recon._target_store = _target_store
     _perimeter_audit = PerimeterAuditTool()
@@ -1511,6 +1519,47 @@ async def maigret(
         timeout=timeout,
         max_seconds=max_seconds,
     )
+
+
+@tool
+async def phoneinfoga(
+    number: str,
+    action: str = "scan",
+    timeout: int = 60,
+) -> str:
+    """PhoneInfoga OSINT phone-number reconnaissance.
+
+    Passive — number metadata + public sources only; nothing is sent to the
+    number. Given a number in international format (e.g. '+14155552671'), returns
+    country, carrier, and line type, plus an OSINT footprint (search-engine dorks
+    and reputation links). Results are ingested into the target store.
+
+    Use the email pivot (holehe) and username pivot (maigret) to cross-reference a
+    person across phone / email / handle.
+    """
+    _init_pentest_singletons()
+    return await _phoneinfoga.execute(action=action, number=number, timeout=timeout)
+
+
+@tool
+async def holehe(
+    email: str,
+    action: str = "search",
+    only_used: bool = True,
+    timeout: int = 120,
+) -> str:
+    """holehe OSINT email reconnaissance — which sites have an account for an email.
+
+    Passive — queries public registration/reset flows for 120+ sites; never sends
+    mail to the address or logs in. Returns the sites where the email is registered;
+    results are ingested into the target store.
+
+    - only_used: report only sites where the email is registered (default true)
+
+    The email pivot that complements maigret (username) and phoneinfoga (number).
+    """
+    _init_pentest_singletons()
+    return await _holehe.execute(action=action, email=email, only_used=only_used, timeout=timeout)
 
 
 @tool
@@ -3382,6 +3431,8 @@ def get_pentest_tools():
         subdomain_discovery,
         osint_recon,
         maigret,
+        phoneinfoga,
+        holehe,
         external_recon,
         perimeter_audit,
         # Phase 2 — Enumeration

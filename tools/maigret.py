@@ -172,7 +172,9 @@ class MaigretTool(Tool):
         turn rather than returning a clean timeout. Killing the child closes its
         stdout, so the already-running communicate() returns naturally at EOF.
         """
-        logger.info("Running: %s", " ".join(args))
+        # Redacted: argv carries the searched username (PII) — log the binary +
+        # arg count only, never the value.
+        logger.info("Running %s (%d args)", Path(args[0]).name if args else "?", max(0, len(args) - 1))
         proc = await asyncio.create_subprocess_exec(
             *args,
             stdout=asyncio.subprocess.PIPE,

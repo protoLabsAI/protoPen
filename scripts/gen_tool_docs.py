@@ -62,6 +62,8 @@ CATEGORIES: list[tuple[str, list[str]]] = [
             "subdomain_discovery",
             "osint_recon",
             "maigret",
+            "phoneinfoga",
+            "holehe",
             "recon_pipeline",
         ],
     ),

@@ -109,4 +109,42 @@ if [ ! -x "$MAIGRET_BIN" ]; then
     fi
 fi
 
+# holehe (OSINT email→accounts recon) — isolated venv (pins httpx/trio). The
+# holehe tool resolves the binary via HOLEHE_BIN. Idempotent; venv in $HOME.
+export HOLEHE_BIN="${HOLEHE_BIN:-$HOME/.holehe-venv/bin/holehe}"
+if [ ! -x "$HOLEHE_BIN" ]; then
+    echo "Installing holehe (OSINT email recon)…"
+    if python3 -m venv "$HOME/.holehe-venv" >/dev/null 2>&1 \
+        && "$HOME/.holehe-venv/bin/pip" install -q holehe >/dev/null 2>&1; then
+        echo "✓ holehe installed ($HOLEHE_BIN)"
+    else
+        echo "WARN: holehe install failed — the holehe tool will be unavailable"
+    fi
+fi
+
+# PhoneInfoga (OSINT phone-number recon) — pinned release binary + checksum.
+# NOTE: `go install` does NOT work for phoneinfoga v2 (its embedded web
+# client/dist isn't in the module), and piping master/install to bash is
+# unpinned, so we fetch a specific release asset and verify its sha256.
+# Resolved via PHONEINFOGA_BIN. Idempotent. x86_64 Linux (Deck + the image).
+PHONEINFOGA_VERSION="${PHONEINFOGA_VERSION:-2.11.0}"
+PHONEINFOGA_SHA256="6173dfc4ec009a6fe688068bac5a250646f5a8f56409098f5edcc7e404b12a52"
+export PHONEINFOGA_BIN="${PHONEINFOGA_BIN:-$HOME/.local/bin/phoneinfoga}"
+if [ ! -x "$PHONEINFOGA_BIN" ]; then
+    echo "Installing phoneinfoga v${PHONEINFOGA_VERSION} (OSINT phone recon)…"
+    mkdir -p "$HOME/.local/bin"
+    _pidir="$(mktemp -d)"
+    _piurl="https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz"
+    if curl -sSL "$_piurl" -o "$_pidir/pi.tar.gz" \
+        && echo "${PHONEINFOGA_SHA256}  $_pidir/pi.tar.gz" | sha256sum -c - >/dev/null 2>&1 \
+        && tar -xzf "$_pidir/pi.tar.gz" -C "$_pidir" phoneinfoga \
+        && mv "$_pidir/phoneinfoga" "$PHONEINFOGA_BIN"; then
+        chmod +x "$PHONEINFOGA_BIN"
+        echo "✓ phoneinfoga installed ($PHONEINFOGA_BIN)"
+    else
+        echo "WARN: phoneinfoga install failed (download/checksum) — the phoneinfoga tool will be unavailable"
+    fi
+    rm -rf "$_pidir"
+fi
+
 exec python server.py "$@"

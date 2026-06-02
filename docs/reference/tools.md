@@ -12,7 +12,7 @@ for the engagement-mode gating that controls when each tool is allowed, see
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_81 tools, generated from the live registry — do not edit by hand._
+_83 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -35,6 +35,8 @@ _81 tools, generated from the live registry — do not edit by hand._
 | `subdomain_discovery` | Subdomain enumeration via subfinder and amass passive mode |
 | `osint_recon` | OSINT reconnaissance — theHarvester and whois lookups |
 | `maigret` | Maigret OSINT username reconnaissance across 3000+ sites |
+| `phoneinfoga` | PhoneInfoga OSINT phone-number reconnaissance |
+| `holehe` | holehe OSINT email reconnaissance — which sites have an account for an email |
 | `recon_pipeline` | Automated recon pipeline — chained reconnaissance orchestration |
 
 ### Network Enumeration

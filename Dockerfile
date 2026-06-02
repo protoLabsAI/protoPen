@@ -30,6 +30,25 @@ RUN python -m venv /opt/maigret-venv \
     && /opt/maigret-venv/bin/pip install --no-cache-dir maigret \
     && ln -s /opt/maigret-venv/bin/maigret /usr/local/bin/maigret
 
+# holehe (OSINT email→accounts recon) — isolated venv (pins httpx/trio). The
+# holehe tool resolves the binary via HOLEHE_BIN / PATH (/usr/local/bin/holehe).
+RUN python -m venv /opt/holehe-venv \
+    && /opt/holehe-venv/bin/pip install --no-cache-dir holehe \
+    && ln -s /opt/holehe-venv/bin/holehe /usr/local/bin/holehe
+
+# PhoneInfoga (OSINT phone-number recon) — pinned release binary + checksum
+# (go install doesn't work for v2; piping master/install to bash is unpinned).
+# Resolved via PATH / PHONEINFOGA_BIN. x86_64 Linux.
+ARG PHONEINFOGA_VERSION=2.11.0
+ARG PHONEINFOGA_SHA256=6173dfc4ec009a6fe688068bac5a250646f5a8f56409098f5edcc7e404b12a52
+RUN cd /tmp \
+    && curl -sSL "https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz" -o phoneinfoga.tar.gz \
+    && echo "${PHONEINFOGA_SHA256}  phoneinfoga.tar.gz" | sha256sum -c - \
+    && tar -xzf phoneinfoga.tar.gz phoneinfoga \
+    && mv phoneinfoga /usr/local/bin/phoneinfoga \
+    && chmod +x /usr/local/bin/phoneinfoga \
+    && rm phoneinfoga.tar.gz
+
 
 # Install Python deps
 RUN pip install --no-cache-dir \

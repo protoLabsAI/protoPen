@@ -34,9 +34,16 @@ def test_list_playbooks_has_library_with_mode_variables_and_steps():
     # The library is not uniformly passive — offensive recipes are classified up.
     modes = {p["mode"] for p in out["playbooks"]}
     assert modes & {"active", "redteam"}
-    # mode and requires_engagement agree.
+    # Non-passive recipes always require an engagement. (Passive recipes usually
+    # don't, but may opt in via `requires_engagement` — e.g. personal_osint — so
+    # this is one-directional.)
     for p in out["playbooks"]:
-        assert p["requires_engagement"] == (p["mode"] != "passive")
+        if p["mode"] != "passive":
+            assert p["requires_engagement"], f"{p['name']} is {p['mode']} but doesn't require an engagement"
+    # personal_osint is the passive opt-in case.
+    if "personal_osint" in by_name:
+        po = by_name["personal_osint"]
+        assert po["mode"] == "passive" and po["requires_engagement"] is True
 
 
 # ── Phase 2 gate ──────────────────────────────────────────────────────────────
