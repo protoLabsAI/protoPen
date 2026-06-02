@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 # rides the 1.0 envelope identically — it's just not on the shared card.
 HITL_MIME = "application/vnd.protolabs.hitl-v1+json"
 
+
 @dataclass
 class TurnOutcome:
     """Everything a host needs at the end of an A2A turn (ADR 0003 / 0006).
@@ -127,9 +128,7 @@ def _hitl_prompt(payload: Any) -> str:
     that don't parse the hitl-v1 DataPart. Forms/approvals fall back to their
     title; a plain ask uses its question."""
     if isinstance(payload, dict):
-        return str(
-            payload.get("question") or payload.get("title") or "Input required."
-        )
+        return str(payload.get("question") or payload.get("title") or "Input required.")
     return str(payload) if payload is not None else "Input required."
 
 
@@ -175,8 +174,10 @@ class ProtoPenExecutor(AgentExecutor):
         accumulated = ""
         deltas: list[dict] = []
         usage = {
-            "input_tokens": 0, "output_tokens": 0,
-            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
         }
         cost_usd = 0.0
         had_usage = False
@@ -202,7 +203,10 @@ class ProtoPenExecutor(AgentExecutor):
 
         try:
             async for event_type, payload in self._stream_factory(
-                text, context.context_id, resume=resume, caller_trace=caller_trace,
+                text,
+                context.context_id,
+                resume=resume,
+                caller_trace=caller_trace,
             ):
                 if event_type == "text":
                     accumulated += payload
@@ -247,16 +251,19 @@ class ProtoPenExecutor(AgentExecutor):
                     parts = [_text_part(_hitl_prompt(payload))]
                     if isinstance(payload, dict):
                         parts.append(_data_part_proto(payload, HITL_MIME))
-                    await updater.requires_input(
-                        message=updater.new_agent_message(parts)
-                    )
+                    await updater.requires_input(message=updater.new_agent_message(parts))
                     return  # parked — the caller resumes via message/send on this task
 
                 elif event_type == "done":
                     final_text = payload or accumulated
                     parts = _terminal_parts(
-                        final_text, deltas, usage if had_usage else None,
-                        cost_usd, confidence, confidence_expl, success=True,
+                        final_text,
+                        deltas,
+                        usage if had_usage else None,
+                        cost_usd,
+                        confidence,
+                        confidence_expl,
+                        success=True,
                     )
                     if parts:
                         await updater.add_artifact(parts, last_chunk=True)
@@ -265,17 +272,20 @@ class ProtoPenExecutor(AgentExecutor):
                     return
 
                 elif event_type == "error":
-                    await updater.failed(
-                        message=updater.new_agent_message([_text_part(str(payload))])
-                    )
+                    await updater.failed(message=updater.new_agent_message([_text_part(str(payload))]))
                     _notify_terminal(_outcome("failed", accumulated))
                     return
 
             # Stream ended without an explicit terminal event — treat the
             # accumulated text as the answer.
             parts = _terminal_parts(
-                accumulated, deltas, usage if had_usage else None,
-                cost_usd, confidence, confidence_expl, success=True,
+                accumulated,
+                deltas,
+                usage if had_usage else None,
+                cost_usd,
+                confidence,
+                confidence_expl,
+                success=True,
             )
             if parts:
                 await updater.add_artifact(parts, last_chunk=True)
@@ -284,9 +294,7 @@ class ProtoPenExecutor(AgentExecutor):
 
         except Exception as exc:  # noqa: BLE001 — surface to the task, fail loud
             logger.exception("[a2a] execute crashed for task %s", context.task_id)
-            await updater.failed(
-                message=updater.new_agent_message([_text_part(str(exc))])
-            )
+            await updater.failed(message=updater.new_agent_message([_text_part(str(exc))]))
             _notify_terminal(_outcome("failed", accumulated))
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
@@ -367,13 +375,23 @@ def _terminal_parts(
     if deltas:
         parts.append(_ext_data_part(pa.emit_worldstate_delta(deltas)))
     if usage and (usage.get("input_tokens", 0) or usage.get("output_tokens", 0)):
-        parts.append(_ext_data_part(pa.emit_cost(
-            usage,
-            cost_usd=round(cost_usd, 6) if cost_usd > 0 else None,
-            success=success,
-        )))
+        parts.append(
+            _ext_data_part(
+                pa.emit_cost(
+                    usage,
+                    cost_usd=round(cost_usd, 6) if cost_usd > 0 else None,
+                    success=success,
+                )
+            )
+        )
     if confidence is not None:
-        parts.append(_ext_data_part(pa.emit_confidence(
-            confidence, explanation=confidence_expl, success=success,
-        )))
+        parts.append(
+            _ext_data_part(
+                pa.emit_confidence(
+                    confidence,
+                    explanation=confidence_expl,
+                    success=success,
+                )
+            )
+        )
     return parts

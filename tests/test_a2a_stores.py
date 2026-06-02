@@ -51,9 +51,7 @@ async def test_push_config_survives_restart(tmp_path):
     store_a, engine_a = await _fresh_push_store(db)
     await store_a.set_info(
         "task-x",
-        TaskPushNotificationConfig(
-            task_id="task-x", id="cfg-1", url="https://8.8.8.8/hook", token="tok"
-        ),
+        TaskPushNotificationConfig(task_id="task-x", id="cfg-1", url="https://8.8.8.8/hook", token="tok"),
         ctx,
     )
     await engine_a.dispose()  # simulate process exit
@@ -120,9 +118,7 @@ async def test_task_ttl_sweep_evicts_old_rows(tmp_path):
     old = datetime.now(UTC) - timedelta(hours=48)
     sm = async_sessionmaker(engine, expire_on_commit=False)
     async with sm() as session:
-        await session.execute(
-            update(TaskModel).where(TaskModel.id == "stale").values(last_updated=old)
-        )
+        await session.execute(update(TaskModel).where(TaskModel.id == "stale").values(last_updated=old))
         await session.commit()
 
     deleted = await sweep_expired_tasks(engine)
@@ -138,15 +134,15 @@ async def test_task_ttl_sweep_evicts_old_rows(tmp_path):
 @pytest.mark.parametrize(
     "url",
     [
-        "http://127.0.0.1/hook",          # loopback
-        "http://localhost/hook",          # loopback by name
-        "http://10.0.0.1/hook",           # RFC1918
-        "http://192.168.1.5/hook",        # RFC1918
-        "http://172.16.0.9/hook",         # RFC1918
+        "http://127.0.0.1/hook",  # loopback
+        "http://localhost/hook",  # loopback by name
+        "http://10.0.0.1/hook",  # RFC1918
+        "http://192.168.1.5/hook",  # RFC1918
+        "http://172.16.0.9/hook",  # RFC1918
         "http://169.254.169.254/latest",  # link-local (cloud metadata)
-        "http://[::1]/hook",              # IPv6 loopback
-        "ftp://example.com/hook",         # non-http scheme
-        "not-a-url",                      # unparseable
+        "http://[::1]/hook",  # IPv6 loopback
+        "ftp://example.com/hook",  # non-http scheme
+        "not-a-url",  # unparseable
     ],
 )
 def test_ssrf_guard_rejects_unsafe(url):
@@ -156,8 +152,8 @@ def test_ssrf_guard_rejects_unsafe(url):
 @pytest.mark.parametrize(
     "url",
     [
-        "https://8.8.8.8/hook",           # public literal IP (no DNS needed)
-        "http://93.184.216.34/hook",      # public literal IP
+        "https://8.8.8.8/hook",  # public literal IP (no DNS needed)
+        "http://93.184.216.34/hook",  # public literal IP
     ],
 )
 def test_ssrf_guard_accepts_public(url):

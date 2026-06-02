@@ -204,8 +204,7 @@ class ValidatingPushNotificationSender(BasePushNotificationSender):
         url = push_info.url
         if url and not is_safe_webhook_url(url):
             log.warning(
-                "[a2a] refusing push delivery to unsafe webhook url for "
-                "task_id=%s: %s",
+                "[a2a] refusing push delivery to unsafe webhook url for task_id=%s: %s",
                 task_id,
                 url,
             )
@@ -270,9 +269,7 @@ def build_push_sender(
     return ValidatingPushNotificationSender(httpx_client, push_config_store)
 
 
-async def sweep_expired_tasks(
-    engine: AsyncEngine, *, ttl_s: int = _DEFAULT_TTL_S, now: datetime | None = None
-) -> int:
+async def sweep_expired_tasks(engine: AsyncEngine, *, ttl_s: int = _DEFAULT_TTL_S, now: datetime | None = None) -> int:
     """Delete task rows older than ``ttl_s`` (24h default), keyed on the SDK's
     ``last_updated`` column. The SDK DB store has no TTL knob, so this restores
     the bespoke store's 24h eviction. Returns the number of rows deleted."""
@@ -282,9 +279,7 @@ async def sweep_expired_tasks(
 
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     async with session_maker() as session:
-        result = await session.execute(
-            delete(TaskModel).where(TaskModel.last_updated < cutoff)
-        )
+        result = await session.execute(delete(TaskModel).where(TaskModel.last_updated < cutoff))
         await session.commit()
         return result.rowcount or 0
 

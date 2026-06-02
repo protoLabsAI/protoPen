@@ -12,7 +12,10 @@ from operator_api.routes import register_operator_routes
 
 def test_notify_terminal_invokes_hook_and_is_exception_safe():
     outcome = TurnOutcome(
-        task_id="t1", context_id="system:activity", state="completed", text="hi",
+        task_id="t1",
+        context_id="system:activity",
+        state="completed",
+        text="hi",
     )
     seen = []
     prior = a2a_executor._ON_TERMINAL[0]

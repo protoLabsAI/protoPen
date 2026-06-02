@@ -93,7 +93,7 @@ class A2AAuthMiddleware(BaseHTTPMiddleware):
             header = request.headers.get("Authorization", "")
             if not header.startswith("Bearer "):
                 return _unauthorized("Unauthorized: expected 'Authorization: Bearer <token>'")
-            if not hmac.compare_digest(header[len("Bearer "):], active):
+            if not hmac.compare_digest(header[len("Bearer ") :], active):
                 return _unauthorized("Unauthorized: invalid bearer token")
 
         # Origin — enforced only when an allowlist is set.
