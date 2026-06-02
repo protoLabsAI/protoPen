@@ -17,7 +17,12 @@ docs/.vitepress/dist/
 docs/.vitepress/cache/
 
 # protoLabs workspace-config standard
-# beads (br) workspace handling lives in .beads/.gitignore (allowlist form)
+# beads (br) workspace handling lives in .beads/.gitignore (allowlist form), but
+# release-tools verify-workspace-config greps the *root* .gitignore for a literal
+# beads-db pattern (it doesn't read the nested allowlist), so the db rule needs
+# this line here too. ``.beads/*.db`` not ``.beads/`` — the latter would ignore
+# the committed issues.jsonl / config.yaml.
+.beads/*.db
 .worktrees/
 .automaker/features/
 .automaker/checkpoints/
