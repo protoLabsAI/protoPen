@@ -13,6 +13,26 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  workspace-config:
+    name: Verify workspace config
+    runs-on: namespace-profile-protolabs-linux
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify workspace config (.beads / .automaker / owned runners)
+        # Fleet workspace-config standard (matches protoAgent checks.yml). The npm
+        # package is still 1.0.0 (predates verify-workspace-config), so run the
+        # v1.1.0 script directly — it's zero-dependency (node builtins only).
+        # Switch to `npx -p @protolabsai/release-tools verify-workspace-config`
+        # once 1.1.0+ is published (protoLabsAI/release-tools#27).
+        run: |
+          git clone --depth 1 \
+            https://github.com/protoLabsAI/release-tools /tmp/release-tools
+          node /tmp/release-tools/bin/verify-workspace-config.mjs --root "$GITHUB_WORKSPACE"
+
   lint:
     name: Lint
     runs-on: namespace-profile-protolabs-linux
