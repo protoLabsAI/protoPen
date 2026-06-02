@@ -718,16 +718,72 @@ def _coerce_tool_output(value) -> str:
     return _coerce_tool_value(getattr(value, "content", value))
 
 
-async def _chat_langgraph_stream(message: str, session_id: str):
+def _build_agent_card_proto(card_data: dict, *, bearer: bool = False):
+    """Build the A2A 1.0 ``AgentCard`` (proto) served at
+    ``/.well-known/agent-card.json``, applying the protoLabs fleet conventions
+    via ``protolabs_a2a.build_agent_card``.
+
+    ``card_data`` is the plain dict (name / description / url / version / skills)
+    — protoPen passes the ``AGENT_CARD`` defined in ``build_app``. protoPen's
+    LangGraph stream emits only tool-call events, so only the tool-call-v1 is
+    declared (not cost / confidence / worldstate-delta — it doesn't produce
+    those). Auth is X-API-Key only, so ``bearer`` defaults to False.
+    """
+    import protolabs_a2a as pa
+    from a2a.types import AgentSkill
+
+    skills = [
+        AgentSkill(
+            id=s["id"],
+            name=s["name"],
+            description=s["description"],
+            tags=s.get("tags", []),
+            examples=s.get("examples", []),
+        )
+        for s in card_data["skills"]
+    ]
+    return pa.build_agent_card(
+        name=card_data["name"],
+        description=card_data["description"],
+        url=card_data["url"],
+        version=card_data["version"],
+        skills=skills,
+        extension_uris=[pa.TOOL_CALL_EXT_URI],
+        bearer=bearer,
+    )
+
+
+async def _chat_langgraph_stream(
+    message: str,
+    session_id: str,
+    *,
+    resume: bool = False,
+    caller_trace: dict | None = None,
+):
     """Async generator that yields (event_type, payload) tuples via astream_events.
 
     event_type is one of: "status", "tool_start", "tool_end", "text", "done", "error".
     ``tool_start`` / ``tool_end`` payloads are structured dicts ({id, name,
     input|output}) keyed by the langchain ``run_id`` so the console can pair
-    start↔end and render a live per-tool card; the A2A handler also derives a
+    start↔end and render a live per-tool card; the executor also derives a
     text status from them for text-only consumers.
+
+    Called by ``a2a_executor.ProtoPenExecutor``. ``caller_trace`` is the
+    ``a2a.trace`` metadata from the inbound A2A message (Langfuse cross-agent
+    propagation); when present it's stamped onto this turn's trace. ``resume``
+    marks a continuation of an existing task (HITL) — protoPen has no in-stream
+    pause, and the checkpointer keys history by ``session_id``, so a resumed
+    message continues the same thread without special handling.
     """
     from langchain_core.messages import HumanMessage
+
+    if caller_trace:
+        try:
+            import tracing as _tracing
+
+            _tracing.set_caller_context(caller_trace)
+        except Exception:
+            pass
 
     # /goal control messages (set / status / clear) short-circuit the turn.
     if _goal_controller is not None:
@@ -1203,11 +1259,11 @@ def _main():
             ],
         }
 
-    # ─── A2A protocol ────────────────────────────────────────────────────────
-    # All A2A route logic lives in a2a_handler.py.
-    # register_a2a_routes() mounts: /a2a (JSON-RPC), /message:send, /message:stream,
-    # /tasks/{id}, /tasks/{id}:subscribe, /tasks/{id}:cancel,
-    # /tasks/{id}/pushNotificationConfigs, /.well-known/agent.json
+    # ─── A2A protocol (a2a-sdk 1.0) ──────────────────────────────────────────
+    # a2a-sdk mounts the full A2A 1.0 surface from the AgentCard + executor below
+    # (JSON-RPC at /a2a, agent card at /.well-known/agent-card.json). AGENT_CARD
+    # is the data source the proto card builder reads (name / description / url /
+    # skills); see _build_agent_card_proto.
 
     _A2A_API_KEY = os.environ.get("PROTOPEN_API_KEY", os.environ.get("RESEARCHER_API_KEY", ""))
 
@@ -1227,7 +1283,7 @@ def _main():
         "defaultOutputModes": ["text/markdown"],
         "capabilities": {
             "stateTransitionHistory": False,
-        },  # streaming + pushNotifications populated by register_a2a_routes()
+        },  # capabilities/extensions applied by _build_agent_card_proto()
         "securitySchemes": {
             "apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
         },
@@ -1308,15 +1364,14 @@ def _main():
         ],
     }
 
-    from a2a_handler import register_a2a_routes
-
-    def _publish_activity_terminal(record) -> None:
-        """Terminal hook (ADR 0003): when a turn in the Activity thread completes,
-        push the assistant's visible output to the event bus so connected consoles
-        append it live. No-op for every other context."""
-        if getattr(record, "context_id", "") != ACTIVITY_CONTEXT:
+    def _a2a_terminal(outcome) -> None:
+        """A2A terminal hook (ADR 0003). Fired by ProtoPenExecutor with a
+        TurnOutcome when a turn reaches a terminal state: when the turn belongs
+        to the durable Activity thread, push the assistant's visible output to
+        the event bus so connected consoles append it live. No-op otherwise."""
+        if getattr(outcome, "context_id", "") != ACTIVITY_CONTEXT:
             return
-        text = _strip_think(getattr(record, "accumulated_text", "") or "")
+        text = _strip_think(getattr(outcome, "text", "") or "")
         if not text.strip():
             return
         _event_bus.publish(
@@ -1379,24 +1434,58 @@ def _main():
 
         return await run_manual_playbook(name, variables or {})
 
-    register_a2a_routes(
-        app=fastapi_app,
-        chat_stream_fn_factory=_chat_langgraph_stream,
-        chat_fn=chat,
+    # a2a-sdk owns all protocol mechanics: JSON-RPC dispatch, SSE streaming, the
+    # task lifecycle, and push delivery. ProtoPenExecutor bridges protoPen's
+    # LangGraph stream onto it; protolabs_a2a builds the card + emits the
+    # tool-call-v1 extension. Task + push-config state is durable (SQLite via
+    # a2a_stores) and push callbacks are SSRF-guarded. The operator-console
+    # surfaces (activity / workflows / playbooks) moved to operator_api below.
+    import httpx
+
+    from a2a.server.request_handlers import DefaultRequestHandler
+    from a2a.server.routes.agent_card_routes import create_agent_card_routes
+    from a2a.server.routes.fastapi_routes import add_a2a_routes_to_fastapi
+    from a2a.server.routes.jsonrpc_routes import create_jsonrpc_routes
+
+    import a2a_auth
+    from a2a_executor import ProtoPenExecutor, set_terminal_hook
+    from a2a_stores import build_a2a_stores, build_push_sender, initialize_a2a_stores
+
+    set_terminal_hook(_a2a_terminal)  # ADR 0003: surface Activity turns
+
+    # Request-time auth + origin enforcement (a2a-sdk advertises schemes on the
+    # card but does not enforce them). protoPen uses X-API-Key only
+    # (PROTOPEN_API_KEY / RESEARCHER_API_KEY); origin via A2A_ALLOWED_ORIGINS.
+    a2a_auth.install(
+        fastapi_app,
+        bearer_token="",
         api_key=_A2A_API_KEY,
-        agent_card=AGENT_CARD,
-        on_terminal=_publish_activity_terminal,  # ADR 0003: surface Activity turns
-        activity_list=_operator_activity_list,
-        workflows_list=_operator_workflows_list,  # ADR 0002: Workflows surface
-        workflows_run=_operator_workflow_run,
-        playbooks_list=_operator_playbooks_list,
-        playbooks_run=_operator_playbook_run,
+        allowed_origins_raw=os.environ.get("A2A_ALLOWED_ORIGINS", ""),
     )
 
-    # Alias required by protoWorkstacean agent discovery
-    @fastapi_app.get("/.well-known/agent-card.json", include_in_schema=False)
-    async def _agent_card_alias():
-        return AGENT_CARD
+    a2a_card = _build_agent_card_proto(AGENT_CARD)
+
+    # Durable SQLite-backed task + push-config stores (survive restart; 24h TTL
+    # sweep on tasks). The push-config store rejects SSRF callback URLs at
+    # set-time; the matching push sender re-validates at send-time.
+    task_store, push_config_store, task_db, push_db = build_a2a_stores()
+    asyncio.run(initialize_a2a_stores(task_store, push_config_store))
+    print(f"[a2a] durable stores ready (tasks={task_db}, push={push_db})")
+
+    _a2a_push_client = httpx.AsyncClient(timeout=30)
+    a2a_request_handler = DefaultRequestHandler(
+        agent_executor=ProtoPenExecutor(_chat_langgraph_stream),
+        task_store=task_store,
+        agent_card=a2a_card,
+        push_config_store=push_config_store,
+        push_sender=build_push_sender(push_config_store, _a2a_push_client),
+    )
+    add_a2a_routes_to_fastapi(
+        fastapi_app,
+        agent_card_routes=create_agent_card_routes(a2a_card),
+        jsonrpc_routes=create_jsonrpc_routes(a2a_request_handler, rpc_url="/a2a"),
+    )
+    print("[a2a] a2a-sdk routes mounted (JSON-RPC at /a2a, card at /.well-known/agent-card.json)")
 
     # Prometheus /metrics endpoint
     if metrics.is_enabled():
@@ -1706,6 +1795,13 @@ def _main():
         scheduler_add=_operator_scheduler_add,
         scheduler_cancel=_operator_scheduler_cancel,
         chat_commands=_operator_chat_commands,
+        # Surfaces relocated off the hand-rolled A2A handler in the a2a-sdk
+        # migration (#140) — same operator-key gate, now on the operator router.
+        activity_list=_operator_activity_list,  # ADR 0003: Activity thread history
+        workflows_list=_operator_workflows_list,  # ADR 0002: Workflows surface
+        workflows_run=_operator_workflow_run,
+        playbooks_list=_operator_playbooks_list,
+        playbooks_run=_operator_playbook_run,
         api_key=_operator_api_key,
     )
 

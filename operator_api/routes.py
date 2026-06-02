@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from operator_api.beads import BeadsCommandError, BeadsService
@@ -111,6 +111,11 @@ def register_operator_routes(
     beads_service: BeadsService | None = None,
     notes_service: NotesService | None = None,
     chat_commands: Callable[[], dict[str, Any]] | None = None,
+    activity_list: Callable[[], Awaitable[dict[str, Any]]] | None = None,
+    workflows_list: Callable[[], dict[str, Any]] | None = None,
+    workflows_run: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
+    playbooks_list: Callable[[], dict[str, Any]] | None = None,
+    playbooks_run: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
     api_key: str = "",
 ) -> None:
     """Register React operator-console routes on a FastAPI app.
@@ -397,5 +402,55 @@ def register_operator_routes(
             return await asyncio.to_thread(beads.delete, project_path, issue_id)
         except Exception as exc:
             raise _http_error(exc) from exc
+
+    # ── Activity / Workflows / Playbooks ──────────────────────────────────────
+    # These were co-located on the hand-rolled A2A handler; the a2a-sdk migration
+    # gave the /a2a protocol surface to the SDK, so they move here onto the same
+    # operator-key-gated router. Each is registered only when its callback is
+    # provided by server.py.
+
+    if activity_list is not None:
+
+        @router.get("/api/activity", summary="Activity thread history (ADR 0003)")
+        async def _activity():
+            return await activity_list()
+
+    if workflows_list is not None:
+
+        @router.get("/api/workflows", summary="List workflow recipes (ADR 0002)")
+        async def _workflows_list():
+            return workflows_list()
+
+    if workflows_run is not None:
+
+        @router.post("/api/workflows/{name}/run", summary="Run a workflow recipe (ADR 0002)")
+        async def _workflows_run(name: str, payload: dict = Body(default={})):
+            inputs = payload.get("inputs", {}) if isinstance(payload, dict) else {}
+            try:
+                return await workflows_run(name, inputs or {})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
+    if playbooks_list is not None:
+
+        @router.get("/api/playbooks", summary="List playbooks")
+        async def _playbooks_list():
+            return playbooks_list()
+
+    if playbooks_run is not None:
+
+        @router.post("/api/playbooks/{name}/run", summary="Run a playbook")
+        async def _playbooks_run(name: str, payload: dict = Body(default={})):
+            variables = payload.get("variables", {}) if isinstance(payload, dict) else {}
+            try:
+                return await playbooks_run(name, variables or {})
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+            except Exception as exc:
+                # PlaybookGateError (engagement/scope block) carries status_code=409.
+                status = getattr(exc, "status_code", None)
+                if status:
+                    raise HTTPException(status_code=status, detail=str(exc))
+                raise
 
     app.include_router(router)
