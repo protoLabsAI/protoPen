@@ -68,6 +68,12 @@ these variables override the location.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `MAIGRET_BIN` | no | `maigret` on `PATH` | Path to the isolated [`maigret`](/reference/tools) binary used by the `maigret` OSINT username tool. `start.sh` installs maigret into `~/.maigret-venv` and sets this automatically; the Docker image installs it to `/usr/local/bin/maigret`. |
+| `HOLEHE_BIN` | no | `holehe` on `PATH` | Path to the isolated [`holehe`](/reference/tools) binary (email→accounts OSINT). `start.sh` installs it into `~/.holehe-venv`; the Docker image links it to `/usr/local/bin/holehe`. |
+| `PHONEINFOGA_BIN` | no | `phoneinfoga` on `PATH` | Path to the pinned [`phoneinfoga`](/reference/tools) binary (phone-number OSINT). `start.sh` installs it to `~/.local/bin/phoneinfoga`; the Docker image to `/usr/local/bin/phoneinfoga`. |
+| `NUMVERIFY_API_KEY` | no | -- | Enables PhoneInfoga's **numverify** scanner → **carrier + line type** on phone scans (free tier at [apilayer.com](https://numverify.com), 100 req/mo). Without it, only the keyless `local` + `googlesearch` scanners run. PhoneInfoga reads this from the environment (inherited by the subprocess); add it to Infisical and restart. The scanner is auto-skipped when absent. |
+
+> The OSINT binary paths are wired automatically — you only ever *need* to set
+> `NUMVERIFY_API_KEY` (optional) for richer phone results.
 
 
 ## A2A Authentication
