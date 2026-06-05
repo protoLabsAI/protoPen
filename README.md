@@ -79,7 +79,7 @@ docker compose up --build
 
 ```bash
 pip install -r requirements.txt
-python server.py --port 7870
+python -m server --port 7870
 ```
 
 ## Tools

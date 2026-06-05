@@ -147,4 +147,4 @@ if [ ! -x "$PHONEINFOGA_BIN" ]; then
     rm -rf "$_pidir"
 fi
 
-exec python server.py "$@"
+exec python -m server "$@"  # ADR 0023: server.py became the server/ package

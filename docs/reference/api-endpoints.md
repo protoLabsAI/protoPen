@@ -2,7 +2,7 @@
 
 All HTTP endpoints exposed by the protoPen server (default port `7870`, mapped to `7872` in standard Docker Compose, `7870` in lab profile).
 
-The REST surface below is **generated from the OpenAPI spec** at [`openapi.json`](/openapi.json) by `scripts/gen_api_docs.py`. Regenerate the spec from the live app with `python server.py --dump-openapi docs/public/openapi.json` after changing a route; CI fails if this page drifts from the spec. The Agent-to-Agent (A2A) JSON-RPC surface is mounted separately and is not part of the OpenAPI schema, so it is documented by hand below — see the [A2A Integration guide](../guides/a2a-integration.md) for worked examples.
+The REST surface below is **generated from the OpenAPI spec** at [`openapi.json`](/openapi.json) by `scripts/gen_api_docs.py`. Regenerate the spec from the live app with `python -m server --dump-openapi docs/public/openapi.json` after changing a route; CI fails if this page drifts from the spec. The Agent-to-Agent (A2A) JSON-RPC surface is mounted separately and is not part of the OpenAPI schema, so it is documented by hand below — see the [A2A Integration guide](../guides/a2a-integration.md) for worked examples.
 
 **Authentication:** when `PROTOPEN_API_KEY` (or `RESEARCHER_API_KEY`) is set, every `/api/*` route requires a matching `x-api-key` header — a `401` drives the operator console's login gate. When unset (local dev) the routes are open. The universal `x-api-key` header is omitted from the per-endpoint parameter tables below.
 

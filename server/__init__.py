@@ -22,6 +22,11 @@ from events import ACTIVITY_CONTEXT, EventBus
 from events.sse import sse_event_stream
 from runtime.state import STATE  # ADR 0023: the process runtime container
 
+# Repo root — bundled config / static / workflows / web dist live here. This
+# module is now ``server/__init__.py`` (ADR 0023 package promotion), so the root
+# is one directory up (``parents[1]``), not ``__file__``'s own dir.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # ---------------------------------------------------------------------------
 # Agent setup
 # ---------------------------------------------------------------------------
@@ -128,7 +133,7 @@ def _build_skills_index(config):
         index = SkillsIndex(str(db))
 
         dirs: list[str] = []
-        bundled = Path(__file__).resolve().parent / "config" / "skills"
+        bundled = _REPO_ROOT / "config" / "skills"
         if bundled.is_dir():
             dirs.append(str(bundled))
         live = Path(getattr(config, "skills_dir", "") or "/sandbox/skills").expanduser()
@@ -156,7 +161,7 @@ def _build_workflow_registry(config):
         from graph.workflows.registry import WorkflowRegistry
 
         dirs: list[str] = []
-        bundled = Path(__file__).resolve().parent / "workflows"
+        bundled = _REPO_ROOT / "workflows"
         if bundled.is_dir():
             dirs.append(str(bundled))
         writable = Path(getattr(config, "workflow_dir", "") or "/sandbox/workflows").expanduser()
@@ -181,7 +186,7 @@ def _init_langgraph_agent():
     from graph.config import LangGraphConfig
     from sitrep import run_sitrep
 
-    config_path = Path(__file__).parent / "config" / "langgraph-config.yaml"
+    config_path = _REPO_ROOT / "config" / "langgraph-config.yaml"
     STATE.graph_config = LangGraphConfig.from_yaml(config_path)
 
     store = _get_store()
@@ -194,7 +199,7 @@ def _init_langgraph_agent():
     STATE.skills_index = _build_skills_index(STATE.graph_config)
 
     # Run startup sitrep — hardware, network, engagement status
-    engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
+    engagement_config = _REPO_ROOT / "config" / "engagement-config.json"
     status_block = run_sitrep(engagement_config)
     if status_block:
         print("[sitrep] Startup probe injected into system prompt")
@@ -1065,7 +1070,7 @@ def _build_settings_callbacks() -> dict:
 def _seed_topics():
     """Seed default research topics from config."""
     try:
-        config_path = Path(__file__).parent / "config" / "security-config.json"
+        config_path = _REPO_ROOT / "config" / "security-config.json"
         if not config_path.exists():
             config_path = Path("/opt/protopen/config/security-config.json")
         if not config_path.exists():
@@ -1139,7 +1144,7 @@ def _main():
     from fastapi.responses import FileResponse
     from fastapi.staticfiles import StaticFiles
 
-    static_dir = Path(__file__).parent / "static"
+    static_dir = _REPO_ROOT / "static"
 
     fastapi_app = FastAPI(title="protoPen — protoLabs")
 
@@ -1598,7 +1603,7 @@ def _main():
     from operator_api.beads import BeadsService as _BeadsService
     from tools.lg_tools import set_beads as _set_beads
 
-    _beads_path = os.environ.get("PROTOPEN_BEADS_PATH") or str(Path(__file__).parent)
+    _beads_path = os.environ.get("PROTOPEN_BEADS_PATH") or str(_REPO_ROOT)
     _set_beads(_BeadsService(), _beads_path)
 
     @fastapi_app.on_event("startup")
@@ -1802,7 +1807,7 @@ def _main():
         api_key=_operator_api_key,
     )
 
-    _web_dist = Path(__file__).parent / "apps" / "web" / "dist"
+    _web_dist = _REPO_ROOT / "apps" / "web" / "dist"
     if mount_react_app(fastapi_app, _web_dist):
         print("[protoPen] React operator console mounted at /app")
 

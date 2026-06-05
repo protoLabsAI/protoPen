@@ -4,7 +4,7 @@
 The spec at ``docs/public/openapi.json`` is the source of truth — produce it
 from the live app with::
 
-    python server.py --dump-openapi docs/public/openapi.json
+    python -m server --dump-openapi docs/public/openapi.json
 
 This script then renders that spec into the generated block of
 ``docs/reference/api-endpoints.md`` (stdlib only — no app import needed, so it
@@ -181,7 +181,7 @@ def main() -> int:
     mode = sys.argv[1] if len(sys.argv) > 1 else "--write"
     if not SPEC.exists():
         raise SystemExit(
-            f"{SPEC} not found — generate it first:\n  python server.py --dump-openapi docs/public/openapi.json"
+            f"{SPEC} not found — generate it first:\n  python -m server --dump-openapi docs/public/openapi.json"
         )
     block = render(json.loads(SPEC.read_text()))
 
