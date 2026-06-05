@@ -11,7 +11,9 @@ import { ProtoLabsIcon } from "./ProtoLabsIcon";
  * `.studio` dot is part of the mark), filled with the brand gradient.
  */
 
-const HOLD_MS = 2500; // entrance + hold before handing off to the app
+// Entrance + hold before the protoLabs bumper hands off. Exported so the
+// pwnDeck bumper (PwnDeckSplash) can take over at exactly this moment.
+export const INTRO_HOLD_MS = 2500;
 
 export function IntroSplash() {
   // Skip under automation (Playwright/Selenium set navigator.webdriver) so the
@@ -28,11 +30,17 @@ export function IntroSplash() {
       };
       if (typeof doc.startViewTransition === "function") {
         // Cross-fade the splash out and the app in (default root transition).
-        doc.startViewTransition(() => setGone(true));
+        // startViewTransition can throw synchronously; fall back to a plain
+        // unmount so the splash can never get stuck on screen.
+        try {
+          doc.startViewTransition(() => setGone(true));
+        } catch {
+          setGone(true);
+        }
       } else {
         setGone(true);
       }
-    }, HOLD_MS);
+    }, INTRO_HOLD_MS);
     return () => window.clearTimeout(t);
   }, []);
 

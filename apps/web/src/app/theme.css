@@ -3224,3 +3224,31 @@ textarea {
     transform: none;
   }
 }
+
+/* pwnDeck launch bumper — the terminal-style ASCII frame shown right after the
+   protoLabs bumper (PwnDeckSplash), in the lavender→indigo brand gradient. */
+.pwndeck-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 91; /* above the protoLabs bumper (z-90) during the handoff */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  animation: intro-rise 0.45s cubic-bezier(0.2, 0.6, 0.2, 1) both;
+}
+
+.pwndeck-ascii {
+  margin: 0;
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(7px, 2.3vw, 17px);
+  line-height: 1.15;
+  font-weight: 600;
+  white-space: pre;
+  background: linear-gradient(135deg, #9b87f2 0%, #818cf8 50%, #6366f1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(155, 135, 242, 0.35));
+}
