@@ -99,6 +99,21 @@ CREATE TABLE IF NOT EXISTS sources (
     config TEXT                            -- JSON config
 );
 
+-- Facts: durable semantic memory distilled from conversation (ADR 0021).
+-- Short, self-contained facts worth recalling in a future, unrelated session
+-- (operator preferences, decisions, stable facts about their world/projects).
+-- The `namespace` column is plumbed for per-engagement/owner scoping later
+-- (a retrieval filter, not a future migration); NULL = global today.
+CREATE TABLE IF NOT EXISTS facts (
+    id TEXT PRIMARY KEY,                   -- uuid hex
+    content TEXT NOT NULL,
+    namespace TEXT,                        -- scope dimension (NULL = global)
+    source TEXT DEFAULT 'harvest',
+    source_type TEXT DEFAULT 'extracted',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_facts_namespace ON facts(namespace);
+
 -- FTS5 full-text search index for BM25 keyword search (hybrid search)
 CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
     content,

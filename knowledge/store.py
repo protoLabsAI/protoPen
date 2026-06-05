@@ -146,6 +146,65 @@ class KnowledgeStore:
     def _now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
+    # --- Facts (semantic memory, ADR 0021) ---
+
+    def add_fact(
+        self,
+        content: str,
+        namespace: Optional[str] = None,
+        source: str = "harvest",
+        source_type: str = "extracted",
+    ) -> Optional[str]:
+        """Store a durable semantic fact; return its id, or None on failure.
+
+        The ``facts`` row is the durable record. Vector + FTS indexing is
+        best-effort: when embeddings are unavailable, the fact is still inserted
+        into the FTS index directly so it stays keyword-recoverable (never
+        silently lost).
+        """
+        content = (content or "").strip()
+        if not content:
+            return None
+        db = self._get_db()
+        if db is None:
+            return None
+        import uuid
+
+        fact_id = uuid.uuid4().hex
+        try:
+            db.execute(
+                "INSERT INTO facts (id, content, namespace, source, source_type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (fact_id, content, namespace, source, source_type, self._now_iso()),
+            )
+            if not self._store_vector(db, content, "facts", fact_id):
+                # Embeddings down — keep the fact at least keyword-searchable.
+                db.execute(
+                    "INSERT INTO knowledge_fts (content, source_table, source_id) VALUES (?, ?, ?)",
+                    (content[:_CONTENT_PREVIEW_LEN], "facts", fact_id),
+                )
+            db.commit()
+            return fact_id
+        except Exception as e:
+            print(f"[knowledge] add_fact failed: {e}")
+            return None
+
+    def list_facts(self, namespace: Optional[str] = None, limit: int = 500) -> list[dict[str, Any]]:
+        """Return stored facts (newest first), optionally namespace-scoped, for
+        consolidation/dedup. ``namespace=None`` returns the global bucket."""
+        db = self._get_db()
+        if db is None:
+            return []
+        try:
+            # ``IS`` is null-safe: namespace=None matches the NULL (global) rows.
+            rows = db.execute(
+                "SELECT id, content, namespace, created_at FROM facts "
+                "WHERE namespace IS ? ORDER BY created_at DESC LIMIT ?",
+                (namespace, limit),
+            ).fetchall()
+            return [{"id": r[0], "content": r[1], "namespace": r[2], "created_at": r[3]} for r in rows]
+        except Exception:
+            return []
+
     # --- CVEs ---
 
     def add_cve(
@@ -560,7 +619,7 @@ class KnowledgeStore:
         if db is None:
             return {}
         stats = {}
-        for table in ("cves", "exploits", "advisories", "threat_intel", "topics", "digests"):
+        for table in ("cves", "exploits", "advisories", "threat_intel", "topics", "digests", "facts"):
             count = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
             stats[table] = count
         return stats

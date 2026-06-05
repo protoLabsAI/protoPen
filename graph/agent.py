@@ -100,7 +100,7 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
         middleware.append(AuditMiddleware())
 
     if config.memory_middleware and knowledge_store:
-        middleware.append(MemoryMiddleware(knowledge_store))
+        middleware.append(MemoryMiddleware(knowledge_store, config))
 
     if config.compaction_enabled:
         from langchain.agents.middleware import SummarizationMiddleware

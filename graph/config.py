@@ -106,6 +106,11 @@ class LangGraphConfig:
     knowledge_top_k: int = 10
     knowledge_search_mode: str = "hybrid"  # hybrid, vector, keyword
     knowledge_enrich_chunks: bool = True  # contextual enrichment at index time
+    # Semantic fact extraction (ADR 0021 "extract don't dump"): after each turn,
+    # the aux model distils durable facts (preferences, decisions, stable facts
+    # about the operator's world) from the exchange and stores them as searchable
+    # memory. Background, deduped, never blocks the response. knowledge.facts.
+    knowledge_facts: bool = True
 
     # Workflows — declarative multi-step subagent recipes (ADR 0002), exposed via
     # the run_workflow tool. Bundled examples ship in the repo workflows/ dir;
@@ -173,6 +178,7 @@ class LangGraphConfig:
             knowledge_top_k=knowledge.get("top_k", cls.knowledge_top_k),
             knowledge_search_mode=knowledge.get("search_mode", cls.knowledge_search_mode),
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
+            knowledge_facts=knowledge.get("facts", cls.knowledge_facts),
             workflows_enabled=(data.get("workflows") or {}).get("enabled", cls.workflows_enabled),
             workflow_dir=(data.get("workflows") or {}).get("dir", cls.workflow_dir),
             skills_enabled=(data.get("skills") or {}).get("enabled", cls.skills_enabled),
