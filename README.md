@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/public/pwnDeck-banner.jpg" alt="pwnDeck — protoPen on a Steam Deck" width="640">
+</p>
+
 # protoPen
 
 Autonomous Security Research & Pen-Testing Agent
