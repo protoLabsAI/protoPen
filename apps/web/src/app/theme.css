@@ -3177,8 +3177,8 @@ textarea {
   line-height: 1.45;
 }
 
-/* protoLabs.studio brand bumper (IntroSplash) — full-screen splash on launch,
-   handed off to the app via the View Transitions API. Ported from protoAgent. */
+/* protoLabs.studio brand bumper (LaunchSequence frame 1) — full-screen splash
+   on launch. Ported from protoAgent. */
 .intro-splash {
   position: fixed;
   inset: 0;
@@ -3225,8 +3225,8 @@ textarea {
   }
 }
 
-/* pwnDeck launch bumper — the terminal-style ASCII frame shown right after the
-   protoLabs bumper (PwnDeckSplash), in the lavender→indigo brand gradient. */
+/* pwnDeck launch bumper (LaunchSequence frame 2) — terminal-style ASCII frame
+   shown right after the protoLabs bumper, in the lavender→indigo brand gradient. */
 .pwndeck-splash {
   position: fixed;
   inset: 0;
