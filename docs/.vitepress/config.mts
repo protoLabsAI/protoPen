@@ -11,6 +11,11 @@ export default defineConfig({
   description: DESCRIPTION,
   base: "/protoPen/",
 
+  // Dark, brand-first ground — the @protolabsai/vitepress-theme (docs/.vitepress/
+  // theme) is dark-first like the marketing site; this pins it and drops the
+  // light/dark toggle.
+  appearance: "force-dark",
+
   // Internal working docs — kept in the repo for reference, NOT published to the
   // docs site. Plans/specs/research/superpowers are planning + design artifacts,
   // not user-facing documentation.
