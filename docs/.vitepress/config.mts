@@ -1,9 +1,14 @@
 import { defineConfig } from "vitepress";
 
+const SITE_URL = "https://protolabsai.github.io/protoPen/";
+const OG_IMAGE = `${SITE_URL}og-image.png`;
+const TITLE = "protoPen — Autonomous Security Research & Pen-Testing Agent";
+const DESCRIPTION =
+  "Autonomous pen-testing & AI research agent — Steam Deck + RF hardware";
+
 export default defineConfig({
   title: "protoPen",
-  description:
-    "Autonomous pen-testing & AI research agent — Steam Deck + RF hardware",
+  description: DESCRIPTION,
   base: "/protoPen/",
 
   // Internal working docs — kept in the repo for reference, NOT published to the
@@ -16,7 +21,19 @@ export default defineConfig({
     "superpowers/**",
   ],
 
-  head: [["link", { rel: "icon", href: "/protoPen/favicon.svg" }]],
+  head: [
+    ["link", { rel: "icon", href: "/protoPen/favicon.svg" }],
+    // Open Graph + Twitter card — absolute image URL so social scrapers resolve it.
+    ["meta", { property: "og:type", content: "website" }],
+    ["meta", { property: "og:title", content: TITLE }],
+    ["meta", { property: "og:description", content: DESCRIPTION }],
+    ["meta", { property: "og:image", content: OG_IMAGE }],
+    ["meta", { property: "og:url", content: SITE_URL }],
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+    ["meta", { name: "twitter:title", content: TITLE }],
+    ["meta", { name: "twitter:description", content: DESCRIPTION }],
+    ["meta", { name: "twitter:image", content: OG_IMAGE }],
+  ],
 
   themeConfig: {
     logo: "/favicon.svg",
