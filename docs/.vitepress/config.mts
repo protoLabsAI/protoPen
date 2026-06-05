@@ -6,6 +6,16 @@ export default defineConfig({
     "Autonomous pen-testing & AI research agent — Steam Deck + RF hardware",
   base: "/protoPen/",
 
+  // Internal working docs — kept in the repo for reference, NOT published to the
+  // docs site. Plans/specs/research/superpowers are planning + design artifacts,
+  // not user-facing documentation.
+  srcExclude: [
+    "plans/**",
+    "specs/**",
+    "research/**",
+    "superpowers/**",
+  ],
+
   head: [["link", { rel: "icon", href: "/protoPen/favicon.svg" }]],
 
   themeConfig: {
