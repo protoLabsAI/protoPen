@@ -85,7 +85,7 @@ done
 
 echo "== web app + OpenAI-compat =="
 c=$(curl -s -o /dev/null -w "%{http_code}" "$B/app/"); [ "$c" = 200 ] && ok "/app/ serves" || no "/app/" "$c"
-js=$(curl -s "$B/app/" | grep -oE "/app/assets/index-[A-Za-z0-9]+\.js" | head -1)
+js=$(curl -s "$B/app/" | grep -oE "/app/assets/index-[A-Za-z0-9_-]+\.js" | head -1)
 if [ -n "$js" ] && curl -s "$B$js" | grep -q "SendStreamingMessage"; then
   ok "deployed bundle speaks A2A 1.0"
 else
