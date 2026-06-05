@@ -611,8 +611,6 @@ async def _handle_intel_command(session_id: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-
-
 def _build_agent_card_proto(card_data: dict, *, bearer: bool = False):
     """Build the A2A 1.0 ``AgentCard`` (proto) served at
     ``/.well-known/agent-card.json``, applying the protoLabs fleet conventions
@@ -646,8 +644,6 @@ def _build_agent_card_proto(card_data: dict, *, bearer: bool = False):
         extension_uris=[pa.TOOL_CALL_EXT_URI],
         bearer=bearer,
     )
-
-
 
 
 # ---------------------------------------------------------------------------
