@@ -14,6 +14,8 @@
     "web:preview": "npm --workspace @protopen/web run preview"
   },
   "devDependencies": {
+    "@protolabsai/design": "^0.3.0",
+    "@protolabsai/vitepress-theme": "^0.3.0",
     "vitepress": "^1.6.4"
   }
 }
