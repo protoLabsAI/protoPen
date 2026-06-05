@@ -20,19 +20,12 @@ from typing import Any
 from chat_ui import create_chat_app
 from events import ACTIVITY_CONTEXT, EventBus
 from events.sse import sse_event_stream
+from runtime.state import STATE  # ADR 0023: the process runtime container
 
 # ---------------------------------------------------------------------------
 # Agent setup
 # ---------------------------------------------------------------------------
 
-_graph = None  # LangGraph compiled graph
-_graph_config = None  # LangGraphConfig
-_checkpointer = None  # session checkpointer (durable sqlite or in-memory)
-_checkpoint_path = None  # resolved sqlite path when persistent (for the pruner)
-_checkpoint_prune_task = None  # background prune-loop handle
-_workflow_registry = None  # WorkflowRegistry (declarative workflow recipes), or None.
-_skills_index = None  # SkillsIndex (human-authored SKILL.md skills), or None.
-_goal_controller = None  # GoalController (goal mode / autonomy), or None.
 
 # Server→client SSE push channel (ADR 0003). Process-lifetime singleton:
 # producers (A2A terminal hook, scheduler, inbox) publish; /api/events streams
@@ -65,13 +58,12 @@ def _build_checkpointer(configured_db: str):
     wrapped sync saver (graph/checkpointer.py) rather than the loop-bound
     AsyncSqliteSaver. Bound into the graph at compile time by the caller.
     """
-    global _checkpoint_path
     try:
         from graph.checkpointer import build_sqlite_checkpointer
 
         path = _resolve_checkpoint_db(configured_db)
         saver = build_sqlite_checkpointer(path)
-        _checkpoint_path = path  # the pruner sweeps this file
+        STATE.checkpoint_path = path  # the pruner sweeps this file
         print(f"[sessions] Persistent checkpointer: {path}")
         return saver
     except Exception as exc:
@@ -91,8 +83,8 @@ async def _checkpoint_prune_loop() -> None:
 
     await asyncio.sleep(60)  # let boot settle before the first sweep
     while True:
-        cfg = _graph_config
-        path = _checkpoint_path
+        cfg = STATE.graph_config
+        path = STATE.checkpoint_path
         interval_h = getattr(cfg, "checkpoint_prune_interval_hours", 0) if cfg else 0
         if path and cfg and interval_h > 0:
             try:
@@ -184,23 +176,22 @@ def _build_workflow_registry(config):
 
 def _init_langgraph_agent():
     """Initialize the LangGraph agent backend."""
-    global _graph, _graph_config, _checkpointer, _workflow_registry, _skills_index
 
     from graph.agent import create_researcher_graph
     from graph.config import LangGraphConfig
     from sitrep import run_sitrep
 
     config_path = Path(__file__).parent / "config" / "langgraph-config.yaml"
-    _graph_config = LangGraphConfig.from_yaml(config_path)
+    STATE.graph_config = LangGraphConfig.from_yaml(config_path)
 
     store = _get_store()
 
     # Persistent session checkpointer — bound into the graph at COMPILE time
     # below. A checkpointer set only in the invoke config is ignored by
     # LangGraph, which gave the chat amnesia (every turn started fresh).
-    _checkpointer = _build_checkpointer("/sandbox/knowledge/sessions.db")
-    _workflow_registry = _build_workflow_registry(_graph_config)
-    _skills_index = _build_skills_index(_graph_config)
+    STATE.checkpointer = _build_checkpointer("/sandbox/knowledge/sessions.db")
+    STATE.workflow_registry = _build_workflow_registry(STATE.graph_config)
+    STATE.skills_index = _build_skills_index(STATE.graph_config)
 
     # Run startup sitrep — hardware, network, engagement status
     engagement_config = Path(__file__).parent / "config" / "engagement-config.json"
@@ -208,17 +199,17 @@ def _init_langgraph_agent():
     if status_block:
         print("[sitrep] Startup probe injected into system prompt")
 
-    _graph = create_researcher_graph(
-        config=_graph_config,
+    STATE.graph = create_researcher_graph(
+        config=STATE.graph_config,
         knowledge_store=store,
         include_subagents=True,
         sitrep=status_block,
-        checkpointer=_checkpointer,
-        workflow_registry=_workflow_registry,
-        skills_index=_skills_index,
+        checkpointer=STATE.checkpointer,
+        workflow_registry=STATE.workflow_registry,
+        skills_index=STATE.skills_index,
     )
 
-    print(f"[researcher] LangGraph agent initialized (model: {_graph_config.model_name})")
+    print(f"[researcher] LangGraph agent initialized (model: {STATE.graph_config.model_name})")
 
 
 def _detect_vllm_model(api_base: str) -> str | None:
@@ -289,7 +280,7 @@ async def _handle_command(cmd: str, args: str, session_id: str) -> list[dict[str
         return [{"role": "assistant", "content": "", "metadata": {"_new": True}}]
 
     if cmd == "model":
-        model = _graph_config.model_name if _graph_config else "unknown"
+        model = STATE.graph_config.model_name if STATE.graph_config else "unknown"
         return _msg(f"**Model:** `{model}`")
 
     if cmd == "tools":
@@ -448,16 +439,13 @@ async def _handle_purple_command(
 # Security commands
 # ---------------------------------------------------------------------------
 
-_knowledge_store = None
-
 
 def _get_store():
-    global _knowledge_store
-    if _knowledge_store is None:
+    if STATE.knowledge_store is None:
         from knowledge.store import KnowledgeStore
 
-        _knowledge_store = KnowledgeStore()
-    return _knowledge_store
+        STATE.knowledge_store = KnowledgeStore()
+    return STATE.knowledge_store
 
 
 async def _handle_topics_command() -> list[dict[str, Any]]:
@@ -629,8 +617,8 @@ import queue as _queue_mod
 async def chat(message: str, session_id: str) -> list[dict[str, Any]]:
     """Route to the active backend."""
     # /goal control messages (set / status / clear) short-circuit the turn.
-    if _goal_controller is not None:
-        reply = await _goal_controller.parse_control(message, session_id)
+    if STATE.goal_controller is not None:
+        reply = await STATE.goal_controller.parse_control(message, session_id)
         if reply is not None:
             return [{"role": "assistant", "content": reply}]
 
@@ -665,7 +653,7 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
 
         set_current_session(session_id)
 
-        result = await _graph.ainvoke(
+        result = await STATE.graph.ainvoke(
             {"messages": [HumanMessage(content=message)], "session_id": session_id},
             config=config,
         )
@@ -786,8 +774,8 @@ async def _chat_langgraph_stream(
             pass
 
     # /goal control messages (set / status / clear) short-circuit the turn.
-    if _goal_controller is not None:
-        reply = await _goal_controller.parse_control(message, session_id)
+    if STATE.goal_controller is not None:
+        reply = await STATE.goal_controller.parse_control(message, session_id)
         if reply is not None:
             yield ("text", reply)
             yield ("done", reply)
@@ -814,7 +802,7 @@ async def _chat_langgraph_stream(
     try:
         while True:
             accumulated_text = ""
-            async for event in _graph.astream_events(
+            async for event in STATE.graph.astream_events(
                 {"messages": [HumanMessage(content=turn_input)], "session_id": session_id},
                 config=config,
                 version="v2",
@@ -856,12 +844,12 @@ async def _chat_langgraph_stream(
             final = _strip_think(accumulated_text)
 
             # No active goal → this is a normal turn; finish.
-            if _goal_controller is None or _goal_controller.active_goal(session_id) is None:
+            if STATE.goal_controller is None or STATE.goal_controller.active_goal(session_id) is None:
                 yield ("done", final)
                 return
 
             guard += 1
-            decision = await _goal_controller.evaluate(session_id, last_text=final)
+            decision = await STATE.goal_controller.evaluate(session_id, last_text=final)
             if decision is None or decision.action == "done" or guard >= hard_cap:
                 if decision is not None and decision.note:
                     yield ("text", f"\n\n_{decision.note}_")
@@ -976,8 +964,8 @@ def _build_settings_callbacks() -> dict:
         return "\n".join(f"- `{n}`" for n in names) or "No tools registered."
 
     def get_model_info() -> str:
-        if _graph_config is not None:
-            model = _graph_config.model_name
+        if STATE.graph_config is not None:
+            model = STATE.graph_config.model_name
             return f"**Model:** `{model}`\n\n**Backend:** LangGraph"
         return "**Model:** unknown"
 
@@ -996,8 +984,8 @@ def _build_settings_callbacks() -> dict:
         return choices
 
     def get_current_provider() -> str:
-        if _graph_config is not None:
-            model = _graph_config.model_name
+        if STATE.graph_config is not None:
+            model = STATE.graph_config.model_name
         else:
             model = "unknown"
         if model.startswith("claude-"):
@@ -1010,7 +998,6 @@ def _build_settings_callbacks() -> dict:
         return current
 
     def switch_provider(choice: str) -> str:
-        global _graph, _graph_config
         if not choice:
             return "No provider selected."
 
@@ -1018,33 +1005,33 @@ def _build_settings_callbacks() -> dict:
         provider_type = parts[0]
         model_name = parts[1] if len(parts) > 1 else ""
 
-        if _graph_config is not None:
+        if STATE.graph_config is not None:
             if provider_type == "local":
-                _graph_config.model_provider = "vllm"
+                STATE.graph_config.model_provider = "vllm"
                 detected = _detect_vllm_model("http://host.docker.internal:8000/v1")
-                _graph_config.model_name = detected or model_name
+                STATE.graph_config.model_name = detected or model_name
             elif provider_type == "claude":
-                _graph_config.model_provider = "openai"
-                _graph_config.model_name = model_name
+                STATE.graph_config.model_provider = "openai"
+                STATE.graph_config.model_name = model_name
             else:
                 return f"**Error:** Unknown provider: {provider_type}"
 
             from graph.agent import create_researcher_graph
 
-            _graph = create_researcher_graph(
-                config=_graph_config,
+            STATE.graph = create_researcher_graph(
+                config=STATE.graph_config,
                 knowledge_store=_get_store(),
                 include_subagents=True,
-                checkpointer=_checkpointer,
-                workflow_registry=_workflow_registry,
-                skills_index=_skills_index,
+                checkpointer=STATE.checkpointer,
+                workflow_registry=STATE.workflow_registry,
+                skills_index=STATE.skills_index,
             )
-            return f"**Switched to:** `{_graph_config.model_name}` (graph rebuilt)"
+            return f"**Switched to:** `{STATE.graph_config.model_name}` (graph rebuilt)"
         return "**Error:** LangGraph config not initialized."
 
     def get_subtitle() -> str:
-        if _graph_config is not None:
-            display_model = _graph_config.model_name
+        if STATE.graph_config is not None:
+            display_model = STATE.graph_config.model_name
         else:
             display_model = "unknown"
         return f"**🔬 protoPen** &nbsp; `{display_model}`"
@@ -1383,10 +1370,10 @@ def _main():
         """Return the Activity thread's message history from the checkpointer
         (ADR 0003). The console loads this when opening the Activity surface."""
         messages: list[dict] = []
-        if _checkpointer is not None:
+        if STATE.checkpointer is not None:
             thread_id = f"a2a:{ACTIVITY_CONTEXT}"
             try:
-                tup = await _checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+                tup = await STATE.checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
                 raw = (tup.checkpoint or {}).get("channel_values", {}).get("messages", []) if tup else []
             except Exception:
                 print(f"[activity] failed to read thread {thread_id}")
@@ -1407,17 +1394,17 @@ def _main():
 
     def _operator_workflows_list() -> dict:
         """List workflow recipes for the console's Workflows surface (ADR 0002)."""
-        if _workflow_registry is None:
+        if STATE.workflow_registry is None:
             return {"workflows": []}
-        return {"workflows": _workflow_registry.list()}
+        return {"workflows": STATE.workflow_registry.list()}
 
     async def _operator_workflow_run(name: str, inputs: dict) -> dict:
         """Run a saved workflow from the operator console (ADR 0002)."""
         from graph.agent import run_manual_workflow
 
         return await run_manual_workflow(
-            _graph_config,
-            _workflow_registry,
+            STATE.graph_config,
+            STATE.workflow_registry,
             knowledge_store=_get_store(),
             name=name,
             inputs=inputs or {},
@@ -1535,24 +1522,24 @@ def _main():
         # protopen is configured via env/Infisical (no template setup wizard) and
         # has no cache_warmer/goal_controller — omit those (default None).
         return _build_operator_status(
-            config=_graph_config,
+            config=STATE.graph_config,
             setup_complete=True,
-            graph_loaded=_graph is not None,
-            knowledge_store=_knowledge_store,
+            graph_loaded=STATE.graph is not None,
+            knowledge_store=STATE.knowledge_store,
             scheduler=_scheduler,
-            skills_index=_skills_index,
-            goal_controller=_goal_controller,
+            skills_index=STATE.skills_index,
+            goal_controller=STATE.goal_controller,
         )
 
     def _operator_subagent_list():
-        return _operator_list_subagents(_graph_config)
+        return _operator_list_subagents(STATE.graph_config)
 
     async def _operator_subagent_run(req: dict):
-        if _graph is None:
+        if STATE.graph is None:
             raise RuntimeError("agent graph is not loaded")
         return await _operator_run_manual_subagent(
-            config=_graph_config,
-            knowledge_store=_knowledge_store,
+            config=STATE.graph_config,
+            knowledge_store=STATE.knowledge_store,
             scheduler=None,
             description=req.get("description", ""),
             prompt=req.get("prompt", ""),
@@ -1561,11 +1548,11 @@ def _main():
         )
 
     async def _operator_subagent_batch(req: dict):
-        if _graph is None:
+        if STATE.graph is None:
             raise RuntimeError("agent graph is not loaded")
         return await _operator_run_manual_subagent_batch(
-            config=_graph_config,
-            knowledge_store=_knowledge_store,
+            config=STATE.graph_config,
+            knowledge_store=STATE.knowledge_store,
             scheduler=None,
             tasks=req.get("tasks", []),
         )
@@ -1595,15 +1582,14 @@ def _main():
 
     # Goal mode (autonomy): the chat-stream path checks /goal control messages +
     # runs the verifier-backed re-invocation loop. Off when goals_enabled=false.
-    global _goal_controller
-    if getattr(_graph_config, "goals_enabled", True):
+    if getattr(STATE.graph_config, "goals_enabled", True):
         from graph.goals.controller import GoalController
         from graph.goals.store import GoalStore
         from tools.lg_tools import set_goal_controller as _set_goal_controller
 
-        _goal_controller = GoalController(_graph_config, GoalStore())
+        STATE.goal_controller = GoalController(STATE.graph_config, GoalStore())
         # Let the agent's set_goal tool reach the controller (read lazily).
-        _set_goal_controller(_goal_controller)
+        _set_goal_controller(STATE.goal_controller)
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
@@ -1624,9 +1610,12 @@ def _main():
             print(f"[scheduler] failed to start: {exc}")
 
         # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
-        global _checkpoint_prune_task
-        if _checkpoint_path and _graph_config is not None and _graph_config.checkpoint_prune_interval_hours > 0:
-            _checkpoint_prune_task = asyncio.create_task(_checkpoint_prune_loop())
+        if (
+            STATE.checkpoint_path
+            and STATE.graph_config is not None
+            and STATE.graph_config.checkpoint_prune_interval_hours > 0
+        ):
+            STATE.checkpoint_prune_task = asyncio.create_task(_checkpoint_prune_loop())
 
     @fastapi_app.on_event("shutdown")
     async def _stop_scheduler():
@@ -1634,8 +1623,8 @@ def _main():
             await _scheduler.stop()
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to stop: {exc}")
-        if _checkpoint_prune_task is not None:
-            _checkpoint_prune_task.cancel()
+        if STATE.checkpoint_prune_task is not None:
+            STATE.checkpoint_prune_task.cancel()
 
     # Monitor view: surface the live engagement + findings (protoPen-specific).
     from operator_api.engagement import (
@@ -1681,18 +1670,18 @@ def _main():
     def _operator_skills_list(query: str = ""):
         from operator_api.skills import list_skills_for_console
 
-        return list_skills_for_console(_skills_index, query)
+        return list_skills_for_console(STATE.skills_index, query)
 
     # Goals surface: list active/past goals + clear one (autonomy layer).
     def _operator_goals_list():
-        if _goal_controller is None:
+        if STATE.goal_controller is None:
             return {"enabled": False, "goals": []}
-        return {"enabled": True, "goals": [g.to_dict() for g in _goal_controller.store.all()]}
+        return {"enabled": True, "goals": [g.to_dict() for g in STATE.goal_controller.store.all()]}
 
     def _operator_goal_clear(session_id: str):
-        if _goal_controller is None:
+        if STATE.goal_controller is None:
             return {"cleared": False}
-        return {"cleared": _goal_controller.store.clear(session_id)}
+        return {"cleared": STATE.goal_controller.store.clear(session_id)}
 
     # Targets & Intel surface: browse discovered hosts, past engagements, and
     # search across everything captured (read-only over the existing stores).
@@ -1740,14 +1729,14 @@ def _main():
     from operator_api.agent_runtime import agent_registry as _agent_registry
 
     def _operator_agent_launch(req: dict):
-        if _graph is None:
+        if STATE.graph is None:
             raise RuntimeError("agent graph is not loaded")
         subagent_type = req.get("type") or req.get("subagent_type", "researcher")
 
         def _factory():
             return _operator_run_manual_subagent(
-                config=_graph_config,
-                knowledge_store=_knowledge_store,
+                config=STATE.graph_config,
+                knowledge_store=STATE.knowledge_store,
                 scheduler=None,
                 description=req.get("description", ""),
                 prompt=req.get("prompt", ""),
