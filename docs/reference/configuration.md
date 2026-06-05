@@ -106,7 +106,7 @@ middleware:
 
 knowledge:
   db_path: /sandbox/knowledge/security.db
-  embed_model: qwen3-embedding:0.6b
+  embed_model: qwen3-embedding
   top_k: 10
   search_mode: hybrid
   enrich_chunks: true

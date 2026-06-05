@@ -99,7 +99,7 @@ skills:
 
 knowledge:
   db_path: /sandbox/knowledge/security.db
-  embed_model: qwen3-embedding:0.6b
+  embed_model: qwen3-embedding   # gateway model id (the :0.6b suffix is not a valid alias → 401)
   top_k: 10
   search_mode: hybrid  # hybrid (vector + keyword RRF), vector, keyword
   enrich_chunks: true   # prepend contextual headers to chunks before embedding
