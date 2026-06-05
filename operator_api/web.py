@@ -7,6 +7,13 @@ from pathlib import Path
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+# The SPA entry (index.html) points at content-hashed asset bundles, so it must
+# never be served stale — a cached index.html pins the browser to an old build
+# after a deploy. `no-cache` = "always revalidate" (cheap 304 when unchanged),
+# not "don't store". The hashed bundles under /app/assets are immutable by
+# filename and stay cacheable via the StaticFiles mount.
+_NO_CACHE = {"Cache-Control": "no-cache"}
+
 
 def mount_react_app(app, dist_dir: str | Path, *, app_path: str = "/app") -> bool:
     """Mount a built Vite app under ``app_path`` when dist assets exist.
@@ -30,7 +37,7 @@ def mount_react_app(app, dist_dir: str | Path, *, app_path: str = "/app") -> boo
 
     @app.get(app_path, include_in_schema=False)
     async def _operator_index() -> FileResponse:
-        return FileResponse(str(index_path))
+        return FileResponse(str(index_path), headers=_NO_CACHE)
 
     @app.get(f"{app_path}/{{path:path}}", include_in_schema=False)
     async def _operator_fallback(path: str) -> FileResponse:
@@ -39,8 +46,11 @@ def mount_react_app(app, dist_dir: str | Path, *, app_path: str = "/app") -> boo
             candidate.relative_to(dist)
         except ValueError:
             candidate = index_path
+        # Non-hashed files (favicon, manifest) and the SPA index fallback are
+        # served revalidate-always; the content-hashed bundles are served by the
+        # StaticFiles mount above and never reach this handler.
         if candidate.is_file():
-            return FileResponse(str(candidate))
-        return FileResponse(str(index_path))
+            return FileResponse(str(candidate), headers=_NO_CACHE)
+        return FileResponse(str(index_path), headers=_NO_CACHE)
 
     return True
