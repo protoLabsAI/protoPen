@@ -220,16 +220,58 @@ function textFromTerminalTask(task?: NonNullable<A2AFrame["result"]>["task"]) {
 // and the chat spins indefinitely.
 const SSE_IDLE_TIMEOUT_MS = 60_000;
 
+/** Parse every complete `\n\n`-delimited SSE event out of `buffer`; returns the
+ *  unparsed remainder. Shared by the streaming and buffered-fallback paths. */
+function drainSseBuffer(buffer: string, onFrame: (frame: A2AFrame) => void): string {
+  let boundary = buffer.indexOf("\n\n");
+  while (boundary !== -1) {
+    const rawEvent = buffer.slice(0, boundary);
+    buffer = buffer.slice(boundary + 2);
+    boundary = buffer.indexOf("\n\n");
+
+    const data = rawEvent
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trim())
+      .join("\n");
+    if (!data) continue;
+    onFrame(JSON.parse(data) as A2AFrame);
+  }
+  return buffer;
+}
+
+async function consumeBuffered(response: Response, onFrame: (frame: A2AFrame) => void): Promise<void> {
+  // Await the whole body, then parse every frame at once. Loses token-by-token
+  // streaming but always renders the turn — the fallback for environments/turns
+  // where the readable stream yields nothing incrementally (proxy/Tailscale
+  // buffering, a reader that completes empty, or the watchdog firing before the
+  // first frame on a slow reasoning turn). Ported from protoAgent #499.
+  const text = await response.text();
+  drainSseBuffer(text.endsWith("\n\n") ? text : `${text}\n\n`, onFrame);
+}
+
 async function consumeSse(
   response: Response,
   onFrame: (frame: A2AFrame) => void,
   idleTimeoutMs: number = SSE_IDLE_TIMEOUT_MS,
 ): Promise<void> {
+  // Clone up front so we can fall back to a buffered read of the full body when
+  // incremental streaming surfaces nothing — the cause of a blank assistant
+  // message (the agent replied, but the SSE never rendered a frame). The clone
+  // keeps its own body once we lock the original via getReader().
+  let fallback: Response | null = null;
+  try {
+    fallback = response.clone();
+  } catch {
+    fallback = null;
+  }
+
   const reader = response.body?.getReader();
-  if (!reader) throw new Error("streaming response has no body");
+  if (!reader) return consumeBuffered(fallback ?? response, onFrame);
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let streamed = false;
 
   try {
     while (true) {
@@ -254,30 +296,24 @@ async function consumeSse(
 
       const { value, done } = chunk;
       if (done) break;
+      streamed = true;
       buffer += decoder.decode(value, { stream: true });
-
-      let boundary = buffer.indexOf("\n\n");
-      while (boundary !== -1) {
-        const rawEvent = buffer.slice(0, boundary);
-        buffer = buffer.slice(boundary + 2);
-        boundary = buffer.indexOf("\n\n");
-
-        const data = rawEvent
-          .split("\n")
-          .filter((line) => line.startsWith("data:"))
-          .map((line) => line.slice(5).trim())
-          .join("\n");
-        if (!data) continue;
-        onFrame(JSON.parse(data) as A2AFrame);
-      }
+      buffer = drainSseBuffer(buffer, onFrame);
     }
-  } finally {
-    // Release the connection on stall/error/abort so it can't leak.
-    try {
-      await reader.cancel();
-    } catch {
-      // Reader may already be closed; nothing to release.
-    }
+  } catch (err) {
+    // Reader/watchdog threw. If we never saw a chunk and have a clone, the
+    // stream just never surfaced — read it buffered rather than failing the turn
+    // to a blank message. A mid-stream failure (streamed already true) is real.
+    await reader.cancel().catch(() => {});
+    if (streamed || !fallback) throw err;
+    return consumeBuffered(fallback, onFrame);
+  }
+
+  // Release the original reader, then — if it completed without surfacing any
+  // frame — render via the buffered fallback so the turn isn't silently lost.
+  await reader.cancel().catch(() => {});
+  if (!streamed && fallback) {
+    return consumeBuffered(fallback, onFrame);
   }
 }
 
