@@ -42,6 +42,8 @@ import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
+import { IntroSplash } from "./IntroSplash";
+import { PwnDeckSplash } from "./PwnDeckSplash";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
 import type {
@@ -878,6 +880,8 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <IntroSplash />
+      <PwnDeckSplash />
       <header className="topbar">
         <div className="brand-lockup">
           <img src="/app/protolabs-icon-outline.svg" alt="" className="brand-mark" />
