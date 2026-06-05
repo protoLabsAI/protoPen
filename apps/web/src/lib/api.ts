@@ -32,39 +32,57 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
 };
 
+// A2A 1.0 streams proto-JSON frames: each `result` carries exactly one of the
+// `task` / `statusUpdate` / `artifactUpdate` wrappers. Proto-JSON omits the
+// part `kind` discriminator — text parts have `.text`, data parts have `.data`
+// plus `.metadata.mimeType` — and uses `TASK_STATE_*` enum strings for state.
+type A2APart = {
+  text?: string;
+  data?: unknown;
+  metadata?: { mimeType?: string };
+};
+
 type A2AFrame = {
   jsonrpc?: string;
   id?: string;
   result?: {
-    kind?: string;
-    id?: string;
-    taskId?: string;
-    contextId?: string;
-    status?: {
-      state?: string;
-      message?: {
-        parts?: Array<{
-          kind?: string;
-          text?: string;
-          data?: unknown;
-          metadata?: { mimeType?: string };
-        }>;
-      };
+    task?: {
+      id?: string;
+      contextId?: string;
+      status?: { state?: string };
+      artifacts?: Array<{ parts?: A2APart[] }>;
     };
-    artifact?: {
-      parts?: Array<{ kind?: string; text?: string }>;
+    statusUpdate?: {
+      taskId?: string;
+      contextId?: string;
+      status?: { state?: string; message?: { parts?: A2APart[] } };
     };
-    artifacts?: Array<{
-      parts?: Array<{ kind?: string; text?: string }>;
-    }>;
-    append?: boolean;
-    lastChunk?: boolean;
-    final?: boolean;
+    artifactUpdate?: {
+      taskId?: string;
+      artifact?: { parts?: A2APart[] };
+      append?: boolean;
+      lastChunk?: boolean;
+    };
   };
   error?: {
     message?: string;
   };
 };
+
+// Terminal task states — when a status-update arrives in one of these, the turn
+// is over (mirrors the v0.3 `final` flag the SDK no longer sends per-frame).
+const A2A_TERMINAL_STATES = new Set([
+  "TASK_STATE_COMPLETED",
+  "TASK_STATE_FAILED",
+  "TASK_STATE_CANCELLED",
+  "TASK_STATE_CANCELED",
+  "TASK_STATE_REJECTED",
+]);
+
+/** "TASK_STATE_WORKING" → "working" for human-facing status text. */
+function humanizeState(state?: string): string {
+  return (state || "").replace(/^TASK_STATE_/, "").toLowerCase();
+}
 
 const OPERATOR_KEY_STORAGE = "protopen.operatorKey";
 
@@ -152,9 +170,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return (await response.json()) as T;
 }
 
-function textFromParts(parts?: Array<{ kind?: string; text?: string }>) {
+function textFromParts(parts?: A2APart[]) {
   return (parts || [])
-    .filter((part) => (part.kind === undefined || part.kind === "text") && part.text)
+    .filter((part) => part.text)
     .map((part) => part.text)
     .join("");
 }
@@ -162,20 +180,36 @@ function textFromParts(parts?: Array<{ kind?: string; text?: string }>) {
 // Shared with the backend (a2a_handler.py TOOL_CALL_MIME).
 const TOOL_CALL_MIME = "application/vnd.protolabs.tool-call-v1+json";
 
-/** Pull a structured tool event ({id, name, phase, input|output}) off a frame's parts. */
-function toolEventFromParts(
-  parts?: Array<{ kind?: string; data?: unknown; metadata?: { mimeType?: string } }>,
-): ToolEvent | null {
+/**
+ * Pull a structured tool event off a frame's parts and map the A2A 1.0 wire
+ * payload ({toolCallId, name, phase: "started"|"completed", args, result}) onto
+ * the frontend ToolEvent ({id, name, phase: "start"|"end", input, output}).
+ */
+function toolEventFromParts(parts?: A2APart[]): ToolEvent | null {
   const part = (parts || []).find(
-    (p) => p.kind === "data" && p.metadata?.mimeType === TOOL_CALL_MIME,
+    (p) => p.metadata?.mimeType === TOOL_CALL_MIME && p.data,
   );
-  return part ? (part.data as ToolEvent) : null;
+  if (!part) return null;
+  const d = part.data as {
+    toolCallId?: string;
+    name?: string;
+    phase?: string;
+    args?: string;
+    result?: string;
+  };
+  return {
+    id: d.toolCallId || "",
+    name: d.name || "",
+    phase: d.phase === "started" ? "start" : "end",
+    input: d.args,
+    output: d.result,
+  };
 }
 
-function textFromTerminalTask(result: NonNullable<A2AFrame["result"]>) {
-  return (result.artifacts || [])
+function textFromTerminalTask(task?: NonNullable<A2AFrame["result"]>["task"]) {
+  return (task?.artifacts || [])
     .flatMap((artifact) => artifact.parts || [])
-    .filter((part) => (part.kind === undefined || part.kind === "text") && part.text)
+    .filter((part) => part.text)
     .map((part) => part.text)
     .join("");
 }
@@ -450,7 +484,16 @@ export const api = {
     } = {},
   ) {
     const rpcId = `web-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const streamHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // A2A 1.0 native JSON-RPC: the `A2A-Version` header selects the 1.0 handler
+    // (absent ⇒ the SDK assumes v0.3 and rejects us), the method is the proto
+    // RPC name, and `contextId` lives inside the message (= our session id, so
+    // the agent's checkpointer threads multi-turn memory).
+    const streamHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      "A2A-Version": "1.0",
+    };
     const operatorKey = getOperatorKey();
     if (operatorKey) streamHeaders["x-api-key"] = operatorKey;
     const response = await fetch(apiUrl("/a2a"), {
@@ -460,12 +503,13 @@ export const api = {
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: rpcId,
-        method: "message/stream",
+        method: "SendStreamingMessage",
         params: {
-          contextId: sessionId,
           message: {
-            role: "user",
-            parts: [{ kind: "text", text: message }],
+            messageId,
+            contextId: sessionId,
+            role: "ROLE_USER",
+            parts: [{ text: message }],
           },
         },
       }),
@@ -480,25 +524,32 @@ export const api = {
       const result = frame.result;
       if (!result) return;
 
-      if (result.kind === "task" && result.id) {
-        handlers.onTaskId?.(result.id);
-        const terminalText = textFromTerminalTask(result);
+      // First frame: the freshly-created task (state SUBMITTED).
+      if (result.task?.id) {
+        handlers.onTaskId?.(result.task.id);
+        const terminalText = textFromTerminalTask(result.task);
         if (terminalText) handlers.onText?.(terminalText, false);
       }
 
-      if (result.kind === "status-update") {
-        const state = result.status?.state || "";
-        const messageText = textFromParts(result.status?.message?.parts);
-        handlers.onStatus?.(messageText || state);
-        const toolEvent = toolEventFromParts(result.status?.message?.parts);
+      // Status updates carry working/terminal state, status text, and the
+      // structured tool-call DataParts that drive the live tool cards.
+      if (result.statusUpdate) {
+        const su = result.statusUpdate;
+        const state = su.status?.state || "";
+        const messageText = textFromParts(su.status?.message?.parts);
+        handlers.onStatus?.(messageText || humanizeState(state));
+        const toolEvent = toolEventFromParts(su.status?.message?.parts);
         if (toolEvent) handlers.onToolCall?.(toolEvent);
-        if (result.final) handlers.onDone?.();
+        if (A2A_TERMINAL_STATES.has(state)) handlers.onDone?.();
       }
 
-      if (result.kind === "artifact-update") {
-        const text = textFromParts(result.artifact?.parts);
-        if (text) handlers.onText?.(text, result.append !== false);
-        if (result.lastChunk) handlers.onDone?.();
+      // Artifact updates stream the assistant's text output. `append` is false
+      // on the first chunk (replace) and true on continuations (concatenate).
+      if (result.artifactUpdate) {
+        const au = result.artifactUpdate;
+        const text = textFromParts(au.artifact?.parts);
+        if (text) handlers.onText?.(text, au.append === true);
+        if (au.lastChunk) handlers.onDone?.();
       }
     });
   },
@@ -506,10 +557,11 @@ export const api = {
   cancelTask(taskId: string) {
     return request<{ result?: unknown; error?: unknown }>("/a2a", {
       method: "POST",
+      headers: { "A2A-Version": "1.0" },
       body: {
         jsonrpc: "2.0",
         id: `cancel-${Date.now()}`,
-        method: "tasks/cancel",
+        method: "CancelTask",
         params: { id: taskId },
       },
     });
