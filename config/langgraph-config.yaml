@@ -103,3 +103,4 @@ knowledge:
   top_k: 10
   search_mode: hybrid  # hybrid (vector + keyword RRF), vector, keyword
   enrich_chunks: true   # prepend contextual headers to chunks before embedding
+  facts: true           # extract durable semantic facts from chat (ADR 0021); background + deduped
