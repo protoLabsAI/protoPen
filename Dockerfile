@@ -65,7 +65,8 @@ COPY audit.py /opt/protopen/audit.py
 COPY tracing.py /opt/protopen/tracing.py
 COPY metrics.py /opt/protopen/metrics.py
 COPY chat_ui.py /opt/protopen/chat_ui.py
-COPY server.py /opt/protopen/server.py
+COPY server/ /opt/protopen/server/
+COPY runtime/ /opt/protopen/runtime/
 COPY discord_bot.py /opt/protopen/discord_bot.py
 COPY guardrails.py /opt/protopen/guardrails.py
 COPY entrypoint.sh /opt/protopen/entrypoint.sh

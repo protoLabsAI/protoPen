@@ -33,5 +33,6 @@ if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ]; then
     done
 fi
 
-# Start protoPen Gradio UI on port 7870
-exec python /opt/protopen/server.py
+# Start protoPen Gradio UI on port 7870 (ADR 0023: server.py → server/ package)
+cd /opt/protopen
+exec python -m server

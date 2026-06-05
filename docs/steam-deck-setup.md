@@ -183,7 +183,7 @@ Once tests pass, you can:
 1. **Connect hardware** — Plug PortaPack directly into the Deck's USB-C port (not the hub — needs ~500mA); Flipper Zero and WiFi Marauder via hub is fine
 2. **Verify devices** — `ls /dev/ttyACM* /dev/ttyUSB*` should show your serial devices; `hackrf_info` should show "Found HackRF"
 3. **Update serial ports** — Edit `config/engagement-config.json` with actual device paths
-4. **Start the agent** — `python server.py` (requires LLM gateway — see README.md)
+4. **Start the agent** — `python -m server` (requires LLM gateway — see README.md)
 5. **Run a passive scan** — Start an engagement in passive mode to verify hardware-in-the-loop works
 
 ---
