@@ -4,6 +4,4 @@
 // Pair with `appearance: "force-dark"` in config.mts.
 import theme from "@protolabsai/vitepress-theme";
 
-import "./custom.css"; // repo-local tweaks (hero banner sizing) — after the theme
-
 export default theme;
