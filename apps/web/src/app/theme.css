@@ -3234,8 +3234,11 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Opaque from mount — the background is NOT animated, so on the brand→pwndeck
+     swap it covers the app instantly. Only the inner ASCII animates (below);
+     animating the whole element here would fade its background from opacity 0
+     and flash the app through during the rise. */
   background: var(--bg);
-  animation: intro-rise 0.45s cubic-bezier(0.2, 0.6, 0.2, 1) both;
 }
 
 .pwndeck-ascii {
@@ -3251,4 +3254,5 @@ textarea {
   -webkit-text-fill-color: transparent;
   color: transparent;
   filter: drop-shadow(0 0 16px rgba(155, 135, 242, 0.35));
+  animation: intro-rise 0.45s cubic-bezier(0.2, 0.6, 0.2, 1) both;
 }
