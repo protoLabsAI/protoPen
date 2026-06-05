@@ -16,17 +16,13 @@ hero:
       link: /reference/
 
 features:
-  - icon: 🎯
-    title: Target Tracking
+  - title: Target Tracking
     details: Unified SQLite database tracks hosts, ports, WiFi networks, RF signals, BLE devices, and RFID tags across all sensors.
-  - icon: 📡
-    title: Hardware-in-the-Loop
+  - title: Hardware-in-the-Loop
     details: PortaPack H4M, Flipper Zero, WiFi Marauder, and BlackArch tools — all managed through serial bridges and risk-gated engagement modes.
-  - icon: 🤖
-    title: Agent-to-Agent Protocol
+  - title: Agent-to-Agent Protocol
     details: JSON-RPC A2A endpoint lets other agents delegate recon, pentesting, and research tasks programmatically.
-  - icon: 🧠
-    title: Threat Intelligence
+  - title: Threat Intelligence
     details: CVE tracking, security feeds, Exploit-DB, GitHub security tools — with hybrid knowledge search (vector + BM25).
 ---
 
