@@ -40,7 +40,7 @@ _SAMPLE_CARD = {
 
 
 def _card_json() -> dict:
-    from server import _build_agent_card_proto
+    from server.a2a import _build_agent_card_proto
 
     card = _build_agent_card_proto(_SAMPLE_CARD)
     return MessageToDict(card, preserving_proto_field_name=False)
