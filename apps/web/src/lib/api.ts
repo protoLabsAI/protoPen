@@ -214,11 +214,12 @@ function textFromTerminalTask(task?: NonNullable<A2AFrame["result"]>["task"]) {
     .join("");
 }
 
-// The backend emits SSE keepalives every ~25s, so any gap longer than this
-// means the stream has genuinely stalled (hung tool, dead connection) rather
-// than just a slow turn. Without this watchdog, reader.read() blocks forever
-// and the chat spins indefinitely.
-const SSE_IDLE_TIMEOUT_MS = 60_000;
+// Watchdog for a stream that goes silent. NOTE: a slow reasoning turn legitimately
+// produces NO frame for a while — tool calls finish, then the model spends 60–120s+
+// generating the final report before the artifact frame arrives. So this must be
+// generous (a too-tight value killed the stream mid-generation → blank message),
+// and on firing we fall back to a buffered read rather than failing the turn.
+const SSE_IDLE_TIMEOUT_MS = 180_000;
 
 /** Parse every complete `\n\n`-delimited SSE event out of `buffer`; returns the
  *  unparsed remainder. Shared by the streaming and buffered-fallback paths. */
@@ -301,11 +302,15 @@ async function consumeSse(
       buffer = drainSseBuffer(buffer, onFrame);
     }
   } catch (err) {
-    // Reader/watchdog threw. If we never saw a chunk and have a clone, the
-    // stream just never surfaced — read it buffered rather than failing the turn
-    // to a blank message. A mid-stream failure (streamed already true) is real.
+    // The reader threw or the idle watchdog fired. This includes the common,
+    // non-fatal case of a slow reasoning turn going quiet between the last tool
+    // and the final report (a >watchdog gap). Don't lose the turn: if we have a
+    // clone, read the full body buffered — it resolves when the turn completes
+    // and carries every frame (incl. the final artifact). Re-emitting already-
+    // seen frames is idempotent (tool cards keyed by id; text replaces). Only a
+    // fallback-less failure is fatal.
     await reader.cancel().catch(() => {});
-    if (streamed || !fallback) throw err;
+    if (!fallback) throw err;
     return consumeBuffered(fallback, onFrame);
   }
 
