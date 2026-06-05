@@ -1640,6 +1640,7 @@ def _main():
     # Monitor view: surface the live engagement + findings (protoPen-specific).
     from operator_api.engagement import (
         build_engagement_status as _build_engagement_status,
+        control_engagement as _control_engagement,
         generate_engagement_report as _generate_engagement_report,
         read_engagement_report as _read_engagement_report,
     )
@@ -1663,6 +1664,12 @@ def _main():
 
     def _operator_engagement_report_generate():
         return _generate_engagement_report(_operator_engagement_manager())
+
+    def _operator_engagement_control(payload: dict) -> dict:
+        # Acts on the SAME EngagementManager singleton the enforcement middleware
+        # checks, so starting one here unblocks the agent's engagement-gated tools
+        # without depending on the agent calling its own engagement tool.
+        return _control_engagement(_operator_engagement_manager(), payload)
 
     # Knowledge surface: hybrid search over the threat-intel store.
     from operator_api.knowledge import search_knowledge as _search_knowledge
@@ -1778,6 +1785,7 @@ def _main():
         engagement_status=_operator_engagement_status,
         engagement_report=_operator_engagement_report,
         engagement_report_generate=_operator_engagement_report_generate,
+        engagement_control=_operator_engagement_control,
         knowledge_search=_operator_knowledge_search,
         skills_list=_operator_skills_list,
         goals_list=_operator_goals_list,

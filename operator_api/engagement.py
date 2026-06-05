@@ -68,6 +68,42 @@ def build_engagement_status(engagement_mgr: Any) -> dict[str, Any]:
     }
 
 
+def control_engagement(engagement_mgr: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    """Operator-side engagement control: ``start`` / ``end`` / ``set_mode`` on the
+    live EngagementManager. Returns the new status snapshot. Raises ValueError on
+    bad input (the route maps that to HTTP 400).
+
+    Acts on the same manager the enforcement middleware checks, so starting an
+    engagement here unblocks the agent's engagement-gated tools — the operator no
+    longer has to rely on the agent calling its own engagement tool.
+    """
+    action = (payload or {}).get("action", "").strip().lower()
+    if action == "start":
+        name = (payload.get("name") or "").strip()
+        if not name:
+            raise ValueError("engagement 'name' is required to start")
+        engagement_mgr.start(
+            name,
+            scope=(payload.get("scope") or "").strip(),
+            mode=(payload.get("mode") or None),
+        )
+    elif action == "end":
+        engagement_mgr.end()
+    elif action == "set_mode":
+        from tools.engagement import EngagementMode
+
+        mode = (payload.get("mode") or "").strip()
+        if not mode:
+            raise ValueError("'mode' is required for set_mode")
+        try:
+            engagement_mgr.set_mode(EngagementMode[mode.upper()])
+        except KeyError as exc:
+            raise ValueError(f"unknown mode {mode!r} (use passive/active/redteam)") from exc
+    else:
+        raise ValueError(f"unknown action {action!r} (use start | end | set_mode)")
+    return build_engagement_status(engagement_mgr)
+
+
 def _report_path(engagement_mgr: Any):
     """Resolve the report.md path for the active engagement, or None."""
     from pathlib import Path

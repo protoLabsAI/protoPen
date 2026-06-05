@@ -4,6 +4,7 @@ import pytest
 
 from operator_api.engagement import (
     build_engagement_status,
+    control_engagement,
     generate_engagement_report,
     read_engagement_report,
 )
@@ -70,3 +71,78 @@ def test_generate_report_rejects_no_active_engagement() -> None:
     mgr = _Manager()  # no workspace → empty active_engagement
     with pytest.raises(ValueError):
         generate_engagement_report(mgr)
+
+
+# ── operator engagement control (start / end / set_mode) ────────────────────────
+
+
+class _ControlManager:
+    """Records start/end/set_mode; exposes the attrs build_engagement_status reads."""
+
+    def __init__(self):
+        self.active_engagement = None
+        self._mode = "PASSIVE"
+        self.findings = []
+        self.current_phase = ""
+        self.calls = []
+
+    def start(self, name, scope="", mode=None):
+        self.calls.append(("start", name, scope, mode))
+        if mode:
+            self._mode = mode.upper()
+        self.active_engagement = {"name": name, "scope": scope, "mode": self._mode, "started_at": "now"}
+
+    def end(self):
+        self.calls.append(("end",))
+        self.active_engagement = None
+
+    def set_mode(self, mode):
+        self.calls.append(("set_mode", mode))
+        self._mode = getattr(mode, "name", str(mode))
+
+
+def test_control_start_activates_and_returns_status() -> None:
+    mgr = _ControlManager()
+    status = control_engagement(mgr, {"action": "start", "name": "op-x", "scope": "1.2.3.4"})
+    assert mgr.calls[0] == ("start", "op-x", "1.2.3.4", None)
+    assert status["active"] is True
+    assert status["name"] == "op-x"
+    assert status["scope"] == "1.2.3.4"
+
+
+def test_control_start_requires_name() -> None:
+    with pytest.raises(ValueError, match="name"):
+        control_engagement(_ControlManager(), {"action": "start", "scope": "x"})
+
+
+def test_control_end_deactivates() -> None:
+    mgr = _ControlManager()
+    control_engagement(mgr, {"action": "start", "name": "op-x"})
+    status = control_engagement(mgr, {"action": "end"})
+    assert ("end",) in mgr.calls
+    assert status["active"] is False
+
+
+def test_control_set_mode_maps_enum() -> None:
+    mgr = _ControlManager()
+    control_engagement(mgr, {"action": "start", "name": "op-x"})
+    control_engagement(mgr, {"action": "set_mode", "mode": "active"})
+    call = next(c for c in mgr.calls if c[0] == "set_mode")
+    assert getattr(call[1], "name", str(call[1])) == "ACTIVE"
+
+
+def test_control_set_mode_requires_mode() -> None:
+    with pytest.raises(ValueError, match="mode"):
+        control_engagement(_ControlManager(), {"action": "set_mode"})
+
+
+def test_control_set_mode_rejects_unknown() -> None:
+    with pytest.raises(ValueError, match="unknown mode"):
+        control_engagement(_ControlManager(), {"action": "set_mode", "mode": "bogus"})
+
+
+def test_control_unknown_action_rejected() -> None:
+    with pytest.raises(ValueError, match="unknown action"):
+        control_engagement(_ControlManager(), {"action": "frobnicate"})
+    with pytest.raises(ValueError, match="unknown action"):
+        control_engagement(_ControlManager(), {})

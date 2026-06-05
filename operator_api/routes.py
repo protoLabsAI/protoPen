@@ -90,6 +90,7 @@ def register_operator_routes(
     subagent_run: Callable[[dict[str, Any]], Awaitable[str]],
     subagent_batch: Callable[[dict[str, Any]], Awaitable[str]],
     engagement_status: Callable[[], dict[str, Any]] | None = None,
+    engagement_control: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     engagement_report: Callable[[], dict[str, Any]] | None = None,
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
@@ -166,6 +167,22 @@ def register_operator_routes(
                 "findings": [],
             }
         return engagement_status()
+
+    @router.post("/api/engagement", summary="Start / end / set-mode the engagement")
+    async def _engagement_control(body: dict[str, Any]):
+        """Operator control: ``{"action": "start", "name": ..., "scope": ...,
+        "mode": "passive|active|redteam"}`` | ``{"action": "end"}`` |
+        ``{"action": "set_mode", "mode": ...}``. Acts on the live engagement the
+        agent's enforcement middleware checks, so starting one here unblocks
+        engagement-gated tools. Returns the new status snapshot."""
+        if engagement_control is None:
+            raise HTTPException(status_code=409, detail="engagement control is not available")
+        try:
+            return await asyncio.to_thread(engagement_control, body or {})
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:
+            raise _http_error(exc) from exc
 
     @router.get("/api/engagement/report", summary="Read engagement report")
     async def _engagement_report():
