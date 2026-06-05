@@ -96,9 +96,20 @@ class KnowledgeMiddleware(AgentMiddleware):
                     results = self._search(last_human)
                 except Exception:  # noqa: BLE001 — never break the turn on retrieval
                     results = []
-                if results:
+                # Split semantic facts (ADR 0021) from research knowledge: facts
+                # are authoritative memory *about the operator* and the model
+                # should answer from them directly, not treat them as one more
+                # research hit to weigh.
+                facts = [r for r in results if r.get("table") == "facts"]
+                other = [r for r in results if r.get("table") != "facts"]
+                if facts:
+                    fb = ["[Known facts about the operator — authoritative; recall and answer from these directly:]"]
+                    for r in facts:
+                        fb.append(f"- {(r.get('preview') or '')[:500]}")
+                    parts.append("\n".join(fb))
+                if other:
                     kn = ["[Relevant knowledge from previous research:]"]
-                    for r in results:
+                    for r in other:
                         preview = (r.get("preview") or "")[:500]
                         kn.append(f"- [{r.get('table')}:{r.get('source_id')}] {preview}")
                     parts.append("\n".join(kn))
