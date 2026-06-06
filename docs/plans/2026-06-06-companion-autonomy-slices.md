@@ -6,7 +6,7 @@
 
 ## Backend map (verified 2026-06-06)
 
-Three mechanisms, traced end-to-end:
+Four mechanisms, traced end-to-end:
 
 1. **Pause / `input_required`** — `a2a_executor.py` is a complete **consumer**
    (parks the task in `TASK_STATE_INPUT_REQUIRED`, rides the `hitl-v1` DataPart).

@@ -12,7 +12,7 @@ for the engagement-mode gating that controls when each tool is allowed, see
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_83 tools, generated from the live registry — do not edit by hand._
+_85 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -151,6 +151,8 @@ _83 tools, generated from the live registry — do not edit by hand._
 | `update_task` | Advance or re-prioritize a tracked task — set its status (open → in_progress → closed, or blocked) and/or its priority |
 | `close_task` | Mark a tracked task done/closed once its work is complete |
 | `set_goal` | Commit to an autonomous goal — keep working across turns until a verifier confirms it's met (or the iteration budget runs out) |
+| `request_user_input` | Pause and ask the operator for input, then STOP and wait — do not continue until they respond |
+| `request_approval` | Pause for the operator's approval of a specific action, then STOP and wait |
 
 <!-- END GENERATED TOOLS -->
 

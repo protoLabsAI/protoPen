@@ -178,6 +178,8 @@ CATEGORIES: list[tuple[str, list[str]]] = [
             "update_task",
             "close_task",
             "set_goal",
+            "request_user_input",
+            "request_approval",
         ],
     ),
 ]
