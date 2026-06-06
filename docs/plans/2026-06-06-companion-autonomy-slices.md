@@ -55,18 +55,15 @@ Make the shipped HITL console live: the agent can pause and ask the operator.
 Delivers the end-to-end loop and exercises all three card types (question /
 form / approval) the console renders.
 
-## Slice 2 — Enforcement approval gate (passive→active escalation)
+## Slice 2 — Enforcement approval gate  — DROPPED (operator decision 2026-06-06)
 
-Autonomous-first: when self-driving hits a tool that needs a higher mode, ask
-to escalate instead of hard-blocking.
-
-- In `_enforce` check 4 (mode gap), set a pending **approval** (reuse Slice 1
-  registry; session via `get_current_session()`) and block the tool for this turn.
-- On operator **Approve**, flip the engagement mode server-side
-  (`EngagementManager.set_mode`) so the agent's retry passes the gate; on Deny,
-  the block stands. Needs an approve→set_mode bridge on resume (intercept the
-  approval response server-side rather than feeding raw "approved" to the agent).
-- Same card backs **destructive-tool** confirmation.
+Decision: **keep agent self-escalation** of engagement mode (passive→active→
+redteam), headless included — maximum autonomy. Today `tools/engagement.py:
+_exec_set_mode` lets the agent set any mode freely and `engagement` is
+enforcement-exempt; we are NOT gating that behind operator approval. The
+enforcement gate stays a speed-bump the agent consciously steps past, and the
+operator sets the mode ceiling up front when needed. `request_approval` (Slice 1)
+remains for cases where the *agent itself* decides a human should weigh in.
 
 ## Slice 3 — Companion presence / status surface (frontend)
 
