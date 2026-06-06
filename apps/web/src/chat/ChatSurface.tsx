@@ -219,6 +219,9 @@ function ChatSessionSlot({
 
   async function runTurn(content: string) {
     if (!session || !content) return;
+    // Abort any still-in-flight stream before starting a new turn (e.g. a fast
+    // HITL resume) so two SSE connections never interleave assistant messages.
+    abortRef.current?.abort();
     setHitl(null);
     const userMessage: ChatMessage = {
       id: messageId(),
