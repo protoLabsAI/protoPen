@@ -1,15 +1,15 @@
 import { ChevronRight } from "lucide-react";
 
-import { ChatSurface } from "../chat/ChatSurface";
 import { chatStore, useChatState } from "../chat/chat-store";
 import type { EngagementStatus } from "../lib/types";
 import { STATE_LABEL, useCompanionState } from "./CompanionStatus";
 
 // Home / Companion — the spine of the autonomous-first IA (vision doc, Slice 2).
 // A glanceable presence band that answers "is it running, what's it doing, does
-// it need me?" sitting above the chat steering channel. Promotes the topbar
-// CompanionStatus strip into the landing surface; consumes only existing data
-// (engagement status + the chat store's HITL/stream state) — no new backend.
+// it need me?" It sits above the chat steering channel — which App renders
+// always-mounted (so a turn keeps streaming as you navigate), with Home just the
+// presence hero. Consumes only existing data (engagement status + the chat
+// store's HITL/stream state) — no new backend.
 
 // One-line read on what the companion is doing right now, by state.
 function subline(
@@ -33,11 +33,9 @@ function severityTone(severity?: string | null): string {
 export function HomeSurface({
   engagement,
   live,
-  onError,
 }: {
   engagement: EngagementStatus | null;
   live: boolean;
-  onError: (message: string) => void;
 }) {
   const chat = useChatState();
   const state = useCompanionState(live);
@@ -125,8 +123,6 @@ export function HomeSurface({
           </div>
         ) : null}
       </div>
-
-      <ChatSurface onError={onError} />
     </>
   );
 }
