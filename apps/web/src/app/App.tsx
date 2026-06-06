@@ -12,7 +12,6 @@ import {
   Gauge,
   ListChecks,
   Loader2,
-  MessageSquare,
   GraduationCap,
   Network,
   PanelRight,
@@ -38,7 +37,6 @@ import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
 import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
-import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
@@ -59,11 +57,14 @@ import type {
 } from "../lib/types";
 import { SetupWizard } from "../setup/SetupWizard";
 
-// Rail groups (top-level). Each groups several related views, switched by a
-// group tab bar in the stage — keeps the rail to four entries.
-type Surface = "chat" | "intel" | "agents" | "system";
-type ChatTab = "conversation" | "activity";
-type AgentsTab = "goals" | "subagents" | "workflows" | "playbooks";
+// Rail groups (top-level), companion nouns (IA restructure Slice 1, protopen-cym).
+// Each rail groups several related views, switched by a group tab bar in the
+// stage. Home is the companion spine; Engagement is the autonomy engine
+// (goals/playbooks); Capabilities is the B-subtext catalog.
+type Surface = "home" | "engagement" | "findings" | "activity" | "capabilities" | "system";
+type EngagementTab = "engagements" | "goals" | "playbooks";
+type FindingsTab = "targets" | "search" | "knowledge";
+type CapabilitiesTab = "skills" | "subagents" | "workflows";
 type SystemTab = "status" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
@@ -210,10 +211,10 @@ function groupIssues(issues: BeadsIssue[]) {
 }
 
 export function App() {
-  const [surface, setSurface] = useState<Surface>("chat");
-  const [chatTab, setChatTab] = useState<ChatTab>("conversation");
-  const [intelTab, setIntelTab] = useState<IntelTab>("targets");
-  const [agentsTab, setAgentsTab] = useState<AgentsTab>("subagents");
+  const [surface, setSurface] = useState<Surface>("home");
+  const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagements");
+  const [findingsTab, setFindingsTab] = useState<FindingsTab>("targets");
+  const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("skills");
   const [systemTab, setSystemTab] = useState<SystemTab>("status");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
   // Collapsible/resizable right panel (persisted). Flag is "1"/"" string; width
@@ -241,9 +242,9 @@ export function App() {
     [],
   );
   useEffect(() => {
-    viewingActivityRef.current = surface === "chat" && chatTab === "activity";
+    viewingActivityRef.current = surface === "activity";
     if (viewingActivityRef.current) setActivityUnread(0);
-  }, [surface, chatTab]);
+  }, [surface]);
   const [projectPath, setProjectPath] = useLocalStorageState("protopen.projectPath", "", [
     "protoagent.projectPath",
   ]);
@@ -387,15 +388,15 @@ export function App() {
 
   // Live agent monitor: fetch once on entering the surface…
   useEffect(() => {
-    if (surface === "agents" && agentsTab === "subagents") void refreshAgents();
-  }, [surface, agentsTab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (surface === "capabilities" && capabilitiesTab === "subagents") void refreshAgents();
+  }, [surface, capabilitiesTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // …then poll on a fixed 3s cadence only while a run is active.
   useEffect(() => {
-    if (!(surface === "agents" && agentsTab === "subagents") || !hasRunningAgents) return;
+    if (!(surface === "capabilities" && capabilitiesTab === "subagents") || !hasRunningAgents) return;
     const handle = window.setInterval(() => void refreshAgents(), 3000);
     return () => window.clearInterval(handle);
-  }, [surface, agentsTab, hasRunningAgents]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [surface, capabilitiesTab, hasRunningAgents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live engagement monitor: poll while the engagement panel is open.
   useEffect(() => {
@@ -952,23 +953,35 @@ export function App() {
       >
         <aside className="rail" aria-label="Workspace surfaces">
           <RailButton
-            active={surface === "chat"}
-            label="Chat"
-            icon={<MessageSquare size={18} />}
-            onClick={() => setSurface("chat")}
+            active={surface === "home"}
+            label="Home"
+            icon={<Bot size={18} />}
+            onClick={() => setSurface("home")}
+          />
+          <RailButton
+            active={surface === "engagement"}
+            label="Engagement"
+            icon={<Target size={18} />}
+            onClick={() => setSurface("engagement")}
+          />
+          <RailButton
+            active={surface === "findings"}
+            label="Findings"
+            icon={<ScrollText size={18} />}
+            onClick={() => setSurface("findings")}
+          />
+          <RailButton
+            active={surface === "activity"}
+            label="Activity"
+            icon={<ActivityIcon size={18} />}
+            onClick={() => setSurface("activity")}
             badge={activityUnread}
           />
           <RailButton
-            active={surface === "intel"}
-            label="Intel"
-            icon={<Target size={18} />}
-            onClick={() => setSurface("intel")}
-          />
-          <RailButton
-            active={surface === "agents"}
-            label="Agents"
-            icon={<Network size={18} />}
-            onClick={() => setSurface("agents")}
+            active={surface === "capabilities"}
+            label="Capabilities"
+            icon={<Boxes size={18} />}
+            onClick={() => setSurface("capabilities")}
           />
           <RailButton
             active={surface === "system"}
@@ -986,80 +999,90 @@ export function App() {
             </div>
           ) : null}
 
-          {/* ── Chat group: Conversation · Activity ──────────────── */}
-          {surface === "chat" ? (
-            <>
-              <div className="group-tabs" role="tablist">
-                <button role="tab" aria-selected={chatTab === "conversation"} className={chatTab === "conversation" ? "active" : ""} onClick={() => setChatTab("conversation")}>
-                  <MessageSquare size={14} /> Conversation
-                </button>
-                <button role="tab" aria-selected={chatTab === "activity"} className={chatTab === "activity" ? "active" : ""} onClick={() => setChatTab("activity")}>
-                  <ActivityIcon size={14} /> Activity
-                  {activityUnread > 0 && chatTab !== "activity" ? <span className="tab-badge">{activityUnread}</span> : null}
-                </button>
-              </div>
-              {chatTab === "conversation" ? <ChatSurface onError={setError} /> : <ActivitySurface onError={setError} />}
-            </>
-          ) : null}
+          {/* ── Home / Companion: chat is the steering channel. The companion
+                presence/face surface lands here in Slice 2. ───────────── */}
+          {surface === "home" ? <ChatSurface onError={setError} /> : null}
 
-          {/* ── Intel group: Targets · Search · Knowledge · Engagements ── */}
-          {surface === "intel" ? (
+          {/* ── Activity: auditable timeline of what it did (own rail) ── */}
+          {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
+
+          {/* ── Engagement: scope a target & set it loose. The autonomy engine
+                (goals/playbooks) lives behind this rail. Slice 3 fuses these into
+                one engagement-as-object surface; Slice 1 re-homes the tabs. ── */}
+          {surface === "engagement" ? (
             <>
               <div className="group-tabs" role="tablist">
-                <button role="tab" aria-selected={intelTab === "targets"} className={intelTab === "targets" ? "active" : ""} onClick={() => setIntelTab("targets")}>
-                  <Target size={14} /> Targets
-                </button>
-                <button role="tab" aria-selected={intelTab === "search"} className={intelTab === "search" ? "active" : ""} onClick={() => setIntelTab("search")}>
-                  <Search size={14} /> Search
-                </button>
-                <button role="tab" aria-selected={intelTab === "knowledge"} className={intelTab === "knowledge" ? "active" : ""} onClick={() => setIntelTab("knowledge")}>
-                  <Database size={14} /> Knowledge
-                </button>
-                <button role="tab" aria-selected={intelTab === "engagements"} className={intelTab === "engagements" ? "active" : ""} onClick={() => setIntelTab("engagements")}>
+                <button role="tab" aria-selected={engagementTab === "engagements"} className={engagementTab === "engagements" ? "active" : ""} onClick={() => setEngagementTab("engagements")}>
                   <ScrollText size={14} /> Engagements
                 </button>
-                <button role="tab" aria-selected={intelTab === "skills"} className={intelTab === "skills" ? "active" : ""} onClick={() => setIntelTab("skills")}>
-                  <GraduationCap size={14} /> Skills
-                </button>
-              </div>
-              <IntelSurface tab={intelTab} onError={setError} />
-            </>
-          ) : null}
-
-          {/* ── Agents group: Subagents · Workflows · Playbooks ───── */}
-          {surface === "agents" ? (
-            <>
-              <div className="group-tabs" role="tablist">
-                <button role="tab" aria-selected={agentsTab === "goals"} className={agentsTab === "goals" ? "active" : ""} onClick={() => setAgentsTab("goals")}>
+                <button role="tab" aria-selected={engagementTab === "goals"} className={engagementTab === "goals" ? "active" : ""} onClick={() => setEngagementTab("goals")}>
                   <Sparkles size={14} /> Goals
                 </button>
-                <button role="tab" aria-selected={agentsTab === "subagents"} className={agentsTab === "subagents" ? "active" : ""} onClick={() => setAgentsTab("subagents")}>
-                  <Network size={14} /> Subagents
-                </button>
-                <button role="tab" aria-selected={agentsTab === "workflows"} className={agentsTab === "workflows" ? "active" : ""} onClick={() => setAgentsTab("workflows")}>
-                  <WorkflowIcon size={14} /> Workflows
-                </button>
-                <button role="tab" aria-selected={agentsTab === "playbooks"} className={agentsTab === "playbooks" ? "active" : ""} onClick={() => setAgentsTab("playbooks")}>
+                <button role="tab" aria-selected={engagementTab === "playbooks"} className={engagementTab === "playbooks" ? "active" : ""} onClick={() => setEngagementTab("playbooks")}>
                   <ListChecks size={14} /> Playbooks
                 </button>
               </div>
               <p className="group-subhead">
-                {agentsTab === "goals"
-                  ? "Autonomy — loop the agent toward a verifier (set with /goal in chat)."
-                  : agentsTab === "subagents"
+                {engagementTab === "engagements"
+                  ? "History — scope, target, and outcome of past engagements."
+                  : engagementTab === "goals"
+                    ? "Autonomy — loop the agent toward a verifier (set with /goal in chat)."
+                    : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
+              </p>
+              {engagementTab === "engagements" ? <IntelSurface tab="engagements" onError={setError} /> : null}
+              {engagementTab === "goals" ? <GoalsSurface onError={setError} /> : null}
+              {engagementTab === "playbooks" ? <PlaybooksSurface onError={setError} /> : null}
+            </>
+          ) : null}
+
+          {/* ── Findings: what it learned — Targets · Search · Knowledge ── */}
+          {surface === "findings" ? (
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={findingsTab === "targets"} className={findingsTab === "targets" ? "active" : ""} onClick={() => setFindingsTab("targets")}>
+                  <Target size={14} /> Targets
+                </button>
+                <button role="tab" aria-selected={findingsTab === "search"} className={findingsTab === "search" ? "active" : ""} onClick={() => setFindingsTab("search")}>
+                  <Search size={14} /> Search
+                </button>
+                <button role="tab" aria-selected={findingsTab === "knowledge"} className={findingsTab === "knowledge" ? "active" : ""} onClick={() => setFindingsTab("knowledge")}>
+                  <Database size={14} /> Knowledge
+                </button>
+              </div>
+              <IntelSurface tab={findingsTab} onError={setError} />
+            </>
+          ) : null}
+
+          {/* ── Capabilities (B-subtext): friendly catalog of what protoPen can
+                DO — Skills · Subagents · Workflows. Browse one, fire it manually,
+                or hand it to the agent. protopen-1vd reshapes this into the
+                catalog UI; Slice 1 just re-homes the manual primitives here. ── */}
+          {surface === "capabilities" ? (
+            <>
+              <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={capabilitiesTab === "skills"} className={capabilitiesTab === "skills" ? "active" : ""} onClick={() => setCapabilitiesTab("skills")}>
+                  <GraduationCap size={14} /> Skills
+                </button>
+                <button role="tab" aria-selected={capabilitiesTab === "subagents"} className={capabilitiesTab === "subagents" ? "active" : ""} onClick={() => setCapabilitiesTab("subagents")}>
+                  <Network size={14} /> Subagents
+                </button>
+                <button role="tab" aria-selected={capabilitiesTab === "workflows"} className={capabilitiesTab === "workflows" ? "active" : ""} onClick={() => setCapabilitiesTab("workflows")}>
+                  <WorkflowIcon size={14} /> Workflows
+                </button>
+              </div>
+              <p className="group-subhead">
+                {capabilitiesTab === "skills"
+                  ? "Capabilities — SKILL.md procedures the agent can pull in (browse the catalog)."
+                  : capabilitiesTab === "subagents"
                     ? "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."
-                    : agentsTab === "workflows"
-                      ? "Orchestration — a saved recipe of subagent steps (judgment per step)."
-                      : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
+                    : "Orchestration — a saved recipe of subagent steps (judgment per step)."}
               </p>
 
-              {agentsTab === "goals" ? <GoalsSurface onError={setError} /> : null}
+              {capabilitiesTab === "skills" ? <IntelSurface tab="skills" onError={setError} /> : null}
 
-              {agentsTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
+              {capabilitiesTab === "workflows" ? <WorkflowsSurface onError={setError} /> : null}
 
-              {agentsTab === "playbooks" ? <PlaybooksSurface onError={setError} /> : null}
-
-              {agentsTab === "subagents" ? (
+              {capabilitiesTab === "subagents" ? (
             <section className="panel stage-panel">
               <div className="panel-header">
                 <div>
