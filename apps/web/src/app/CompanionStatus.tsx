@@ -6,14 +6,22 @@ import { useChatState } from "../chat/chat-store";
 // The autonomous-first vision's "face" beat, on-brand (a pulse, not a cartoon).
 // State precedence: offline → waiting-on-you (a HITL pause) → working → idle.
 
-type CompanionState = "offline" | "waiting" | "working" | "idle";
+export type CompanionState = "offline" | "waiting" | "working" | "idle";
 
-const STATE_LABEL: Record<CompanionState, string> = {
+export const STATE_LABEL: Record<CompanionState, string> = {
   offline: "Offline",
   waiting: "Waiting on you",
   working: "Working",
   idle: "Idle",
 };
+
+// Shared precedence so the topbar strip and the Home hero (Slice 2) can't drift.
+export function useCompanionState(live: boolean): CompanionState {
+  const chat = useChatState();
+  const waiting = Object.values(chat.hitlPending).some(Boolean);
+  const working = Object.values(chat.sessionStatusMap).some((status) => status === "streaming");
+  return !live ? "offline" : waiting ? "waiting" : working ? "working" : "idle";
+}
 
 export function CompanionStatus({
   engagement,
@@ -22,10 +30,7 @@ export function CompanionStatus({
   engagement: EngagementStatus | null;
   live: boolean;
 }) {
-  const chat = useChatState();
-  const waiting = Object.values(chat.hitlPending).some(Boolean);
-  const working = Object.values(chat.sessionStatusMap).some((status) => status === "streaming");
-  const state: CompanionState = !live ? "offline" : waiting ? "waiting" : working ? "working" : "idle";
+  const state = useCompanionState(live);
 
   const eng = engagement?.active ? engagement : null;
   const mode = (eng?.mode || "").toLowerCase();
