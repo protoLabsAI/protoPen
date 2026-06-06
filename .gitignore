@@ -27,3 +27,6 @@ docs/.vitepress/cache/
 .automaker/features/
 .automaker/checkpoints/
 .automaker/trajectory/
+
+# uv lockfile — deps are managed via requirements.txt, not uv
+uv.lock
