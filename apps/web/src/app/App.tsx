@@ -42,6 +42,7 @@ import type { IntelTab } from "../targets/IntelSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
+import { CompanionStatus } from "./CompanionStatus";
 import { LaunchSequence } from "./LaunchSequence";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
@@ -415,6 +416,26 @@ export function App() {
       window.clearInterval(handle);
     };
   }, [rightPanel]);
+
+  // Always-on, low-frequency engagement poll so the companion presence in the
+  // topbar stays live (mode / target / findings) even when the engagement panel
+  // is closed. The panel's own faster poll above takes over while it's open.
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const payload = await api.engagement();
+        if (!cancelled) setEngagement(payload);
+      } catch {
+        // Non-fatal; the next tick retries.
+      }
+    };
+    const handle = window.setInterval(() => void tick(), 12000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, []);
 
   async function runSubagent() {
     const prompt = subagentPrompt.trim();
@@ -888,6 +909,7 @@ export function App() {
             <div className="brand-subline">protoLabs.studio</div>
           </div>
         </div>
+        <CompanionStatus engagement={engagement} live={live} />
         <div className="topbar-status">
           <HoverPopover
             placement="bottom-end"

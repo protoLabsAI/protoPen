@@ -231,6 +231,7 @@ function ChatSessionSlot({
     hitlTaskRef.current = "";
     if (taskId) void api.cancelTask(taskId).catch(() => {});
     setHitl(null);
+    if (session) chatStore.setHitlPending(session.id, false);
   }
 
   async function runTurn(content: string) {
@@ -239,6 +240,7 @@ function ChatSessionSlot({
     // HITL resume) so two SSE connections never interleave assistant messages.
     abortRef.current?.abort();
     setHitl(null);
+    chatStore.setHitlPending(session.id, false);
     const userMessage: ChatMessage = {
       id: messageId(),
       role: "user",
@@ -337,6 +339,7 @@ function ChatSessionSlot({
           // (hitlTaskRef already holds this task's id, set by onTaskId.)
           setHitl(payload);
           setHitlSeq((n) => n + 1);
+          chatStore.setHitlPending(session.id, true); // companion "waiting on you"
           setStatusMessage("input required");
         },
         onDone: () => {

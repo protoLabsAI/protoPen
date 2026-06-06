@@ -24,6 +24,10 @@ type PersistedChatState = {
 export type ChatState = PersistedChatState & {
   activeSessions: string[];
   sessionStatusMap: Record<string, SessionStatus>;
+  // Sessions parked on a HITL request (the agent is waiting on the operator).
+  // Tracked separately from sessionStatusMap so the companion presence can show
+  // a global "waiting on you" state without colliding with the stream lifecycle.
+  hitlPending: Record<string, boolean>;
 };
 
 const STORAGE_KEY = "protopen.chat.sessions";
@@ -116,6 +120,7 @@ let state: ChatState = {
   ...initial,
   activeSessions: initial.currentSessionId ? [initial.currentSessionId] : [],
   sessionStatusMap: {},
+  hitlPending: {},
 };
 
 const listeners = new Set<() => void>();
@@ -160,10 +165,13 @@ export const chatStore = {
         current.currentSessionId === sessionId ? sessions[0]?.id || null : current.currentSessionId;
       const sessionStatusMap = { ...current.sessionStatusMap };
       delete sessionStatusMap[sessionId];
+      const hitlPending = { ...current.hitlPending };
+      delete hitlPending[sessionId];
       return {
         ...current,
         sessions,
         currentSessionId,
+        hitlPending,
         activeSessions: ensureActiveSessions(
           {
             ...current,
@@ -217,6 +225,15 @@ export const chatStore = {
       ...current,
       sessionStatusMap: { ...current.sessionStatusMap, [sessionId]: status },
     }));
+  },
+
+  setHitlPending(sessionId: string, pending: boolean) {
+    setState((current) => {
+      const hitlPending = { ...current.hitlPending };
+      if (pending) hitlPending[sessionId] = true;
+      else delete hitlPending[sessionId];
+      return { ...current, hitlPending };
+    });
   },
 };
 
