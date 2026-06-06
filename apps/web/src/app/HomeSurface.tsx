@@ -23,12 +23,11 @@ function subline(
   return "Standing by. Scope an engagement, or just start chatting below.";
 }
 
-function severityTone(severity: string): string {
-  const s = severity.toLowerCase();
+function severityTone(severity?: string | null): string {
+  const s = (severity || "").toLowerCase();
   if (s === "critical" || s === "high") return "error";
   if (s === "medium") return "warning";
-  if (s === "low" || s === "info") return "muted";
-  return "muted";
+  return "muted"; // low / info / missing / unknown
 }
 
 export function HomeSurface({
