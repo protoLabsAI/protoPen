@@ -1693,6 +1693,35 @@ textarea {
   gap: 6px;
 }
 
+/* ── Engagement-as-object control surface (Slice 3) ──────────────────────── */
+.engagement-control {
+  padding: 14px;
+}
+.engagement-start,
+.engagement-live {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+}
+.engagement-mode-pick {
+  max-width: 360px;
+}
+.engagement-mode-pick button {
+  text-transform: capitalize;
+}
+.engagement-mode-pick button:disabled {
+  cursor: default;
+}
+.field-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+.engagement-start .primary-button,
+.engagement-live .secondary-button {
+  justify-self: start;
+}
+
 .finding-row {
   display: grid;
   gap: 4px;
