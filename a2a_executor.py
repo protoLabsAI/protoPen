@@ -188,6 +188,51 @@ class ProtoPenExecutor(AgentExecutor):
         tool_calls = 0
         models: list[str] = []
 
+        # Live answer streaming (#616): forward each text delta as an incremental
+        # artifact-update (append) frame so the console fills the bubble as the
+        # model writes, instead of the whole answer landing at turn end. Batched
+        # by a small char threshold to avoid a frame per token. The terminal
+        # emission then closes the SAME artifact: if text was streamed it appends
+        # ONLY the cost/confidence DataParts (body=""), so concat-based consumers
+        # don't double the answer; otherwise (no deltas — e.g. a short-circuit)
+        # it emits the full text once, exactly as before.
+        answer_aid = f"{context.task_id or 'turn'}-answer"
+        _text_buf = ""
+        _answer_started = False  # first flush creates the artifact; rest append
+        _FLUSH_CHARS = 24
+
+        async def _flush_text() -> None:
+            nonlocal _text_buf, _answer_started
+            if not _text_buf:
+                return
+            await updater.add_artifact(
+                [_text_part(_text_buf)],
+                artifact_id=answer_aid,
+                append=_answer_started,
+                last_chunk=False,
+            )
+            _answer_started = True
+            _text_buf = ""
+
+        async def _finalize(final_text: str) -> None:
+            body = "" if _answer_started else final_text
+            parts = _terminal_parts(
+                body,
+                deltas,
+                usage if had_usage else None,
+                cost_usd,
+                confidence,
+                confidence_expl,
+                success=True,
+            )
+            if parts:
+                await updater.add_artifact(
+                    parts,
+                    artifact_id=answer_aid,
+                    append=_answer_started,
+                    last_chunk=True,
+                )
+
         def _outcome(state: str, final_text: str) -> TurnOutcome:
             return TurnOutcome(
                 task_id=context.task_id,
@@ -212,6 +257,9 @@ class ProtoPenExecutor(AgentExecutor):
             ):
                 if event_type == "text":
                     accumulated += payload
+                    _text_buf += payload
+                    if len(_text_buf) >= _FLUSH_CHARS:
+                        await _flush_text()
 
                 elif event_type in ("tool_start", "tool_end"):
                     if event_type == "tool_start":
@@ -258,6 +306,7 @@ class ProtoPenExecutor(AgentExecutor):
                         )
 
                 elif event_type == "input_required":
+                    await _flush_text()  # persist any answer text streamed before the pause
                     # Human-readable prompt for plain consumers; the full
                     # form/approval payload rides a protoPen-local hitl-v1
                     # DataPart so the console renders the form / approval card.
@@ -268,18 +317,9 @@ class ProtoPenExecutor(AgentExecutor):
                     return  # parked — the caller resumes via message/send on this task
 
                 elif event_type == "done":
+                    await _flush_text()
                     final_text = payload or accumulated
-                    parts = _terminal_parts(
-                        final_text,
-                        deltas,
-                        usage if had_usage else None,
-                        cost_usd,
-                        confidence,
-                        confidence_expl,
-                        success=True,
-                    )
-                    if parts:
-                        await updater.add_artifact(parts, last_chunk=True)
+                    await _finalize(final_text)
                     await updater.complete()
                     _notify_terminal(_outcome("completed", final_text))
                     return
@@ -291,17 +331,8 @@ class ProtoPenExecutor(AgentExecutor):
 
             # Stream ended without an explicit terminal event — treat the
             # accumulated text as the answer.
-            parts = _terminal_parts(
-                accumulated,
-                deltas,
-                usage if had_usage else None,
-                cost_usd,
-                confidence,
-                confidence_expl,
-                success=True,
-            )
-            if parts:
-                await updater.add_artifact(parts, last_chunk=True)
+            await _flush_text()
+            await _finalize(accumulated)
             await updater.complete()
             _notify_terminal(_outcome("completed", accumulated))
 
