@@ -182,6 +182,35 @@ export type SlashCommand = {
   usage: string;
 };
 
+// HITL (human-in-the-loop) request surfaced when a turn pauses as input-required.
+// The backend (a2a_executor.py) parks the task in TASK_STATE_INPUT_REQUIRED and
+// rides the payload on a `hitl-v1` DataPart — a form (request_user_input), an
+// Approve/Deny gate (run_command), or a free-text question (ask_human). The
+// console renders it and resumes by sending the response as a follow-up on the
+// same session.
+//
+// A form's `steps` are a flat list of fields — one field per step,
+// `{id, label, type, ...}` — per protoPen's contract (see test_a2a_handler.py:
+// `steps: [{id, label, type}]`). NOT protoAgent's JSON-schema-per-step shape.
+export type HitlFormStep = {
+  id: string;
+  label?: string;
+  type?: string; // "string" | "number" | "integer" | "boolean" | "textarea"
+  enum?: unknown[];
+  required?: boolean;
+  description?: string;
+  default?: unknown;
+};
+
+export type HitlPayload = {
+  kind?: "form" | "approval" | "question";
+  title?: string;
+  description?: string;
+  steps?: HitlFormStep[]; // form shape — one field per step
+  question?: string; // free-text (ask_human) shape
+  detail?: string; // approval shape — the command/action being approved
+};
+
 export type NotesWorkspace = {
   version: number;
   workspaceVersion: number;

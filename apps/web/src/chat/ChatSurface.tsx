@@ -3,8 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import type { ChatMessage, SlashCommand } from "../lib/types";
+import type { ChatMessage, HitlPayload, SlashCommand } from "../lib/types";
 import { chatStore, MAX_ACTIVE_SESSIONS, useChatState } from "./chat-store";
+import { HitlForm } from "./HitlForm";
 import { Markdown } from "./LazyMarkdown";
 import { ToolCalls } from "./ToolCalls";
 
@@ -142,7 +143,14 @@ function ChatSessionSlot({
   const [draft, setDraft] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [taskId, setTaskId] = useState("");
+  const [hitl, setHitl] = useState<HitlPayload | null>(null);
+  // Bumped on each new HITL payload so <HitlForm> remounts with fresh field
+  // state — a reused instance must not carry inputs from a prior request.
+  const [hitlSeq, setHitlSeq] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  // The parked task id survives the turn's `finally` (which resets taskId state)
+  // so Dismiss can cancel an input-required task on the backend, not just hide it.
+  const hitlTaskRef = useRef<string>("");
   const listRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const status = chat.sessionStatusMap[sessionId] || "idle";
@@ -201,10 +209,40 @@ function ChatSessionSlot({
 
   async function send() {
     if (!session || !canSend) return;
+    const content = draft.trim();
+    setDraft("");
+    void runTurn(content);
+  }
+
+  // Resume a paused (input-required) turn: the response rides as a follow-up
+  // message on the same session — the backend (a2a_executor) sees the parked
+  // input-required task on this context and resumes the agent with it. A form
+  // response serializes to JSON; an approval sends "approved" / "denied".
+  async function resumeHitl(response: Record<string, unknown> | string) {
+    setHitl(null);
+    void runTurn(typeof response === "string" ? response : JSON.stringify(response));
+  }
+
+  // Dismiss without answering: cancel the parked input-required task on the
+  // backend (best-effort) so it doesn't linger and silently consume the next
+  // message as its response, then clear the card.
+  function dismissHitl() {
+    const taskId = hitlTaskRef.current;
+    hitlTaskRef.current = "";
+    if (taskId) void api.cancelTask(taskId).catch(() => {});
+    setHitl(null);
+  }
+
+  async function runTurn(content: string) {
+    if (!session || !content) return;
+    // Abort any still-in-flight stream before starting a new turn (e.g. a fast
+    // HITL resume) so two SSE connections never interleave assistant messages.
+    abortRef.current?.abort();
+    setHitl(null);
     const userMessage: ChatMessage = {
       id: messageId(),
       role: "user",
-      content: draft.trim(),
+      content,
       createdAt: Date.now(),
       status: "done",
     };
@@ -217,9 +255,9 @@ function ChatSessionSlot({
       status: "streaming",
     };
 
-    setDraft("");
     setStatusMessage("submitted");
-    chatStore.updateMessages(session.id, [...messages, userMessage, assistant]);
+    const current = chatStore.getSnapshot().sessions.find((item) => item.id === session.id)?.messages || messages;
+    chatStore.updateMessages(session.id, [...current, userMessage, assistant]);
     chatStore.setSessionStatus(session.id, "streaming");
     onError("");
 
@@ -229,7 +267,10 @@ function ChatSessionSlot({
     try {
       await api.streamChat(userMessage.content, session.id, {
         signal: controller.signal,
-        onTaskId: setTaskId,
+        onTaskId: (id) => {
+          setTaskId(id);
+          hitlTaskRef.current = id;
+        },
         onStatus: setStatusMessage,
         onText: (text, append) => {
           const latest = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
@@ -288,6 +329,15 @@ function ChatSessionSlot({
               return { ...message, toolCalls: calls };
             }),
           );
+        },
+        onInputRequired: (payload) => {
+          // The turn parked awaiting the operator. Surface the form/approval/
+          // question; the stream closes here and the post-await block finalizes
+          // the assistant placeholder, so the card renders without a stuck spinner.
+          // (hitlTaskRef already holds this task's id, set by onTaskId.)
+          setHitl(payload);
+          setHitlSeq((n) => n + 1);
+          setStatusMessage("input required");
         },
         onDone: () => {
           const latest = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
@@ -401,6 +451,16 @@ function ChatSessionSlot({
           ))
         )}
       </div>
+
+      {hitl ? (
+        <HitlForm
+          key={hitlSeq}
+          payload={hitl}
+          busy={status === "streaming"}
+          onSubmit={resumeHitl}
+          onCancel={dismissHitl}
+        />
+      ) : null}
 
       <div className="composer-wrap">
         {slashActive ? (
