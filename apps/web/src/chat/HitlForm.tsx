@@ -46,11 +46,18 @@ function Field({
       </select>
     );
   } else if (step.type === "number" || step.type === "integer") {
+    const isInt = step.type === "integer";
     control = (
       <input
         type="number"
+        step={isInt ? 1 : "any"}
         value={value === undefined || value === null ? "" : String(value)}
-        onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
+        onChange={(e) => {
+          if (e.target.value === "") return onChange(undefined);
+          const n = Number(e.target.value);
+          // Integer steps must not submit a decimal — truncate toward zero.
+          onChange(isInt ? Math.trunc(n) : n);
+        }}
       />
     );
   } else if (step.type === "textarea") {

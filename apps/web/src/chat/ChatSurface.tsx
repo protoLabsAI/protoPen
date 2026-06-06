@@ -144,6 +144,9 @@ function ChatSessionSlot({
   const [statusMessage, setStatusMessage] = useState("");
   const [taskId, setTaskId] = useState("");
   const [hitl, setHitl] = useState<HitlPayload | null>(null);
+  // Bumped on each new HITL payload so <HitlForm> remounts with fresh field
+  // state — a reused instance must not carry inputs from a prior request.
+  const [hitlSeq, setHitlSeq] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   // The parked task id survives the turn's `finally` (which resets taskId state)
   // so Dismiss can cancel an input-required task on the backend, not just hide it.
@@ -333,6 +336,7 @@ function ChatSessionSlot({
           // the assistant placeholder, so the card renders without a stuck spinner.
           // (hitlTaskRef already holds this task's id, set by onTaskId.)
           setHitl(payload);
+          setHitlSeq((n) => n + 1);
           setStatusMessage("input required");
         },
         onDone: () => {
@@ -450,6 +454,7 @@ function ChatSessionSlot({
 
       {hitl ? (
         <HitlForm
+          key={hitlSeq}
           payload={hitl}
           busy={status === "streaming"}
           onSubmit={resumeHitl}
