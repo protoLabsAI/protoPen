@@ -29,4 +29,11 @@ def create_llm(config: LangGraphConfig, model_name: str | None = None) -> ChatOp
         model=model_name or config.model_name,
         temperature=config.temperature,
         max_tokens=config.max_tokens,
+        # Stream tokens. The graph runs model nodes via ``ainvoke``; without this,
+        # ``astream_events(v2)`` only emits ``on_chat_model_end`` (the whole
+        # message at once), so the console answer lands in one frame at turn end.
+        # With streaming on, ``on_chat_model_stream`` fires per token — which
+        # server/chat.py turns into ``("text", delta)`` events and a2a_executor
+        # forwards as incremental artifact-update frames (live token-by-token).
+        streaming=True,
     )
