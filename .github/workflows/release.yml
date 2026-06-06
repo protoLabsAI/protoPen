@@ -105,9 +105,9 @@ jobs:
       # ── Discord ───────────────────────────────────────────────────────────────
       # Shared fleet tooling: rewrites the commit range into themed notes via
       # the protoLabs gateway and posts the Discord embed. See
-      # protoLabsAI/release-tools. Replaces the former local
-      # scripts/post-release-notes.mjs. SHA-pinned because this action has
-      # access to release-channel credentials and the job has contents:write.
+      # protoLabsAI/release-tools (it superseded the old local notes script).
+      # SHA-pinned because this action has access to release-channel credentials
+      # and the job has contents:write.
 
       - name: Post release notes to Discord
         continue-on-error: true
