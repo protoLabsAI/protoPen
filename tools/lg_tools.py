@@ -777,6 +777,109 @@ async def set_goal(
     )
 
 
+@tool
+async def request_user_input(prompt: str, fields: list[dict] | None = None, title: str = "") -> str:
+    """Pause and ask the operator for input, then STOP and wait — do not continue
+    until they respond.
+
+    Use when you genuinely need a human decision or a value only the operator can
+    provide: a missing parameter, a choice between options, confirmation of scope.
+    Prefer asking over guessing. After you call this tool, end your turn — you'll
+    be re-invoked with the operator's answer on this same session.
+
+    Only available in interactive sessions. In a headless/autonomous run there is
+    no operator to answer; this tool will tell you to proceed on your best
+    judgment instead of pausing — do not wait in that case.
+
+    Args:
+        prompt: The question or instruction shown to the operator.
+        fields: Optional structured form — a list of field dicts
+            ``{"id","label","type","enum"?,"required"?,"description"?}`` where type
+            is string|number|integer|boolean|textarea. Omit for a free-text answer.
+        title: Optional short heading for the card.
+    """
+    from graph.goals.context import get_current_session
+    from graph.hitl_context import hitl_allowed, request_pending_hitl
+
+    if not hitl_allowed():
+        return (
+            "No operator is available in this autonomous/headless run — do not wait. "
+            "Proceed using your best judgment and note any assumption in your output."
+        )
+
+    session_id = get_current_session()
+    if not session_id:
+        return "Error: no active session — cannot request operator input."
+
+    if fields:
+        steps: list[dict] = []
+        for f in fields:
+            if not isinstance(f, dict) or not f.get("id"):
+                continue
+            step: dict = {
+                "id": str(f["id"]),
+                "label": str(f.get("label") or f["id"]),
+                "type": str(f.get("type") or "string"),
+            }
+            if isinstance(f.get("enum"), list):
+                step["enum"] = f["enum"]
+            if f.get("required"):
+                step["required"] = True
+            if f.get("description"):
+                step["description"] = str(f["description"])
+            steps.append(step)
+        payload = {
+            "kind": "form",
+            "title": title or "Input requested",
+            "description": prompt,
+            "steps": steps,
+        }
+    else:
+        payload = {"kind": "question", "title": title or "Input requested", "question": prompt}
+
+    request_pending_hitl(session_id, payload)
+    return "Paused — awaiting the operator's response. Do not continue; end your turn now."
+
+
+@tool
+async def request_approval(action: str, detail: str = "") -> str:
+    """Pause for the operator's approval of a specific action, then STOP and wait.
+
+    Use before an action that needs a human go-ahead — escalating to active
+    scanning, a destructive or intrusive step, anything outside the agreed scope.
+    The operator sees an Approve / Deny card. After calling this, end your turn —
+    you'll be re-invoked with their decision ("approved" or "denied").
+
+    Only available in interactive sessions. In a headless/autonomous run there is
+    no operator to approve; this tool returns a no-op instead of pausing — rely on
+    the engagement mode (which still hard-blocks out-of-scope actions) rather than
+    waiting on approval.
+
+    Args:
+        action: Short description of what you want to do (the card title).
+        detail: Optional specifics — the exact command/target being approved.
+    """
+    from graph.goals.context import get_current_session
+    from graph.hitl_context import hitl_allowed, request_pending_hitl
+
+    if not hitl_allowed():
+        return (
+            "No operator is available to approve in this autonomous/headless run — do not wait. "
+            "Proceed only within the current engagement mode; it will block anything out of scope."
+        )
+
+    session_id = get_current_session()
+    if not session_id:
+        return "Error: no active session — cannot request approval."
+
+    payload: dict = {"kind": "approval", "title": action or "Approve this action?"}
+    if detail:
+        payload["detail"] = str(detail)
+
+    request_pending_hitl(session_id, payload)
+    return "Paused — awaiting the operator's approval. Do not continue; end your turn now."
+
+
 def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
@@ -794,6 +897,8 @@ def get_security_tools(knowledge_store=None):
         update_task,
         close_task,
         set_goal,
+        request_user_input,
+        request_approval,
     ]
     if _discord_feed_tool is not None:
         tools.insert(0, discord_feed)
