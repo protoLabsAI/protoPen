@@ -64,13 +64,15 @@ function loadPersisted(): PersistedChatState {
     if (!raw) throw new Error("empty");
     const parsed = JSON.parse(raw) as Partial<PersistedChatState>;
     const sessions = Array.isArray(parsed.sessions) ? parsed.sessions.slice(0, MAX_SESSIONS) : [];
-    // Self-heal interrupted turns. A message persisted mid-stream keeps
-    // status "streaming", which renders a spinner that never resolves on
-    // reload (the backend turn it belonged to is long gone). Demote any
-    // lingering streaming message to a terminal state on load.
+    // Self-heal interrupted turns. A message persisted mid-stream keeps status
+    // "streaming", which would render a spinner that never resolves on reload.
+    // If it carries a taskId, leave it streaming — ChatSurface reconciles it
+    // against the server's durable task (which may have finished while we were
+    // away) and finalizes with the real answer. Only a taskId-less stream (can't
+    // be reconciled) is demoted to a terminal error here.
     for (const session of sessions) {
       for (const message of session.messages || []) {
-        if (message.status === "streaming") {
+        if (message.status === "streaming" && !message.taskId) {
           message.status = "error";
           if (!message.content) message.content = "_(interrupted)_";
         }
