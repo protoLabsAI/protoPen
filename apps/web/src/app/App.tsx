@@ -39,7 +39,8 @@ import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
 import { EngagementSurface } from "../targets/EngagementSurface";
 import { CapabilitiesSurface } from "../targets/CapabilitiesSurface";
-import { chatStore } from "../chat/chat-store";
+import { ChatSurface } from "../chat/ChatSurface";
+import { chatStore, useAnyChatStreaming } from "../chat/chat-store";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
@@ -215,6 +216,9 @@ function groupIssues(issues: BeadsIssue[]) {
 
 export function App() {
   const [surface, setSurface] = useState<Surface>("home");
+  // Background-streaming indicator for the Home rail (narrow selector → only
+  // re-renders when the boolean flips, not per streamed token).
+  const chatStreaming = useAnyChatStreaming();
   const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagement");
   const [findingsTab, setFindingsTab] = useState<FindingsTab>("targets");
   const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("catalog");
@@ -973,6 +977,7 @@ export function App() {
             label="Home"
             icon={<Bot size={18} />}
             onClick={() => setSurface("home")}
+            dot={chatStreaming && surface !== "home"}
           />
           <RailButton
             active={surface === "engagement"}
@@ -1015,11 +1020,10 @@ export function App() {
             </div>
           ) : null}
 
-          {/* ── Home / Companion: glanceable presence band + chat steering
-                channel. The autonomous-first spine (Slice 2). ──────────── */}
-          {surface === "home" ? (
-            <HomeSurface engagement={engagement} live={live} onError={setError} />
-          ) : null}
+          {/* ── Home / Companion: glanceable presence band (the spine). The
+                chat steering channel is rendered always-mounted below so a turn
+                keeps streaming as you navigate (chat-continuity). ──────────── */}
+          {surface === "home" ? <HomeSurface engagement={engagement} live={live} /> : null}
 
           {/* ── Activity: auditable timeline of what it did (own rail) ── */}
           {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
@@ -1480,6 +1484,13 @@ export function App() {
               ) : null}
             </>
           ) : null}
+
+          {/* Chat steering channel — rendered UNCONDITIONALLY, shown only on Home
+              (active), hidden via display:none elsewhere. Staying mounted means an
+              in-flight turn keeps streaming into the store as you navigate other
+              rails; returning to Home shows it exactly as left. On Home it sits
+              below the presence hero (the flex stage stacks them). */}
+          <ChatSurface onError={setError} active={surface === "home"} />
         </main>
 
         <aside className="right-panel">
@@ -1970,18 +1981,26 @@ function RailButton({
   icon,
   onClick,
   badge = 0,
+  dot = false,
 }: {
   active: boolean;
   label: string;
   icon: ReactNode;
   onClick: () => void;
   badge?: number;
+  // A small pulsing indicator (no count) — e.g. a chat turn streaming in the
+  // background while you're on another rail. Suppressed when a badge is shown.
+  dot?: boolean;
 }) {
   return (
     <button className={active ? "active" : ""} type="button" onClick={onClick} title={label} aria-label={label}>
       {icon}
       <span>{label}</span>
-      {badge > 0 ? <span className="rail-badge">{badge > 99 ? "99+" : badge}</span> : null}
+      {badge > 0 ? (
+        <span className="rail-badge">{badge > 99 ? "99+" : badge}</span>
+      ) : dot ? (
+        <span className="rail-dot" data-testid="chat-streaming-dot" aria-label="streaming" />
+      ) : null}
     </button>
   );
 }

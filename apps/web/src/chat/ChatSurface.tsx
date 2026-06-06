@@ -18,7 +18,18 @@ function useSession(sessionId: string) {
   return state.sessions.find((session) => session.id === sessionId) || null;
 }
 
-export function ChatSurface({ onError }: { onError: (message: string) => void }) {
+export function ChatSurface({
+  onError,
+  active = true,
+}: {
+  onError: (message: string) => void;
+  // When false the surface stays MOUNTED but hidden (display:none) — so an
+  // in-flight turn keeps streaming into the module-level store while the user is
+  // on another rail, and returning shows the chat exactly as left. App renders
+  // this unconditionally; only `active` toggles. (Without this, navigating away
+  // unmounted the slot and its cleanup aborted the SSE turn.)
+  active?: boolean;
+}) {
   const chat = useChatState();
   const currentSession = chat.sessions.find((session) => session.id === chat.currentSessionId) || null;
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -39,7 +50,11 @@ export function ChatSurface({ onError }: { onError: (message: string) => void })
   // Double-click a tab to rename it inline. Replaces the old triple-stacked
   // header (title block + tab strip + per-slot title/id/status row).
   return (
-    <section className="panel stage-panel chat-stage">
+    <section
+      className="panel stage-panel chat-stage"
+      style={active ? undefined : { display: "none" }}
+      aria-hidden={!active}
+    >
       <div className="chat-header" role="tablist" aria-label="Chat sessions">
         <div className="chat-session-tabs">
           {chat.sessions.map((session) => {
