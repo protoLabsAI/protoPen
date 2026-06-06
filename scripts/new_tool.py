@@ -178,8 +178,10 @@ def main() -> int:
     print(f"\n✓ created tools/{name}.py  (class {cls}, category: {args.category})\n")
     print("Next — paste this into tools/lg_tools.py:\n")
     print(wiring)
-    print("Then verify:  python -c \"from tools.lg_tools import get_combined_tools; "
-          f"print('{name}' in [t.name for t in get_combined_tools()])\"")
+    print(
+        'Then verify:  python -c "from tools.lg_tools import get_combined_tools; '
+        f"print('{name}' in [t.name for t in get_combined_tools()])\""
+    )
     print("Full guide:   docs/reference/adding-a-tool.md\n")
     return 0
 
