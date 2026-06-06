@@ -398,6 +398,15 @@ export type SkillSummary = {
   source: string; // "disk" | "emitted"
 };
 
+// Capabilities catalog (protopen-1vd) — the agent's callable tools, categorized
+// into a friendly browseable menu of what protoPen can DO.
+export type CapabilityTool = {
+  name: string;
+  summary: string;
+  category: string;
+};
+export type CapabilitiesResult = { count: number; tools: CapabilityTool[] };
+
 // Playbooks — declarative tool-chain recipes (playbooks/library/*.yaml).
 export type PlaybookStepInfo = { name: string; tool: string; action: string };
 

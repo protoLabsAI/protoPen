@@ -531,6 +531,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     def _operator_knowledge_search(query: str, k: int = 10, table: str | None = None):
         return _search_knowledge(_get_store(), query=query, k=k, table=table)
 
+    # Capabilities catalog (protopen-1vd): browseable, categorized view of the
+    # agent's callable tools — what protoPen can DO. Read-only over the registry.
+    def _operator_tools_list():
+        from operator_api.capabilities import list_capabilities
+
+        return list_capabilities(_get_store())
+
     # Skills surface: browse the memory layer (learned methodology).
     def _operator_skills_list(query: str = ""):
         from operator_api.skills import list_skills_for_console
@@ -643,6 +650,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         engagement_report_generate=_operator_engagement_report_generate,
         engagement_control=_operator_engagement_control,
         knowledge_search=_operator_knowledge_search,
+        tools_list=_operator_tools_list,
         skills_list=_operator_skills_list,
         goals_list=_operator_goals_list,
         goal_clear=_operator_goal_clear,

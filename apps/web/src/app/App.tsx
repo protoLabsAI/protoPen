@@ -38,6 +38,8 @@ import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
 import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
 import { EngagementSurface } from "../targets/EngagementSurface";
+import { CapabilitiesSurface } from "../targets/CapabilitiesSurface";
+import { chatStore } from "../chat/chat-store";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
@@ -65,7 +67,7 @@ import { SetupWizard } from "../setup/SetupWizard";
 type Surface = "home" | "engagement" | "findings" | "activity" | "capabilities" | "system";
 type EngagementTab = "engagement" | "goals" | "playbooks" | "history";
 type FindingsTab = "targets" | "search" | "knowledge";
-type CapabilitiesTab = "skills" | "subagents" | "workflows";
+type CapabilitiesTab = "catalog" | "skills" | "workflows" | "subagents";
 type SystemTab = "status" | "audit" | "schedule";
 type AuditFilter = "all" | "ok" | "failed";
 type RightPanel = "notes" | "beads" | "engagement";
@@ -215,7 +217,7 @@ export function App() {
   const [surface, setSurface] = useState<Surface>("home");
   const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagement");
   const [findingsTab, setFindingsTab] = useState<FindingsTab>("targets");
-  const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("skills");
+  const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("catalog");
   const [systemTab, setSystemTab] = useState<SystemTab>("status");
   const [rightPanel, setRightPanel] = useState<RightPanel>("notes");
   // Collapsible/resizable right panel (persisted). Flag is "1"/"" string; width
@@ -442,6 +444,15 @@ export function App() {
       window.clearInterval(handle);
     };
   }, []);
+
+  // "Ask agent" from the Capabilities catalog: stage the prompt for the chat
+  // steering channel and jump to Home, where the visible session consumes it.
+  function askAgent(prompt: string) {
+    const chat = chatStore.getSnapshot();
+    if (!chat.currentSessionId && chat.sessions.length === 0) chatStore.createSession();
+    chatStore.setPendingDraft(prompt);
+    setSurface("home");
+  }
 
   async function runSubagent() {
     const prompt = subagentPrompt.trim();
@@ -1069,29 +1080,36 @@ export function App() {
           ) : null}
 
           {/* ── Capabilities (B-subtext): friendly catalog of what protoPen can
-                DO — Skills · Subagents · Workflows. Browse one, fire it manually,
-                or hand it to the agent. protopen-1vd reshapes this into the
-                catalog UI; Slice 1 just re-homes the manual primitives here. ── */}
+                DO — a browseable, categorized menu of the tool registry (Catalog,
+                protopen-1vd), plus the manual primitives: Skills · Workflows ·
+                Subagents. Browse one and hand it to the agent. ───────────────── */}
           {surface === "capabilities" ? (
             <>
               <div className="group-tabs" role="tablist">
+                <button role="tab" aria-selected={capabilitiesTab === "catalog"} className={capabilitiesTab === "catalog" ? "active" : ""} onClick={() => setCapabilitiesTab("catalog")}>
+                  <Boxes size={14} /> Catalog
+                </button>
                 <button role="tab" aria-selected={capabilitiesTab === "skills"} className={capabilitiesTab === "skills" ? "active" : ""} onClick={() => setCapabilitiesTab("skills")}>
                   <GraduationCap size={14} /> Skills
-                </button>
-                <button role="tab" aria-selected={capabilitiesTab === "subagents"} className={capabilitiesTab === "subagents" ? "active" : ""} onClick={() => setCapabilitiesTab("subagents")}>
-                  <Network size={14} /> Subagents
                 </button>
                 <button role="tab" aria-selected={capabilitiesTab === "workflows"} className={capabilitiesTab === "workflows" ? "active" : ""} onClick={() => setCapabilitiesTab("workflows")}>
                   <WorkflowIcon size={14} /> Workflows
                 </button>
+                <button role="tab" aria-selected={capabilitiesTab === "subagents"} className={capabilitiesTab === "subagents" ? "active" : ""} onClick={() => setCapabilitiesTab("subagents")}>
+                  <Network size={14} /> Subagents
+                </button>
               </div>
               <p className="group-subhead">
-                {capabilitiesTab === "skills"
-                  ? "Capabilities — SKILL.md procedures the agent can pull in (browse the catalog)."
-                  : capabilitiesTab === "subagents"
-                    ? "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."
-                    : "Orchestration — a saved recipe of subagent steps (judgment per step)."}
+                {capabilitiesTab === "catalog"
+                  ? "What protoPen can do — browse the tool registry by category, hand one to the agent."
+                  : capabilitiesTab === "skills"
+                    ? "Capabilities — SKILL.md procedures the agent can pull in (browse the catalog)."
+                    : capabilitiesTab === "workflows"
+                      ? "Orchestration — a saved recipe of subagent steps (judgment per step)."
+                      : "Execution — a scoped LLM worker. Run one, or a batch of N in parallel."}
               </p>
+
+              {capabilitiesTab === "catalog" ? <CapabilitiesSurface onAskAgent={askAgent} onError={setError} /> : null}
 
               {capabilitiesTab === "skills" ? <IntelSurface tab="skills" onError={setError} /> : null}
 

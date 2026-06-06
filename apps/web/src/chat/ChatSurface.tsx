@@ -197,6 +197,15 @@ function ChatSessionSlot({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [session?.messages, visible]);
 
+  // Consume a prompt staged from another surface (e.g. "Ask agent" on the
+  // Capabilities catalog). Only the visible slot takes it, and only once.
+  useEffect(() => {
+    if (!visible || !chat.pendingDraft) return;
+    setDraft(chat.pendingDraft);
+    chatStore.setPendingDraft(null);
+    textareaRef.current?.focus();
+  }, [visible, chat.pendingDraft]);
+
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
