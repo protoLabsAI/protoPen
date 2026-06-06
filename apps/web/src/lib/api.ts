@@ -4,6 +4,7 @@ import type {
   AgentRun,
   AuditRecent,
   BeadsIssue,
+  CapabilitiesResult,
   ChatMessage,
   ConfigPayload,
   EngagementHistoryItem,
@@ -465,6 +466,11 @@ export const api = {
   skills(query = "") {
     const qs = query ? `?q=${encodeURIComponent(query)}` : "";
     return request<{ enabled: boolean; count: number; skills: SkillSummary[] }>(`/api/skills${qs}`);
+  },
+
+  // Capabilities catalog (protopen-1vd): categorized tool registry.
+  tools() {
+    return request<CapabilitiesResult>("/api/tools");
   },
 
   engagementsHistory() {

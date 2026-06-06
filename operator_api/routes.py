@@ -94,6 +94,7 @@ def register_operator_routes(
     engagement_report: Callable[[], dict[str, Any]] | None = None,
     engagement_report_generate: Callable[[], dict[str, Any]] | None = None,
     knowledge_search: Callable[[str, int, str | None], dict[str, Any]] | None = None,
+    tools_list: Callable[[], dict[str, Any]] | None = None,
     skills_list: Callable[[str], dict[str, Any]] | None = None,
     goals_list: Callable[[], dict[str, Any]] | None = None,
     goal_clear: Callable[[str], dict[str, Any]] | None = None,
@@ -208,6 +209,15 @@ def register_operator_routes(
             return {"query": q, "table": table, "count": 0, "hits": []}
         try:
             return await asyncio.to_thread(knowledge_search, q, k, table)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/tools", summary="Capabilities catalog (categorized tool registry)")
+    async def _tools_list():
+        if tools_list is None:
+            return {"count": 0, "tools": []}
+        try:
+            return await asyncio.to_thread(tools_list)
         except Exception as exc:
             raise _http_error(exc) from exc
 

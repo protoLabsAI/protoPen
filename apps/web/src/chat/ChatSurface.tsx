@@ -197,6 +197,17 @@ function ChatSessionSlot({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [session?.messages, visible]);
 
+  // Consume a prompt staged from another surface (e.g. "Ask agent" on the
+  // Capabilities catalog). Only the visible slot takes it, and only once.
+  // Append rather than overwrite so we don't discard text already in the composer.
+  useEffect(() => {
+    const staged = chat.pendingDraft;
+    if (!visible || !staged) return;
+    setDraft((current) => (current.trim() ? `${current}\n${staged}` : staged));
+    chatStore.setPendingDraft(null);
+    textareaRef.current?.focus();
+  }, [visible, chat.pendingDraft]);
+
   useEffect(() => {
     return () => {
       abortRef.current?.abort();

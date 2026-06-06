@@ -28,6 +28,10 @@ export type ChatState = PersistedChatState & {
   // Tracked separately from sessionStatusMap so the companion presence can show
   // a global "waiting on you" state without colliding with the stream lifecycle.
   hitlPending: Record<string, boolean>;
+  // A prompt staged from another surface (e.g. "Ask agent" on the Capabilities
+  // catalog). The visible chat session consumes it into its composer once, then
+  // clears it. Not persisted.
+  pendingDraft: string | null;
 };
 
 const STORAGE_KEY = "protopen.chat.sessions";
@@ -121,6 +125,7 @@ let state: ChatState = {
   activeSessions: initial.currentSessionId ? [initial.currentSessionId] : [],
   sessionStatusMap: {},
   hitlPending: {},
+  pendingDraft: null,
 };
 
 const listeners = new Set<() => void>();
@@ -234,6 +239,11 @@ export const chatStore = {
       else delete hitlPending[sessionId];
       return { ...current, hitlPending };
     });
+  },
+
+  // Stage a prompt from another surface; the visible chat slot consumes it.
+  setPendingDraft(text: string | null) {
+    setState((current) => ({ ...current, pendingDraft: text }));
   },
 };
 
