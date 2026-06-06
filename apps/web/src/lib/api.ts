@@ -658,6 +658,21 @@ export const api = {
     });
   },
 
+  // Reconcile a turn against the server's durable task (A2A GetTask). Self-heals
+  // a chat message stuck in `streaming` after the stream was interrupted (reload,
+  // network blip, a stale tab) — the server task is the source of truth. Returns
+  // the normalized state + final answer text (empty until terminal).
+  async getTask(taskId: string): Promise<{ state: string; text: string }> {
+    const res = await request<A2AFrame>("/a2a", {
+      method: "POST",
+      headers: { "A2A-Version": "1.0" },
+      body: { jsonrpc: "2.0", id: `get-${Date.now()}`, method: "GetTask", params: { id: taskId } },
+    });
+    const task = res.result?.task;
+    if (!task) return { state: "", text: "" };
+    return { state: (task.status?.state || "").toString(), text: textFromTerminalTask(task) };
+  },
+
   getNotes(projectPath: string) {
     const params = new URLSearchParams({ project_path: projectPath });
     return request<{ workspace: NotesWorkspace }>(`/api/notes/workspace?${params}`);

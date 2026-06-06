@@ -229,6 +229,64 @@ function ChatSessionSlot({
     };
   }, []);
 
+  // Self-heal an interrupted turn (reload / network blip / a stale tab): if the
+  // last assistant message is stuck in `streaming` with no live controller,
+  // reconcile it against the server's durable task (A2A GetTask) — finalize when
+  // terminal, polling briefly if it's genuinely still running. Without this an
+  // interrupted stream would spin forever even though the server completed the
+  // turn while we were away.
+  useEffect(() => {
+    if (abortRef.current) return; // a live turn in this slot owns the stream
+    const snap = chatStore.getSnapshot().sessions.find((s) => s.id === sessionId);
+    const last = [...(snap?.messages || [])].reverse().find((m) => m.role === "assistant");
+    if (!last || last.status !== "streaming" || !last.taskId || !last.id) return;
+
+    const assistantId = last.id;
+    const taskId = last.taskId;
+    const TERMINAL = /completed|failed|canceled|cancelled/i;
+    let cancelled = false;
+    let polls = 0;
+    const MAX_POLLS = 40; // ~2 min at 3s — then give up and leave it as-is
+
+    function finalize(state: string, text: string) {
+      const cur = chatStore.getSnapshot().sessions.find((s) => s.id === sessionId);
+      if (!cur) return;
+      const failed = /fail|cancel/i.test(state);
+      chatStore.updateMessages(
+        sessionId,
+        cur.messages.map((m) => {
+          if (m.id !== assistantId) return m;
+          const toolCalls = m.toolCalls?.map((c) =>
+            c.status === "running" ? { ...c, status: "done" as const } : c,
+          );
+          return { ...m, content: text || m.content, status: failed ? "error" : "done", toolCalls };
+        }),
+      );
+      chatStore.setSessionStatus(sessionId, failed ? "error" : "idle");
+    }
+
+    async function tick() {
+      if (cancelled) return;
+      let res: { state: string; text: string };
+      try {
+        res = await api.getTask(taskId);
+      } catch {
+        return; // best-effort — leave the message as-is on a hard error
+      }
+      if (cancelled) return;
+      if (!res.state || TERMINAL.test(res.state)) {
+        // terminal, or the task is gone (un-stick rather than spin forever)
+        finalize(res.state, res.text);
+        return;
+      }
+      if (++polls < MAX_POLLS) window.setTimeout(() => void tick(), 3000);
+    }
+    void tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
   const messages = session?.messages || [];
 
   const canSend = useMemo(() => Boolean(draft.trim()) && status !== "streaming", [draft, status]);
@@ -298,6 +356,15 @@ function ChatSessionSlot({
         onTaskId: (id) => {
           setTaskId(id);
           hitlTaskRef.current = id;
+          // Persist the task id on the assistant message so a stuck `streaming`
+          // turn can be reconciled against the server task after a reload.
+          const cur = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
+          if (cur) {
+            chatStore.updateMessages(
+              session.id,
+              cur.messages.map((m) => (m.id === assistantId ? { ...m, taskId: id } : m)),
+            );
+          }
         },
         onStatus: setStatusMessage,
         onText: (text, append) => {
