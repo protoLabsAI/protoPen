@@ -167,7 +167,7 @@ export function EngagementSurface({
                   const open = expanded === index;
                   const hasDetail = Boolean(finding.detail);
                   return (
-                    <div className="finding-row" key={index}>
+                    <div className="finding-row" key={`${finding.severity}-${finding.title}-${index}`}>
                       <button
                         type="button"
                         className="finding-head"

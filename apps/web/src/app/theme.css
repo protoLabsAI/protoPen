@@ -1717,8 +1717,7 @@ textarea {
   font-size: 11px;
   color: var(--fg-muted);
 }
-.engagement-start .primary-button,
-.engagement-live .secondary-button {
+.engagement-start .primary-button {
   justify-self: start;
 }
 
