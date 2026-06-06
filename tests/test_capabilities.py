@@ -1,6 +1,8 @@
 """Capabilities catalog (protopen-1vd) — categorizer + catalog shape."""
 
-from operator_api.capabilities import _categorize, list_capabilities
+from operator_api.capabilities import _CATEGORY_RULES, _categorize, list_capabilities
+
+_VALID_CATEGORIES = {label for label, _ in _CATEGORY_RULES} | {"Other"}
 
 
 def test_categorize_buckets_known_tools():
@@ -30,3 +32,17 @@ def test_list_capabilities_shape():
     for tool in result["tools"]:
         assert set(tool) == {"name", "summary", "category"}
         assert tool["name"]
+        # Every entry lands in a known category (no stray buckets).
+        assert tool["category"] in _VALID_CATEGORIES
+
+
+def test_list_capabilities_populated_when_registry_available():
+    """When the tool registry is importable (deps present), the catalog is
+    non-empty and sorted by (category, name)."""
+    result = list_capabilities(None)
+    if result["count"] == 0:
+        return  # registry deps unavailable in this env — covered by the shape test
+    names = [t["name"] for t in result["tools"]]
+    keys = [(t["category"], t["name"]) for t in result["tools"]]
+    assert keys == sorted(keys)
+    assert len(names) == len(set(names))

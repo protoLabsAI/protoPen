@@ -20,14 +20,18 @@ export function CapabilitiesSurface({
 }) {
   const [tools, setTools] = useState<CapabilityTool[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [query, setQuery] = useState("");
 
   async function load() {
     setLoading(true);
+    setLoadFailed(false);
     try {
       const r = await api.tools();
       setTools(r.tools);
+      onError("");
     } catch (e) {
+      setLoadFailed(true);
       onError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
@@ -80,7 +84,11 @@ export function CapabilitiesSurface({
           />
         </div>
 
-        {!loading && total === 0 ? (
+        {!loading && loadFailed ? (
+          <p className="panel-kicker">Couldn’t load capabilities — retry with the refresh button.</p>
+        ) : null}
+
+        {!loading && !loadFailed && total === 0 ? (
           <p className="panel-kicker">No capabilities registered.</p>
         ) : null}
 

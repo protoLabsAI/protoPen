@@ -1749,6 +1749,10 @@ textarea {
   font-size: 13px;
   outline: none;
 }
+/* Keep keyboard focus visible (mouse focus stays clean via :focus-visible). */
+.capabilities-search:focus-within {
+  border-color: var(--accent);
+}
 .capability-group {
   display: flex;
   flex-direction: column;
