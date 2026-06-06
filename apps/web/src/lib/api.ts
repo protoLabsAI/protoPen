@@ -420,6 +420,18 @@ export const api = {
     return request<EngagementStatus>("/api/engagement");
   },
 
+  // Operator engagement control (#166): start / end / set_mode on the live
+  // EngagementManager. Returns the new status snapshot. `name` is required for
+  // start; `mode` is one of passive | active | redteam.
+  engagementControl(body: {
+    action: "start" | "end" | "set_mode";
+    name?: string;
+    scope?: string;
+    mode?: string;
+  }) {
+    return request<EngagementStatus>("/api/engagement", { method: "POST", body });
+  },
+
   engagementReport() {
     return request<EngagementReport>("/api/engagement/report");
   },

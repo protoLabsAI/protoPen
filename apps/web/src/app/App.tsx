@@ -37,6 +37,7 @@ import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
 import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
+import { EngagementSurface } from "../targets/EngagementSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
@@ -62,7 +63,7 @@ import { SetupWizard } from "../setup/SetupWizard";
 // stage. Home is the companion spine; Engagement is the autonomy engine
 // (goals/playbooks); Capabilities is the B-subtext catalog.
 type Surface = "home" | "engagement" | "findings" | "activity" | "capabilities" | "system";
-type EngagementTab = "engagements" | "goals" | "playbooks";
+type EngagementTab = "engagement" | "goals" | "playbooks" | "history";
 type FindingsTab = "targets" | "search" | "knowledge";
 type CapabilitiesTab = "skills" | "subagents" | "workflows";
 type SystemTab = "status" | "audit" | "schedule";
@@ -212,7 +213,7 @@ function groupIssues(issues: BeadsIssue[]) {
 
 export function App() {
   const [surface, setSurface] = useState<Surface>("home");
-  const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagements");
+  const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagement");
   const [findingsTab, setFindingsTab] = useState<FindingsTab>("targets");
   const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("skills");
   const [systemTab, setSystemTab] = useState<SystemTab>("status");
@@ -398,9 +399,13 @@ export function App() {
     return () => window.clearInterval(handle);
   }, [surface, capabilitiesTab, hasRunningAgents]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live engagement monitor: poll while the engagement panel is open.
+  // Live engagement monitor: poll while the engagement panel is open OR the
+  // Engagement control tab is in view, so live progress (phase/findings) stays
+  // fresh while the operator watches it self-drive.
+  const watchingEngagement =
+    rightPanel === "engagement" || (surface === "engagement" && engagementTab === "engagement");
   useEffect(() => {
-    if (rightPanel !== "engagement") return;
+    if (!watchingEngagement) return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -416,7 +421,7 @@ export function App() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [rightPanel]);
+  }, [watchingEngagement]);
 
   // Always-on, low-frequency engagement poll so the companion presence in the
   // topbar stays live (mode / target / findings) even when the engagement panel
@@ -1008,14 +1013,14 @@ export function App() {
           {/* ── Activity: auditable timeline of what it did (own rail) ── */}
           {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
 
-          {/* ── Engagement: scope a target & set it loose. The autonomy engine
-                (goals/playbooks) lives behind this rail. Slice 3 fuses these into
-                one engagement-as-object surface; Slice 1 re-homes the tabs. ── */}
+          {/* ── Engagement: the engagement is the central object — scope it, set
+                the mode ceiling, set it loose, end it (Slice 3). The autonomy
+                engine (goals/playbooks) and the history log live behind it. ── */}
           {surface === "engagement" ? (
             <>
               <div className="group-tabs" role="tablist">
-                <button role="tab" aria-selected={engagementTab === "engagements"} className={engagementTab === "engagements" ? "active" : ""} onClick={() => setEngagementTab("engagements")}>
-                  <ScrollText size={14} /> Engagements
+                <button role="tab" aria-selected={engagementTab === "engagement"} className={engagementTab === "engagement" ? "active" : ""} onClick={() => setEngagementTab("engagement")}>
+                  <Target size={14} /> Engagement
                 </button>
                 <button role="tab" aria-selected={engagementTab === "goals"} className={engagementTab === "goals" ? "active" : ""} onClick={() => setEngagementTab("goals")}>
                   <Sparkles size={14} /> Goals
@@ -1023,17 +1028,25 @@ export function App() {
                 <button role="tab" aria-selected={engagementTab === "playbooks"} className={engagementTab === "playbooks" ? "active" : ""} onClick={() => setEngagementTab("playbooks")}>
                   <ListChecks size={14} /> Playbooks
                 </button>
+                <button role="tab" aria-selected={engagementTab === "history"} className={engagementTab === "history" ? "active" : ""} onClick={() => setEngagementTab("history")}>
+                  <ScrollText size={14} /> History
+                </button>
               </div>
               <p className="group-subhead">
-                {engagementTab === "engagements"
-                  ? "History — scope, target, and outcome of past engagements."
+                {engagementTab === "engagement"
+                  ? "The live engagement — scope, mode ceiling, progress. Set it loose and watch."
                   : engagementTab === "goals"
                     ? "Autonomy — loop the agent toward a verifier (set with /goal in chat)."
-                    : "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."}
+                    : engagementTab === "playbooks"
+                      ? "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."
+                      : "History — scope, target, and outcome of past engagements."}
               </p>
-              {engagementTab === "engagements" ? <IntelSurface tab="engagements" onError={setError} /> : null}
+              {engagementTab === "engagement" ? (
+                <EngagementSurface engagement={engagement} onChange={setEngagement} onError={setError} />
+              ) : null}
               {engagementTab === "goals" ? <GoalsSurface onError={setError} /> : null}
               {engagementTab === "playbooks" ? <PlaybooksSurface onError={setError} /> : null}
+              {engagementTab === "history" ? <IntelSurface tab="engagements" onError={setError} /> : null}
             </>
           ) : null}
 
