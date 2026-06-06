@@ -37,10 +37,10 @@ import { WorkflowsSurface } from "../workflows/WorkflowsSurface";
 import { PlaybooksSurface } from "../workflows/PlaybooksSurface";
 import { GoalsSurface } from "../workflows/GoalsSurface";
 import { IntelSurface } from "../targets/IntelSurface";
-import { ChatSurface } from "../chat/ChatSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
+import { HomeSurface } from "./HomeSurface";
 import { LaunchSequence } from "./LaunchSequence";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
@@ -999,9 +999,11 @@ export function App() {
             </div>
           ) : null}
 
-          {/* ── Home / Companion: chat is the steering channel. The companion
-                presence/face surface lands here in Slice 2. ───────────── */}
-          {surface === "home" ? <ChatSurface onError={setError} /> : null}
+          {/* ── Home / Companion: glanceable presence band + chat steering
+                channel. The autonomous-first spine (Slice 2). ──────────── */}
+          {surface === "home" ? (
+            <HomeSurface engagement={engagement} live={live} onError={setError} />
+          ) : null}
 
           {/* ── Activity: auditable timeline of what it did (own rail) ── */}
           {surface === "activity" ? <ActivitySurface onError={setError} /> : null}
