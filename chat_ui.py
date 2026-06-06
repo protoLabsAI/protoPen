@@ -131,6 +131,12 @@ RESEARCHER_DARK_CSS = """
         background: #14b8a6 !important;
         color: #fff !important;
     }
+
+    .subtitle {
+        font-size: 14px;
+        font-weight: 500;
+        opacity: 0.85;
+    }
 """
 
 RESEARCHER_PWA_HEAD = """
@@ -170,7 +176,7 @@ def create_chat_app(
     subtitle: str = "",
     placeholder: str = "Type a message...",
     chat_height: str = "80vh",
-    footer_html: str = '<div style="text-align:center; padding:8px 0; opacity:0.5; font-size:12px;">built with <a href="https://protolabs.studio" target="_blank" rel="noopener" style="color:inherit;">protolabs.studio</a></div>',
+    footer_html: str = '<div style="text-align:center; padding:8px 0; opacity:0.65; font-size:12px;">built with <a href="https://protoLabs.studio" target="_blank" rel="noopener" style="color:inherit;">protoLabs.studio</a></div>',
     extra_css: str = "",
     settings: SettingsCallbacks | None = None,
     pwa: bool = True,
@@ -192,7 +198,7 @@ def create_chat_app(
 
             header_text = f"**{title}**"
             if subtitle:
-                header_text += f" &nbsp; {subtitle}"
+                header_text += f' &nbsp; <span class="subtitle">{subtitle}</span>'
 
             header_md = gr.Markdown(header_text)
 
