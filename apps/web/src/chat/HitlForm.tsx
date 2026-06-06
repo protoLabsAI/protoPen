@@ -2,48 +2,27 @@ import { useState } from "react";
 
 import type { HitlFormStep, HitlPayload } from "../lib/types";
 
-// A lightweight JSON-schema form for HITL requests (request_user_input), an
-// Approve/Deny card (run_command), and a plain prompt for ask_human. Renders the
-// common field types (string/number/boolean/enum/textarea) — not a full @rjsf,
-// but enough for the config/choice/approval forms agents actually ask for.
-// Multi-step = a single scrollable form (all steps collected, submitted together).
-// Ported from protoAgent's console — protoPen already ships the backend half
-// (a2a_executor.py parks the task + rides the hitl-v1 DataPart).
-
-type FieldSchema = {
-  type?: string;
-  title?: string;
-  description?: string;
-  enum?: unknown[];
-  format?: string;
-  default?: unknown;
-};
-
-function fieldsOf(step: HitlFormStep): Array<[string, FieldSchema, boolean]> {
-  const schema = (step.schema || {}) as {
-    properties?: Record<string, FieldSchema>;
-    required?: string[];
-  };
-  const required = new Set(schema.required || []);
-  return Object.entries(schema.properties || {}).map(([key, fs]) => [key, fs, required.has(key)]);
-}
+// Lightweight HITL renderer for protoPen's `hitl-v1` DataPart:
+//  - a **form** (request_user_input) — a flat list of fields, one per step
+//    ({id, label, type, enum?, required?}), submitted together as a {id: value} map;
+//  - an **Approve / Deny** card (run_command, and the passive→active /
+//    destructive-tool escalation gate);
+//  - a free-text **question** (ask_human).
+// Field types handled: string/number/integer/boolean/enum/textarea — enough for
+// the choice/config/approval prompts agents actually ask for.
 
 function Field({
-  name,
-  schema,
-  required,
+  step,
   value,
   onChange,
 }: {
-  name: string;
-  schema: FieldSchema;
-  required: boolean;
+  step: HitlFormStep;
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const label = (schema.title || name) + (required ? " *" : "");
+  const label = (step.label || step.id) + (step.required ? " *" : "");
 
-  if (schema.type === "boolean") {
+  if (step.type === "boolean") {
     return (
       <label className="hitl-field hitl-field-bool">
         <input type="checkbox" checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
@@ -53,20 +32,20 @@ function Field({
   }
 
   let control;
-  if (Array.isArray(schema.enum)) {
+  if (Array.isArray(step.enum)) {
     control = (
       <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)}>
         <option value="" disabled>
           Select…
         </option>
-        {schema.enum.map((opt) => (
+        {step.enum.map((opt) => (
           <option key={String(opt)} value={String(opt)}>
             {String(opt)}
           </option>
         ))}
       </select>
     );
-  } else if (schema.type === "number" || schema.type === "integer") {
+  } else if (step.type === "number" || step.type === "integer") {
     control = (
       <input
         type="number"
@@ -74,7 +53,7 @@ function Field({
         onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
       />
     );
-  } else if (schema.format === "textarea") {
+  } else if (step.type === "textarea") {
     control = <textarea value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} rows={3} />;
   } else {
     control = <input type="text" value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} />;
@@ -84,7 +63,7 @@ function Field({
     <label className="hitl-field">
       <span>{label}</span>
       {control}
-      {schema.description && <small>{schema.description}</small>}
+      {step.description && <small>{step.description}</small>}
     </label>
   );
 }
@@ -100,9 +79,16 @@ export function HitlForm({
   onSubmit: (response: Record<string, unknown> | string) => void;
   onCancel: () => void;
 }) {
-  const isForm = payload.kind === "form" && (payload.steps?.length ?? 0) > 0;
+  const steps = payload.steps || [];
+  const isForm = payload.kind === "form" && steps.length > 0;
   const isApproval = payload.kind === "approval";
-  const [values, setValues] = useState<Record<string, unknown>>({});
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    const init: Record<string, unknown> = {};
+    for (const step of payload.steps || []) {
+      if (step.default !== undefined) init[step.id] = step.default;
+    }
+    return init;
+  });
   const [text, setText] = useState("");
 
   // Approval gate (e.g. run_command, passive→active escalation) — Approve / Deny.
@@ -155,31 +141,16 @@ export function HitlForm({
     );
   }
 
-  const set = (k: string, v: unknown) => setValues((prev) => ({ ...prev, [k]: v }));
-  // Required fields across all steps must be filled before submit.
-  const missing = (payload.steps || []).some((step) =>
-    fieldsOf(step).some(([key, , req]) => req && (values[key] === undefined || values[key] === "")),
-  );
+  const set = (id: string, v: unknown) => setValues((prev) => ({ ...prev, [id]: v }));
+  // Required fields must be filled before submit.
+  const missing = steps.some((step) => step.required && (values[step.id] === undefined || values[step.id] === ""));
 
   return (
     <div className="hitl-card" role="dialog" aria-label={payload.title || "Form requested"}>
       <div className="hitl-title">{payload.title || "Input requested"}</div>
       {payload.description && <div className="hitl-prompt">{payload.description}</div>}
-      {(payload.steps || []).map((step, i) => (
-        <div className="hitl-step" key={i}>
-          {step.title && <div className="hitl-step-title">{step.title}</div>}
-          {step.description && <div className="hitl-prompt">{step.description}</div>}
-          {fieldsOf(step).map(([key, schema, req]) => (
-            <Field
-              key={key}
-              name={key}
-              schema={schema}
-              required={req}
-              value={values[key]}
-              onChange={(v) => set(key, v)}
-            />
-          ))}
-        </div>
+      {steps.map((step) => (
+        <Field key={step.id} step={step} value={values[step.id]} onChange={(v) => set(step.id, v)} />
       ))}
       <div className="hitl-actions">
         <button type="button" className="secondary-button" onClick={onCancel} disabled={busy}>

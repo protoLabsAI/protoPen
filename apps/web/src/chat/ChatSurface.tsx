@@ -145,6 +145,9 @@ function ChatSessionSlot({
   const [taskId, setTaskId] = useState("");
   const [hitl, setHitl] = useState<HitlPayload | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // The parked task id survives the turn's `finally` (which resets taskId state)
+  // so Dismiss can cancel an input-required task on the backend, not just hide it.
+  const hitlTaskRef = useRef<string>("");
   const listRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const status = chat.sessionStatusMap[sessionId] || "idle";
@@ -217,6 +220,16 @@ function ChatSessionSlot({
     void runTurn(typeof response === "string" ? response : JSON.stringify(response));
   }
 
+  // Dismiss without answering: cancel the parked input-required task on the
+  // backend (best-effort) so it doesn't linger and silently consume the next
+  // message as its response, then clear the card.
+  function dismissHitl() {
+    const taskId = hitlTaskRef.current;
+    hitlTaskRef.current = "";
+    if (taskId) void api.cancelTask(taskId).catch(() => {});
+    setHitl(null);
+  }
+
   async function runTurn(content: string) {
     if (!session || !content) return;
     // Abort any still-in-flight stream before starting a new turn (e.g. a fast
@@ -251,7 +264,10 @@ function ChatSessionSlot({
     try {
       await api.streamChat(userMessage.content, session.id, {
         signal: controller.signal,
-        onTaskId: setTaskId,
+        onTaskId: (id) => {
+          setTaskId(id);
+          hitlTaskRef.current = id;
+        },
         onStatus: setStatusMessage,
         onText: (text, append) => {
           const latest = chatStore.getSnapshot().sessions.find((item) => item.id === session.id);
@@ -315,6 +331,7 @@ function ChatSessionSlot({
           // The turn parked awaiting the operator. Surface the form/approval/
           // question; the stream closes here and the post-await block finalizes
           // the assistant placeholder, so the card renders without a stuck spinner.
+          // (hitlTaskRef already holds this task's id, set by onTaskId.)
           setHitl(payload);
           setStatusMessage("input required");
         },
@@ -436,7 +453,7 @@ function ChatSessionSlot({
           payload={hitl}
           busy={status === "streaming"}
           onSubmit={resumeHitl}
-          onCancel={() => setHitl(null)}
+          onCancel={dismissHitl}
         />
       ) : null}
 
