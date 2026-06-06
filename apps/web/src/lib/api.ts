@@ -573,6 +573,10 @@ export const api = {
             contextId: sessionId,
             role: "ROLE_USER",
             parts: [{ text: message }],
+            // The console can answer a HITL pause, so opt into interactivity:
+            // the agent's request_user_input / request_approval may park the turn
+            // as input-required. Headless/API callers omit this and stay autonomous.
+            metadata: { "protolabs.interactive": true },
           },
         },
       }),

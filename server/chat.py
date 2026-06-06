@@ -124,10 +124,12 @@ async def _chat_langgraph_stream(
     *,
     resume: bool = False,
     caller_trace: dict | None = None,
+    interactive: bool = False,
 ):
     """Async generator that yields (event_type, payload) tuples via astream_events.
 
-    event_type is one of: "status", "tool_start", "tool_end", "text", "done", "error".
+    event_type is one of: "status", "tool_start", "tool_end", "text",
+    "input_required", "done", "error".
     ``tool_start`` / ``tool_end`` payloads are structured dicts ({id, name,
     input|output}) keyed by the langchain ``run_id`` so the console can pair
     start↔end and render a live per-tool card; the executor also derives a
@@ -167,6 +169,14 @@ async def _chat_langgraph_stream(
     from graph.goals.context import set_current_session
 
     set_current_session(session_id)
+
+    # Gate HITL pausing for this turn. Off unless the caller opted in
+    # (protolabs.interactive) — a headless/autonomous run never blocks on input,
+    # so request_user_input / request_approval no-op instead of parking.
+    from graph.hitl_context import set_hitl_allowed, take_pending_hitl
+
+    set_hitl_allowed(interactive)
+    take_pending_hitl(session_id)  # clear any stale request from a prior turn
 
     # Goal mode: run the turn, then — if an active goal isn't met — re-invoke on
     # the same thread with a continuation prompt until the verifier passes, the
@@ -219,6 +229,16 @@ async def _chat_langgraph_stream(
                             yield ("text", content)
 
             final = _strip_think(accumulated_text)
+
+            # HITL pause: a tool (request_user_input / request_approval) asked for
+            # the operator this turn — park as input-required ahead of any goal
+            # continuation. The console renders the form/approval card and resumes
+            # with a follow-up message on this session. Only reachable when the
+            # caller opted into interactivity (otherwise the tools never set this).
+            pending = take_pending_hitl(session_id)
+            if pending is not None:
+                yield ("input_required", pending)
+                return
 
             # No active goal → this is a normal turn; finish.
             if STATE.goal_controller is None or STATE.goal_controller.active_goal(session_id) is None:

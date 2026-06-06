@@ -169,6 +169,7 @@ class ProtoPenExecutor(AgentExecutor):
 
         text = context.get_user_input()
         caller_trace = _extract_caller_trace(context)
+        interactive = _extract_interactive(context)
 
         started = time.monotonic()
         accumulated = ""
@@ -207,6 +208,7 @@ class ProtoPenExecutor(AgentExecutor):
                 context.context_id,
                 resume=resume,
                 caller_trace=caller_trace,
+                interactive=interactive,
             ):
                 if event_type == "text":
                     accumulated += payload
@@ -352,6 +354,14 @@ def _extract_caller_trace(context: RequestContext) -> dict:
     """The ``a2a.trace`` metadata (Langfuse cross-trace propagation), or {}."""
     trace = _request_metadata(context).get("a2a.trace")
     return trace if isinstance(trace, dict) else {}
+
+
+def _extract_interactive(context: RequestContext) -> bool:
+    """Whether this caller can answer a HITL pause (``protolabs.interactive``
+    metadata). Off by default — a headless/autonomous caller never parks for
+    input, preserving full autonomy. The web console (and any sender that handles
+    input-required) sets it true to enable the form/approval flow."""
+    return bool(_request_metadata(context).get("protolabs.interactive"))
 
 
 def _tool_call_part(event_type: str, payload: Any) -> Part | None:
