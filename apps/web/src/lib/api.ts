@@ -10,6 +10,7 @@ import type {
   EngagementReport,
   EngagementStatus,
   GoalState,
+  HitlPayload,
   IntelSearchResult,
   KnowledgeSearchResult,
   PlaybookRunResult,
@@ -204,6 +205,18 @@ function toolEventFromParts(parts?: A2APart[]): ToolEvent | null {
     input: d.args,
     output: d.result,
   };
+}
+
+// Shared with the backend (a2a_executor.py HITL_MIME). An input-required frame
+// carries the form/approval/question payload on a part with this mime type.
+const HITL_MIME = "application/vnd.protolabs.hitl-v1+json";
+
+/** Pull the HITL form/approval/question payload off an input-required frame's
+ *  parts. Returns null when no hitl-v1 DataPart is present (older agents fall
+ *  back to the frame's text). */
+function hitlFromParts(parts?: A2APart[]): HitlPayload | null {
+  const part = (parts || []).find((p) => p.metadata?.mimeType === HITL_MIME && p.data);
+  return part ? ((part.data as HitlPayload) ?? null) : null;
 }
 
 function textFromTerminalTask(task?: NonNullable<A2AFrame["result"]>["task"]) {
@@ -529,6 +542,7 @@ export const api = {
       onStatus?: (status: string) => void;
       onText?: (text: string, append: boolean) => void;
       onToolCall?: (evt: ToolEvent) => void;
+      onInputRequired?: (payload: HitlPayload) => void;
       onDone?: () => void;
     } = {},
   ) {
@@ -589,6 +603,12 @@ export const api = {
         handlers.onStatus?.(messageText || humanizeState(state));
         const toolEvent = toolEventFromParts(su.status?.message?.parts);
         if (toolEvent) handlers.onToolCall?.(toolEvent);
+        // HITL pause: the turn parked awaiting the operator (TASK_STATE_INPUT_REQUIRED).
+        // Surface the form/approval/question so the console can render it and
+        // resume; non-terminal, so the stream closes here without onDone.
+        if (state === "TASK_STATE_INPUT_REQUIRED") {
+          handlers.onInputRequired?.(hitlFromParts(su.status?.message?.parts) || { question: messageText });
+        }
         if (A2A_TERMINAL_STATES.has(state)) handlers.onDone?.();
       }
 

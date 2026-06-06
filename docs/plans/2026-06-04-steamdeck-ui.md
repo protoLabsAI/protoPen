@@ -66,3 +66,66 @@ Deck's display with its input model.
 
 Walk the open questions with the operator → pick app shape + v1 scope → promote
 this into a task-by-task implementation plan (`docs/plans/`) and file the work.
+
+---
+
+## Session log — 2026-06-05 (native build / install explored, re-parked)
+
+Revisited the Deck direction and explored two adjacent ideas beyond the UI
+redesign: a **native SteamOS build** and a **quick install path**. Captured the
+findings below, then **decided to NOT pursue any of it yet** — focus instead on
+the **information architecture of the *current* desktop console** while we do
+more live testing on the actual app. Native build + packaging + installer stay
+parked.
+
+### What we found (so it's not re-discovered later)
+
+- **A PWA scaffold already exists but is stale.** `static/manifest.json`
+  (`display: standalone`, theme color, icons) and `static/sw.js` (served with
+  `Service-Worker-Allowed: /`) are wired in `server/app.py`. But the manifest is
+  leftover **protoAgent** boilerplate ("AI research agent… tracks the latest in
+  AI/ML") — wrong identity, not Deck-tuned. "Installable app" is ~half-wired.
+- **Tauri was deliberately NOT ported.** `server/app.py` comment: *"Webview-only:
+  the Tauri desktop wrapper is intentionally not ported."* A true native-binary
+  path is greenfield here, not a revival.
+- **Read-only rootfs fragility.** Per the setup guide + SteamOS memory notes, OS
+  updates wipe the `steamos-readonly disable` + `/etc/sudoers.d/zz-deck` +
+  pacman/BlackArch layering. A venv-in-`$HOME` install is fragile across updates;
+  a Flatpak (lives in `/home`) would be the update-resilient answer — but it's
+  the heaviest lift, and BlackArch tools still live outside it.
+
+### Packaging spectrum (for when we do unpark "native")
+
+1. **Kiosk Non-Steam Game** — `chromium --kiosk --app=http://localhost:7870/app/`
+   as a Non-Steam shortcut; launches from Game Mode, Steam Input drives the
+   controller; backend as a `systemd --user` service. Cheapest "native feel",
+   reuses the SPA as-is.
+2. **PWA standalone** — fix the manifest, install from Chromium. Lightest, but
+   Desktop-Mode-bound and weak controller story.
+3. **Flatpak / Tauri package** — webview + backend sidecar, update-resilient,
+   most native, heaviest lift (and Tauri is un-ported).
+
+A **quick-install script** (`install.sh` automating the setup-doc + a service +
+launcher shortcut) is valuable independent of which packaging tier we pick —
+file it when we unpark.
+
+### Decision (2026-06-05)
+
+> **Don't jump the shark.** Native SteamOS build, packaging, and the installer
+> are **parked**. This round: revisit and improve the **IA of the current
+> desktop console** (`apps/web`) and do more live testing on the running app.
+> The Deck-native surface + native-build work resumes only after the IA settles.
+
+### Current IA snapshot (the thing we're now revisiting)
+
+Left rail = 4 top-level surfaces, each with sub-tabs (`apps/web/src/app/App.tsx`):
+
+| Surface | Icon | Sub-tabs |
+|---|---|---|
+| **Chat** | MessageSquare | `conversation`, `activity` (+ workspace note tabs) |
+| **Intel** | Target | `targets`, `search`, `knowledge`, `engagements`, `skills` |
+| **Agents** | Network | `goals`, `subagents`, `workflows`, `playbooks` |
+| **System** | Gauge | `status`, `audit`, `schedule` |
+
+≈14 sub-views across 4 rails — dense, desktop-tuned. This is the starting point
+for the IA pass.

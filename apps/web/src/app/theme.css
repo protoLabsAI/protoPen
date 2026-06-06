@@ -3256,3 +3256,94 @@ textarea {
   filter: drop-shadow(0 0 16px rgba(155, 135, 242, 0.35));
   animation: intro-rise 0.45s cubic-bezier(0.2, 0.6, 0.2, 1) both;
 }
+
+/* HITL (human-in-the-loop) form / approval card — rendered in the chat surface
+   when a turn parks as input-required. Ported with the HitlForm component. */
+.hitl-card {
+  margin: 0 12px 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--brand-indigo, #6366f1);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hitl-title {
+  font-weight: 600;
+}
+
+.hitl-prompt {
+  color: var(--fg-secondary);
+  font-size: 13px;
+}
+
+.hitl-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hitl-step-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--fg-secondary);
+}
+
+.hitl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.hitl-field > span {
+  color: var(--fg-secondary);
+}
+
+.hitl-field-bool {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.hitl-field input,
+.hitl-field select,
+.hitl-field textarea,
+.hitl-freetext {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.hitl-field small {
+  color: var(--fg-muted);
+}
+
+.hitl-freetext {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.hitl-detail {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--fg);
+}
+
+.hitl-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

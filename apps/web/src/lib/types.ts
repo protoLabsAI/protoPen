@@ -182,6 +182,28 @@ export type SlashCommand = {
   usage: string;
 };
 
+// HITL (human-in-the-loop) request surfaced when a turn pauses as input-required.
+// The backend (a2a_executor.py) parks the task in TASK_STATE_INPUT_REQUIRED and
+// rides the payload on a `hitl-v1` DataPart — a JSON-schema form
+// (request_user_input), an Approve/Deny gate (run_command), or a free-text
+// question (ask_human). The console renders it and resumes by sending the
+// response as a follow-up on the same session.
+export type HitlFormStep = {
+  schema: Record<string, unknown>; // JSON Schema (draft-07) of the step's fields
+  uiSchema?: Record<string, unknown>;
+  title?: string;
+  description?: string;
+};
+
+export type HitlPayload = {
+  kind?: "form" | "approval";
+  title?: string;
+  description?: string;
+  steps?: HitlFormStep[];
+  question?: string; // ask_human shape
+  detail?: string; // approval shape — the command/action being approved
+};
+
 export type NotesWorkspace = {
   version: number;
   workspaceVersion: number;
