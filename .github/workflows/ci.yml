@@ -91,6 +91,16 @@ jobs:
       - name: API reference is in sync with the OpenAPI spec
         run: python scripts/gen_api_docs.py --check
 
+      # The check above only compares the page to the committed spec; this one
+      # compares the committed spec to the LIVE app, so a new route can't slip in
+      # undocumented (how GET /api/tools + the engagement-control POST drifted).
+      # Runs once (3.12) — it builds the app to dump the spec.
+      - name: OpenAPI spec is in sync with the live app
+        if: matrix.python-version == '3.12'
+        env:
+          OPENAI_API_KEY: dummy-for-spec-dump
+        run: python scripts/check_openapi_spec.py
+
   build:
     name: Build & Push Docker
     # workspace-config: allow-hosted-runner docker buildx build + registry push
