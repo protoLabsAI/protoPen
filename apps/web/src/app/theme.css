@@ -1828,6 +1828,39 @@ textarea {
   color: var(--fg-secondary);
 }
 
+/* ── Integrated terminal (xterm.js) ──────────────────────────────────────── */
+.term-stage {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.term-pool {
+  position: relative;
+  min-height: 0;
+  background: var(--bg-sunken);
+}
+/* Each pane overlays the pool; only the visible one renders (hidden ones are
+   display:none), so a tab switch never re-creates the xterm/PTY. */
+.term-host {
+  position: absolute;
+  inset: 0;
+  padding: 6px 8px;
+  background: #08080a; /* matches the xterm theme background */
+}
+.term-host[hidden] {
+  display: none;
+}
+.term-host .xterm,
+.term-host .xterm-viewport,
+.term-host .xterm-screen {
+  height: 100%;
+}
+.term-host .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+.term-host .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
 .finding-row {
   display: grid;
   gap: 4px;

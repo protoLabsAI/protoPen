@@ -26,6 +26,7 @@ import {
   Sparkles,
   Square,
   Target,
+  TerminalSquare,
   Trash2,
   X,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import { EngagementSurface } from "../targets/EngagementSurface";
 import { CapabilitiesSurface } from "../targets/CapabilitiesSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { chatStore, useAnyChatStreaming } from "../chat/chat-store";
+import { TerminalSurface } from "../terminal/TerminalSurface";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
@@ -65,7 +67,14 @@ import { SetupWizard } from "../setup/SetupWizard";
 // Each rail groups several related views, switched by a group tab bar in the
 // stage. Home is the companion spine; Engagement is the autonomy engine
 // (goals/playbooks); Capabilities is the B-subtext catalog.
-type Surface = "home" | "engagement" | "findings" | "activity" | "capabilities" | "system";
+type Surface =
+  | "home"
+  | "engagement"
+  | "findings"
+  | "activity"
+  | "capabilities"
+  | "terminal"
+  | "system";
 type EngagementTab = "engagement" | "goals" | "playbooks" | "history";
 type FindingsTab = "targets" | "search" | "knowledge";
 type CapabilitiesTab = "catalog" | "skills" | "workflows" | "subagents";
@@ -219,6 +228,9 @@ export function App() {
   // Background-streaming indicator for the Home rail (narrow selector → only
   // re-renders when the boolean flips, not per streamed token).
   const chatStreaming = useAnyChatStreaming();
+  // Lazy-mount the terminal: don't spawn a shell until the rail is first opened,
+  // then keep it mounted (hidden off-rail) so a running command survives nav.
+  const [terminalOpened, setTerminalOpened] = useState(false);
   const [engagementTab, setEngagementTab] = useState<EngagementTab>("engagement");
   const [findingsTab, setFindingsTab] = useState<FindingsTab>("targets");
   const [capabilitiesTab, setCapabilitiesTab] = useState<CapabilitiesTab>("catalog");
@@ -1005,6 +1017,15 @@ export function App() {
             onClick={() => setSurface("capabilities")}
           />
           <RailButton
+            active={surface === "terminal"}
+            label="Terminal"
+            icon={<TerminalSquare size={18} />}
+            onClick={() => {
+              setTerminalOpened(true);
+              setSurface("terminal");
+            }}
+          />
+          <RailButton
             active={surface === "system"}
             label="System"
             icon={<Gauge size={18} />}
@@ -1491,6 +1512,10 @@ export function App() {
               rails; returning to Home shows it exactly as left. On Home it sits
               below the presence hero (the flex stage stacks them). */}
           <ChatSurface onError={setError} active={surface === "home"} />
+
+          {/* Terminal — lazily mounted on first open, then kept mounted (hidden
+              off-rail) so a running command/tool survives rail navigation. */}
+          {terminalOpened ? <TerminalSurface active={surface === "terminal"} /> : null}
         </main>
 
         <aside className="right-panel">
