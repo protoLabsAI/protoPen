@@ -43,6 +43,8 @@ import { CapabilitiesSurface } from "../targets/CapabilitiesSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { chatStore, useAnyChatStreaming } from "../chat/chat-store";
 import { TerminalSurface } from "../terminal/TerminalSurface";
+import { buildOnce, buildRepeat, describeSchedule, WEEKDAYS } from "../schedule/schedule-builder";
+import type { RepeatFreq } from "../schedule/schedule-builder";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
 import { CompanionStatus } from "./CompanionStatus";
@@ -302,7 +304,13 @@ export function App() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleLoaded, setScheduleLoaded] = useState(false);
   const [schedulePrompt, setSchedulePrompt] = useState("");
-  const [scheduleWhen, setScheduleWhen] = useState("");
+  const [scheduleWhen, setScheduleWhen] = useState(""); // custom cron/ISO escape hatch
+  // Friendly schedule builder (#661) — no hand-written cron in the common cases.
+  const [scheduleMode, setScheduleMode] = useState<"repeat" | "once" | "custom">("repeat");
+  const [scheduleFreq, setScheduleFreq] = useState<RepeatFreq>("daily");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleDow, setScheduleDow] = useState(1); // 0–6 Sun–Sat
+  const [scheduleOnce, setScheduleOnce] = useState(""); // datetime-local value
 
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [auditBusy, setAuditBusy] = useState(false);
@@ -522,9 +530,16 @@ export function App() {
     }
   }
 
+  // The effective schedule string from the friendly builder (or the custom field).
+  function computeSchedule(): string {
+    if (scheduleMode === "repeat") return buildRepeat(scheduleFreq, scheduleTime, scheduleDow);
+    if (scheduleMode === "once") return buildOnce(scheduleOnce);
+    return scheduleWhen.trim();
+  }
+
   async function addSchedule() {
     const prompt = schedulePrompt.trim();
-    const schedule = scheduleWhen.trim();
+    const schedule = computeSchedule();
     if (!prompt || !schedule || scheduleBusy) return;
     setScheduleBusy(true);
     setError("");
@@ -532,6 +547,7 @@ export function App() {
       await api.addSchedule({ prompt, schedule });
       setSchedulePrompt("");
       setScheduleWhen("");
+      setScheduleOnce("");
       await refreshSchedule();
     } catch (exc) {
       if (exc instanceof UnauthorizedError) setNeedsAuth(true);
@@ -1439,28 +1455,99 @@ export function App() {
                 </button>
               </div>
               <form
-                className="knowledge-search"
+                className="schedule-form"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void addSchedule();
                 }}
               >
                 <input
+                  className="schedule-prompt"
                   value={schedulePrompt}
                   onChange={(event) => setSchedulePrompt(event.target.value)}
                   placeholder="Prompt to run on schedule…"
                   aria-label="Scheduled prompt"
                 />
-                <input
-                  value={scheduleWhen}
-                  onChange={(event) => setScheduleWhen(event.target.value)}
-                  placeholder="cron (0 9 * * 1-5) or ISO datetime"
-                  aria-label="Schedule"
-                />
+                <div className="schedule-when">
+                  <div className="segmented schedule-mode">
+                    {(["repeat", "once", "custom"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={scheduleMode === m ? "active" : ""}
+                        onClick={() => setScheduleMode(m)}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+
+                  {scheduleMode === "repeat" ? (
+                    <div className="schedule-row">
+                      <select
+                        value={scheduleFreq}
+                        onChange={(e) => setScheduleFreq(e.target.value as RepeatFreq)}
+                        aria-label="Frequency"
+                      >
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekdays">Weekdays</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                      {scheduleFreq === "weekly" ? (
+                        <select
+                          value={scheduleDow}
+                          onChange={(e) => setScheduleDow(Number(e.target.value))}
+                          aria-label="Day of week"
+                        >
+                          {WEEKDAYS.map((d, i) => (
+                            <option key={d} value={i}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        aria-label={scheduleFreq === "hourly" ? "Minute" : "Time"}
+                        title={
+                          scheduleFreq === "hourly"
+                            ? "Hourly uses the minute (runs at this :MM every hour)"
+                            : "Time of day"
+                        }
+                      />
+                    </div>
+                  ) : null}
+
+                  {scheduleMode === "once" ? (
+                    <input
+                      type="datetime-local"
+                      value={scheduleOnce}
+                      onChange={(e) => setScheduleOnce(e.target.value)}
+                      aria-label="Date and time"
+                    />
+                  ) : null}
+
+                  {scheduleMode === "custom" ? (
+                    <input
+                      value={scheduleWhen}
+                      onChange={(e) => setScheduleWhen(e.target.value)}
+                      placeholder="cron (0 9 * * 1-5) or ISO datetime"
+                      aria-label="Custom schedule"
+                    />
+                  ) : null}
+
+                  <p className="field-hint">
+                    {computeSchedule() ? `Runs: ${describeSchedule(computeSchedule())}` : "Pick when it runs"}
+                  </p>
+                </div>
+
                 <button
                   className="primary-button"
                   type="submit"
-                  disabled={scheduleBusy || !schedulePrompt.trim() || !scheduleWhen.trim()}
+                  disabled={scheduleBusy || !schedulePrompt.trim() || !computeSchedule()}
                 >
                   {scheduleBusy ? <Loader2 className="spin" size={16} /> : <Plus size={16} />}
                   Add
@@ -1471,7 +1558,7 @@ export function App() {
                   scheduleJobs.map((job) => (
                     <article className="audit-row" key={job.id}>
                       <div className="audit-row-head">
-                        <StatusPill label={job.schedule} tone="muted" />
+                        <StatusPill label={describeSchedule(job.schedule)} tone="muted" />
                         <strong className="audit-tool">{job.prompt}</strong>
                         <button
                           className="icon-button danger"
