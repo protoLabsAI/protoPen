@@ -10,6 +10,7 @@ Complete technical reference for the protoPen API, tools, and configuration.
 
 - **[API Endpoints](./api-endpoints.md)** -- All HTTP endpoints with request/response formats.
 - **[Chat Commands](./chat-commands.md)** -- Slash commands available in the chat UI.
+- **[Integrated Terminal](./terminal.md)** -- The `/ws/terminal` PTY WebSocket: auth, wire protocol, and security.
 
 ## Tools
 
