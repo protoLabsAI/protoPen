@@ -387,8 +387,10 @@ export type GoalState = {
   condition: string;
   verifier: Record<string, unknown>;
   status: string; // active | achieved | exhausted | unachievable
+  mode?: string; // "drive" (default) | "monitor" (ADR 0030)
   iteration: number;
   max_iterations: number;
+  no_progress_limit?: number | null; // per-goal patience override
   last_reason: string;
   checklist?: string;
 };
