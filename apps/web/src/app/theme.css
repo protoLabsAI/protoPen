@@ -1861,6 +1861,38 @@ textarea {
   border-radius: 4px;
 }
 
+/* ── Friendly schedule builder (#661) ────────────────────────────────────── */
+.schedule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.schedule-prompt {
+  width: 100%;
+}
+.schedule-when {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.schedule-mode {
+  max-width: 280px;
+}
+.schedule-mode button {
+  text-transform: capitalize;
+}
+.schedule-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.schedule-row select,
+.schedule-row input {
+  min-width: 0;
+}
+
 .finding-row {
   display: grid;
   gap: 4px;
