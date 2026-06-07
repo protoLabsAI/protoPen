@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_39 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_46 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -39,7 +39,7 @@ Chat (programmatic)
 
 List chat slash-commands
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### OpenAI-Compatible API
 
@@ -63,7 +63,7 @@ List models (OpenAI-compatible)
 
 Runtime status
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Subagents
 
@@ -71,7 +71,7 @@ Runtime status
 
 List subagents
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/subagents/batch`
 
@@ -108,7 +108,7 @@ Run a subagent
 
 List agent runs
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/agents/launch`
 
@@ -156,19 +156,27 @@ Cancel an agent run
 
 Engagement snapshot
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/engagement`
+
+Start / end / set-mode the engagement
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `GET /api/engagement/report`
 
 Read engagement report
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/engagement/report`
 
 Generate engagement report
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Knowledge
 
@@ -207,7 +215,7 @@ Recent audit entries
 
 List scheduled jobs
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/scheduler/jobs`
 
@@ -374,13 +382,38 @@ Beads status
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
+### .Well-Known
+
+#### `GET /.well-known/agent-card.json`
+
+Get Agent Card
+
+**Responses:** `200` Successful Response
+
+### A2A
+
+#### `POST /a2a`
+
+A2A JSON-RPC endpoint
+
+**Request body** (`A2ARequest`)
+
+| Field | Type | Required |
+|---|---|---|
+| `jsonrpc` | string | yes |
+| `id` | string | integer | no |
+| `method` | string | yes |
+| `params` | SendMessageRequest | GetTaskRequest | ListTasksRequest | CancelTaskRequest | TaskPushNotificationConfig | GetTaskPushNotificationConfigRequest | ListTaskPushNotificationConfigsRequest | DeleteTaskPushNotificationConfigRequest | SubscribeToTaskRequest | GetExtendedAgentCardRequest | no |
+
+**Responses:** `200` Successful Response
+
 ### Activity
 
 #### `GET /api/activity`
 
 Activity thread history (ADR 0003)
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Engagements
 
@@ -388,7 +421,7 @@ Activity thread history (ADR 0003)
 
 Engagement history
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Events
 
@@ -397,6 +430,28 @@ Engagement history
 Server→client event stream (SSE)
 
 **Responses:** `200` Successful Response
+
+### Goal
+
+#### `DELETE /api/goal/{session_id}`
+
+Clear a goal
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Goals
+
+#### `GET /api/goals`
+
+List goals (autonomy layer)
+
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Intel
 
@@ -419,7 +474,7 @@ Unified intel search
 
 List playbooks
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/playbooks/{name}/run`
 
@@ -432,6 +487,20 @@ Run a playbook
 | `name` | path | yes | string |  |
 
 **Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Skills
+
+#### `GET /api/skills`
+
+List/search learned skills
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `q` | query | no | string |  |
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
@@ -463,13 +532,21 @@ Target profile
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
+### Tools
+
+#### `GET /api/tools`
+
+Capabilities catalog (categorized tool registry)
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
 ### Workflows
 
 #### `GET /api/workflows`
 
 List workflow recipes (ADR 0002)
 
-**Responses:** `200` Successful Response
+**Responses:** `200` Successful Response, `422` Validation Error
 
 #### `POST /api/workflows/{name}/run`
 
