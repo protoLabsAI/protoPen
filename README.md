@@ -87,12 +87,13 @@ python -m server --port 7870
 
 A webview UI served at **`/app`** for driving protoPen as a **companion presence
 + a running engagement** — autonomous-first, with a capability catalog as the
-opt-in manual layer. Six rails: **Home** (companion presence + the always-on
+opt-in manual layer. Seven rails: **Home** (companion presence + the always-on
 chat steering channel), **Engagement** (scope a target, set the
 passive/active/redteam ceiling, start/watch/end), **Findings** (targets · search
 · knowledge), **Activity** (the durable agent-initiated thread), **Capabilities**
 (a searchable catalog of the live tool registry, plus skills/workflows/subagents),
-and **System** (status · audit · schedule).
+**Terminal** (a real PTY-backed shell — xterm.js over a WebSocket — for running
+tools directly), and **System** (status · audit · schedule).
 
 The chat is **always streaming**: token-by-token answers, it keeps running in the
 background as you navigate rails, and it self-heals a turn interrupted by a
