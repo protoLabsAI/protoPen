@@ -1507,14 +1507,17 @@ export function App() {
                           ))}
                         </select>
                       ) : null}
-                      {scheduleFreq !== "hourly" ? (
-                        <input
-                          type="time"
-                          value={scheduleTime}
-                          onChange={(e) => setScheduleTime(e.target.value)}
-                          aria-label="Time"
-                        />
-                      ) : null}
+                      <input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        aria-label={scheduleFreq === "hourly" ? "Minute" : "Time"}
+                        title={
+                          scheduleFreq === "hourly"
+                            ? "Hourly uses the minute (runs at this :MM every hour)"
+                            : "Time of day"
+                        }
+                      />
                     </div>
                   ) : null}
 

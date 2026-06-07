@@ -47,7 +47,11 @@ export function buildRepeat(freq: RepeatFreq, time: string, dow: number): string
 function clockTime(hr: string, mn: string): string | null {
   const h = parseInt(hr, 10);
   const m = parseInt(mn, 10);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  // Reject out-of-range fields (setHours would silently roll them over, making a
+  // malformed cron like "61 25 * * *" render as a valid time).
+  if (!Number.isFinite(h) || h < 0 || h > 23 || !Number.isFinite(m) || m < 0 || m > 59) {
+    return null;
+  }
   const d = new Date();
   d.setHours(h, m, 0, 0);
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -58,7 +62,10 @@ export function describeSchedule(schedule: string): string {
   const s = (schedule || "").trim();
   if (!s) return "";
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
-    const d = new Date(s);
+    // The backend treats a timezone-less ISO as UTC; interpret it the same way
+    // here (append Z) so the preview matches when/where it actually fires.
+    const hasTz = /[zZ]$/.test(s) || /[+-]\d\d:?\d\d$/.test(s);
+    const d = new Date(hasTz ? s : `${s}Z`);
     return Number.isNaN(d.getTime()) ? "once" : `once — ${d.toLocaleString()}`;
   }
   const parts = s.split(/\s+/);
