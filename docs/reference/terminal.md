@@ -25,6 +25,7 @@ JSON text frames:
 |---|---|
 | client → server | `{"type":"input","data": "<keystrokes>"}` |
 | client → server | `{"type":"resize","cols": <int>,"rows": <int>}` |
+| client → server | `{"type":"clear"}` (wipes the server scrollback; ⌘/Ctrl+K) |
 | client → server | `{"type":"ping"}` |
 | server → client | `{"type":"data","data": "<output>"}` |
 | server → client | `{"type":"exit","code": <int>}` |

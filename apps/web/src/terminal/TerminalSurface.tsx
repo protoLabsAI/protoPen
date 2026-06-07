@@ -263,15 +263,20 @@ function TerminalPane({ sid, visible }: { sid: string; visible: boolean }) {
         // ⌘C / Ctrl+Shift+C copies a selection; plain Ctrl+C falls through to SIGINT.
         const wantsCopy = isMac || e.shiftKey;
         if (wantsCopy) {
-          if (term.hasSelection()) void navigator.clipboard?.writeText(term.getSelection());
+          if (term.hasSelection()) {
+            void navigator.clipboard?.writeText(term.getSelection()).catch(() => {});
+          }
           return false;
         }
         return true;
       }
       if (e.code === "KeyV" && (isMac || e.shiftKey)) {
-        void navigator.clipboard?.readText().then((text) => {
-          if (text) send({ type: "input", data: text });
-        });
+        void navigator.clipboard
+          ?.readText()
+          .then((text) => {
+            if (text) send({ type: "input", data: text });
+          })
+          .catch(() => {});
         return false;
       }
       if (e.code === "KeyA" && isMac && !e.shiftKey) {
