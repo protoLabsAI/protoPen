@@ -147,4 +147,18 @@ if [ ! -x "$PHONEINFOGA_BIN" ]; then
     rm -rf "$_pidir"
 fi
 
+# Disable WiFi power-save on the active interface (best-effort). The Deck's radio
+# otherwise sleeps between beacons, which adds ~80ms of latency to the first
+# packet after an idle gap — felt directly as input lag in the console terminal
+# and chat (measured ~85ms → ~8ms echo RTT with it off). Re-applied every start
+# since it resets on reconnect/reboot. Ignored if `iw` is missing or denied.
+if command -v iw >/dev/null 2>&1; then
+    _wif="$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')"
+    if [ -n "$_wif" ]; then
+        iw dev "$_wif" set power_save off >/dev/null 2>&1 \
+            && echo "✓ WiFi power-save off on $_wif (lower interactive latency)" \
+            || echo "WARN: could not disable WiFi power-save on $_wif (non-fatal)"
+    fi
+fi
+
 exec python -m server "$@"  # ADR 0023: server.py became the server/ package
