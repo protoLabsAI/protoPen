@@ -56,8 +56,44 @@ def _set_winsize(fd: int, cols: int, rows: int) -> None:
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
 
+def _enable_ws_tcp_nodelay() -> None:
+    """Disable Nagle on uvicorn's WebSocket connections (idempotent).
+
+    A terminal keystroke echo is a tiny frame; with Nagle + delayed-ACK the
+    server's send stalls ~40ms waiting for an ACK before flushing, which is felt
+    directly as input lag (measured: ~53ms median echo RTT vs ~12ms base over the
+    network, min ~6ms when no stall). uvicorn doesn't set TCP_NODELAY and the
+    accepted socket isn't reachable from the ASGI scope, so patch the protocol's
+    ``connection_made`` to set it on each connection. Applied at registration,
+    before the server accepts anything. Best-effort: a missing/changed uvicorn
+    internal just leaves Nagle on (correctness unaffected, only latency)."""
+    import socket as _socket
+
+    try:
+        from uvicorn.protocols.websockets.websockets_impl import WebSocketProtocol
+    except Exception:  # noqa: BLE001 — uvicorn layout changed / wsproto in use
+        return
+    if getattr(WebSocketProtocol, "_protopen_nodelay", False):
+        return
+
+    _orig_connection_made = WebSocketProtocol.connection_made
+
+    def connection_made(self, transport):  # type: ignore[no-untyped-def]
+        _orig_connection_made(self, transport)
+        try:
+            sock = transport.get_extra_info("socket")
+            if sock is not None:
+                sock.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+        except (OSError, AttributeError):
+            pass
+
+    WebSocketProtocol.connection_made = connection_made
+    WebSocketProtocol._protopen_nodelay = True
+
+
 def register_terminal_ws(app, *, api_key: str = "") -> None:
     """Register the `/ws/terminal` PTY bridge on the FastAPI app."""
+    _enable_ws_tcp_nodelay()  # kill ~40ms Nagle stall on keystroke echo
 
     @app.websocket("/ws/terminal")
     async def terminal_ws(ws: WebSocket) -> None:  # noqa: C901 — one cohesive bridge
