@@ -241,6 +241,51 @@ function TerminalPane({ sid, visible }: { sid: string; visible: boolean }) {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "input", data }));
     });
 
+    // Local convenience hotkeys (everything else passes through to the PTY).
+    // Mac uses ⌘; other platforms use Ctrl (with Shift for copy/paste, since
+    // Ctrl+C must stay SIGINT). Returning false consumes the key.
+    const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== "keydown") return true;
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      const otherMod = isMac ? e.ctrlKey : e.metaKey;
+      if (!mod || otherMod || e.altKey) return true; // not our combo → to PTY
+      const send = (msg: object) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(msg));
+
+      if (e.code === "KeyK" && !e.shiftKey) {
+        // Clear: wipe the local view AND the server scrollback (so a reload
+        // doesn't replay the cleared output).
+        term.clear();
+        send({ type: "clear" });
+        return false;
+      }
+      if (e.code === "KeyC") {
+        // ⌘C / Ctrl+Shift+C copies a selection; plain Ctrl+C falls through to SIGINT.
+        const wantsCopy = isMac || e.shiftKey;
+        if (wantsCopy) {
+          if (term.hasSelection()) {
+            void navigator.clipboard?.writeText(term.getSelection()).catch(() => {});
+          }
+          return false;
+        }
+        return true;
+      }
+      if (e.code === "KeyV" && (isMac || e.shiftKey)) {
+        void navigator.clipboard
+          ?.readText()
+          .then((text) => {
+            if (text) send({ type: "input", data: text });
+          })
+          .catch(() => {});
+        return false;
+      }
+      if (e.code === "KeyA" && isMac && !e.shiftKey) {
+        term.selectAll();
+        return false;
+      }
+      return true;
+    });
+
     const ro = new ResizeObserver(() => fitResizeRef.current());
     ro.observe(host);
 
