@@ -30,3 +30,5 @@ docs/.vitepress/cache/
 
 # uv lockfile — deps are managed via requirements.txt, not uv
 uv.lock
+# auto-mode runtime lock — never commit (tracking it conflicts every concurrent PR)
+.automaker-lock
