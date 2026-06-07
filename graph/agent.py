@@ -148,7 +148,7 @@ def _subagent_middleware(config: LangGraphConfig):
     lead. Without this a delegated tool could exceed the current mode ceiling
     (e.g. run an active/redteam tool while the engagement is PASSIVE) and skip the
     audit log. Mirrors the lead's enforcement construction in ``_build_middleware``;
-    enforcement is added only when configured (else just audit).
+    each gate honors the same config flag the lead's ``_build_middleware`` uses.
     """
     mw = []
     if config.enforcement_middleware:
@@ -157,7 +157,8 @@ def _subagent_middleware(config: LangGraphConfig):
         mgr = get_engagement_manager()
         max_phase = KillChainPhase[config.enforcement_max_phase.upper()] if config.enforcement_max_phase else None
         mw.append(EnforcementMiddleware(mgr, max_phase=max_phase))
-    mw.append(AuditMiddleware())
+    if config.audit_middleware:
+        mw.append(AuditMiddleware())
     return mw
 
 
