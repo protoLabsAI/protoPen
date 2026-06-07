@@ -28,10 +28,14 @@ import json
 import logging
 import os
 import pty
+import secrets
 import shutil
 import signal
 import struct
 import subprocess
+import time
+from dataclasses import dataclass, field
+from typing import Any
 
 import fcntl
 import termios
@@ -41,6 +45,11 @@ from fastapi import WebSocket, WebSocketDisconnect
 logger = logging.getLogger(__name__)
 
 _READ_CHUNK = 65536
+# Persistent-session tuning (protopen-330).
+_SCROLLBACK_BYTES = 256 * 1024  # replayed on reconnect
+_IDLE_TTL_SECONDS = 30 * 60  # reap a detached session after this idle
+_MAX_SESSIONS = 24
+_REAP_INTERVAL = 60
 
 
 def _detect_shell() -> str:
@@ -91,12 +100,144 @@ def _enable_ws_tcp_nodelay() -> None:
     WebSocketProtocol._protopen_nodelay = True
 
 
+# ── Persistent sessions (protopen-330) ───────────────────────────────────────
+# A terminal is a PTY session decoupled from any single WebSocket, so it survives
+# a browser reload. A background pump always drains the PTY into a scrollback ring
+# buffer and forwards to the attached socket when one is present; reconnecting
+# with the same ?session= id re-attaches and replays the scrollback. A detached
+# session is reaped after an idle TTL; an exited shell is cleaned up immediately.
+
+
+@dataclass
+class _Session:
+    sid: str
+    master_fd: int
+    proc: subprocess.Popen
+    pump: asyncio.Task | None = None
+    ws: Any = None  # the currently attached WebSocket, or None when detached
+    scrollback: bytearray = field(default_factory=bytearray)
+    last_active: float = 0.0
+    closed: bool = False
+
+
+_SESSIONS: dict[str, _Session] = {}
+_reaper: asyncio.Task | None = None
+
+
+def _spawn_session(sid: str) -> _Session | None:
+    """Start a PTY-backed shell session and its background pump. Returns None if
+    the shell can't spawn."""
+    shell = _detect_shell()
+    # A writable cwd: the engagement sandbox if set, else $HOME. (In the hardened
+    # container the rootfs is read-only; SANDBOX_DIR is tmpfs.)
+    cwd = os.environ.get("SANDBOX_DIR") or os.path.expanduser("~") or "/tmp"
+    if not os.path.isdir(cwd):
+        cwd = "/tmp"
+    master_fd, slave_fd = pty.openpty()
+    try:
+        _set_winsize(master_fd, 80, 24)
+    except OSError:
+        pass
+    try:
+        proc = subprocess.Popen(  # noqa: S603 — operator-gated interactive shell
+            [shell],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            cwd=cwd,
+            env={**os.environ, "TERM": "xterm-256color"},
+            start_new_session=True,
+            close_fds=True,
+        )
+    except OSError as exc:
+        os.close(master_fd)
+        os.close(slave_fd)
+        logger.warning("[terminal] shell spawn failed: %r", exc)
+        return None
+    os.close(slave_fd)  # the child owns the slave now
+    sess = _Session(sid=sid, master_fd=master_fd, proc=proc, last_active=time.monotonic())
+    _SESSIONS[sid] = sess
+    sess.pump = asyncio.create_task(_pump(sess))
+    return sess
+
+
+async def _pump(sess: _Session) -> None:
+    """Drain the PTY for the session's whole life — into the scrollback ring and,
+    when attached, the socket. Runs independently of any WebSocket so output keeps
+    accumulating while detached (across a reload)."""
+    loop = asyncio.get_running_loop()
+    try:
+        while True:
+            try:
+                data = await loop.run_in_executor(None, os.read, sess.master_fd, _READ_CHUNK)
+            except OSError:
+                break
+            if not data:  # shell exited (EOF)
+                break
+            sess.last_active = time.monotonic()
+            sess.scrollback += data
+            if len(sess.scrollback) > _SCROLLBACK_BYTES:
+                del sess.scrollback[: len(sess.scrollback) - _SCROLLBACK_BYTES]
+            ws = sess.ws
+            if ws is not None:
+                try:
+                    await ws.send_text(json.dumps({"type": "data", "data": data.decode("utf-8", errors="replace")}))
+                except Exception:  # noqa: BLE001 — detached/broken socket; keep buffering
+                    pass
+    finally:
+        await _destroy_session(sess, exited=True)
+
+
+async def _destroy_session(sess: _Session, *, exited: bool = False) -> None:
+    """SIGHUP the shell, reap it, and drop the session. Idempotent."""
+    if sess.closed:
+        return
+    sess.closed = True
+    _SESSIONS.pop(sess.sid, None)
+    try:
+        os.killpg(os.getpgid(sess.proc.pid), signal.SIGHUP)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            sess.proc.terminate()
+        except OSError:
+            pass
+    try:
+        os.close(sess.master_fd)  # unblocks the pump's executor read
+    except OSError:
+        pass
+    loop = asyncio.get_running_loop()
+    try:
+        await asyncio.wait_for(loop.run_in_executor(None, sess.proc.wait), timeout=3)
+    except (TimeoutError, asyncio.TimeoutError):
+        try:
+            sess.proc.kill()
+        except OSError:
+            pass
+    ws = sess.ws
+    if exited and ws is not None:
+        try:
+            await ws.send_text(json.dumps({"type": "exit", "code": sess.proc.returncode or 0}))
+            await ws.close()
+        except Exception:  # noqa: BLE001 — already tearing down
+            pass
+
+
+async def _reap_idle_sessions() -> None:
+    """Kill detached sessions idle past the TTL so orphaned shells don't leak."""
+    while True:
+        await asyncio.sleep(_REAP_INTERVAL)
+        now = time.monotonic()
+        for sess in list(_SESSIONS.values()):
+            if sess.ws is None and (now - sess.last_active) > _IDLE_TTL_SECONDS:
+                await _destroy_session(sess)
+
+
 def register_terminal_ws(app, *, api_key: str = "") -> None:
     """Register the `/ws/terminal` PTY bridge on the FastAPI app."""
     _enable_ws_tcp_nodelay()  # kill ~40ms Nagle stall on keystroke echo
 
     @app.websocket("/ws/terminal")
-    async def terminal_ws(ws: WebSocket) -> None:  # noqa: C901 — one cohesive bridge
+    async def terminal_ws(ws: WebSocket) -> None:
         # Auth before accept: browser WS can't send headers, so the operator key
         # rides ?key=. No configured key → open (local dev), like the REST routes.
         if api_key and ws.query_params.get("key") != api_key:
@@ -104,57 +245,35 @@ def register_terminal_ws(app, *, api_key: str = "") -> None:
             return
         await ws.accept()
 
-        shell = _detect_shell()
-        # A writable cwd: the engagement sandbox if set, else $HOME. (In the
-        # hardened container the rootfs is read-only; SANDBOX_DIR is tmpfs.)
-        cwd = os.environ.get("SANDBOX_DIR") or os.path.expanduser("~") or "/tmp"
-        if not os.path.isdir(cwd):
-            cwd = "/tmp"
+        global _reaper
+        if _reaper is None:
+            _reaper = asyncio.create_task(_reap_idle_sessions())
 
-        # openpty + a session-leading child: cleaner than pty.fork() under an
-        # asyncio server (no forking the event loop). The slave becomes the
-        # shell's stdio + controlling tty via start_new_session.
-        master_fd, slave_fd = pty.openpty()
-        try:
-            _set_winsize(master_fd, 80, 24)
-        except OSError:
-            pass
+        # Reconnect by session id; replay scrollback. A new/unknown id (or a
+        # reaped one) spawns a fresh shell. Cap total sessions.
+        sid = (ws.query_params.get("session") or "").strip() or secrets.token_hex(8)
+        sess = _SESSIONS.get(sid)
+        if sess is not None and sess.closed:
+            sess = None
+        if sess is None:
+            if len(_SESSIONS) >= _MAX_SESSIONS:
+                await ws.send_text(json.dumps({"type": "data", "data": "\r\ntoo many terminal sessions\r\n"}))
+                await ws.close()
+                return
+            sess = _spawn_session(sid)
+            if sess is None:
+                await ws.send_text(json.dumps({"type": "data", "data": "\r\nshell spawn failed\r\n"}))
+                await ws.close()
+                return
 
-        env = {**os.environ, "TERM": "xterm-256color"}
-        try:
-            proc = subprocess.Popen(  # noqa: S603 — operator-gated interactive shell
-                [shell],
-                stdin=slave_fd,
-                stdout=slave_fd,
-                stderr=slave_fd,
-                cwd=cwd,
-                env=env,
-                start_new_session=True,
-                close_fds=True,
+        sess.ws = ws  # attach (single attachment; a new connect takes over)
+        await ws.send_text(json.dumps({"type": "session", "id": sid}))
+        if sess.scrollback:  # replay prior output into the fresh xterm
+            await ws.send_text(
+                json.dumps({"type": "data", "data": bytes(sess.scrollback).decode("utf-8", errors="replace")})
             )
-        except OSError as exc:
-            os.close(master_fd)
-            os.close(slave_fd)
-            await ws.send_text(json.dumps({"type": "data", "data": f"\r\nshell spawn failed: {exc}\r\n"}))
-            await ws.close()
-            return
-        os.close(slave_fd)  # the child owns the slave now
 
-        loop = asyncio.get_running_loop()
-
-        async def pty_to_ws() -> None:
-            # Blocking read in a thread (one per live terminal). On shell exit /
-            # fd close the read returns EOF and we fall through to cleanup.
-            while True:
-                try:
-                    data = await loop.run_in_executor(None, os.read, master_fd, _READ_CHUNK)
-                except OSError:
-                    break
-                if not data:
-                    break
-                await ws.send_text(json.dumps({"type": "data", "data": data.decode("utf-8", errors="replace")}))
-
-        async def ws_to_pty() -> None:
+        try:
             while True:
                 raw = await ws.receive_text()
                 try:
@@ -163,45 +282,21 @@ def register_terminal_ws(app, *, api_key: str = "") -> None:
                     continue
                 kind = msg.get("type")
                 if kind == "input":
-                    os.write(master_fd, str(msg.get("data", "")).encode("utf-8"))
+                    try:
+                        os.write(sess.master_fd, str(msg.get("data", "")).encode("utf-8"))
+                    except OSError:
+                        break
                 elif kind == "resize":
                     try:
-                        _set_winsize(master_fd, msg.get("cols", 80), msg.get("rows", 24))
+                        _set_winsize(sess.master_fd, msg.get("cols", 80), msg.get("rows", 24))
                     except OSError:
                         pass
                 elif kind == "ping":
                     await ws.send_text(json.dumps({"type": "pong"}))
-
-        reader = asyncio.create_task(pty_to_ws())
-        writer = asyncio.create_task(ws_to_pty())
-        try:
-            done, pending = await asyncio.wait({reader, writer}, return_when=asyncio.FIRST_COMPLETED)
-            # Surface a non-disconnect crash in the writer for logs.
-            for task in done:
-                exc = task.exception()
-                if exc and not isinstance(exc, WebSocketDisconnect):
-                    logger.warning("[terminal] task ended: %r", exc)
+        except WebSocketDisconnect:
+            pass
         finally:
-            # Tear down the shell first — terminating the process closes the PTY,
-            # which unblocks the executor read so pty_to_ws can finish.
-            try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGHUP)
-            except (ProcessLookupError, PermissionError, OSError):
-                proc.terminate()
-            try:
-                os.close(master_fd)
-            except OSError:
-                pass
-            for task in (reader, writer):
-                task.cancel()
-            # Popen.wait() is blocking/sync — reap it off the loop with a timeout.
-            try:
-                await asyncio.wait_for(loop.run_in_executor(None, proc.wait), timeout=3)
-            except (TimeoutError, asyncio.TimeoutError):
-                proc.kill()
-            if ws.client_state.name != "DISCONNECTED":
-                try:
-                    await ws.send_text(json.dumps({"type": "exit", "code": proc.returncode or 0}))
-                    await ws.close()
-                except Exception:  # noqa: BLE001 — already tearing down
-                    pass
+            # Detach but KEEP the PTY + pump alive so a reload can re-attach.
+            if sess.ws is ws:
+                sess.ws = None
+                sess.last_active = time.monotonic()

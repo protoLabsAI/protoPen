@@ -1,5 +1,6 @@
 """Integrated terminal — PTY-over-WebSocket bridge (server/terminal.py)."""
 
+import asyncio
 import json
 import os
 import pty
@@ -43,6 +44,27 @@ def test_enable_ws_tcp_nodelay_is_idempotent_and_patches():
     assert WebSocketProtocol.connection_made is made
 
 
+@pytest.fixture(autouse=True)
+def _cleanup_sessions():
+    """Sessions now outlive a WS disconnect (protopen-330) — kill any the test
+    left behind so shells don't leak between tests."""
+    import signal as _signal
+
+    import server.terminal as _term
+
+    yield
+    for sess in list(_term._SESSIONS.values()):
+        try:
+            os.killpg(os.getpgid(sess.proc.pid), _signal.SIGKILL)
+        except OSError:
+            pass
+        try:
+            os.close(sess.master_fd)
+        except OSError:
+            pass
+    _term._SESSIONS.clear()
+
+
 def _app(api_key: str = "") -> FastAPI:
     app = FastAPI()
     register_terminal_ws(app, api_key=api_key)
@@ -72,6 +94,61 @@ def test_ws_echo_roundtrip():
                 if marker in seen:
                     break
         assert marker in seen
+
+
+@pytest.mark.asyncio
+async def test_ws_reconnect_replays_scrollback():
+    """A session survives a WS disconnect (protopen-330): reconnecting with the
+    same ?session= id replays the prior output so a browser reload restores the
+    terminal. Run against a REAL uvicorn server — starlette's TestClient can't
+    drive the concurrent pump-send + reconnect path (the production path can)."""
+    import socket as _socket
+    import threading
+
+    import uvicorn
+    import websockets
+
+    app = _app()
+    sk = _socket.socket()
+    sk.bind(("127.0.0.1", 0))
+    port = sk.getsockname()[1]
+    sk.close()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(50):
+            if server.started:
+                break
+            await asyncio.sleep(0.1)
+        url = f"ws://127.0.0.1:{port}/ws/terminal?session=rex"
+        marker = "scrollback_marker_42"
+        async with websockets.connect(url) as ws:
+            await ws.send(json.dumps({"type": "input", "data": f"echo {marker}\n"}))
+            seen = ""
+            for _ in range(50):
+                m = json.loads(await asyncio.wait_for(ws.recv(), timeout=3))
+                if m.get("type") == "data":
+                    seen += m.get("data", "")
+                    if marker in seen:
+                        break
+            assert marker in seen
+        await asyncio.sleep(0.3)  # let the detach settle
+        async with websockets.connect(url) as ws2:
+            seen2 = ""
+            for _ in range(20):
+                try:
+                    m = json.loads(await asyncio.wait_for(ws2.recv(), timeout=2))
+                except (TimeoutError, asyncio.TimeoutError):
+                    break
+                if m.get("type") == "data":
+                    seen2 += m.get("data", "")
+                    if marker in seen2:
+                        break
+            assert marker in seen2, "scrollback was not replayed on reconnect"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
 
 
 def test_ws_resize_is_accepted_mid_session():

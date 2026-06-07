@@ -43,42 +43,79 @@ const THEME = {
 const FONT = '"Berkeley Mono", "Geist Mono", "JetBrains Mono", ui-monospace, monospace';
 
 /** ws(s):// URL for the terminal bridge, carrying the operator key (browser WS
- *  can't set headers). Mirrors lib/api's base resolution. */
-function terminalWsUrl(): string {
+ *  can't set headers) and the session id for reconnect. Mirrors lib/api's base. */
+function terminalWsUrl(sid: string): string {
   const httpBase = apiUrl("/ws/terminal");
-  let url: string;
+  let base: string;
   if (/^https?:\/\//.test(httpBase)) {
-    url = httpBase.replace(/^http/, "ws");
+    base = httpBase.replace(/^http/, "ws");
   } else {
     const { protocol, host } = window.location;
-    url = `${protocol === "https:" ? "wss" : "ws"}://${host}${httpBase}`;
+    base = `${protocol === "https:" ? "wss" : "ws"}://${host}${httpBase}`;
   }
+  const params = new URLSearchParams();
   const key = getOperatorKey();
-  return key ? `${url}?key=${encodeURIComponent(key)}` : url;
+  if (key) params.set("key", key);
+  if (sid) params.set("session", sid);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
-let tabSeq = 0;
-type Tab = { id: string; title: string };
+// A terminal tab is identified by its server session id (sid) so a reload can
+// reconnect to the same PTY and replay its scrollback (protopen-330). Tabs are
+// persisted in localStorage; the sid survives the reload, the PTY survives on the
+// server (until its idle TTL), so the terminal comes back as you left it.
+type Tab = { sid: string; title: string };
+const TABS_KEY = "protopen.terminal.tabs.v1";
+
+function newSid(): string {
+  return `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function loadTabs(): { tabs: Tab[]; currentSid: string } {
+  try {
+    const raw = window.localStorage.getItem(TABS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { tabs?: Tab[]; currentSid?: string };
+      const tabs = (parsed.tabs || []).filter((t) => t && t.sid);
+      if (tabs.length) return { tabs, currentSid: parsed.currentSid || tabs[0].sid };
+    }
+  } catch {
+    /* ignore corrupt/absent state */
+  }
+  const t = { sid: newSid(), title: "shell 1" };
+  return { tabs: [t], currentSid: t.sid };
+}
 
 export function TerminalSurface({ active = true }: { active?: boolean }) {
-  const [tabs, setTabs] = useState<Tab[]>(() => [{ id: `term-${++tabSeq}`, title: "shell 1" }]);
-  const [currentId, setCurrentId] = useState(tabs[0].id);
+  const initial = useRef(loadTabs());
+  const [tabs, setTabs] = useState<Tab[]>(initial.current.tabs);
+  const [currentSid, setCurrentSid] = useState(initial.current.currentSid);
+
+  // Persist tabs + selection so a reload restores the same sessions.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TABS_KEY, JSON.stringify({ tabs, currentSid }));
+    } catch {
+      /* storage unavailable */
+    }
+  }, [tabs, currentSid]);
 
   function newTab() {
-    const tab = { id: `term-${++tabSeq}`, title: `shell ${tabs.length + 1}` };
+    const tab = { sid: newSid(), title: `shell ${tabs.length + 1}` };
     setTabs((prev) => [...prev, tab]);
-    setCurrentId(tab.id);
+    setCurrentSid(tab.sid);
   }
 
-  function closeTab(id: string) {
+  function closeTab(sid: string) {
     setTabs((prev) => {
-      const next = prev.filter((tab) => tab.id !== id);
+      const next = prev.filter((tab) => tab.sid !== sid);
       if (next.length === 0) {
-        const fresh = { id: `term-${++tabSeq}`, title: "shell 1" };
-        setCurrentId(fresh.id);
+        const fresh = { sid: newSid(), title: "shell 1" };
+        setCurrentSid(fresh.sid);
         return [fresh];
       }
-      if (id === currentId) setCurrentId(next[next.length - 1].id);
+      if (sid === currentSid) setCurrentSid(next[next.length - 1].sid);
       return next;
     });
   }
@@ -92,14 +129,14 @@ export function TerminalSurface({ active = true }: { active?: boolean }) {
       <div className="chat-header" role="tablist" aria-label="Terminals">
         <div className="chat-session-tabs">
           {tabs.map((tab) => (
-            <div className={`chat-tab ${tab.id === currentId ? "active" : ""}`} key={tab.id}>
+            <div className={`chat-tab ${tab.sid === currentSid ? "active" : ""}`} key={tab.sid}>
               <span className="session-dot idle" />
               <button
                 type="button"
                 role="tab"
-                aria-selected={tab.id === currentId}
+                aria-selected={tab.sid === currentSid}
                 className="chat-tab-label"
-                onClick={() => setCurrentId(tab.id)}
+                onClick={() => setCurrentSid(tab.sid)}
               >
                 {tab.title}
               </button>
@@ -107,7 +144,7 @@ export function TerminalSurface({ active = true }: { active?: boolean }) {
                 type="button"
                 className="chat-tab-close"
                 title="Close terminal"
-                onClick={() => closeTab(tab.id)}
+                onClick={() => closeTab(tab.sid)}
               >
                 <X size={13} />
               </button>
@@ -122,14 +159,14 @@ export function TerminalSurface({ active = true }: { active?: boolean }) {
 
       <div className="term-pool">
         {tabs.map((tab) => (
-          <TerminalPane key={tab.id} visible={active && tab.id === currentId} />
+          <TerminalPane key={tab.sid} sid={tab.sid} visible={active && tab.sid === currentSid} />
         ))}
       </div>
     </section>
   );
 }
 
-function TerminalPane({ visible }: { visible: boolean }) {
+function TerminalPane({ sid, visible }: { sid: string; visible: boolean }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitResizeRef = useRef<() => void>(() => {});
@@ -162,7 +199,7 @@ function TerminalPane({ visible }: { visible: boolean }) {
       /* no WebGL — DOM renderer is fine */
     }
 
-    const ws = new WebSocket(terminalWsUrl());
+    const ws = new WebSocket(terminalWsUrl(sid));
     let pingTimer: number | undefined;
 
     const sendResize = () => {
