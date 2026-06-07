@@ -151,6 +151,34 @@ async def test_ws_reconnect_replays_scrollback():
         thread.join(timeout=5)
 
 
+def test_ws_clear_wipes_scrollback():
+    """⌘/Ctrl+K sends {type:'clear'}, which empties the server scrollback so a
+    later reconnect doesn't replay the cleared output."""
+    import server.terminal as _term
+
+    sid = "test-clear-1"
+    tc = TestClient(_app())
+    with tc.websocket_connect(f"/ws/terminal?session={sid}") as ws:
+        ws.send_text(json.dumps({"type": "input", "data": "echo CLEARME_MARKER\n"}))
+        seen = ""
+        for _ in range(400):
+            m = json.loads(ws.receive_text())
+            if m.get("type") == "data":
+                seen += m.get("data", "")
+            if "CLEARME_MARKER" in seen:
+                break
+        assert "CLEARME_MARKER" in seen
+        ws.send_text(json.dumps({"type": "clear"}))
+        # ping→pong fences the clear (processed in receive order) before we assert.
+        ws.send_text(json.dumps({"type": "ping"}))
+        for _ in range(400):
+            if json.loads(ws.receive_text()).get("type") == "pong":
+                break
+        sess = _term._SESSIONS.get(sid)
+        assert sess is not None
+        assert b"CLEARME_MARKER" not in bytes(sess.scrollback)
+
+
 def test_ws_resize_is_accepted_mid_session():
     """A resize frame is handled without tearing the session down."""
     client = TestClient(_app())

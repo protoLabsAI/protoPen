@@ -41,6 +41,19 @@ JSON text frames:
   full-screen TUIs and line wrapping render correctly.
 - **Theme** — matches the Pilot Protocol terminal skin.
 
+### Hotkeys
+
+Local convenience keys; everything else passes through to the shell. Mac uses ⌘;
+other platforms use Ctrl (with Shift for copy/paste so `Ctrl+C` stays SIGINT).
+
+| Key (Mac / other) | Action |
+|---|---|
+| `⌘K` / `Ctrl+K` | Clear the terminal (also wipes the server scrollback) |
+| `⌘C` / `Ctrl+Shift+C` | Copy selection |
+| `⌘V` / `Ctrl+Shift+V` | Paste |
+| `⌘A` (Mac) | Select all |
+| `Ctrl+C` | SIGINT (unchanged — passes through to the shell) |
+
 ## Security
 
 A live interactive shell is a real capability — it runs commands in the server's

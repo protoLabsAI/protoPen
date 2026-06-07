@@ -291,6 +291,10 @@ def register_terminal_ws(app, *, api_key: str = "") -> None:
                         _set_winsize(sess.master_fd, msg.get("cols", 80), msg.get("rows", 24))
                     except OSError:
                         pass
+                elif kind == "clear":
+                    # ⌘/Ctrl+K cleared the view — drop the server scrollback too
+                    # so a reload doesn't replay the cleared output.
+                    sess.scrollback.clear()
                 elif kind == "ping":
                     await ws.send_text(json.dumps({"type": "pong"}))
         except WebSocketDisconnect:
