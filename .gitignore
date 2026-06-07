@@ -24,6 +24,7 @@ docs/.vitepress/cache/
 # the committed issues.jsonl / config.yaml.
 .beads/*.db
 .worktrees/
+.automaker-lock
 .automaker/features/
 .automaker/checkpoints/
 .automaker/trajectory/
