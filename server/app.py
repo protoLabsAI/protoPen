@@ -681,6 +681,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     if mount_react_app(fastapi_app, _web_dist):
         print("[protoPen] React operator console mounted at /app")
 
+    # Integrated terminal: PTY bridged to xterm.js over /ws/terminal, gated by
+    # the same operator key. The only WebSocket on the server.
+    from server.terminal import register_terminal_ws
+
+    register_terminal_ws(fastapi_app, api_key=_operator_api_key)
+    print("[protoPen] Terminal WebSocket mounted at /ws/terminal")
+
     # Spec dump: emit the fully-assembled REST surface (chat, /v1, operator API)
     # and exit before the Gradio mount and uvicorn — the spec, not the server.
     if dump_openapi:
