@@ -151,13 +151,18 @@ fi
 # otherwise sleeps between beacons, which adds ~80ms of latency to the first
 # packet after an idle gap — felt directly as input lag in the console terminal
 # and chat (measured ~85ms → ~8ms echo RTT with it off). Re-applied every start
-# since it resets on reconnect/reboot. Ignored if `iw` is missing or denied.
+# since it resets on reconnect/reboot. `iw set power_save` needs CAP_NET_ADMIN,
+# which a systemd --user service lacks, so fall back to passwordless sudo (the
+# Deck allows it). Fully non-fatal if `iw`/sudo are missing or denied.
 if command -v iw >/dev/null 2>&1; then
     _wif="$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')"
     if [ -n "$_wif" ]; then
-        iw dev "$_wif" set power_save off >/dev/null 2>&1 \
-            && echo "✓ WiFi power-save off on $_wif (lower interactive latency)" \
-            || echo "WARN: could not disable WiFi power-save on $_wif (non-fatal)"
+        if iw dev "$_wif" set power_save off >/dev/null 2>&1 \
+            || sudo -n iw dev "$_wif" set power_save off >/dev/null 2>&1; then
+            echo "✓ WiFi power-save off on $_wif (lower interactive latency)"
+        else
+            echo "WARN: could not disable WiFi power-save on $_wif (needs CAP_NET_ADMIN/sudo) — non-fatal"
+        fi
     fi
 fi
 
