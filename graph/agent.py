@@ -140,6 +140,27 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
     return middleware
 
 
+def _subagent_middleware(config: LangGraphConfig):
+    """Enforcement + audit for delegated subagents.
+
+    Subagents do the real work (tool calls), so the engagement mode/scope gate
+    (EnforcementMiddleware) and the audit trail must cover them too — not just the
+    lead. Without this a delegated tool could exceed the current mode ceiling
+    (e.g. run an active/redteam tool while the engagement is PASSIVE) and skip the
+    audit log. Mirrors the lead's enforcement construction in ``_build_middleware``;
+    enforcement is added only when configured (else just audit).
+    """
+    mw = []
+    if config.enforcement_middleware:
+        from enforcement.phases import KillChainPhase
+
+        mgr = get_engagement_manager()
+        max_phase = KillChainPhase[config.enforcement_max_phase.upper()] if config.enforcement_max_phase else None
+        mw.append(EnforcementMiddleware(mgr, max_phase=max_phase))
+    mw.append(AuditMiddleware())
+    return mw
+
+
 def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     """Build the task tool for subagent delegation.
 
@@ -148,7 +169,6 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     support async streaming of subagent progress yet.
     """
     from langchain_core.tools import tool
-    from langgraph.prebuilt import create_react_agent
 
     # Build tool registries for each subagent
     tool_map = {t.name: t for t in all_tools}
@@ -185,11 +205,13 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
         # Subagent model: per-subagent override → routing.aux_model → main model.
         sub_llm = create_llm(config, model_name=_resolve_aux_model(config, getattr(sub_config, "model", "")))
 
-        # Create subagent graph
-        subagent = create_react_agent(
+        # Create subagent graph — WITH the enforcement + audit rail, so delegated
+        # tool calls respect the engagement mode/scope ceiling (and are audited).
+        subagent = create_agent(
             model=sub_llm,
             tools=sub_tools,
-            prompt=build_subagent_prompt(subagent_type),
+            middleware=_subagent_middleware(config),
+            system_prompt=build_subagent_prompt(subagent_type),
         )
 
         # Run subagent
@@ -228,11 +250,9 @@ async def run_manual_subagent(
 
     Used by the React operator console's manual launch. Mirrors
     ``_build_task_tool``'s runner: build the subagent from SUBAGENT_REGISTRY +
-    create_react_agent and run it. ``scheduler`` / ``emit_skill`` are accepted
-    for operator-API parity but unused in protoPen.
+    create_agent (with the enforcement + audit rail) and run it. ``scheduler`` /
+    ``emit_skill`` are accepted for operator-API parity but unused in protoPen.
     """
-    from langgraph.prebuilt import create_react_agent
-
     if not prompt or not prompt.strip():
         raise ValueError("prompt is required")
     sub_config = SUBAGENT_REGISTRY.get(subagent_type)
@@ -246,10 +266,11 @@ async def run_manual_subagent(
     sub_tools = [tool_map[name] for name in sub_config.tools if name in tool_map]
     if not sub_tools:
         raise ValueError(f"No tools available for subagent '{subagent_type}'.")
-    subagent = create_react_agent(
+    subagent = create_agent(
         model=sub_llm,
         tools=sub_tools,
-        prompt=build_subagent_prompt(subagent_type),
+        middleware=_subagent_middleware(config),
+        system_prompt=build_subagent_prompt(subagent_type),
     )
     try:
         result = await subagent.ainvoke(
