@@ -15,9 +15,7 @@ from graph.middleware.enforcement import EnforcementMiddleware
 def test_subagent_middleware_puts_enforcement_first_when_enabled():
     import graph.agent as agent
 
-    config = SimpleNamespace(
-        enforcement_middleware=True, enforcement_max_phase="", audit_middleware=True
-    )
+    config = SimpleNamespace(enforcement_middleware=True, enforcement_max_phase="", audit_middleware=True)
     mw = agent._subagent_middleware(config)
     # Enforcement must run BEFORE audit (block before record), mirroring the lead.
     assert isinstance(mw[0], EnforcementMiddleware)
@@ -27,9 +25,7 @@ def test_subagent_middleware_puts_enforcement_first_when_enabled():
 def test_subagent_middleware_is_audit_only_when_enforcement_off():
     import graph.agent as agent
 
-    config = SimpleNamespace(
-        enforcement_middleware=False, enforcement_max_phase="", audit_middleware=True
-    )
+    config = SimpleNamespace(enforcement_middleware=False, enforcement_max_phase="", audit_middleware=True)
     mw = agent._subagent_middleware(config)
     assert [type(m).__name__ for m in mw] == ["AuditMiddleware"]
 
@@ -38,9 +34,7 @@ def test_subagent_middleware_honors_audit_flag():
     """Audit is gated by config.audit_middleware, same as the lead — both off → no rail."""
     import graph.agent as agent
 
-    config = SimpleNamespace(
-        enforcement_middleware=False, enforcement_max_phase="", audit_middleware=False
-    )
+    config = SimpleNamespace(enforcement_middleware=False, enforcement_max_phase="", audit_middleware=False)
     assert agent._subagent_middleware(config) == []
 
 
