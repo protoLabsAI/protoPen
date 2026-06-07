@@ -9,7 +9,12 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from server.terminal import _detect_shell, _set_winsize, register_terminal_ws
+from server.terminal import (
+    _detect_shell,
+    _enable_ws_tcp_nodelay,
+    _set_winsize,
+    register_terminal_ws,
+)
 
 
 def test_detect_shell_returns_an_existing_path():
@@ -24,6 +29,18 @@ def test_set_winsize_on_a_real_pty_does_not_raise():
     finally:
         os.close(master)
         os.close(slave)
+
+
+def test_enable_ws_tcp_nodelay_is_idempotent_and_patches():
+    """The Nagle-disabling patch marks the uvicorn WS protocol and is safe to
+    call repeatedly (kills the ~40ms keystroke-echo stall)."""
+    from uvicorn.protocols.websockets.websockets_impl import WebSocketProtocol
+
+    _enable_ws_tcp_nodelay()
+    assert getattr(WebSocketProtocol, "_protopen_nodelay", False) is True
+    made = WebSocketProtocol.connection_made
+    _enable_ws_tcp_nodelay()  # second call is a no-op (no double-wrap)
+    assert WebSocketProtocol.connection_made is made
 
 
 def _app(api_key: str = "") -> FastAPI:

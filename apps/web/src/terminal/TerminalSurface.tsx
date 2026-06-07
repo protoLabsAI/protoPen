@@ -2,6 +2,7 @@ import { Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { FitAddon } from "@xterm/addon-fit";
+import { WebglAddon } from "@xterm/addon-webgl";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
@@ -150,6 +151,16 @@ function TerminalPane({ visible }: { visible: boolean }) {
     term.loadAddon(new WebLinksAddon());
     term.open(host);
     termRef.current = term;
+
+    // GPU renderer — lower render latency / smoother heavy output. Falls back to
+    // the DOM renderer if WebGL is unavailable or the context is lost.
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => webgl.dispose());
+      term.loadAddon(webgl);
+    } catch {
+      /* no WebGL — DOM renderer is fine */
+    }
 
     const ws = new WebSocket(terminalWsUrl());
     let pingTimer: number | undefined;
