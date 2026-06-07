@@ -205,3 +205,55 @@ def test_store_roundtrip(tmp_path):
     assert store.get("s").condition == "x"
     assert [g.session_id for g in store.all()] == ["s"]
     assert store.clear("s") and store.get("s") is None
+
+
+# ── monitor goals + per-goal patience (ADR 0030 adapted) ───────────────────────
+
+from graph.goals import controller as _controller_mod  # noqa: E402
+from graph.goals.types import VerifyResult  # noqa: E402
+
+
+def test_parse_set_json_monitor_and_no_progress(tmp_path):
+    c = _ctrl(tmp_path)
+    _run(
+        c.parse_control(
+            '/goal {"condition":"watch creds","verifier":{"type":"llm"},"mode":"monitor","no_progress_limit":2}',
+            "s",
+        )
+    )
+    g = c.active_goal("s")
+    assert g.mode == "monitor" and g.no_progress_limit == 2
+    assert "monitor" in g.status_line()
+
+
+def test_monitor_goal_does_not_storm_and_ends_only_on_achieved(tmp_path, monkeypatch):
+    met = {"v": False}
+
+    async def fake(spec, ctx):
+        return VerifyResult(met=met["v"], reason="checking", evidence="")
+
+    monkeypatch.setattr(_controller_mod, "run_verifier", fake)
+    c = _ctrl(tmp_path)
+    _run(c.parse_control('/goal {"condition":"x","mode":"monitor"}', "s"))
+    # Not met → None (no continuation/storm), and NO iteration/streak bookkeeping.
+    assert _run(c.evaluate("s", last_text="working")) is None
+    assert _run(c.evaluate("s", last_text="working")) is None
+    g = c.active_goal("s")
+    assert g.status == "active" and g.iteration == 0 and g.no_progress_streak == 0
+    # External process moves the metric → achieved on the next check.
+    met["v"] = True
+    dec = _run(c.evaluate("s", last_text="done"))
+    assert dec is not None and dec.state.status == "achieved"
+
+
+def test_per_goal_no_progress_limit_overrides_config(tmp_path, monkeypatch):
+    async def fake(spec, ctx):
+        return VerifyResult(met=False, reason="stuck", evidence="same")
+
+    monkeypatch.setattr(_controller_mod, "run_verifier", fake)
+    c = _ctrl(tmp_path, goals_no_progress_limit=10)  # lenient config…
+    _run(c.parse_control('/goal {"condition":"x","no_progress_limit":2}', "s"))  # …strict per-goal
+    _run(c.evaluate("s", last_text="a"))  # streak 0, iter 1
+    _run(c.evaluate("s", last_text="a"))  # streak 1, iter 2
+    dec = _run(c.evaluate("s", last_text="a"))  # streak 2 >= 2 → give up
+    assert dec is not None and dec.state.status == "unachievable"

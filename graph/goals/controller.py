@@ -75,27 +75,37 @@ class GoalController:
             return "Goal cleared." if existed else "No active goal to clear."
 
         # /goal {json}  or  /goal <free text>  → set
-        spec, condition, max_iters = self._parse_set(rest)
+        spec, condition, max_iters, no_progress, mode = self._parse_set(rest)
         if condition is None:
             return (
                 "Could not parse goal. Use `/goal <text>` (fuzzy, LLM-judged) or "
                 '`/goal {"condition": "...", "verifier": {"type": "findings", '
-                '"severity": "critical", "min": 1}}`.'
+                '"severity": "critical", "min": 1}, "mode": "monitor"}`.'
             )
         state = GoalState(
             session_id=session_id,
             condition=condition,
             verifier=spec,
+            mode=mode,
             max_iterations=max_iters or getattr(self._config, "goals_max_iterations", 10),
+            no_progress_limit=no_progress,
         )
         self._store.set(state)
         return f"Goal set. {state.status_line()}"
 
-    def start_goal(self, session_id: str, condition: str, verifier: dict | None = None) -> GoalState:
+    def start_goal(
+        self,
+        session_id: str,
+        condition: str,
+        verifier: dict | None = None,
+        mode: str = "drive",
+    ) -> GoalState:
         """Set a goal programmatically — the agent's ``set_goal`` tool path.
 
         Mirrors the ``/goal <text>`` set branch (same defaults + config iteration
         cap) but takes an explicit verifier spec instead of parsing a message.
+        ``mode="monitor"`` (ADR 0030) sets a long-horizon goal the agent supervises
+        without storming the loop.
         """
         spec = dict(verifier) if verifier else {"type": "llm"}
         if "type" not in spec:
@@ -104,27 +114,29 @@ class GoalController:
             session_id=session_id,
             condition=condition,
             verifier=spec,
+            mode=("monitor" if mode == "monitor" else "drive"),
             max_iterations=getattr(self._config, "goals_max_iterations", 10),
         )
         self._store.set(state)
         return state
 
     def _parse_set(self, rest: str):
-        """Return (verifier_spec, condition, max_iterations|None)."""
+        """Return (verifier_spec, condition, max_iterations|None, no_progress_limit|None, mode)."""
         if rest.lstrip().startswith("{"):
             try:
                 data = json.loads(rest)
             except json.JSONDecodeError:
-                return ({}, None, None)
+                return ({}, None, None, None, "drive")
             condition = data.get("condition")
             if not condition:
-                return ({}, None, None)
+                return ({}, None, None, None, "drive")
             verifier = data.get("verifier") or {"type": "llm"}
             if "type" not in verifier:
                 verifier["type"] = "llm"
-            return (verifier, condition, data.get("max_iterations"))
+            mode = "monitor" if data.get("mode") == "monitor" else "drive"
+            return (verifier, condition, data.get("max_iterations"), data.get("no_progress_limit"), mode)
         # plain text → fuzzy goal judged by the llm verifier
-        return ({"type": "llm"}, rest, None)
+        return ({"type": "llm"}, rest, None, None, "drive")
 
     # ── evaluation ─────────────────────────────────────────────────────────
 
@@ -145,6 +157,17 @@ class GoalController:
         if result.met:
             return self._finish(state, "achieved", result.reason or "verifier passed", evidence=result.evidence)
 
+        # 1b. Monitor goals (ADR 0030): an external process moves the metric, not
+        # the agent's turns — so on not-met there's nothing to continue. Record the
+        # check and wait for the next evaluation (a later turn, or a cadence tick);
+        # no continuation, no iteration/no-progress bookkeeping, no exhaustion. It
+        # ends only on achieved (above) or cleared. Returning None stops the loop.
+        if state.mode == "monitor":
+            state.last_reason = result.reason
+            state.last_evidence = result.evidence
+            self._store.set(state)
+            return None
+
         # 2. Not met — honour an explicit give-up from the agent.
         giveup = _GIVEUP_RE.search(last_text or "")
         if giveup:
@@ -162,7 +185,11 @@ class GoalController:
         state.last_evidence = result.evidence
         state.iteration += 1
 
-        limit = getattr(self._config, "goals_no_progress_limit", 4)
+        limit = (
+            state.no_progress_limit
+            if state.no_progress_limit is not None
+            else getattr(self._config, "goals_no_progress_limit", 4)
+        )
         if state.iteration >= state.max_iterations:
             return self._finish(
                 state, "exhausted", f"ran out of iteration budget ({state.max_iterations})", evidence=result.evidence

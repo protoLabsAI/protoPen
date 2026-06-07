@@ -45,10 +45,18 @@ class GoalState:
     condition: str
     verifier: dict = field(default_factory=lambda: {"type": "llm"})
     status: str = "active"
+    # "drive" (default) — the agent's turns move the metric, so a not-met goal
+    # re-invokes the loop. "monitor" (ADR 0030) — an external process moves it
+    # over time, so a not-met check just waits for the next evaluation instead of
+    # storming the loop. Ends only on achieved / cleared.
+    mode: str = "drive"
     checklist: str = ""
     iteration: int = 0
     max_iterations: int = 10
     no_progress_streak: int = 0
+    # Per-goal patience (ADR 0030 D4): stop after this many no-progress checks.
+    # None → fall back to the config default (goals_no_progress_limit).
+    no_progress_limit: int | None = None
     last_reason: str = ""
     last_evidence: str = ""
     started_at: float = field(default_factory=time)
@@ -70,7 +78,13 @@ class GoalState:
     def status_line(self) -> str:
         """One-line human summary for /goal status + continuation footers."""
         vt = self.verifier.get("type", "llm")
-        base = f"goal [{self.status}] via {vt}: {self.condition!r} (iteration {self.iteration}/{self.max_iterations})"
+        if self.mode == "monitor":
+            # Iteration count is meaningless for a monitor goal (it doesn't drive).
+            base = f"goal [{self.status}] monitor via {vt}: {self.condition!r}"
+        else:
+            base = (
+                f"goal [{self.status}] via {vt}: {self.condition!r} (iteration {self.iteration}/{self.max_iterations})"
+            )
         if self.last_reason:
             base += f" — {self.last_reason}"
         return base

@@ -79,9 +79,13 @@ export function GoalsSurface({ onError }: { onError: (message: string) => void }
                   </div>
                   <div className="goal-meta">
                     <span>via {vtype}</span>
-                    <span>
-                      iteration {g.iteration}/{g.max_iterations}
-                    </span>
+                    {g.mode === "monitor" ? (
+                      <span>monitor</span>
+                    ) : (
+                      <span>
+                        iteration {g.iteration}/{g.max_iterations}
+                      </span>
+                    )}
                     <span className="goal-session">{g.session_id}</span>
                   </div>
                   {g.last_reason ? <p className="goal-reason">{g.last_reason}</p> : null}
