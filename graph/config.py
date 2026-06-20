@@ -134,6 +134,10 @@ class LangGraphConfig:
     goals_enabled: bool = True
     goals_max_iterations: int = 10
     goals_no_progress_limit: int = 4
+    # Monitor goals (ADR 0030): an external process moves the metric, so they're
+    # evaluated out-of-band on a cadence (no agent turn). Seconds between ticks;
+    # <= 0 disables the ticker.
+    goals_monitor_interval_s: int = 60
 
     # Deferred tools (ADR 0005 #3 — progressive tool disclosure). OFF by default.
     # When on, most tool *schemas* are withheld from the model each turn (every
@@ -188,6 +192,7 @@ class LangGraphConfig:
             goals_enabled=(data.get("goals") or {}).get("enabled", cls.goals_enabled),
             goals_max_iterations=(data.get("goals") or {}).get("max_iterations", cls.goals_max_iterations),
             goals_no_progress_limit=(data.get("goals") or {}).get("no_progress_limit", cls.goals_no_progress_limit),
+            goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled
             ),

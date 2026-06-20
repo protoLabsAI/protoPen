@@ -178,11 +178,20 @@ async def _chat_langgraph_stream(
     set_hitl_allowed(interactive)
     take_pending_hitl(session_id)  # clear any stale request from a prior turn
 
+    # Background subagents (ADR 0050): fold the results of any completed
+    # background delegations for this session into THIS turn as a
+    # <task-notification> the agent reads before the user's message. Drained
+    # exactly once (the manager marks them notified). After the /goal
+    # short-circuit so a /goal command doesn't consume them.
+    from graph.background import get_background_manager, render_task_notifications
+
+    _bg = render_task_notifications(get_background_manager().drain_notifications(session_id))
+
     # Goal mode: run the turn, then — if an active goal isn't met — re-invoke on
     # the same thread with a continuation prompt until the verifier passes, the
     # iteration budget runs out, or it's flagged unachievable. ``hard_cap`` is an
     # absolute backstop above the goal's own iteration cap.
-    turn_input = message
+    turn_input = f"{_bg}\n\n{message}" if _bg else message
     guard = 0
     hard_cap = 30
 

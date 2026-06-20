@@ -445,6 +445,12 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
 
     _set_scheduler(_scheduler)
 
+    # Background subagents (ADR 0050): let the manager publish completion events on
+    # the bus so a console can react (Phase 2 wake, adapted off the dropped inbox).
+    from graph.background import get_background_manager as _get_bg_manager
+
+    _get_bg_manager().set_event_bus(_event_bus)
+
     # Goal mode (autonomy): the chat-stream path checks /goal control messages +
     # runs the verifier-backed re-invocation loop. Off when goals_enabled=false.
     if getattr(STATE.graph_config, "goals_enabled", True):
@@ -455,6 +461,14 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         STATE.goal_controller = GoalController(STATE.graph_config, GoalStore())
         # Let the agent's set_goal tool reach the controller (read lazily).
         _set_goal_controller(STATE.goal_controller)
+
+        # Monitor goals (ADR 0030 D2.1): evaluate out-of-band on a cadence so a
+        # long-horizon objective progresses with no agent turn in its session.
+        _interval = getattr(STATE.graph_config, "goals_monitor_interval_s", 60)
+        if _interval and _interval > 0:
+            from graph.goals.ticker import MonitorGoalTicker
+
+            STATE.monitor_ticker = MonitorGoalTicker(STATE.goal_controller, interval_s=_interval, event_bus=_event_bus)
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
@@ -474,6 +488,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to start: {exc}")
 
+        # Monitor-goal cadence ticker (ADR 0030 D2.1).
+        if STATE.monitor_ticker is not None:
+            try:
+                await STATE.monitor_ticker.start()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[goals] monitor ticker failed to start: {exc}")
+
         # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
         if (
             STATE.checkpoint_path
@@ -488,6 +509,11 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
             await _scheduler.stop()
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to stop: {exc}")
+        if STATE.monitor_ticker is not None:
+            try:
+                await STATE.monitor_ticker.stop()
+            except Exception as exc:  # noqa: BLE001
+                print(f"[goals] monitor ticker failed to stop: {exc}")
         if STATE.checkpoint_prune_task is not None:
             STATE.checkpoint_prune_task.cancel()
 

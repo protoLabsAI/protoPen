@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool
 
 from graph.config import LangGraphConfig
 from graph.llm import create_llm
+from graph.state import ResearcherState
 from graph.prompts import build_system_prompt, build_subagent_prompt
 from graph.middleware.audit import AuditMiddleware
 from graph.middleware.enforcement import EnforcementMiddleware
@@ -54,6 +55,14 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
     middleware (audit, knowledge enrichment, etc.) can process them.
     """
     middleware = []
+
+    # Wait/yield (ADR 0053): if the previous step's tool block holds a successful
+    # `wait`, end the turn now (the scheduler will resume it later in this same
+    # thread). First in the chain so it short-circuits before knowledge retrieval
+    # / compaction do any before_model work on a turn that's just going to yield.
+    from graph.middleware.wait_yield import WaitYieldMiddleware
+
+    middleware.append(WaitYieldMiddleware())
 
     if config.enforcement_middleware:
         from enforcement.scope import ScopeValidator
@@ -169,16 +178,32 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     subagents synchronously (blocking) since our Gradio UI doesn't
     support async streaming of subagent progress yet.
     """
+    from typing import Annotated
+
     from langchain_core.tools import tool
+    from langgraph.prebuilt import InjectedState
+
+    from graph.background import get_background_manager
+    from graph.state import session_id_from_state
 
     # Build tool registries for each subagent
     tool_map = {t.name: t for t in all_tools}
+
+    def _extract_result(messages, subagent_type: str, description: str) -> str:
+        for msg in reversed(messages):
+            if hasattr(msg, "content") and msg.content:
+                content = msg.content if isinstance(msg.content, str) else str(msg.content)
+                if content and not content.startswith("Error"):
+                    return f"[{subagent_type} completed: {description}]\n\n{content}"
+        return f"[{subagent_type} completed: {description}] — no output produced."
 
     @tool
     async def task(
         description: str,
         prompt: str,
         subagent_type: str = "threat_scanner",
+        run_in_background: bool = False,
+        state: Annotated[dict, InjectedState] = None,
     ) -> str:
         """Delegate a task to a specialized subagent.
 
@@ -191,6 +216,11 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
             description: Short description of what this task will accomplish
             prompt: Detailed instructions for the subagent
             subagent_type: Which subagent to use (threat_scanner, vuln_analyst, intel_reporter)
+            run_in_background: If true, the subagent runs detached and you get the id
+                back immediately — keep working; the result is delivered to you on a
+                later turn as a <task-notification>. Use for long work you don't need
+                to block on. Do NOT poll or spawn a duplicate. If false (default),
+                this blocks and returns the subagent's output directly.
         """
         sub_config = SUBAGENT_REGISTRY.get(subagent_type)
         if not sub_config:
@@ -215,23 +245,32 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
             system_prompt=build_subagent_prompt(subagent_type),
         )
 
-        # Run subagent
-        try:
+        async def _run() -> str:
             result = await subagent.ainvoke(
                 {"messages": [{"role": "user", "content": prompt}]},
                 config={"recursion_limit": sub_config.max_turns},
             )
+            return _extract_result(result.get("messages", []), subagent_type, description)
 
-            # Extract the last AI message as the result
-            messages = result.get("messages", [])
-            for msg in reversed(messages):
-                if hasattr(msg, "content") and msg.content:
-                    content = msg.content if isinstance(msg.content, str) else str(msg.content)
-                    if content and not content.startswith("Error"):
-                        return f"[{subagent_type} completed: {description}]\n\n{content}"
+        # Background (ADR 0050): spawn detached, return now, notified on a later turn.
+        if run_in_background:
+            mgr = get_background_manager()
+            job_id = mgr.spawn(
+                _run,
+                origin_session=session_id_from_state(state),
+                subagent_type=subagent_type,
+                description=description,
+            )
+            return (
+                f"Background subagent started: {job_id} ({subagent_type}: {description}). "
+                "You will be notified when it completes — do NOT poll, re-check, or spawn a "
+                "duplicate; continue with other work."
+            )
 
-            return f"[{subagent_type} completed: {description}] — no output produced."
-        except Exception as e:
+        # Foreground: block and return the subagent's output.
+        try:
+            return await _run()
+        except Exception as e:  # noqa: BLE001
             return f"Error: Subagent '{subagent_type}' failed: {e}"
 
     return task
@@ -564,14 +603,17 @@ def create_researcher_graph(
         hardware_status=sitrep,
     )
 
-    # Create agent with middleware (DeerFlow pattern)
-    # Note: state_schema omitted — create_agent manages its own AgentState.
-    # Custom state (research_context, findings) flows via system prompt + tool results.
+    # Create agent with middleware (DeerFlow pattern).
+    # state_schema=ResearcherState makes `session_id` a first-class channel so
+    # tool bodies can read the originating session via InjectedState (the tracing
+    # contextvar reads empty inside a LangGraph tool node). It also declares the
+    # `context` channel KnowledgeMiddleware writes / PromptCacheMiddleware reads.
     agent = create_agent(
         model=llm,
         tools=all_tools,
         middleware=middleware,
         system_prompt=system_prompt,
+        state_schema=ResearcherState,
         checkpointer=checkpointer,
     )
 

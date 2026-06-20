@@ -12,6 +12,8 @@ from langchain_core.messages import ToolMessage
 
 from langgraph.prebuilt.chat_agent_executor import AgentState
 
+from graph.state import session_id_from_state
+
 
 class AuditMiddleware(AgentMiddleware):
     """Log all tool calls to audit, Langfuse, and Prometheus."""
@@ -33,7 +35,7 @@ class AuditMiddleware(AgentMiddleware):
 
         tool_name = request.tool_call.get("name", "unknown")
         args = request.tool_call.get("args", {})
-        session_id = ""
+        session_id = session_id_from_state(getattr(request, "state", None))
 
         t0 = time.monotonic()
         try:
@@ -93,7 +95,7 @@ class AuditMiddleware(AgentMiddleware):
 
         tool_name = request.tool_call.get("name", "unknown")
         args = request.tool_call.get("args", {})
-        session_id = ""
+        session_id = session_id_from_state(getattr(request, "state", None))
 
         t0 = time.monotonic()
         try:

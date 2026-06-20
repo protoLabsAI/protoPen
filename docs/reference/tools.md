@@ -12,7 +12,7 @@ for the engagement-mode gating that controls when each tool is allowed, see
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_85 tools, generated from the live registry — do not edit by hand._
+_86 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -146,6 +146,7 @@ _85 tools, generated from the live registry — do not edit by hand._
 | `schedule_task` | Schedule a future task |
 | `list_schedules` | List the current scheduled jobs |
 | `cancel_schedule` | Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``) |
+| `wait` | Yield this turn and get re-invoked later — instead of busy-waiting |
 | `create_task` | Track a long-running or multi-step task in the persistent tracker (beads) |
 | `list_tasks` | List tracked tasks |
 | `update_task` | Advance or re-prioritize a tracked task — set its status (open → in_progress → closed, or blocked) and/or its priority |
