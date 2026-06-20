@@ -48,6 +48,8 @@ _CHAT_COMMANDS: list[dict[str, str]] = [
     {"name": "audit", "description": "Show recent audit log entries", "usage": "/audit [n]"},
     {"name": "intel", "description": "Generate intel digest and publish to Discord", "usage": "/intel"},
     {"name": "purple", "description": "Run purple team exercise (red+blue+ATT&CK report)", "usage": "/purple <scope>"},
+    {"name": "skill", "description": "Run a skill on demand (incl. user_only skills)", "usage": "/skill <name>"},
+    {"name": "dream", "description": "Run the memory-consolidation pass (prune stale/dup facts)", "usage": "/dream"},
     {
         "name": "goal",
         "description": "Set/show/clear a goal — loop until a verifier passes",

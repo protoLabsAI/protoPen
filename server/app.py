@@ -488,6 +488,16 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to start: {exc}")
 
+        # dream cadence (ADR 0054): seed a recurring "/dream" memory-consolidation
+        # job if configured. Fixed job id keeps it idempotent across restarts.
+        _dream_cron = getattr(STATE.graph_config, "dream_cadence_cron", "") or ""
+        if _dream_cron.strip():
+            try:
+                _scheduler.add_job("/dream", _dream_cron.strip(), job_id="dream-cadence")
+                print(f"[scheduler] seeded dream cadence ({_dream_cron.strip()})")
+            except ValueError:
+                pass  # already seeded (duplicate id) or malformed cron — leave as-is
+
         # Monitor-goal cadence ticker (ADR 0030 D2.1).
         if STATE.monitor_ticker is not None:
             try:

@@ -24,6 +24,48 @@ def _strip_think(text: str) -> str:
     return text.strip()
 
 
+# ── on-demand slash skills / subagents (protopen-1hw.13 / 1hw.14) ─────────────
+
+
+def _skill_run_input(args: str) -> str | None:
+    """For ``/skill <name> [extra]``, return the turn input that runs the named
+    skill's body — including ``user_only`` skills excluded from auto-retrieval
+    (protopen-1hw.13). None when there's no skills index or no such skill."""
+    idx = STATE.skills_index
+    name, _, extra = args.strip().partition(" ")
+    if idx is None or not name:
+        return None
+    rec = idx.get_skill(name)
+    if rec is None:
+        return None
+    head = f"Run the '{rec.name}' skill now. Follow its instructions exactly:\n\n{rec.prompt_template or ''}"
+    extra = extra.strip()
+    return f"{head}\n\nAdditional context for this run: {extra}" if extra else head
+
+
+async def _run_dream(session_id: str) -> str:
+    """Run the dream memory-consolidation subagent on demand (protopen-1hw.14)."""
+    from graph.agent import run_manual_subagent
+
+    if STATE.graph_config is None:
+        return "Error: agent not ready."
+    try:
+        return await run_manual_subagent(
+            STATE.graph_config,
+            STATE.knowledge_store,
+            None,
+            description="memory consolidation",
+            prompt=(
+                "Run a memory consolidation pass: inventory stored facts with memory_list, then "
+                "prune stale/superseded/duplicate ones with forget_memory (one id at a time, be "
+                "conservative). Report what you reviewed and pruned."
+            ),
+            subagent_type="dream",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: dream pass failed: {exc}"
+
+
 async def chat(message: str, session_id: str) -> list[dict[str, Any]]:
     """Route to the active backend."""
     from server import _handle_command  # lazy: avoids the chat<->__init__ import cycle
@@ -40,6 +82,17 @@ async def chat(message: str, session_id: str) -> list[dict[str, Any]]:
         parts = stripped.split(None, 1)
         cmd = parts[0][1:].lower()
         args = parts[1] if len(parts) > 1 else ""
+        # /skill <name>: run a skill's body on demand (incl. user_only skills).
+        if cmd == "skill":
+            skill_input = _skill_run_input(args)
+            if skill_input is None:
+                target = args.split()[0] if args.strip() else ""
+                msg = f"No such skill {target!r}." if target else "Usage: /skill <name>"
+                return [{"role": "assistant", "content": msg}]
+            return await _chat_langgraph(skill_input, session_id)
+        # /dream: run the memory-consolidation subagent.
+        if cmd == "dream":
+            return [{"role": "assistant", "content": await _run_dream(session_id)}]
         result = await _handle_command(cmd, args, session_id)
         if result is not None:
             return result
@@ -158,6 +211,29 @@ async def _chat_langgraph_stream(
         if reply is not None:
             yield ("text", reply)
             yield ("done", reply)
+            return
+
+    # On-demand slash dispatch on the primary (A2A streaming) path. /skill rewrites
+    # the turn to run a skill body (incl. user_only); /dream runs the consolidation
+    # subagent and short-circuits. Other slashes fall through to the agent.
+    _stripped = message.strip()
+    if _stripped.startswith("/"):
+        _parts = _stripped.split(None, 1)
+        _cmd = _parts[0][1:].lower()
+        _cargs = _parts[1] if len(_parts) > 1 else ""
+        if _cmd == "skill":
+            skill_input = _skill_run_input(_cargs)
+            if skill_input is None:
+                target = _cargs.split()[0] if _cargs.strip() else ""
+                err = f"No such skill {target!r}." if target else "Usage: /skill <name>"
+                yield ("text", err)
+                yield ("done", err)
+                return
+            message = skill_input  # run the agent with the skill body
+        elif _cmd == "dream":
+            out = await _run_dream(session_id)
+            yield ("text", out)
+            yield ("done", out)
             return
 
     # thread_id keys this session's history in the checkpointer (bound at compile
