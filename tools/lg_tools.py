@@ -797,9 +797,15 @@ async def set_goal(
     if not condition.strip():
         return "Error: condition is required."
 
+    # Only agent-safe verifier types (ADR 0028): all read-only / LLM-judge, never
+    # shell or eval. Validated against the single source of truth so this can't
+    # drift to accidentally expose a code-execution verifier to the model.
+    from graph.goals.verifiers import AGENT_SAFE_VERIFIERS
+
     vtype = (verifier or "llm").strip().lower()
-    if vtype not in ("findings", "targets", "task", "llm"):
-        return f"Error: unknown verifier {vtype!r} (use findings|targets|task|llm)."
+    if vtype not in AGENT_SAFE_VERIFIERS:
+        allowed = "|".join(sorted(AGENT_SAFE_VERIFIERS))
+        return f"Error: unknown or unsafe verifier {vtype!r} (use {allowed})."
 
     spec: dict = {"type": vtype}
     if vtype == "findings":
