@@ -90,7 +90,7 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{"name":"pen.protolabs.studio"}')
           echo "$resp" | head -c 500; echo
-          if echo "$resp" | grep -q '"success":true'; then
+          if echo "$resp" | grep -qE '"success":[[:space:]]*true'; then
             echo "✅ Attached pen.protolabs.studio to protopen-marketing."
           elif echo "$resp" | grep -qiE 'already|exists|duplicate'; then
             echo "Custom domain already attached — continuing."

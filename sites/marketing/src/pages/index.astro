@@ -24,22 +24,19 @@ const features = [
 
 <BaseLayout>
   <section class="hero">
-    <div class="container hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow">pwndeck · pen.protolabs.studio</p>
-        <h1>An autonomous pen-testing companion <span class="gradient-text">for the Steam Deck</span></h1>
-        <p class="lead">
-          pwnDeck runs security engagements on its own — recon, analysis, and
-          reporting — on a Steam Deck wired to RF, WiFi, and RFID hardware.
-          Headless-first, scope-aware, and entirely yours.
-        </p>
-        <div class="cta">
-          <a class="btn btn-primary" href="/docs/tutorials/">Get started</a>
-          <a class="btn btn-ghost" href="/docs/">Read the docs</a>
-        </div>
-      </div>
+    <div class="container hero-stack">
+      <p class="eyebrow">pwndeck · pen.protolabs.studio</p>
+      <h1>An autonomous pen-testing companion <span class="gradient-text">for the Steam Deck</span></h1>
       <div class="hero-term">
         <Terminal />
+      </div>
+      <p class="lead">
+        Self-driving security engagements on a Steam Deck wired to RF, WiFi, and
+        RFID — headless-first, scope-aware, and yours.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="/docs/tutorials/">Get started</a>
+        <a class="btn btn-ghost" href="/docs/">Read the docs</a>
       </div>
     </div>
   </section>
@@ -76,33 +73,40 @@ const features = [
   .hero {
     padding: var(--pl-space-12) 0;
   }
-  .hero-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--pl-space-8);
+  .hero-stack {
+    display: flex;
+    flex-direction: column;
     align-items: center;
+    text-align: center;
+    gap: var(--pl-space-5);
   }
   .eyebrow {
     font-family: var(--pl-font-mono);
     font-size: 0.8rem;
     letter-spacing: 0.04em;
     color: var(--pl-color-fg-muted);
-    margin: 0 0 var(--pl-space-4);
+    margin: 0;
   }
   .hero h1 {
     font-size: clamp(2rem, 5vw, 3.2rem);
-    margin: 0 0 var(--pl-space-5);
+    margin: 0;
+    max-width: 22ch;
+  }
+  .hero-term {
+    width: 100%;
+    margin: var(--pl-space-3) 0;
   }
   .lead {
-    font-size: 1.1rem;
+    font-size: 1.15rem;
     color: var(--pl-color-fg-muted);
-    max-width: 38ch;
-    margin: 0 0 var(--pl-space-6);
+    max-width: 56ch;
+    margin: 0;
   }
   .cta {
     display: flex;
     gap: var(--pl-space-3);
     flex-wrap: wrap;
+    justify-content: center;
   }
   .feature-grid {
     display: grid;
@@ -151,9 +155,6 @@ const features = [
   }
 
   @media (max-width: 820px) {
-    .hero-grid {
-      grid-template-columns: 1fr;
-    }
     .feature-grid {
       grid-template-columns: 1fr;
     }
