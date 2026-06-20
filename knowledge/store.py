@@ -33,7 +33,13 @@ _CONTEXT_PROMPT = (
 
 
 class KnowledgeStore:
-    """Security knowledge store with semantic vector search."""
+    """Security knowledge store with semantic vector search.
+
+    The default (and currently only) implementation of the ``KnowledgeBackend``
+    protocol (knowledge/backend.py) — the swappable retrieval + semantic-fact seam —
+    plus protoPen's security-domain layer on top (CVEs / exploits / advisories /
+    topics / digests), which is not part of the swappable contract.
+    """
 
     def __init__(
         self,
