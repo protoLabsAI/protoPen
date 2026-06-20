@@ -24,7 +24,8 @@ import logo from "../pwndeck-logo.txt?raw";
 <style>
   .term {
     width: 100%;
-    max-width: 620px;
+    max-width: 900px;
+    margin: 0 auto;
     border: 1px solid var(--pl-color-border);
     border-radius: calc(var(--pl-radius) * 2.5);
     background: var(--pl-color-bg-inset, #08080a);
@@ -67,8 +68,8 @@ import logo from "../pwndeck-logo.txt?raw";
   .logo {
     margin: 0 0 var(--pl-space-5);
     /* Sized in container-query units so the figlet always fits the terminal —
-       no horizontal scrollbar at any width. */
-    font-size: clamp(0.4rem, 4.3cqw, 1.6rem);
+       widest line is 43 chars, so keep it under ~3.85cqw to avoid clipping. */
+    font-size: clamp(0.4rem, 3.7cqw, 1.6rem);
     line-height: 1.15;
     white-space: pre;
     overflow: hidden;
