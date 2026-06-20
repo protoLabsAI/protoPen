@@ -1,0 +1,108 @@
+---
+// The pwnDeck figlet wordmark, lifted verbatim from the app's launch bumper
+// (apps/web/src/app/LaunchSequence.tsx) at build time.
+import logo from "../pwndeck-logo.txt?raw";
+---
+
+<div class="term" role="img" aria-label="pwndeck">
+  <div class="term-bar">
+    <span class="dot dot-red"></span>
+    <span class="dot dot-amber"></span>
+    <span class="dot dot-green"></span>
+    <span class="term-title">deck@steamdeck — pwndeck</span>
+  </div>
+  <div class="term-body">
+    <pre class="logo">{logo}</pre>
+    <p class="line"><span class="prompt">$</span> systemctl --user start protopen</p>
+    <p class="line out">[pwndeck] online · :7870 · engagement ready</p>
+    <p class="line">
+      <span class="prompt">$</span> goal "recon the lab subnet, report criticals"<span class="cursor"></span>
+    </p>
+  </div>
+</div>
+
+<style>
+  .term {
+    width: 100%;
+    max-width: 620px;
+    border: 1px solid var(--pl-color-border);
+    border-radius: calc(var(--pl-radius) * 2.5);
+    background: var(--pl-color-bg-inset, #08080a);
+    overflow: hidden;
+    box-shadow: var(--pl-shadow-glow), var(--pl-shadow-popover);
+  }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--pl-space-2);
+    padding: var(--pl-space-3) var(--pl-space-4);
+    background: var(--pl-color-bg-raised);
+    border-bottom: 1px solid var(--pl-color-border);
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-red {
+    background: #ff5f56;
+  }
+  .dot-amber {
+    background: #ffbd2e;
+  }
+  .dot-green {
+    background: #27c93f;
+  }
+  .term-title {
+    margin-left: var(--pl-space-3);
+    font-family: var(--pl-font-mono);
+    font-size: 0.78rem;
+    color: var(--pl-color-fg-subtle, var(--pl-color-fg-muted));
+  }
+  .term-body {
+    padding: var(--pl-space-5) var(--pl-space-5) var(--pl-space-6);
+    container-type: inline-size; /* lets the figlet scale to the terminal width */
+  }
+  .logo {
+    margin: 0 0 var(--pl-space-5);
+    /* Sized in container-query units so the figlet always fits the terminal —
+       no horizontal scrollbar at any width. */
+    font-size: clamp(0.4rem, 4.3cqw, 1.6rem);
+    line-height: 1.15;
+    white-space: pre;
+    overflow: hidden;
+    background: var(--pl-gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .line {
+    margin: 0 0 var(--pl-space-2);
+    font-family: var(--pl-font-mono);
+    font-size: 0.86rem;
+    color: var(--pl-color-fg);
+  }
+  .line.out {
+    color: var(--pl-color-fg-muted);
+  }
+  .prompt {
+    color: var(--pl-color-brand-lavender);
+    margin-right: var(--pl-space-2);
+    user-select: none;
+  }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1.05em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--pl-color-brand-lavender);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

@@ -1,0 +1,60 @@
+---
+const links = [
+  { text: "Docs", href: "/docs/" },
+  { text: "Changelog", href: "/changelog" },
+  { text: "GitHub", href: "https://github.com/protoLabsAI/protoPen" },
+];
+---
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/">
+      <img src="/favicon.svg" alt="" width="22" height="22" />
+      <span>pwndeck</span>
+    </a>
+    <nav class="links">
+      {links.map((l) => <a href={l.href}>{l.text}</a>)}
+    </nav>
+  </div>
+</header>
+
+<style>
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in oklab, var(--pl-color-bg) 80%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--pl-color-border);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--pl-space-2);
+    color: var(--pl-color-fg);
+    font-weight: var(--pl-font-weight-semibold);
+    font-size: 1.05rem;
+  }
+  .brand:hover {
+    text-decoration: none;
+  }
+  .links {
+    display: flex;
+    align-items: center;
+    gap: var(--pl-space-6);
+  }
+  .links a {
+    color: var(--pl-color-fg-muted);
+    font-size: 0.92rem;
+  }
+  .links a:hover {
+    color: var(--pl-color-fg);
+    text-decoration: none;
+  }
+</style>
