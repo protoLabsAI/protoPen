@@ -54,81 +54,108 @@ export default defineConfig({
       { text: "Explanation", link: "/explanation/" },
     ],
 
+    // Fleet docs standard: Diátaxis at the top level (Tutorials / Guides /
+    // Reference / Explanation), then a consistent DOMAIN taxonomy within each
+    // section (reused names: Getting started · Engagements & operations ·
+    // Autonomy & control · Knowledge & intelligence · Interfaces & protocols ·
+    // Tools & extension · Platform & configuration).
     sidebar: {
       "/tutorials/": [
+        { text: "Tutorials", items: [{ text: "Overview", link: "/tutorials/" }] },
         {
-          text: "Tutorials",
-          items: [
-            { text: "Getting Started", link: "/tutorials/" },
-            { text: "Steam Deck Setup", link: "/tutorials/steam-deck-setup" },
-            {
-              text: "First Engagement",
-              link: "/tutorials/first-engagement",
-            },
-          ],
+          text: "Getting started",
+          items: [{ text: "Steam Deck Setup", link: "/tutorials/steam-deck-setup" }],
+        },
+        {
+          text: "Engagements & operations",
+          items: [{ text: "First Engagement", link: "/tutorials/first-engagement" }],
         },
       ],
 
       "/guides/": [
+        { text: "Guides", items: [{ text: "Overview", link: "/guides/" }] },
         {
-          text: "How-To Guides",
+          text: "Autonomy & control",
+          items: [{ text: "Scheduler", link: "/guides/scheduler" }],
+        },
+        {
+          text: "Interfaces & protocols",
           items: [
-            { text: "Overview", link: "/guides/" },
             { text: "Operator Console", link: "/guides/operator-console" },
-            { text: "Scheduler", link: "/guides/scheduler" },
-            { text: "Deploy Updates", link: "/guides/deploy-updates" },
             { text: "A2A Integration", link: "/guides/a2a-integration" },
-            { text: "Lab Mode", link: "/guides/lab-mode" },
-            {
-              text: "Rabbit Hole (MCP)",
-              link: "/guides/rabbit-hole-mcp",
-            },
+            { text: "Discord Integration", link: "/guides/discord-integration" },
           ],
+        },
+        {
+          text: "Platform & configuration",
+          items: [{ text: "Deploy Updates", link: "/guides/deploy-updates" }],
         },
       ],
 
       "/reference/": [
+        { text: "Reference", items: [{ text: "Overview", link: "/reference/" }] },
         {
-          text: "Reference",
+          text: "Autonomy & control",
           items: [
-            { text: "Overview", link: "/reference/" },
+            { text: "Goals (Autonomy)", link: "/reference/goals" },
+            { text: "Playbooks", link: "/reference/playbooks" },
+          ],
+        },
+        {
+          text: "Engagements & operations",
+          items: [{ text: "Engagement Modes", link: "/reference/engagement-modes" }],
+        },
+        {
+          text: "Knowledge & intelligence",
+          items: [{ text: "Target Intel Schema", link: "/reference/target-intel" }],
+        },
+        {
+          text: "Interfaces & protocols",
+          items: [
             { text: "API Endpoints", link: "/reference/api-endpoints" },
             { text: "Chat Commands", link: "/reference/chat-commands" },
+            { text: "Integrated Terminal", link: "/reference/terminal" },
+          ],
+        },
+        {
+          text: "Tools & extension",
+          items: [
             { text: "Tools", link: "/reference/tools" },
             { text: "Adding a Tool", link: "/reference/adding-a-tool" },
-            { text: "Playbooks", link: "/reference/playbooks" },
-            { text: "Goals (Autonomy)", link: "/reference/goals" },
-            { text: "Target Intel Schema", link: "/reference/target-intel" },
-            {
-              text: "Engagement Modes",
-              link: "/reference/engagement-modes",
-            },
-            {
-              text: "Environment Variables",
-              link: "/reference/environment-variables",
-            },
+          ],
+        },
+        {
+          text: "Platform & configuration",
+          items: [
             { text: "Configuration", link: "/reference/configuration" },
+            { text: "Environment Variables", link: "/reference/environment-variables" },
           ],
         },
       ],
 
       "/explanation/": [
+        { text: "Explanation", items: [{ text: "Overview", link: "/explanation/" }] },
         {
-          text: "Explanation",
+          text: "Autonomy & control",
           items: [
-            { text: "Overview", link: "/explanation/" },
-            { text: "Architecture", link: "/explanation/architecture" },
+            { text: "Autonomy & Self-Driving", link: "/explanation/autonomy" },
             { text: "The Control Stack", link: "/explanation/control-stack" },
-            {
-              text: "Knowledge Search",
-              link: "/explanation/knowledge-search",
-            },
-            {
-              text: "Auto-Ingestion Pipeline",
-              link: "/explanation/auto-ingestion",
-            },
-            { text: "Security Model", link: "/explanation/security-model" },
           ],
+        },
+        {
+          text: "Knowledge & intelligence",
+          items: [
+            { text: "Knowledge Search", link: "/explanation/knowledge-search" },
+            { text: "Auto-Ingestion Pipeline", link: "/explanation/auto-ingestion" },
+          ],
+        },
+        {
+          text: "Engagements & operations",
+          items: [{ text: "Security Model", link: "/explanation/security-model" }],
+        },
+        {
+          text: "Platform & configuration",
+          items: [{ text: "Architecture", link: "/explanation/architecture" }],
         },
       ],
     },
