@@ -797,9 +797,15 @@ async def set_goal(
     if not condition.strip():
         return "Error: condition is required."
 
+    # Only agent-safe verifier types (ADR 0028): all read-only / LLM-judge, never
+    # shell or eval. Validated against the single source of truth so this can't
+    # drift to accidentally expose a code-execution verifier to the model.
+    from graph.goals.verifiers import AGENT_SAFE_VERIFIERS
+
     vtype = (verifier or "llm").strip().lower()
-    if vtype not in ("findings", "targets", "task", "llm"):
-        return f"Error: unknown verifier {vtype!r} (use findings|targets|task|llm)."
+    if vtype not in AGENT_SAFE_VERIFIERS:
+        allowed = "|".join(sorted(AGENT_SAFE_VERIFIERS))
+        return f"Error: unknown or unsafe verifier {vtype!r} (use {allowed})."
 
     spec: dict = {"type": vtype}
     if vtype == "findings":
@@ -931,6 +937,67 @@ async def request_approval(action: str, detail: str = "") -> str:
     return "Paused — awaiting the operator's approval. Do not continue; end your turn now."
 
 
+def create_memory_curation_tools(store=None):
+    """Memory-consolidation tools for the dream subagent (ADR 0054): inspect facts
+    by id and prune one at a time. Read-mostly, NO shell / NO raw SQL — so a
+    consolidation pass can't corrupt the store."""
+    from knowledge.store import KnowledgeStore
+
+    _store = store or KnowledgeStore()
+
+    @tool
+    async def memory_list(namespace: str = "", limit: int = 50) -> str:
+        """List durable semantic facts, each prefixed with its #id so you can target
+        one for forget_memory. Newest first. ``namespace`` empty = the global bucket."""
+        ns = namespace.strip() or None
+        facts = await asyncio.to_thread(_store.list_facts, ns, max(1, min(int(limit or 50), 500)))
+        if not facts:
+            return "No stored facts."
+        lines = [f"#{f['id']}  {(f['content'] or '')[:200]}" for f in facts]
+        return f"{len(facts)} fact(s):\n" + "\n".join(lines)
+
+    @tool
+    async def forget_memory(fact_id: str, reason: str = "") -> str:
+        """Delete exactly ONE durable fact by its id (from memory_list) — for pruning a
+        stale, superseded, or duplicate fact. No wildcard/bulk delete. Give a brief reason."""
+        fid = (fact_id or "").strip().lstrip("#")
+        if not fid:
+            return "Error: fact_id is required (see memory_list for #ids)."
+        ok = await asyncio.to_thread(_store.delete_fact, fid)
+        if not ok:
+            return f"No fact deleted for id {fid!r} (already gone or unknown id)."
+        return f"Forgot fact {fid} ({reason.strip() or 'no reason given'})."
+
+    return [memory_list, forget_memory]
+
+
+@tool
+async def recent_activity(limit: int = 30) -> str:
+    """Read-only digest of recent tool activity (the audit log) — what the agent
+    has been doing lately. For the dream pass to mine repeated work; no side effects."""
+    n = max(1, min(int(limit or 30), 200))
+    try:
+        from audit import audit_logger
+
+        entries = await asyncio.to_thread(audit_logger.get_recent, n)
+    except Exception:
+        # Audit subsystem unavailable (e.g. its log dir isn't writable) — never
+        # raise into the turn; the digest is best-effort.
+        return "No recent activity available."
+    if not entries:
+        return "No recent activity."
+    from collections import Counter
+
+    counts = Counter(e.get("tool", "?") for e in entries)
+    rollup = ", ".join(f"{t}×{c}" for t, c in counts.most_common(10))
+    lines = [
+        f"- {e.get('ts', '')[:19]} {e.get('tool', '?')} "
+        f"[{'ok' if e.get('success') else 'FAIL'}] {(e.get('result_summary') or '')[:80]}"
+        for e in entries[:limit]
+    ]
+    return f"Recent activity ({len(entries)} calls) — {rollup}\n" + "\n".join(lines)
+
+
 def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
@@ -940,6 +1007,8 @@ def get_security_tools(knowledge_store=None):
         browser,
         lab_monitor,
         create_security_memory_tool(knowledge_store),
+        *create_memory_curation_tools(knowledge_store),
+        recent_activity,
         schedule_task,
         list_schedules,
         cancel_schedule,

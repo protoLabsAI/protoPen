@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_46 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_48 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -38,6 +38,33 @@ Chat (programmatic)
 #### `GET /api/chat/commands`
 
 List chat slash-commands
+
+**Responses:** `200` Successful Response
+
+#### `POST /api/chat/sessions/{session_id}/steer`
+
+Queue a mid-turn steer message
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | path | yes | string |  |
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `DELETE /api/chat/sessions/{session_id}/steer/{msg_id}`
+
+Cancel a pending steer
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | path | yes | string |  |
+| `msg_id` | path | yes | string |  |
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
@@ -63,7 +90,7 @@ List models (OpenAI-compatible)
 
 Runtime status
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Subagents
 
@@ -71,7 +98,7 @@ Runtime status
 
 List subagents
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/subagents/batch`
 
@@ -108,7 +135,7 @@ Run a subagent
 
 List agent runs
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/agents/launch`
 
@@ -156,7 +183,7 @@ Cancel an agent run
 
 Engagement snapshot
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/engagement`
 
@@ -170,13 +197,13 @@ Start / end / set-mode the engagement
 
 Read engagement report
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/engagement/report`
 
 Generate engagement report
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Knowledge
 
@@ -215,7 +242,7 @@ Recent audit entries
 
 List scheduled jobs
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/scheduler/jobs`
 
@@ -413,7 +440,7 @@ A2A JSON-RPC endpoint
 
 Activity thread history (ADR 0003)
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Engagements
 
@@ -421,7 +448,7 @@ Activity thread history (ADR 0003)
 
 Engagement history
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Events
 
@@ -451,7 +478,7 @@ Clear a goal
 
 List goals (autonomy layer)
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Intel
 
@@ -474,7 +501,7 @@ Unified intel search
 
 List playbooks
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/playbooks/{name}/run`
 
@@ -538,7 +565,7 @@ Target profile
 
 Capabilities catalog (categorized tool registry)
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 ### Workflows
 
@@ -546,7 +573,7 @@ Capabilities catalog (categorized tool registry)
 
 List workflow recipes (ADR 0002)
 
-**Responses:** `200` Successful Response, `422` Validation Error
+**Responses:** `200` Successful Response
 
 #### `POST /api/workflows/{name}/run`
 

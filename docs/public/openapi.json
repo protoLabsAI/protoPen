@@ -180,34 +180,12 @@
       "get": {
         "summary": "Runtime status",
         "operationId": "_runtime_status_api_runtime_status_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -218,34 +196,12 @@
       "get": {
         "summary": "List chat slash-commands",
         "operationId": "_chat_commands_api_chat_commands_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -256,34 +212,12 @@
       "get": {
         "summary": "List subagents",
         "operationId": "_subagents_api_subagents_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -294,34 +228,12 @@
       "get": {
         "summary": "Engagement snapshot",
         "operationId": "_engagement_api_engagement_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -331,29 +243,17 @@
         "summary": "Start / end / set-mode the engagement",
         "description": "Operator control: ``{\"action\": \"start\", \"name\": ..., \"scope\": ...,\n\"mode\": \"passive|active|redteam\"}`` | ``{\"action\": \"end\"}`` |\n``{\"action\": \"set_mode\", \"mode\": ...}``. Acts on the live engagement the\nagent's enforcement middleware checks, so starting one here unblocks\nengagement-gated tools. Returns the new status snapshot.",
         "operationId": "_engagement_control_api_engagement_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
                 "additionalProperties": true,
+                "type": "object",
                 "title": "Body"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -381,34 +281,12 @@
       "get": {
         "summary": "Read engagement report",
         "operationId": "_engagement_report_api_engagement_report_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -417,34 +295,12 @@
       "post": {
         "summary": "Generate engagement report",
         "operationId": "_engagement_report_generate_api_engagement_report_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -490,16 +346,6 @@
               ],
               "title": "Table"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -528,34 +374,12 @@
       "get": {
         "summary": "Capabilities catalog (categorized tool registry)",
         "operationId": "_tools_list_api_tools_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -575,16 +399,6 @@
               "type": "string",
               "default": "",
               "title": "Q"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -614,34 +428,12 @@
       "get": {
         "summary": "List goals (autonomy layer)",
         "operationId": "_goals_list_api_goals_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -660,16 +452,6 @@
             "schema": {
               "type": "string",
               "title": "Session Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -729,16 +511,6 @@
               "default": 50,
               "title": "Limit"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -776,16 +548,6 @@
               "type": "integer",
               "title": "Host Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -814,34 +576,12 @@
       "get": {
         "summary": "Engagement history",
         "operationId": "_engagements_list_api_engagements_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -870,16 +610,6 @@
               "type": "integer",
               "default": 20,
               "title": "K"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -935,16 +665,6 @@
               ],
               "title": "Session Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -973,27 +693,15 @@
       "post": {
         "summary": "Run a subagent",
         "operationId": "_subagent_run_api_subagents_run_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubagentRunRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1021,27 +729,15 @@
       "post": {
         "summary": "Run subagents concurrently",
         "operationId": "_subagent_batch_api_subagents_batch_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubagentBatchRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1069,27 +765,15 @@
       "post": {
         "summary": "Launch a tracked agent",
         "operationId": "_agent_launch_api_agents_launch_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubagentRunRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1117,34 +801,12 @@
       "get": {
         "summary": "List agent runs",
         "operationId": "_agents_list_api_agents_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -1163,16 +825,6 @@
             "schema": {
               "type": "string",
               "title": "Task Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -1211,16 +863,6 @@
               "type": "string",
               "title": "Task Id"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -1249,18 +891,6 @@
       "get": {
         "summary": "List scheduled jobs",
         "operationId": "_scheduler_jobs_api_scheduler_jobs_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1269,43 +899,21 @@
                 "schema": {}
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
           }
         }
       },
       "post": {
         "summary": "Schedule a job",
         "operationId": "_scheduler_add_api_scheduler_jobs_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ScheduleAddRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1342,15 +950,100 @@
               "type": "string",
               "title": "Job Id"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
           },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/sessions/{session_id}/steer": {
+      "post": {
+        "summary": "Queue a mid-turn steer message",
+        "operationId": "_steer_api_chat_sessions__session_id__steer_post",
+        "parameters": [
           {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
+            "name": "session_id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/sessions/{session_id}/steer/{msg_id}": {
+      "delete": {
+        "summary": "Cancel a pending steer",
+        "operationId": "_unsteer_api_chat_sessions__session_id__steer__msg_id__delete",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "msg_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Msg Id"
             }
           }
         ],
@@ -1389,16 +1082,6 @@
               "type": "string",
               "title": "Project Path"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -1425,18 +1108,6 @@
       "post": {
         "summary": "Save notes workspace",
         "operationId": "_notes_save_api_notes_workspace_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1482,16 +1153,6 @@
               "type": "string",
               "title": "Project Path"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -1520,27 +1181,15 @@
       "post": {
         "summary": "Initialize beads",
         "operationId": "_beads_init_api_beads_init_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/BeadsInitRequest"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -1577,16 +1226,6 @@
               "type": "string",
               "title": "Project Path"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -1613,18 +1252,6 @@
       "post": {
         "summary": "Create a beads issue",
         "operationId": "_beads_create_api_beads_issues_post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1669,16 +1296,6 @@
             "schema": {
               "type": "string",
               "title": "Issue Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -1734,16 +1351,6 @@
               "type": "string",
               "title": "Project Path"
             }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -1780,16 +1387,6 @@
             "schema": {
               "type": "string",
               "title": "Issue Id"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -1829,34 +1426,12 @@
       "get": {
         "summary": "Activity thread history (ADR 0003)",
         "operationId": "_activity_api_activity_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -1867,34 +1442,12 @@
       "get": {
         "summary": "List workflow recipes (ADR 0002)",
         "operationId": "_workflows_list_api_workflows_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -1913,16 +1466,6 @@
             "schema": {
               "type": "string",
               "title": "Name"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],
@@ -1964,34 +1507,12 @@
       "get": {
         "summary": "List playbooks",
         "operationId": "_playbooks_list_api_playbooks_get",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
               }
             }
           }
@@ -2010,16 +1531,6 @@
             "schema": {
               "type": "string",
               "title": "Name"
-            }
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "X-Api-Key"
             }
           }
         ],

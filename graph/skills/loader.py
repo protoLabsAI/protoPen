@@ -23,13 +23,21 @@ _MAX_DESCRIPTION = 1024  # AgentSkills caps the description (the trigger signal)
 
 
 class LoadedSkill:
-    __slots__ = ("name", "description", "prompt_template", "tools_used")
+    __slots__ = ("name", "description", "prompt_template", "tools_used", "user_only")
 
-    def __init__(self, name: str, description: str, prompt_template: str, tools_used: list[str]):
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        prompt_template: str,
+        tools_used: list[str],
+        user_only: bool = False,
+    ):
         self.name = name
         self.description = description
         self.prompt_template = prompt_template
         self.tools_used = tools_used
+        self.user_only = user_only
 
 
 def _split_frontmatter(text: str) -> tuple[dict | None, str]:
@@ -73,7 +81,11 @@ def parse_skill_md(path: Path) -> LoadedSkill | None:
         description = description[:_MAX_DESCRIPTION]
     tools = fm.get("tools") or []
     tools_used = [str(t) for t in tools] if isinstance(tools, list) else []
-    return LoadedSkill(name.strip(), description.strip(), (body or "").strip(), tools_used)
+    # user_only: never auto-retrieved into context; reachable only on explicit
+    # demand (protopen-1hw.8). Accept bool or common truthy strings.
+    raw_uo = fm.get("user_only", False)
+    user_only = raw_uo is True or (isinstance(raw_uo, str) and raw_uo.strip().lower() in {"true", "yes", "1", "on"})
+    return LoadedSkill(name.strip(), description.strip(), (body or "").strip(), tools_used, user_only)
 
 
 def discover_skills(dirs: list[str]) -> list[LoadedSkill]:
@@ -95,6 +107,6 @@ def seed_index(index, dirs: list[str]) -> int:
     skills = discover_skills(dirs)
     index.clear_source("disk")
     for s in skills:
-        index.add_skill(s.name, s.description, s.prompt_template, s.tools_used, source="disk")
+        index.add_skill(s.name, s.description, s.prompt_template, s.tools_used, source="disk", user_only=s.user_only)
     log.info("[skills] seeded %d skill(s): %s", len(skills), ", ".join(s.name for s in skills) or "(none)")
     return len(skills)

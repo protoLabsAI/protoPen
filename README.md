@@ -110,7 +110,7 @@ the external-attack tools follows in [External Attack Simulation](#external-atta
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_86 tools, generated from the live registry — do not edit by hand._
+_89 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -245,6 +245,9 @@ _86 tools, generated from the live registry — do not edit by hand._
 | `list_schedules` | List the current scheduled jobs |
 | `cancel_schedule` | Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``) |
 | `wait` | Yield this turn and get re-invoked later — instead of busy-waiting |
+| `memory_list` | List durable semantic facts, each prefixed with its #id so you can target one for forget_memory |
+| `forget_memory` | Delete exactly ONE durable fact by its id (from memory_list) — for pruning a stale, superseded, or duplicate fact |
+| `recent_activity` | Read-only digest of recent tool activity (the audit log) — what the agent has been doing lately |
 | `create_task` | Track a long-running or multi-step task in the persistent tracker (beads) |
 | `list_tasks` | List tracked tasks |
 | `update_task` | Advance or re-prioritize a tracked task — set its status (open → in_progress → closed, or blocked) and/or its priority |

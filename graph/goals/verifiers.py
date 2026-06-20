@@ -244,6 +244,22 @@ VERIFIERS = {
     "llm": _verify_llm,
 }
 
+# The ONLY verifier types the agent may create via the `set_goal` tool / `POST
+# /api/goals` (ADR 0028 safety). All four read existing stores or run an LLM judge —
+# none execute shell/host code or `eval`. protoPen intentionally has NO shell-backed
+# verifier (`command`/`test`/`ci`) or eval-based one, so there is nothing to gate
+# operator-only here; this allowlist + the absence of those verifiers keeps goal mode
+# inside the no-code-exec profile even when the model picks the verifier. Source of
+# truth for set_goal — keep in sync via the assertion below.
+AGENT_SAFE_VERIFIERS = frozenset({"findings", "targets", "task", "llm"})
+
+# Defense in depth: every agent-allowed verifier must actually exist, and no
+# shell/eval verifier may sneak into the registry where the agent could reach it.
+assert AGENT_SAFE_VERIFIERS <= set(VERIFIERS), "AGENT_SAFE_VERIFIERS references an unregistered verifier"
+assert not (AGENT_SAFE_VERIFIERS & {"command", "test", "ci", "shell", "exec", "eval", "data"}), (
+    "a code-execution verifier must never be agent-creatable"
+)
+
 
 async def run_verifier(spec: dict, ctx: VerifyContext) -> VerifyResult:
     """Dispatch to the verifier named by ``spec['type']`` (default llm)."""

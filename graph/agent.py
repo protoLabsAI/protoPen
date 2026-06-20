@@ -64,6 +64,13 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
 
     middleware.append(WaitYieldMiddleware())
 
+    # Mid-turn steering (protopen-1hw.6): fold any queued steer message into the
+    # run at the next model call. After WaitYield (a yielding turn shouldn't fold
+    # in a steer), before knowledge so retrieval sees the steer too.
+    from graph.middleware.steering import SteeringMiddleware
+
+    middleware.append(SteeringMiddleware())
+
     if config.enforcement_middleware:
         from enforcement.scope import ScopeValidator
         from enforcement.phases import KillChainPhase
