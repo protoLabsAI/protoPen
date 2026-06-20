@@ -1,0 +1,32 @@
+[
+  {
+    "version": "v2.0.41",
+    "date": "2026-06-20",
+    "changes": [
+      "Progressive skill disclosure: an <available_skills> catalog plus a load_skill tool the agent calls on demand, instead of injecting skill bodies every turn.",
+      "/skill and /dream slash commands, with an optional scheduled dream-cadence for unattended memory hygiene.",
+      "Cancellable single delegation: abort one in-flight sub-agent mid-turn without killing the turn.",
+      "KnowledgeBackend protocol — a thin, swappable retrieval/memory seam."
+    ]
+  },
+  {
+    "version": "v2.0.40",
+    "date": "2026-06-20",
+    "changes": [
+      "Self-driving core: wait/yield/resume so the agent yields instead of busy-polling, and resumes in the same thread.",
+      "Background sub-agents with reactive notification — delegate long work and get told when it's done.",
+      "Monitor-goal cadence tick: long-horizon goals progress with no turn in their session.",
+      "Scheduler resilience: a self-healing owner-lock and concise startup catch-up.",
+      "Platform primitives (Supervisor, telemetry/DecisionLog, Knobs), mid-turn steering, dream memory consolidation, user_only skills, and set_goal verifier-safety."
+    ]
+  },
+  {
+    "version": "v2.0.39",
+    "date": "2026-06-07",
+    "changes": [
+      "Enforcement + audit rail now covers sub-agents (security).",
+      "Friendly schedule builder — no hand-written cron.",
+      "Monitor-goal disposition + per-goal no-progress limit."
+    ]
+  }
+]
