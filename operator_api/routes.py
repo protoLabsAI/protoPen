@@ -361,6 +361,22 @@ def register_operator_routes(
         except Exception as exc:
             raise _http_error(exc) from exc
 
+    @router.post("/api/chat/sessions/{session_id}/steer", summary="Queue a mid-turn steer message")
+    async def _steer(session_id: str, payload: dict):
+        from graph import steering
+
+        text = ((payload or {}).get("text") or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="text is required")
+        mid = steering.enqueue(session_id, text, (payload or {}).get("msg_id"))
+        return {"ok": True, "msg_id": mid, "pending": steering.pending(session_id)}
+
+    @router.delete("/api/chat/sessions/{session_id}/steer/{msg_id}", summary="Cancel a pending steer")
+    async def _unsteer(session_id: str, msg_id: str):
+        from graph import steering
+
+        return {"ok": steering.dequeue(session_id, msg_id), "pending": steering.pending(session_id)}
+
     @router.get("/api/notes/workspace", summary="Load notes workspace")
     async def _notes_get(project_path: str):
         try:
