@@ -4,9 +4,6 @@ hero:
   name: protoPen
   text: Autonomous Security Research & Pen-Testing Agent
   tagline: Steam Deck + RF hardware + LangGraph agent — scan, exploit, report.
-  image:
-    src: /pwnDeck-banner.png
-    alt: pwnDeck — protoPen on a Steam Deck
   actions:
     - theme: brand
       text: Get Started
