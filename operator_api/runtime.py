@@ -79,6 +79,7 @@ def build_runtime_status(
             "controller_loaded": goal_controller is not None,
             "max_iterations": getattr(config, "goals_max_iterations", None),
             "no_progress_limit": getattr(config, "goals_no_progress_limit", None),
+            "monitor_interval_s": getattr(config, "goals_monitor_interval_s", None),
         },
         "cache_warmer": {
             "enabled": bool(getattr(config, "cache_warming_enabled", False)),
