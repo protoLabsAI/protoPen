@@ -1,0 +1,69 @@
+name: Attach Cloudflare Pages custom domain
+
+# One-shot (re-runnable) provisioner: attaches a custom domain to the
+# `protopen-marketing` Pages project and ensures the DNS CNAME. Idempotent.
+# Needs a token with Pages:Edit (+ Zone DNS:Edit for the DNS step) — provided as
+# the CLOUDFLARE_PAGES_API secret — and CLOUDFLARE_ACCOUNT_ID. Mirrors protoCLI's
+# add-pages-domain.yml (#411).
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: Custom domain to attach
+        default: pen.protolabs.studio
+        required: true
+
+jobs:
+  attach:
+    # workspace-config: allow-hosted-runner Cloudflare API + jq one-shot domain/DNS provisioning (no repo build)
+    runs-on: ubuntu-latest
+    env:
+      # Prefer the purpose-built Pages token (Pages:Edit + Zone DNS:Edit); fall
+      # back to the deploy token (Pages:Edit) — that can attach the domain, but
+      # the DNS step needs Zone DNS:Edit, so add CLOUDFLARE_PAGES_API to GH
+      # Actions secrets for the CNAME to be created automatically.
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_API || secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      PROJECT: protopen-marketing
+      DOMAIN: ${{ inputs.domain }}
+    steps:
+      - name: Validate secrets
+        run: |
+          [ -n "$CF_TOKEN" ] || { echo "::error::CLOUDFLARE_PAGES_API secret is not set (add it as an org/repo Actions secret)"; exit 1; }
+          [ -n "$CF_ACCOUNT" ] || { echo "::error::CLOUDFLARE_ACCOUNT_ID secret is not set"; exit 1; }
+
+      - name: Register custom domain on the Pages project
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/pages/projects/$PROJECT/domains"
+          resp=$(curl -sS -X POST "$api" \
+            -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" \
+            --data "{\"name\":\"$DOMAIN\"}")
+          echo "$resp" | jq . || echo "$resp"
+          if echo "$resp" | jq -e '.success == true' >/dev/null 2>&1; then
+            echo "Attached $DOMAIN to $PROJECT."
+          elif echo "$resp" | grep -qiE 'already|exists|duplicate'; then
+            echo "Domain already attached to $PROJECT — continuing."
+          else
+            echo "::error::Failed to attach $DOMAIN to $PROJECT"; exit 1
+          fi
+
+      - name: Ensure DNS CNAME (best-effort; needs Zone DNS:Edit)
+        run: |
+          zone="$(echo "$DOMAIN" | awk -F. '{print $(NF-1)"."$NF}')"  # protolabs.studio
+          zid=$(curl -sS "https://api.cloudflare.com/client/v4/zones?name=$zone" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id // empty')
+          if [ -z "$zid" ]; then
+            echo "::warning::Zone '$zone' not visible to this token (or it lacks Zone read). If the site doesn't resolve in a few minutes, add a proxied CNAME '$DOMAIN -> $PROJECT.pages.dev' manually."
+            exit 0
+          fi
+          body="{\"type\":\"CNAME\",\"name\":\"$DOMAIN\",\"content\":\"$PROJECT.pages.dev\",\"proxied\":true}"
+          rid=$(curl -sS "https://api.cloudflare.com/client/v4/zones/$zid/dns_records?name=$DOMAIN&type=CNAME" \
+            -H "Authorization: Bearer $CF_TOKEN" | jq -r '.result[0].id // empty')
+          if [ -n "$rid" ]; then
+            curl -sS -X PUT "https://api.cloudflare.com/client/v4/zones/$zid/dns_records/$rid" \
+              -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" --data "$body" | jq '{success, errors}'
+          else
+            curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$zid/dns_records" \
+              -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" --data "$body" | jq '{success, errors}'
+          fi
+          echo "DNS ensured — $DOMAIN should resolve to $PROJECT.pages.dev shortly."

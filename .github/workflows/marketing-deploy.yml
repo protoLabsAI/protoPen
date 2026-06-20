@@ -78,56 +78,9 @@ jobs:
         if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         working-directory: sites/marketing
         run: npx wrangler@3 pages deploy dist --project-name=protopen-marketing --branch=main
-
-      # 6. Attach the custom domain. Idempotent + never fails the deploy: a domain
-      # already attached (or a zone-not-in-account error) is logged, not fatal.
-      - name: Attach custom domain (pen.protolabs.studio)
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: |
-          resp=$(curl -s -X POST \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/protopen-marketing/domains" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"name":"pen.protolabs.studio"}')
-          echo "$resp" | head -c 500; echo
-          if echo "$resp" | grep -qE '"success":[[:space:]]*true'; then
-            echo "✅ Attached pen.protolabs.studio to protopen-marketing."
-          elif echo "$resp" | grep -qiE 'already|exists|duplicate'; then
-            echo "Custom domain already attached — continuing."
-          else
-            echo "::warning::Could not attach pen.protolabs.studio automatically (zone may not be in this Cloudflare account). Add it in Pages → protopen-marketing → Custom domains. Response above."
-          fi
-
-      # 7. Ensure the DNS record exists. Attaching the domain (step 6) registers it
-      # on the Pages project but does NOT create the zone DNS record — without this
-      # pen.protolabs.studio fails to resolve (ERR_NAME_NOT_RESOLVED). Create a
-      # proxied CNAME → the Pages site. Idempotent; never fatal.
-      - name: Ensure DNS record (pen → pages.dev)
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
-        run: |
-          api="https://api.cloudflare.com/client/v4"
-          first_id() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write(String((j.result&&j.result[0]&&j.result[0].id)||""))}catch{process.stdout.write("")}})'; }
-          arr_len() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String((JSON.parse(s).result||[]).length))}catch{process.stdout.write("0")}})'; }
-          zid=$(curl -s -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$api/zones?name=protolabs.studio" | first_id)
-          if [ -z "$zid" ]; then
-            echo "::warning::protolabs.studio zone not visible to this token — create a proxied CNAME pen → protopen-marketing.pages.dev manually."
-            exit 0
-          fi
-          count=$(curl -s -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "$api/zones/$zid/dns_records?name=pen.protolabs.studio" | arr_len)
-          if [ "$count" != "0" ]; then
-            echo "DNS record for pen.protolabs.studio already exists — continuing."
-            exit 0
-          fi
-          resp=$(curl -s -X POST \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" \
-            "$api/zones/$zid/dns_records" \
-            --data '{"type":"CNAME","name":"pen","content":"protopen-marketing.pages.dev","proxied":true,"comment":"protopen marketing (Cloudflare Pages)"}')
-          echo "$resp" | head -c 400; echo
-          if echo "$resp" | grep -qE '"success":[[:space:]]*true'; then
-            echo "✅ created proxied CNAME pen.protolabs.studio → protopen-marketing.pages.dev"
-          else
-            echo "::warning::Could not create the DNS record (token may lack Zone:DNS:Edit). Add a proxied CNAME pen → protopen-marketing.pages.dev manually."
-          fi
+      # The custom domain + DNS for pen.protolabs.studio are provisioned by the
+      # one-shot add-pages-domain.yml workflow (it needs the CLOUDFLARE_PAGES_API
+      # token with Zone DNS:Edit — the deploy token here only has Pages:Edit).
 
       - name: Note missing Cloudflare secrets
         if: ${{ env.CLOUDFLARE_API_TOKEN == '' }}
