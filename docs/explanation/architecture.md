@@ -69,9 +69,10 @@ protoPen uses LangChain's `create_agent()` with a compiled LangGraph state machi
 - **Streaming**: `astream_events` for real-time tool progress and text generation
 - **Subagent delegation**: The `task` tool spawns specialized `create_react_agent` subgraphs
 
-## Six Subagents
+## Subagents
 
-The lead agent delegates work to six specialized subagents via the `task` tool:
+The lead agent delegates work to eleven specialized subagents via the `task` tool
+(synchronously, or detached with `run_in_background=True` — see [Autonomy](autonomy.md)).
 
 ### Security Research Domain
 
@@ -85,9 +86,24 @@ The lead agent delegates work to six specialized subagents via the `task` tool:
 
 | Subagent | Role | Tools |
 |---|---|---|
+| **Orchestrator** | Meta-orchestrator: runs a full scripted pipeline, interprets findings, probes high-value targets | (delegates across the pentest tools) |
 | **Recon** | Passive reconnaissance -- RF survey, WiFi scan, network enum | device_manager, portapack, flipper, marauder, blackarch, engagement |
-| **Exploit** | Active exploitation -- PMKID capture, signal replay, vuln scan | device_manager, portapack, flipper, marauder, blackarch, engagement |
-| **Reporter** | Finding synthesis -- triage, correlation, report generation | engagement, security_memory, discord_feed |
+| **Exploit** | Active exploitation -- PMKID capture, signal replay, vuln scan (mode-gated) | device_manager, portapack, flipper, marauder, blackarch, websocket_test, opsec, engagement |
+| **Reporter** | Finding synthesis -- triage, correlation, report generation | engagement, security_memory |
+
+### Blue / Purple Team Domain
+
+| Subagent | Role | Tools |
+|---|---|---|
+| **Defender** | CIS audits, hardening checks, container security, port baselines | cis_audit, hardening_check, container_audit, engagement |
+| **Incident Responder** | Log analysis, IOC matching, timeline reconstruction, containment | ir_toolkit, net_monitor, engagement, security_memory |
+| **Purple Team** | Correlates red+blue results, measures ATT&CK coverage gaps | purple_team, cis_audit, container_audit, net_monitor, ir_toolkit, engagement, security_memory |
+
+### Self-Curation Domain
+
+| Subagent | Role | Tools |
+|---|---|---|
+| **Dream** | Memory consolidation -- prune stale/duplicate/superseded facts (no shell, no SQL) | memory_list, forget_memory, recent_activity, security_memory |
 
 Each subagent gets a filtered tool set and a focused system prompt. The lead agent decides which subagent to invoke based on the task type.
 

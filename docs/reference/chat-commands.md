@@ -16,7 +16,10 @@ Slash commands available in the protoPen chat UI. These are handled locally befo
 | `/recent [n]` | optional count (default 10) | Show recent advisories and threat intel. |
 | `/audit [n]` | optional count (default 20) | Show recent audit log entries for the current session with tool name, duration, and status. |
 | `/intel` | -- | Generate a weekly threat intel digest and publish it to Discord via the configured webhook. |
-| `/goal <condition>` | text, or a JSON `{condition, verifier}` spec | Set an autonomous goal — the agent is re-invoked each turn until a verifier passes. `/goal` alone shows status; `/goal clear` stops it. See [Goals](goals.md). |
+| `/purple <scope>` | scope (e.g. `192.168.4.0/24`) | Run the purple-team exercise playbook: red-team recon → blue-team defensive checks → ATT&CK coverage matrix. |
+| `/goal <condition>` | text, or a JSON `{condition, verifier}` spec | Set an autonomous goal — the agent is re-invoked each turn until a verifier passes. `/goal` alone shows status; `/goal clear` stops it. See [Goals](goals.md) and [Autonomy](/explanation/autonomy). |
+| `/skill <name>` | skill name | Run a skill on demand — including `user_only` skills that are hidden from auto-retrieval. The skill's instructions become the turn input. |
+| `/dream` | -- | Run the memory-consolidation pass (the `dream` sub-agent): prune stale/duplicate/superseded facts, one at a time. See [Autonomy](/explanation/autonomy). |
 | `/help` | -- | Show the command help table. |
 
 ::: tip

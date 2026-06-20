@@ -111,6 +111,18 @@ knowledge:
   search_mode: hybrid
   enrich_chunks: true
 
+# Skills (SKILL.md methodology). Progressive disclosure (default on): a lightweight
+# <available_skills> catalog (name + description) is injected each turn and the
+# agent pulls a full body on demand via the load_skill tool — instead of injecting
+# matched skill bodies. user_only skills are catalog-hidden, reachable only via
+# /skill. Set progressive_disclosure: false for the legacy top-k full-body inject.
+skills:
+  enabled: true
+  dir: /sandbox/skills
+  db_path: /sandbox/skills.db
+  top_k: 5
+  progressive_disclosure: true
+
 # Progressive tool disclosure (ADR 0005). OFF by default. protoPen binds ~80
 # tools; with deferral on, most tool schemas are withheld from the model each
 # turn (every tool stays callable) and the agent loads them on demand via the
@@ -123,11 +135,13 @@ tools:
 
 # Goal mode (autonomy) — re-invoke the agent toward a verifier-backed condition
 # (set with /goal in chat, or by the agent via the set_goal tool). Verifiers are
-# read-only, no shell: findings / targets / task / llm.
+# read-only, no shell: findings / targets / task / llm. See explanation/autonomy.
 goals:
   enabled: true
   max_iterations: 10
   no_progress_limit: 4
+  monitor_interval_s: 60      # out-of-band cadence for monitor goals (<=0 disables)
+  dream_cadence_cron: ""      # 5-field cron to seed a recurring /dream pass (blank = off)
 ```
 
 ### Key Sections
@@ -138,10 +152,10 @@ goals:
 | `subagents` | Per-subagent tool allowlists, enable/disable, max turns |
 | `middleware` | Toggle knowledge injection, audit logging, memory consolidation |
 | `knowledge` | Embedding model, vector search config, contextual enrichment setting |
-| `skills` | SKILL.md retrieval — enable, dir, db path, top-k |
+| `skills` | SKILL.md retrieval — enable, dir, db path, top-k, `progressive_disclosure` (catalog + load_skill) |
 | `workflows` | Declarative subagent recipes — enable, writable dir |
 | `tools.deferred` | Progressive tool disclosure (ADR 0005) — `enabled`, `keep` |
-| `goals` | Goal mode (autonomy) — `enabled`, `max_iterations`, `no_progress_limit` |
+| `goals` | Goal mode (autonomy) — `enabled`, `max_iterations`, `no_progress_limit`, `monitor_interval_s` (monitor-goal cadence), `dream_cadence_cron` (scheduled memory hygiene) |
 
 ---
 
