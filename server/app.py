@@ -445,6 +445,12 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
 
     _set_scheduler(_scheduler)
 
+    # Background subagents (ADR 0050): let the manager publish completion events on
+    # the bus so a console can react (Phase 2 wake, adapted off the dropped inbox).
+    from graph.background import get_background_manager as _get_bg_manager
+
+    _get_bg_manager().set_event_bus(_event_bus)
+
     # Goal mode (autonomy): the chat-stream path checks /goal control messages +
     # runs the verifier-backed re-invocation loop. Off when goals_enabled=false.
     if getattr(STATE.graph_config, "goals_enabled", True):
