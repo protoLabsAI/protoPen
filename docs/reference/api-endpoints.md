@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_48 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_50 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -441,6 +441,32 @@ A2A JSON-RPC endpoint
 Activity thread history (ADR 0003)
 
 **Responses:** `200` Successful Response
+
+### Delegations
+
+#### `GET /api/delegations`
+
+List in-flight subagent delegations
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | query | no | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/delegations/{tool_call_id}/cancel`
+
+Cancel one in-flight delegation
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `tool_call_id` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
 
 ### Engagements
 

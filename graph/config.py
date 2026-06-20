@@ -127,6 +127,11 @@ class LangGraphConfig:
     skills_dir: str = "/sandbox/skills"
     skills_db_path: str = "/sandbox/skills.db"
     skills_top_k: int = 5
+    # Progressive disclosure (protopen-1hw.13): inject a lightweight skill *catalog*
+    # (name + description) each turn and let the agent pull a full body on demand via
+    # the load_skill tool — instead of injecting matched skill bodies. Scales to a
+    # large skill library. Set false for the legacy top-k full-body injection.
+    skills_progressive_disclosure: bool = True
 
     # Goal mode (autonomy) — re-invoke the agent toward a verifier-backed condition.
     # ON by default with moderate caps; verifiers are engagement/LLM-backed (no
@@ -138,6 +143,10 @@ class LangGraphConfig:
     # evaluated out-of-band on a cadence (no agent turn). Seconds between ticks;
     # <= 0 disables the ticker.
     goals_monitor_interval_s: int = 60
+    # dream memory-consolidation cadence (ADR 0054). A 5-field cron; blank = off.
+    # When set, a recurring scheduled "/dream" job is seeded at startup so memory
+    # hygiene runs unattended (e.g. "0 4 * * 0" = 4am Sundays).
+    dream_cadence_cron: str = ""
 
     # Deferred tools (ADR 0005 #3 — progressive tool disclosure). OFF by default.
     # When on, most tool *schemas* are withheld from the model each turn (every
@@ -189,10 +198,14 @@ class LangGraphConfig:
             skills_dir=(data.get("skills") or {}).get("dir", cls.skills_dir),
             skills_db_path=(data.get("skills") or {}).get("db_path", cls.skills_db_path),
             skills_top_k=(data.get("skills") or {}).get("top_k", cls.skills_top_k),
+            skills_progressive_disclosure=(data.get("skills") or {}).get(
+                "progressive_disclosure", cls.skills_progressive_disclosure
+            ),
             goals_enabled=(data.get("goals") or {}).get("enabled", cls.goals_enabled),
             goals_max_iterations=(data.get("goals") or {}).get("max_iterations", cls.goals_max_iterations),
             goals_no_progress_limit=(data.get("goals") or {}).get("no_progress_limit", cls.goals_no_progress_limit),
             goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
+            dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled
             ),

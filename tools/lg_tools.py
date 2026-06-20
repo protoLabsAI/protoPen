@@ -3753,6 +3753,7 @@ DEFERRED_BASE_TOOL_NAMES = frozenset(
         "run_workflow",
         "save_workflow",
         "save_skill",
+        "load_skill",
         "create_task",
         "list_tasks",
         "update_task",

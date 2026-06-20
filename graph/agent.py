@@ -91,6 +91,7 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
                 top_k=config.knowledge_top_k,
                 search_mode=config.knowledge_search_mode,
                 skills_index=skills_index,
+                progressive_skills=getattr(config, "skills_progressive_disclosure", True),
             )
         )
         # Deliver the volatile context into the system message (+ prompt caching).
@@ -185,9 +186,10 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     subagents synchronously (blocking) since our Gradio UI doesn't
     support async streaming of subagent progress yet.
     """
+    import asyncio
     from typing import Annotated
 
-    from langchain_core.tools import tool
+    from langchain_core.tools import InjectedToolCallId, tool
     from langgraph.prebuilt import InjectedState
 
     from graph.background import get_background_manager
@@ -211,6 +213,7 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
         subagent_type: str = "threat_scanner",
         run_in_background: bool = False,
         state: Annotated[dict, InjectedState] = None,
+        tool_call_id: Annotated[str, InjectedToolCallId] = "",
     ) -> str:
         """Delegate a task to a specialized subagent.
 
@@ -274,11 +277,28 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
                 "duplicate; continue with other work."
             )
 
-        # Foreground: block and return the subagent's output.
+        # Foreground: run as a cancellable task so the operator can abort THIS
+        # delegation mid-turn without killing the whole turn (protopen-1hw.12).
+        from graph import delegations
+
+        run_task = asyncio.create_task(_run())
+        delegations.register(
+            tool_call_id,
+            run_task,
+            session_id=session_id_from_state(state),
+            subagent_type=subagent_type,
+            description=description,
+        )
         try:
-            return await _run()
+            return await run_task
+        except asyncio.CancelledError:
+            if delegations.was_cancelled(tool_call_id):
+                return f"[{subagent_type} delegation cancelled by operator: {description}]"
+            raise  # a parent-turn cancel — propagate
         except Exception as e:  # noqa: BLE001
             return f"Error: Subagent '{subagent_type}' failed: {e}"
+        finally:
+            delegations.unregister(tool_call_id)
 
     return task
 
@@ -457,6 +477,33 @@ def _build_save_skill_tool(skills_index):
     return save_skill
 
 
+def _build_load_skill_tool(skills_index):
+    """load_skill tool (protopen-1hw.13 — progressive disclosure). The agent sees a
+    lightweight skill *catalog* (names + descriptions) each turn and calls this to
+    pull a skill's full instructions only when it decides to use one — mirroring
+    ADR 0005 deferred-tool disclosure. Also the way to invoke a ``user_only`` skill
+    (hidden from the catalog)."""
+    from langchain_core.tools import tool
+
+    @tool
+    async def load_skill(name: str) -> str:
+        """Load a skill's full step-by-step instructions by name.
+
+        Call this when a skill in the <available_skills> catalog fits the task (or
+        to run a known user_only skill) — then follow the returned instructions.
+
+        Args:
+            name: The skill's exact name from the catalog.
+        """
+        rec = skills_index.get_skill((name or "").strip())
+        if rec is None:
+            return f"No skill named {name!r}. Check the <available_skills> catalog for exact names."
+        tools_line = f"\nRelevant tools: {', '.join(rec.tools_used)}" if rec.tools_used else ""
+        return f"# Skill: {rec.name}\n{rec.description}{tools_line}\n\n{rec.prompt_template or ''}"
+
+    return load_skill
+
+
 def _build_workflow_tools(config: LangGraphConfig, knowledge_store, workflow_registry):
     """Workflow tools (ADR 0002) for the lead agent: run_workflow runs a saved
     declarative recipe over subagents (each step delegates to run_manual_subagent;
@@ -592,6 +639,9 @@ def create_researcher_graph(
         # skill it just worked out; it surfaces on matching future requests.
         if getattr(config, "skills_enabled", False) and skills_index is not None:
             all_tools.append(_build_save_skill_tool(skills_index))
+            # Progressive disclosure (protopen-1hw.13): load a skill's full body on
+            # demand from the injected catalog.
+            all_tools.append(_build_load_skill_tool(skills_index))
 
     # Progressive tool disclosure (ADR 0005 #3): add the search_tools meta-tool
     # LAST so its catalog covers every other tool. create_agent still receives

@@ -21,12 +21,23 @@ class KnowledgeMiddleware(AgentMiddleware):
     skills. A None knowledge_store is fine — skills still work on a KB-less agent.
     """
 
-    def __init__(self, knowledge_store=None, top_k: int = 10, search_mode: str = "hybrid", skills_index=None):
+    def __init__(
+        self,
+        knowledge_store=None,
+        top_k: int = 10,
+        search_mode: str = "hybrid",
+        skills_index=None,
+        progressive_skills: bool = True,
+    ):
         super().__init__()
         self._store = knowledge_store
         self._top_k = top_k
         self._search_mode = search_mode
         self._skills_index = skills_index
+        # Progressive disclosure (protopen-1hw.13): inject a name+description catalog
+        # and let the agent load_skill bodies on demand, vs. the legacy full-body
+        # top-k injection.
+        self._progressive_skills = progressive_skills
 
     def _search(self, query: str) -> list[dict]:
         if self._search_mode == "hybrid" and hasattr(self._store, "hybrid_search"):
@@ -70,6 +81,41 @@ class KnowledgeMiddleware(AgentMiddleware):
             formatted.pop()  # drop the least-relevant skill and retry
         return ""
 
+    def _format_skill_catalog(self, query: str) -> str:
+        """Progressive disclosure: a lightweight <available_skills> catalog (name +
+        description) the agent scans, then pulls a full body via load_skill on demand.
+        Lists the whole library when it fits the token budget; otherwise the top FTS
+        matches for this turn. user_only skills are hidden (load via /skill)."""
+        idx = self._skills_index
+        try:
+            catalog = [s for s in idx.all_skills() if not s.get("user_only")]
+        except Exception:  # noqa: BLE001
+            return ""
+        if not catalog:
+            return ""
+
+        def _render(rows) -> str:
+            lines = [f"  - {r['name']}: {(r.get('description') or '').strip()}" for r in rows]
+            return (
+                '<available_skills> (use load_skill("<name>") to get a skill\'s full '
+                "instructions before applying it)\n" + "\n".join(lines) + "\n</available_skills>"
+            )
+
+        block = _render(catalog)
+        if len(block) // 4 <= _SKILLS_MAX_TOKENS:
+            return block
+        # Library too big for the budget — fall back to the most relevant matches.
+        try:
+            ranked = self._skills_index.load_skills(query, k=12) if query else []
+        except Exception:  # noqa: BLE001
+            ranked = []
+        rows = [{"name": s.name, "description": s.description} for s in ranked]
+        block = _render(rows)
+        while rows and len(block) // 4 > _SKILLS_MAX_TOKENS:
+            rows.pop()
+            block = _render(rows)
+        return block if rows else ""
+
     def before_model(self, state, runtime) -> dict | None:
         """Stage retrieved knowledge + learned skills into state['context']."""
         messages = state.get("messages", [])
@@ -77,16 +123,21 @@ class KnowledgeMiddleware(AgentMiddleware):
             return None
         parts: list[str] = []
 
-        # Learned skills (matched against the latest human message).
+        # Learned skills. Progressive disclosure → a name+description catalog the
+        # agent loads bodies from on demand; legacy → matched full bodies inline.
         if self._skills_index is not None:
             query = (self._last_human(messages) or "")[:_SKILLS_CONTEXT_CHARS]
-            if query:
-                try:
+            try:
+                if self._progressive_skills:
+                    block = self._format_skill_catalog(query)
+                elif query:
                     block = self._format_learned_skills(self._skills_index.load_skills(query))
-                    if block:
-                        parts.append(block)
-                except Exception:  # noqa: BLE001 — never break the turn on skill retrieval
-                    pass
+                else:
+                    block = ""
+                if block:
+                    parts.append(block)
+            except Exception:  # noqa: BLE001 — never break the turn on skill retrieval
+                pass
 
         # Knowledge store hits.
         if self._store is not None:
