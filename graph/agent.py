@@ -186,9 +186,10 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
     subagents synchronously (blocking) since our Gradio UI doesn't
     support async streaming of subagent progress yet.
     """
+    import asyncio
     from typing import Annotated
 
-    from langchain_core.tools import tool
+    from langchain_core.tools import InjectedToolCallId, tool
     from langgraph.prebuilt import InjectedState
 
     from graph.background import get_background_manager
@@ -212,6 +213,7 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
         subagent_type: str = "threat_scanner",
         run_in_background: bool = False,
         state: Annotated[dict, InjectedState] = None,
+        tool_call_id: Annotated[str, InjectedToolCallId] = "",
     ) -> str:
         """Delegate a task to a specialized subagent.
 
@@ -275,11 +277,28 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
                 "duplicate; continue with other work."
             )
 
-        # Foreground: block and return the subagent's output.
+        # Foreground: run as a cancellable task so the operator can abort THIS
+        # delegation mid-turn without killing the whole turn (protopen-1hw.12).
+        from graph import delegations
+
+        run_task = asyncio.create_task(_run())
+        delegations.register(
+            tool_call_id,
+            run_task,
+            session_id=session_id_from_state(state),
+            subagent_type=subagent_type,
+            description=description,
+        )
         try:
-            return await _run()
+            return await run_task
+        except asyncio.CancelledError:
+            if delegations.was_cancelled(tool_call_id):
+                return f"[{subagent_type} delegation cancelled by operator: {description}]"
+            raise  # a parent-turn cancel — propagate
         except Exception as e:  # noqa: BLE001
             return f"Error: Subagent '{subagent_type}' failed: {e}"
+        finally:
+            delegations.unregister(tool_call_id)
 
     return task
 

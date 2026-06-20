@@ -377,6 +377,18 @@ def register_operator_routes(
 
         return {"ok": steering.dequeue(session_id, msg_id), "pending": steering.pending(session_id)}
 
+    @router.get("/api/delegations", summary="List in-flight subagent delegations")
+    async def _delegations(session_id: str = ""):
+        from graph import delegations
+
+        return {"delegations": delegations.pending(session_id or None)}
+
+    @router.post("/api/delegations/{tool_call_id}/cancel", summary="Cancel one in-flight delegation")
+    async def _cancel_delegation(tool_call_id: str):
+        from graph import delegations
+
+        return {"ok": delegations.cancel(tool_call_id), "pending": len(delegations.pending())}
+
     @router.get("/api/notes/workspace", summary="Load notes workspace")
     async def _notes_get(project_path: str):
         try:
