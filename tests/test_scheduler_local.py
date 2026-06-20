@@ -255,3 +255,68 @@ async def test_fire_connect_error_is_concise_and_returns_false(tmp_path, monkeyp
     assert ok is False
     assert any("not reachable yet" in r.getMessage() for r in caplog.records)
     assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+# ── context_id routing for wait-resume (protopen-1hw.3) ──────────────────────
+
+
+def test_add_job_persists_context_id(tmp_path):
+    s = _sched(tmp_path)
+    job = s.add_job("resume prompt", "2030-01-01T00:00:00+00:00", context_id="a2a:sess1")
+    assert job.context_id == "a2a:sess1"
+    assert s.list_jobs()[0].context_id == "a2a:sess1"
+
+
+@pytest.mark.asyncio
+async def test_fire_routes_to_job_context_id(tmp_path, monkeypatch):
+    import httpx
+
+    from scheduler.interface import Job
+
+    monkeypatch.setattr(httpx, "AsyncClient", _CapturingClient)
+    s = _sched(tmp_path)
+    job = Job(id="j1", prompt="resume", schedule="2030-01-01T00:00:00+00:00",
+              agent_name="protopen-test", context_id="a2a:sess1")
+    assert await s._fire(job) is True
+    assert _CapturingClient.captured["json"]["params"]["message"]["contextId"] == "a2a:sess1"
+
+
+@pytest.mark.asyncio
+async def test_fire_defaults_to_activity_thread(tmp_path, monkeypatch):
+    import httpx
+
+    from events import ACTIVITY_CONTEXT
+    from scheduler.interface import Job
+
+    monkeypatch.setattr(httpx, "AsyncClient", _CapturingClient)
+    s = _sched(tmp_path)
+    job = Job(id="j2", prompt="sweep", schedule="0 9 * * *", agent_name="protopen-test")
+    assert await s._fire(job) is True
+    assert _CapturingClient.captured["json"]["params"]["message"]["contextId"] == ACTIVITY_CONTEXT
+
+
+def test_lazy_migration_adds_context_id_column(tmp_path):
+    import sqlite3
+
+    # Simulate an old jobs.db with no context_id column.
+    d = tmp_path / "protopen-test"
+    d.mkdir(parents=True)
+    db = sqlite3.connect(str(d / "jobs.db"))
+    db.executescript(
+        "CREATE TABLE jobs (id TEXT PRIMARY KEY, prompt TEXT, schedule TEXT, agent_name TEXT,"
+        " next_fire TEXT, last_fire TEXT, enabled INTEGER, created_at TEXT);"
+    )
+    db.execute(
+        "INSERT INTO jobs VALUES ('old', 'p', '0 9 * * *', 'protopen-test', '2030-01-01T00:00:00+00:00',"
+        " NULL, 1, '2026-01-01T00:00:00+00:00')"
+    )
+    db.commit()
+    db.close()
+
+    s = _sched(tmp_path)  # __init__ runs the lazy migration
+    job = s.list_jobs()[0]
+    assert job.id == "old"
+    assert job.context_id is None  # column added, existing row backfilled NULL
+    # New jobs can now set it.
+    s.add_job("resume", "2030-02-01T00:00:00+00:00", context_id="a2a:x")
+    assert any(j.context_id == "a2a:x" for j in s.list_jobs())

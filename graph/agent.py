@@ -56,6 +56,14 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
     """
     middleware = []
 
+    # Wait/yield (ADR 0053): if the previous step's tool block holds a successful
+    # `wait`, end the turn now (the scheduler will resume it later in this same
+    # thread). First in the chain so it short-circuits before knowledge retrieval
+    # / compaction do any before_model work on a turn that's just going to yield.
+    from graph.middleware.wait_yield import WaitYieldMiddleware
+
+    middleware.append(WaitYieldMiddleware())
+
     if config.enforcement_middleware:
         from enforcement.scope import ScopeValidator
         from enforcement.phases import KillChainPhase

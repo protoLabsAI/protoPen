@@ -34,6 +34,10 @@ class Job:
     next_fire: str | None = None  # ISO; None means "compute on save"
     last_fire: str | None = None
     enabled: bool = True
+    # Conversation thread to resume into when the job fires. None → the durable
+    # Activity thread (plain scheduled tasks). A `wait` yield (ADR 0053) stamps
+    # the originating chat's session id so the resume lands in that same thread.
+    context_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -49,9 +53,14 @@ class SchedulerBackend(Protocol):
 
     name: str  # short label for logs / agent-facing strings: "local", "workstacean"
 
-    def add_job(self, prompt: str, schedule: str, *, job_id: str | None = None) -> Job:
+    def add_job(
+        self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None
+    ) -> Job:
         """Persist a new job. Returns the stored ``Job`` (with
         backend-assigned id and next_fire if the caller didn't set them).
+
+        ``context_id`` is the conversation thread the fired turn resumes into
+        (None → the Activity thread).
 
         Raises ``ValueError`` for malformed schedule strings."""
         ...

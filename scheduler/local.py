@@ -120,7 +120,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     next_fire   TEXT NOT NULL,
     last_fire   TEXT,
     enabled     INTEGER NOT NULL DEFAULT 1,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    context_id  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_next_fire   ON jobs(next_fire);
@@ -175,6 +176,12 @@ class LocalScheduler:
         try:
             db = self._connect()
             db.executescript(_SCHEMA)
+            # Lazy migration: older jobs.db files predate the context_id column
+            # (ADR 0053 wait-resume). Add it in place so existing schedules and
+            # their history survive a deploy.
+            cols = {r["name"] for r in db.execute("PRAGMA table_info(jobs)").fetchall()}
+            if "context_id" not in cols:
+                db.execute("ALTER TABLE jobs ADD COLUMN context_id TEXT")
             db.commit()
             db.close()
         except sqlite3.DatabaseError:
@@ -182,7 +189,9 @@ class LocalScheduler:
 
     # ── public API (matches SchedulerBackend) ───────────────────────────────
 
-    def add_job(self, prompt: str, schedule: str, *, job_id: str | None = None) -> Job:
+    def add_job(
+        self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None
+    ) -> Job:
         if not prompt or not prompt.strip():
             raise ValueError("scheduler: prompt is required")
         next_fire = _compute_next_fire(schedule)  # raises ValueError for malformed input
@@ -193,12 +202,13 @@ class LocalScheduler:
             schedule=schedule,
             agent_name=self.agent_name,
             next_fire=next_fire,
+            context_id=context_id,
         )
         db = self._connect()
         try:
             db.execute(
                 "INSERT INTO jobs (id, prompt, schedule, agent_name, next_fire, "
-                "last_fire, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "last_fire, enabled, created_at, context_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     job.id,
                     job.prompt,
@@ -208,6 +218,7 @@ class LocalScheduler:
                     job.last_fire,
                     int(job.enabled),
                     job.created_at,
+                    job.context_id,
                 ),
             )
             db.commit()
@@ -483,6 +494,11 @@ class LocalScheduler:
             headers["X-API-Key"] = self._api_key
 
         message_id = str(uuid.uuid4())
+        # A wait-yield (ADR 0053) stamps the originating chat's session id as the
+        # job's context_id so the resume lands in that same thread (history
+        # intact). Plain scheduled tasks have no context_id → the durable
+        # Activity thread (ADR 0003). contextId rides on the message in A2A 1.0.
+        context_id = job.context_id or ACTIVITY_CONTEXT
         body = {
             "jsonrpc": "2.0",
             "id": message_id,
@@ -490,10 +506,7 @@ class LocalScheduler:
             "params": {
                 "message": {
                     "messageId": message_id,
-                    # Route into the durable Activity thread (ADR 0003) so the
-                    # fired turn lands somewhere visible/continuable instead of a
-                    # throwaway context. In 1.0 contextId rides on the message.
-                    "contextId": ACTIVITY_CONTEXT,
+                    "contextId": context_id,
                     "role": "ROLE_USER",
                     "parts": [{"text": job.prompt}],
                     # Scheduler bookkeeping for this fire (origin + job id),
@@ -540,6 +553,7 @@ class LocalScheduler:
 
 
 def _row_to_job(row: Any) -> Job:
+    keys = row.keys()
     return Job(
         id=row["id"],
         prompt=row["prompt"],
@@ -549,4 +563,5 @@ def _row_to_job(row: Any) -> Job:
         last_fire=row["last_fire"],
         enabled=bool(row["enabled"]),
         created_at=row["created_at"],
+        context_id=row["context_id"] if "context_id" in keys else None,
     )

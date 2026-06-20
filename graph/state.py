@@ -16,6 +16,11 @@ from typing import Annotated, NotRequired
 
 from langchain.agents.middleware.types import AgentState
 
+# Leading marker on a successful `wait` tool result (ADR 0053). WaitYieldMiddleware
+# ends the turn when it sees this in the trailing tool-message block; an "Error:"
+# wait result has no marker, so the agent sees the error and reacts instead.
+WAIT_YIELD_MARKER = "⏸ Yielding"  # "⏸ Yielding"
+
 
 def merge_findings(existing: list[dict] | None, new: list[dict] | None) -> list[dict]:
     """Reducer: append new findings, no deduplication needed."""

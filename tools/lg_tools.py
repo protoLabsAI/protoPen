@@ -9,9 +9,12 @@ Tools are grouped into three domains:
   - Blue Team:      cis_audit, net_monitor, hardening_check, ir_toolkit, purple_team
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from langchain_core.tools import tool
+from langgraph.prebuilt import InjectedState
+
+from graph.state import WAIT_YIELD_MARKER as _WAIT_YIELD_MARKER, session_id_from_state
 
 import asyncio
 import json
@@ -548,6 +551,56 @@ async def cancel_schedule(job_id: str) -> str:
     return f"Canceled {job_id}." if ok else f"Error: cancel failed or no such job {job_id}."
 
 
+_WAIT_MAX_SECONDS = 30 * 24 * 60 * 60  # 30d — past this, schedule_task is the right tool
+
+
+@tool
+async def wait(seconds: int, then: str, state: Annotated[dict, InjectedState] = None) -> str:
+    """Yield this turn and get re-invoked later — instead of busy-waiting.
+
+    Use when there is nothing to do until some time passes: a scan/exploit is
+    running, a payload needs to land, a rate-limit window must elapse. Calling
+    ``wait`` ENDS the current turn immediately (it does not block) and schedules
+    a one-shot resume into THIS SAME conversation — you wake up later with the
+    full history intact and the ``then`` instruction as your new prompt. This is
+    strictly better than looping/polling, which burns the recursion budget.
+
+    Args:
+        seconds: How long to yield for, in seconds (>= 1). Capped at 30 days; for
+            longer or recurring waits use ``schedule_task``.
+        then: Self-contained instruction for what to do when you resume — e.g.
+            "check whether the nmap scan in /tmp/scan.txt finished and analyze it".
+    """
+    if _scheduler_backend is None:
+        return "Error: scheduler unavailable; cannot wait. Do the work now or report you can't."
+    try:
+        secs = int(seconds)
+    except (TypeError, ValueError):
+        return "Error: 'seconds' must be an integer number of seconds."
+    if secs < 1:
+        return "Error: 'seconds' must be >= 1."
+    secs = min(secs, _WAIT_MAX_SECONDS)
+    if not then or not then.strip():
+        return "Error: 'then' (what to do on resume) is required."
+
+    from datetime import UTC, datetime, timedelta
+
+    resume_at = (datetime.now(UTC) + timedelta(seconds=secs)).isoformat()
+    session_id = session_id_from_state(state)
+    try:
+        job = await asyncio.to_thread(
+            _scheduler_backend.add_job, then, resume_at, context_id=(session_id or None)
+        )
+    except Exception as exc:  # noqa: BLE001
+        return f"Error: could not schedule the resume: {exc}"
+    # The leading marker lets WaitYieldMiddleware end the turn on a *successful*
+    # wait (an "Error:" return above does NOT yield — you see it and react).
+    return (
+        f"{_WAIT_YIELD_MARKER} for {secs}s — this turn is ending now. You will be "
+        f"re-invoked at {resume_at} (job {job.id}) to: {then}"
+    )
+
+
 # ── Task-tracker tools (beads / `br`) ─────────────────────────────────────────
 # The agent's durable to-do list for long-running, multi-step work — distinct
 # from schedule_task (time-based future turns) and subagent delegation (one-shot).
@@ -892,6 +945,7 @@ def get_security_tools(knowledge_store=None):
         schedule_task,
         list_schedules,
         cancel_schedule,
+        wait,
         create_task,
         list_tasks,
         update_task,
@@ -3639,6 +3693,7 @@ DEFERRED_BASE_TOOL_NAMES = frozenset(
         "schedule_task",
         "list_schedules",
         "cancel_schedule",
+        "wait",
         SEARCH_TOOLS_NAME,
     }
 )
