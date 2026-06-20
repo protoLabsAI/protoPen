@@ -1,0 +1,83 @@
+/* protoLabs.studio design system — tokens + base (the single brand source). */
+@import "@protolabsai/design/css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--pl-color-bg);
+  color: var(--pl-color-fg);
+  font-family: var(--pl-font-sans);
+  font-size: var(--pl-font-base-size);
+  line-height: var(--pl-font-line-height-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Link styling now comes from @protolabsai/design (brand color + transparent
+   underline at rest, revealed on hover) — no local override needed. */
+
+h1,
+h2,
+h3 {
+  line-height: var(--pl-font-line-height-heading);
+  font-weight: var(--pl-font-weight-semibold);
+  margin: 0 0 var(--pl-space-4);
+}
+
+code,
+pre {
+  font-family: var(--pl-font-mono);
+}
+
+.container {
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 var(--pl-space-6);
+}
+
+.gradient-text {
+  background: var(--pl-gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pl-space-2);
+  padding: var(--pl-space-3) var(--pl-space-5);
+  border-radius: var(--pl-radius);
+  font-weight: var(--pl-font-weight-medium);
+  border: 1px solid transparent;
+  transition: all var(--pl-motion-base, 200ms) ease;
+}
+.btn:hover {
+  text-decoration: none;
+}
+.btn-primary {
+  background: var(--pl-gradient-brand);
+  color: var(--pl-color-fg-on-accent, #fff);
+}
+.btn-primary:hover {
+  box-shadow: var(--pl-shadow-glow);
+}
+.btn-ghost {
+  background: var(--pl-color-bg-raised);
+  border-color: var(--pl-color-border);
+  color: var(--pl-color-fg);
+}
+.btn-ghost:hover {
+  border-color: var(--pl-color-border-strong);
+}

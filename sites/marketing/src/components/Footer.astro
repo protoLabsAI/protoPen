@@ -1,0 +1,60 @@
+---
+const year = 2026;
+---
+
+<footer class="footer">
+  <div class="footer-top">
+    <span class="built"
+      >Built by <a href="https://protolabs.studio">protoLabs.studio</a></span
+    >
+    <nav class="footer-links">
+      <a href="/docs/">Docs</a>
+      <a href="/changelog">Changelog</a>
+      <a href="https://github.com/protoLabsAI/protoPen">GitHub</a>
+    </nav>
+  </div>
+  <div class="copyright">© {year} protoLabs.studio</div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--pl-color-border);
+    margin-top: var(--pl-space-12);
+  }
+  .footer-top {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: var(--pl-space-8) var(--pl-space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--pl-space-4);
+    color: var(--pl-color-fg-muted);
+    font-size: 0.88rem;
+  }
+  .built a {
+    color: var(--pl-color-fg);
+  }
+  .built a:hover {
+    color: var(--pl-color-brand-lavender);
+    text-decoration: none;
+  }
+  .footer-links {
+    display: flex;
+    gap: var(--pl-space-5);
+  }
+  .footer-links a {
+    color: var(--pl-color-fg-muted);
+  }
+  .footer-links a:hover {
+    color: var(--pl-color-fg);
+    text-decoration: none;
+  }
+  .copyright {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--pl-color-fg-subtle, var(--pl-color-fg-muted));
+    padding-bottom: var(--pl-space-8);
+  }
+</style>

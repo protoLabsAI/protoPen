@@ -1,6 +1,10 @@
 import { defineConfig } from "vitepress";
 
-const SITE_URL = "https://protolabsai.github.io/protoPen/";
+// Base path + canonical URL are env-overridable so the same docs build serves
+// two homes: GitHub Pages at /protoPen/ (default) and, folded into the marketing
+// bundle by marketing-deploy.yml, pen.protolabs.studio/docs/ (DOCS_BASE=/docs/).
+const BASE = process.env.DOCS_BASE || "/protoPen/";
+const SITE_URL = process.env.DOCS_SITE_URL || "https://protolabsai.github.io/protoPen/";
 const OG_IMAGE = `${SITE_URL}og-image.png`;
 const TITLE = "protoPen — Autonomous Security Research & Pen-Testing Agent";
 const DESCRIPTION =
@@ -9,7 +13,7 @@ const DESCRIPTION =
 export default defineConfig({
   title: "protoPen",
   description: DESCRIPTION,
-  base: "/protoPen/",
+  base: BASE,
 
   // Dark, brand-first ground — the @protolabsai/vitepress-theme (docs/.vitepress/
   // theme) is dark-first like the marketing site; this pins it and drops the
@@ -27,7 +31,7 @@ export default defineConfig({
   ],
 
   head: [
-    ["link", { rel: "icon", href: "/protoPen/favicon.svg" }],
+    ["link", { rel: "icon", href: `${BASE}favicon.svg` }],
     // Open Graph + Twitter card — absolute image URL so social scrapers resolve it.
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:title", content: TITLE }],

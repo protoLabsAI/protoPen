@@ -1,0 +1,95 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import changelog from "../../data/changelog.json";
+
+const repo = "https://github.com/protoLabsAI/protoPen";
+const entries = changelog as Array<{
+  version: string;
+  date: string;
+  changes: string[];
+}>;
+---
+
+<BaseLayout
+  title="Changelog — pwndeck"
+  description="Release history for protoPen / pwndeck, the autonomous pen-testing companion."
+>
+  <section class="container log">
+    <header class="log-head">
+      <h1>Changelog</h1>
+      <p class="lead">What's new in pwndeck, newest first.</p>
+    </header>
+
+    {
+      entries.map((e, i) => (
+        <article class="entry">
+          <div class="meta">
+            <a class="ver" href={`${repo}/releases/tag/${e.version}`}>{e.version}</a>
+            {i === 0 && <span class="latest">latest</span>}
+            <time class="date">{e.date}</time>
+          </div>
+          <ul class="changes">
+            {e.changes.map((c) => (
+              <li>{c}</li>
+            ))}
+          </ul>
+        </article>
+      ))
+    }
+  </section>
+</BaseLayout>
+
+<style>
+  .log {
+    padding: var(--pl-space-12) 0;
+    max-width: 760px;
+  }
+  .log-head {
+    margin-bottom: var(--pl-space-8);
+  }
+  .log-head h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+  }
+  .lead {
+    color: var(--pl-color-fg-muted);
+    margin: 0;
+  }
+  .entry {
+    padding: var(--pl-space-6) 0;
+    border-top: 1px solid var(--pl-color-border);
+  }
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: var(--pl-space-3);
+    margin-bottom: var(--pl-space-3);
+  }
+  .ver {
+    font-family: var(--pl-font-mono);
+    font-weight: var(--pl-font-weight-semibold);
+    font-size: 1.05rem;
+  }
+  .latest {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--pl-gradient-brand);
+    color: var(--pl-color-fg-on-accent, #fff);
+  }
+  .date {
+    margin-left: auto;
+    color: var(--pl-color-fg-muted);
+    font-size: 0.85rem;
+    font-family: var(--pl-font-mono);
+  }
+  .changes {
+    margin: 0;
+    padding-left: var(--pl-space-5);
+    color: var(--pl-color-fg);
+  }
+  .changes li {
+    margin-bottom: var(--pl-space-2);
+  }
+</style>
