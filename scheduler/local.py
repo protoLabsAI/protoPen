@@ -41,11 +41,17 @@ from croniter import croniter
 from events import ACTIVITY_CONTEXT
 from scheduler.interface import Job, is_cron, parse_iso_to_utc
 
+try:  # POSIX advisory file locking; absent on Windows
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX
+    fcntl = None  # type: ignore[assignment]
+
 log = logging.getLogger(__name__)
 
 DEFAULT_DB_DIR = "/sandbox/scheduler"
 _POLL_INTERVAL_S = 1.0
 _MISSED_FIRE_WINDOW_S = 24 * 60 * 60  # 24h — matches Workstacean
+_LOCK_RETRY_INTERVAL_S = 15.0  # how often to re-attempt the owner-lock
 
 
 def _resolve_db_path(db_dir: str | Path | None, agent_name: str) -> Path:
@@ -148,6 +154,9 @@ class LocalScheduler:
         self._bearer = bearer_token or ""
         self.path = _resolve_db_path(db_dir, agent_name)
         self._task: asyncio.Task | None = None
+        self._lock_retry_task: asyncio.Task | None = None
+        self._lock_path = self.path.with_name(self.path.name + ".lock")
+        self._lock_fh = None
         self._stopping = False
         self._init_db()
 
@@ -238,9 +247,31 @@ class LocalScheduler:
         return [_row_to_job(r) for r in rows]
 
     async def start(self) -> None:
-        if self._task is not None:
+        if self._task is not None or self._lock_retry_task is not None:
             return
         self._stopping = False
+        if self._try_acquire_lock():
+            self._begin_polling()
+        else:
+            # Another live instance holds the jobs.db (common on a
+            # restart/redeploy where the previous process freed the port but
+            # is still draining an in-flight turn). Don't give up — that was
+            # protoAgent's bug, where the scheduler logged "owned by another
+            # live instance" and never started, so wait-resumes and every
+            # scheduled task silently stopped firing. Retry in the background
+            # and start the moment the lock frees.
+            log.info(
+                "[scheduler] jobs.db %s owned by another live instance; "
+                "retrying the owner-lock in the background (every %.0fs)",
+                self.path,
+                _LOCK_RETRY_INTERVAL_S,
+            )
+            self._lock_retry_task = asyncio.create_task(
+                self._acquire_then_poll(), name="scheduler.local.lock-retry"
+            )
+
+    def _begin_polling(self) -> None:
+        """Owner-lock held — recover missed fires and spawn the poll loop."""
         self._recover_missed_fires()
         self._task = asyncio.create_task(self._poll_loop(), name="scheduler.local.poll")
         log.info(
@@ -249,23 +280,86 @@ class LocalScheduler:
             self.path,
         )
 
+    async def _acquire_then_poll(self) -> None:
+        """Re-attempt the owner-lock until it frees, then start polling."""
+        while not self._stopping:
+            try:
+                await asyncio.sleep(_LOCK_RETRY_INTERVAL_S)
+            except asyncio.CancelledError:
+                return
+            if self._stopping:
+                return
+            if self._try_acquire_lock():
+                log.info("[scheduler] acquired owner-lock on %s; starting polling", self.path)
+                self._begin_polling()
+                return
+
+    def _try_acquire_lock(self) -> bool:
+        """Take the exclusive owner-lock on this jobs.db (non-blocking).
+
+        Returns True if we hold it (or advisory locking is unavailable on this
+        platform — single-owner can't be enforced there). A second live
+        instance on the same db gets False and won't double-fire.
+        """
+        if fcntl is None:
+            return True
+        if self._lock_fh is not None:
+            return True
+        fh = None
+        try:
+            fh = open(self._lock_path, "w")
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (BlockingIOError, OSError):
+            if fh is not None:
+                try:
+                    fh.close()
+                except OSError:
+                    pass
+            return False
+        self._lock_fh = fh
+        return True
+
+    def _release_lock(self) -> None:
+        fh = self._lock_fh
+        self._lock_fh = None
+        if fh is None:
+            return
+        try:
+            if fcntl is not None:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            fh.close()
+        except OSError:
+            pass
+
     async def stop(self) -> None:
         self._stopping = True
-        if self._task is None:
-            return
-        self._task.cancel()
-        try:
-            await self._task
-        except asyncio.CancelledError:
-            # Expected — we just cancelled it.
-            pass
-        except Exception:  # noqa: BLE001
-            # Anything else means the polling loop crashed during
-            # shutdown. Log with traceback so we can debug; don't
-            # re-raise (caller is in shutdown path, raising would
-            # mask the original shutdown trigger).
-            log.exception("[scheduler] polling task raised during stop")
-        self._task = None
+        if self._lock_retry_task is not None:
+            self._lock_retry_task.cancel()
+            try:
+                await self._lock_retry_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # noqa: BLE001
+                log.exception("[scheduler] lock-retry task raised during stop")
+            self._lock_retry_task = None
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                # Expected — we just cancelled it.
+                pass
+            except Exception:  # noqa: BLE001
+                # Anything else means the polling loop crashed during
+                # shutdown. Log with traceback so we can debug; don't
+                # re-raise (caller is in shutdown path, raising would
+                # mask the original shutdown trigger).
+                log.exception("[scheduler] polling task raised during stop")
+            self._task = None
+        self._release_lock()
         log.info("[scheduler] local backend stopped")
 
     # ── polling + firing ────────────────────────────────────────────────────
@@ -426,6 +520,14 @@ class LocalScheduler:
                 return False
             log.info("[scheduler] fired job %s", job.id)
             return True
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            # The agent isn't accepting connections yet — common on startup
+            # catch-up (a missed fire ticks before uvicorn is up) or a redeploy
+            # mid-drain. Expected and self-healing: the row stays in place and
+            # the next tick retries, so log a concise INFO instead of an ERROR
+            # traceback that reads like a real failure.
+            log.info("[scheduler] agent not reachable yet (job %s); will retry", job.id)
+            return False
         except Exception:  # noqa: BLE001
             log.exception("[scheduler] fire exception for job %s", job.id)
             return False

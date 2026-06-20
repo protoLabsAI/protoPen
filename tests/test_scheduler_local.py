@@ -158,3 +158,100 @@ async def test_fire_emits_a2a_1_0_wire_shape(tmp_path, monkeypatch):
     assert "kind" not in msg["parts"][0]
     assert "contextId" not in cap["json"]["params"]
     assert "metadata" not in cap["json"]["params"]
+
+
+# ── owner-lock + startup catch-up resilience (protopen-1hw.2) ────────────────
+
+import logging
+
+import scheduler.local as _local
+
+
+@pytest.mark.skipif(_local.fcntl is None, reason="POSIX flock unavailable")
+def test_owner_lock_blocks_second_poller(tmp_path):
+    """A second live instance on the same jobs.db can't also poll (no double-fire)."""
+
+    async def scenario():
+        s1 = _sched(tmp_path)
+        s2 = _sched(tmp_path)  # same db_dir + agent → same jobs.db + lock file
+        try:
+            await s1.start()
+            await s2.start()
+            return (
+                s1._task is not None,  # s1 owns the lock and polls
+                s2._task is None and s2._lock_retry_task is not None,  # s2 parks on retry
+            )
+        finally:
+            await s1.stop()
+            await s2.stop()
+
+    s1_polling, s2_waiting = asyncio.run(scenario())
+    assert s1_polling is True
+    assert s2_waiting is True
+
+
+@pytest.mark.skipif(_local.fcntl is None, reason="POSIX flock unavailable")
+def test_owner_lock_released_on_stop(tmp_path):
+    async def scenario():
+        s1 = _sched(tmp_path)
+        await s1.start()
+        await s1.stop()  # must release the lock
+        s2 = _sched(tmp_path)
+        acquired = s2._try_acquire_lock()
+        s2._release_lock()
+        return acquired
+
+    assert asyncio.run(scenario()) is True
+
+
+@pytest.mark.skipif(_local.fcntl is None, reason="POSIX flock unavailable")
+def test_owner_lock_self_heals_after_owner_stops(tmp_path, monkeypatch):
+    """The waiting instance starts polling the moment the lock frees — never gives up."""
+    monkeypatch.setattr(_local, "_LOCK_RETRY_INTERVAL_S", 0.05)
+
+    async def scenario():
+        s1 = _sched(tmp_path)
+        s2 = _sched(tmp_path)
+        try:
+            await s1.start()
+            await s2.start()  # parks on the retry loop
+            assert s2._task is None
+            await s1.stop()  # frees the lock
+            await asyncio.sleep(0.25)  # retry loop should acquire + begin polling
+            return s2._task is not None and not s2._task.done()
+        finally:
+            await s2.stop()
+
+    assert asyncio.run(scenario()) is True
+
+
+@pytest.mark.asyncio
+async def test_fire_connect_error_is_concise_and_returns_false(tmp_path, monkeypatch, caplog):
+    """Agent-not-up-yet (catch-up before uvicorn) is a concise INFO, not an ERROR traceback."""
+    import httpx
+
+    from scheduler.interface import Job
+
+    class _RefusingClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **k):
+            raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _RefusingClient)
+    s = _sched(tmp_path)
+    job = Job(id="job-x", prompt="ping", schedule="0 9 * * *", next_fire="", agent_name="protopen-test")
+
+    with caplog.at_level(logging.INFO, logger="scheduler.local"):
+        ok = await s._fire(job)
+
+    assert ok is False
+    assert any("not reachable yet" in r.getMessage() for r in caplog.records)
+    assert not any(r.levelno >= logging.ERROR for r in caplog.records)
