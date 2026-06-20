@@ -52,9 +52,33 @@ class SkillsIndex:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS skills USING fts5("
-            "name, description, prompt_template, tools_used, source UNINDEXED)"
+            "name, description, prompt_template, tools_used, source UNINDEXED, user_only UNINDEXED)"
         )
+        self._migrate_user_only()
         self._conn.commit()
+
+    def _migrate_user_only(self) -> None:
+        """Add the user_only column to an older skills.db (FTS5 has no ALTER ADD).
+
+        Preserves rows (emitted skills survive the disk re-seed) by copying them
+        into a fresh table with user_only defaulted off. No-op once migrated.
+        """
+        cols = [r[1] for r in self._conn.execute("PRAGMA table_info(skills)").fetchall()]
+        if "user_only" in cols:
+            return
+        rows = self._conn.execute(
+            "SELECT name, description, prompt_template, tools_used, source FROM skills"
+        ).fetchall()
+        self._conn.executescript(
+            "DROP TABLE skills;"
+            "CREATE VIRTUAL TABLE skills USING fts5("
+            "name, description, prompt_template, tools_used, source UNINDEXED, user_only UNINDEXED);"
+        )
+        self._conn.executemany(
+            "INSERT INTO skills (name, description, prompt_template, tools_used, source, user_only) "
+            "VALUES (?, ?, ?, ?, ?, '0')",
+            rows,
+        )
 
     def add_skill(
         self,
@@ -64,10 +88,12 @@ class SkillsIndex:
         tools_used: list[str] | None = None,
         *,
         source: str = "disk",
+        user_only: bool = False,
     ) -> None:
         self._conn.execute(
-            "INSERT INTO skills (name, description, prompt_template, tools_used, source) VALUES (?, ?, ?, ?, ?)",
-            (name, description, prompt_template, " ".join(tools_used or []), source),
+            "INSERT INTO skills (name, description, prompt_template, tools_used, source, user_only) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (name, description, prompt_template, " ".join(tools_used or []), source, "1" if user_only else "0"),
         )
         self._conn.commit()
 
@@ -90,9 +116,11 @@ class SkillsIndex:
         if not match:
             return []
         try:
+            # user_only skills are never auto-retrieved into context — they're
+            # deliberate, run-on-demand procedures (protopen-1hw.8).
             rows = self._conn.execute(
                 "SELECT name, description, prompt_template, tools_used, bm25(skills) AS score "
-                "FROM skills WHERE skills MATCH ? ORDER BY score LIMIT ?",
+                "FROM skills WHERE skills MATCH ? AND user_only = '0' ORDER BY score LIMIT ?",
                 (match, max(1, int(k))),
             ).fetchall()
         except sqlite3.OperationalError as exc:  # malformed MATCH — never raise into the turn
@@ -109,6 +137,23 @@ class SkillsIndex:
             for r in rows
         ]
 
+    def get_skill(self, name: str) -> SkillRecord | None:
+        """Fetch a skill by exact name — including user_only ones (for explicit,
+        on-demand invocation that bypasses auto-retrieval)."""
+        row = self._conn.execute(
+            "SELECT name, description, prompt_template, tools_used FROM skills WHERE name = ? LIMIT 1",
+            (name,),
+        ).fetchone()
+        if row is None:
+            return None
+        return SkillRecord(
+            name=row[0],
+            description=row[1],
+            prompt_template=row[2],
+            score=0.0,
+            tools_used=tuple((row[3] or "").split()),
+        )
+
     def count(self) -> int:
         return self._conn.execute("SELECT COUNT(*) FROM skills").fetchone()[0]
 
@@ -123,18 +168,25 @@ class SkillsIndex:
                 if not match:
                     return []
                 rows = self._conn.execute(
-                    "SELECT name, description, tools_used, source FROM skills "
+                    "SELECT name, description, tools_used, source, user_only FROM skills "
                     "WHERE skills MATCH ? ORDER BY bm25(skills) LIMIT ?",
                     (match, max(1, int(limit))),
                 ).fetchall()
             else:
                 rows = self._conn.execute(
-                    "SELECT name, description, tools_used, source FROM skills LIMIT ?",
+                    "SELECT name, description, tools_used, source, user_only FROM skills LIMIT ?",
                     (max(1, int(limit)),),
                 ).fetchall()
         except sqlite3.OperationalError as exc:
             log.debug("[skills] all_skills failed: %s", exc)
             return []
         return [
-            {"name": r[0], "description": r[1], "tools": (r[2] or "").split(), "source": r[3] or "disk"} for r in rows
+            {
+                "name": r[0],
+                "description": r[1],
+                "tools": (r[2] or "").split(),
+                "source": r[3] or "disk",
+                "user_only": str(r[4] or "0") == "1",
+            }
+            for r in rows
         ]
