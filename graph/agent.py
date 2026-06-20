@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool
 
 from graph.config import LangGraphConfig
 from graph.llm import create_llm
+from graph.state import ResearcherState
 from graph.prompts import build_system_prompt, build_subagent_prompt
 from graph.middleware.audit import AuditMiddleware
 from graph.middleware.enforcement import EnforcementMiddleware
@@ -564,14 +565,17 @@ def create_researcher_graph(
         hardware_status=sitrep,
     )
 
-    # Create agent with middleware (DeerFlow pattern)
-    # Note: state_schema omitted — create_agent manages its own AgentState.
-    # Custom state (research_context, findings) flows via system prompt + tool results.
+    # Create agent with middleware (DeerFlow pattern).
+    # state_schema=ResearcherState makes `session_id` a first-class channel so
+    # tool bodies can read the originating session via InjectedState (the tracing
+    # contextvar reads empty inside a LangGraph tool node). It also declares the
+    # `context` channel KnowledgeMiddleware writes / PromptCacheMiddleware reads.
     agent = create_agent(
         model=llm,
         tools=all_tools,
         middleware=middleware,
         system_prompt=system_prompt,
+        state_schema=ResearcherState,
         checkpointer=checkpointer,
     )
 
