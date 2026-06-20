@@ -53,9 +53,7 @@ class SchedulerBackend(Protocol):
 
     name: str  # short label for logs / agent-facing strings: "local", "workstacean"
 
-    def add_job(
-        self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None
-    ) -> Job:
+    def add_job(self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None) -> Job:
         """Persist a new job. Returns the stored ``Job`` (with
         backend-assigned id and next_fire if the caller didn't set them).
 

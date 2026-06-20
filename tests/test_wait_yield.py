@@ -77,9 +77,7 @@ def test_wait_schedules_one_shot_into_originating_session(tmp_path):
     s = LocalScheduler(agent_name="protopen-test", invoke_url="http://x", db_dir=str(tmp_path))
     set_scheduler(s)
     try:
-        out = asyncio.run(
-            wait.coroutine(seconds=5, then="check the nmap scan", state={"session_id": "a2a:sess1"})
-        )
+        out = asyncio.run(wait.coroutine(seconds=5, then="check the nmap scan", state={"session_id": "a2a:sess1"}))
         assert WAIT_YIELD_MARKER in out
         jobs = s.list_jobs()
         assert len(jobs) == 1
@@ -107,9 +105,7 @@ class _CallsWaitModel(BaseChatModel):
         if self.calls == 1:
             msg = AIMessage(
                 content="",
-                tool_calls=[
-                    {"name": "wait", "args": {"seconds": 5, "then": "check scan"}, "id": "call-1"}
-                ],
+                tool_calls=[{"name": "wait", "args": {"seconds": 5, "then": "check scan"}, "id": "call-1"}],
             )
         else:
             # Should never be reached — the turn yields after the wait tool.
@@ -129,9 +125,7 @@ def test_turn_yields_after_wait_no_second_model_call(tmp_path):
             state_schema=ResearcherState,
         )
         # The graph runs async in protoPen (astream_events); wait is async-only.
-        result = asyncio.run(
-            agent.ainvoke({"messages": [("user", "do it")], "session_id": "a2a:sess9"})
-        )
+        result = asyncio.run(agent.ainvoke({"messages": [("user", "do it")], "session_id": "a2a:sess9"}))
     finally:
         set_scheduler(None)
     # Model called exactly once: it emitted the wait tool call, then the turn

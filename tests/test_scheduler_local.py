@@ -275,8 +275,13 @@ async def test_fire_routes_to_job_context_id(tmp_path, monkeypatch):
 
     monkeypatch.setattr(httpx, "AsyncClient", _CapturingClient)
     s = _sched(tmp_path)
-    job = Job(id="j1", prompt="resume", schedule="2030-01-01T00:00:00+00:00",
-              agent_name="protopen-test", context_id="a2a:sess1")
+    job = Job(
+        id="j1",
+        prompt="resume",
+        schedule="2030-01-01T00:00:00+00:00",
+        agent_name="protopen-test",
+        context_id="a2a:sess1",
+    )
     assert await s._fire(job) is True
     assert _CapturingClient.captured["json"]["params"]["message"]["contextId"] == "a2a:sess1"
 

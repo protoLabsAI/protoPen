@@ -189,9 +189,7 @@ class LocalScheduler:
 
     # ── public API (matches SchedulerBackend) ───────────────────────────────
 
-    def add_job(
-        self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None
-    ) -> Job:
+    def add_job(self, prompt: str, schedule: str, *, job_id: str | None = None, context_id: str | None = None) -> Job:
         if not prompt or not prompt.strip():
             raise ValueError("scheduler: prompt is required")
         next_fire = _compute_next_fire(schedule)  # raises ValueError for malformed input
@@ -277,9 +275,7 @@ class LocalScheduler:
                 self.path,
                 _LOCK_RETRY_INTERVAL_S,
             )
-            self._lock_retry_task = asyncio.create_task(
-                self._acquire_then_poll(), name="scheduler.local.lock-retry"
-            )
+            self._lock_retry_task = asyncio.create_task(self._acquire_then_poll(), name="scheduler.local.lock-retry")
 
     def _begin_polling(self) -> None:
         """Owner-lock held — recover missed fires and spawn the poll loop."""

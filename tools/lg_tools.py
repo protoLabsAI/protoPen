@@ -588,9 +588,7 @@ async def wait(seconds: int, then: str, state: Annotated[dict, InjectedState] = 
     resume_at = (datetime.now(UTC) + timedelta(seconds=secs)).isoformat()
     session_id = session_id_from_state(state)
     try:
-        job = await asyncio.to_thread(
-            _scheduler_backend.add_job, then, resume_at, context_id=(session_id or None)
-        )
+        job = await asyncio.to_thread(_scheduler_backend.add_job, then, resume_at, context_id=(session_id or None))
     except Exception as exc:  # noqa: BLE001
         return f"Error: could not schedule the resume: {exc}"
     # The leading marker lets WaitYieldMiddleware end the turn on a *successful*

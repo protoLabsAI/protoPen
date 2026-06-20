@@ -55,9 +55,7 @@ def test_tick_only_evaluates_active_monitor_goals():
 
 def test_tick_announces_achieved_monitor_goal():
     # evaluate's _finish transitions the state to achieved before returning.
-    decision = Decision(
-        action="done", state=_goal("s1", status="achieved"), note="✓ goal achieved: 1 critical finding"
-    )
+    decision = Decision(action="done", state=_goal("s1", status="achieved"), note="✓ goal achieved: 1 critical finding")
     ctrl = _FakeController([_goal("s1")], results={"s1": decision})
     bus = _FakeBus()
     ticker = MonitorGoalTicker(ctrl, interval_s=999, event_bus=bus)

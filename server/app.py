@@ -468,9 +468,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         if _interval and _interval > 0:
             from graph.goals.ticker import MonitorGoalTicker
 
-            STATE.monitor_ticker = MonitorGoalTicker(
-                STATE.goal_controller, interval_s=_interval, event_bus=_event_bus
-            )
+            STATE.monitor_ticker = MonitorGoalTicker(STATE.goal_controller, interval_s=_interval, event_bus=_event_bus)
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
