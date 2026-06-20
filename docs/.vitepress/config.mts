@@ -76,7 +76,10 @@ export default defineConfig({
         { text: "Guides", items: [{ text: "Overview", link: "/guides/" }] },
         {
           text: "Autonomy & control",
-          items: [{ text: "Scheduler", link: "/guides/scheduler" }],
+          items: [
+            { text: "Write a Skill", link: "/guides/writing-skills" },
+            { text: "Scheduler", link: "/guides/scheduler" },
+          ],
         },
         {
           text: "Interfaces & protocols",
@@ -98,6 +101,7 @@ export default defineConfig({
           text: "Autonomy & control",
           items: [
             { text: "Goals (Autonomy)", link: "/reference/goals" },
+            { text: "Workflows", link: "/reference/workflows" },
             { text: "Playbooks", link: "/reference/playbooks" },
           ],
         },
@@ -122,6 +126,7 @@ export default defineConfig({
           items: [
             { text: "Tools", link: "/reference/tools" },
             { text: "Adding a Tool", link: "/reference/adding-a-tool" },
+            { text: "SDK Primitives", link: "/reference/sdk" },
           ],
         },
         {
