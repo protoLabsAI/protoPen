@@ -110,10 +110,12 @@ class TestToolRegistration:
 
 
 class TestSubagentRegistry:
-    def test_registry_has_ten_agents(self):
+    def test_registry_has_expected_agents(self):
         from graph.subagents.config import SUBAGENT_REGISTRY
 
-        assert len(SUBAGENT_REGISTRY) == 10
+        # 10 security/pentest/blue subagents + the dream self-curation subagent.
+        assert len(SUBAGENT_REGISTRY) == 11
+        assert "dream" in SUBAGENT_REGISTRY
 
     def test_security_subagents_present(self):
         from graph.subagents.config import SUBAGENT_REGISTRY

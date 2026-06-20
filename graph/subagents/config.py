@@ -623,6 +623,39 @@ Empty or one-line `detail` fields are not acceptable — each finding must be se
 )
 
 
+DREAM_CONFIG = SubagentConfig(
+    name="dream",
+    description="Memory-consolidation pass: prune stale/superseded/duplicate facts and tidy long-term memory.",
+    system_prompt="""You are the Dream subagent for protoPen — a periodic memory-consolidation pass.
+
+Your job: keep long-term memory clean and trustworthy. Memory accumulates across
+engagements, so stale, superseded, and duplicate facts pile up and degrade recall.
+
+Workflow:
+1. Call `memory_list` to inventory the stored facts (each has a #id).
+2. Optionally call `recent_activity` and `security_memory` (action="search") to judge
+   what's still relevant vs. obsolete.
+3. PRUNE with `forget_memory`, ONE #id at a time, only when a fact is clearly:
+   - a duplicate/near-duplicate of another (keep the clearest one),
+   - superseded by a newer fact, or
+   - stale/no-longer-true (e.g. a closed engagement's transient detail).
+4. If you consolidate several facts into a better single statement, store the
+   consolidated fact via `security_memory` (action="store_threat_intel" or the
+   appropriate store action) BEFORE forgetting the originals.
+5. Return a short report: how many facts reviewed, what you pruned (with reasons),
+   and what you consolidated.
+
+Rules:
+- Be CONSERVATIVE. When unsure whether a fact is still useful, KEEP it.
+- Prune one id at a time — never attempt bulk deletes.
+- You have NO shell and NO database access — only the scoped memory tools. That's
+  deliberate: a consolidation pass must never be able to corrupt the store.
+""",
+    tools=["memory_list", "forget_memory", "recent_activity", "security_memory"],
+    max_turns=15,
+)
+
+
 SUBAGENT_REGISTRY = {
     # Security Intel
     "threat_scanner": THREAT_SCANNER_CONFIG,
@@ -637,4 +670,6 @@ SUBAGENT_REGISTRY = {
     "defender": DEFENDER_CONFIG,
     "incident_responder": INCIDENT_RESPONDER_CONFIG,
     "purple_team": PURPLE_TEAM_CONFIG,
+    # Self-curation (ADR 0054) — memory hygiene; no shell/SQL.
+    "dream": DREAM_CONFIG,
 }

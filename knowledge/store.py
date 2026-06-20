@@ -205,6 +205,43 @@ class KnowledgeStore:
         except Exception:
             return []
 
+    def delete_fact(self, fact_id: str) -> bool:
+        """Delete one durable fact by id, across the facts row, FTS index, and
+        vector store. Returns True if a facts row was removed. Used by the dream
+        memory-consolidation pass to prune stale/superseded/duplicate facts —
+        one id at a time, never a bulk/wildcard delete (ADR 0054)."""
+        fact_id = (fact_id or "").strip()
+        if not fact_id:
+            return False
+        db = self._get_db()
+        if db is None:
+            return False
+        try:
+            cur = db.execute("DELETE FROM facts WHERE id = ?", (fact_id,))
+            removed = cur.rowcount > 0
+            db.execute(
+                "DELETE FROM knowledge_fts WHERE source_table = 'facts' AND source_id = ?",
+                (fact_id,),
+            )
+            vec_rows = db.execute(
+                "SELECT rowid FROM knowledge_vec_map WHERE source_table = 'facts' AND source_id = ?",
+                (fact_id,),
+            ).fetchall()
+            for (rowid,) in vec_rows:
+                try:
+                    db.execute("DELETE FROM knowledge_vec WHERE rowid = ?", (rowid,))
+                except Exception:
+                    pass  # vec0 table may be absent when embeddings are off
+            db.execute(
+                "DELETE FROM knowledge_vec_map WHERE source_table = 'facts' AND source_id = ?",
+                (fact_id,),
+            )
+            db.commit()
+            return removed
+        except Exception as e:
+            print(f"[knowledge] delete_fact failed: {e}")
+            return False
+
     # --- CVEs ---
 
     def add_cve(
