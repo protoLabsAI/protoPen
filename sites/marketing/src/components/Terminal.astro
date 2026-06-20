@@ -64,6 +64,10 @@ import logo from "../pwndeck-logo.txt?raw";
   .term-body {
     padding: var(--pl-space-5) var(--pl-space-5) var(--pl-space-6);
     container-type: inline-size; /* lets the figlet scale to the terminal width */
+    /* Force left alignment — the hero is a centered stack (text-align: center),
+       and that must NOT leak into the terminal, or the figlet + prompt lines
+       render centered/ragged instead of as a real left-aligned terminal. */
+    text-align: left;
   }
   .logo {
     margin: 0 0 var(--pl-space-5);
