@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_50 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_55 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -439,6 +439,48 @@ A2A JSON-RPC endpoint
 #### `GET /api/activity`
 
 Activity thread history (ADR 0003)
+
+**Responses:** `200` Successful Response
+
+### Config
+
+#### `GET /api/config`
+
+Current agent config (UI-safe, no secrets)
+
+**Responses:** `200` Successful Response
+
+#### `POST /api/config/models`
+
+Probe an OpenAI-compatible gateway for models
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/config/presets/{name}`
+
+Read a SOUL preset
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `name` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/setup`
+
+Write config + key and reload the agent
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/config/setup-status`
+
+Setup wizard status
 
 **Responses:** `200` Successful Response
 
