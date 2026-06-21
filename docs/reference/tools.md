@@ -108,7 +108,7 @@ _89 tools, generated from the live registry — do not edit by hand._
 | `iot_protocol` | IoT protocol security testing — MQTT, CoAP, Modbus, BACnet, UPnP, Zigbee |
 | `iot_audit` | IoT device security audit — discovery, fingerprinting, and vulnerability assessment |
 | `mobile_audit` | Mobile app security testing — APK decompilation, static/dynamic analysis |
-| `telecom_attack` | 5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI |
+| `telecom_attack` | Telecom security testing — SIP (SIPVicious) + IMSI detection (gr-gsm) |
 | `supply_chain` | Supply chain attack testing — dependency confusion, typosquatting, secrets |
 | `serverless_audit` | Serverless/edge function security testing |
 | `cicd_audit` | CI/CD pipeline security scanning — secret detection, IaC scanning, SAST |
