@@ -36,12 +36,7 @@ import uuid
 import httpx
 
 BASE = os.environ.get("PROTOPEN_BASE", "http://127.0.0.1:7870").rstrip("/")
-KEY = (
-    os.environ.get("PROTOPEN_KEY")
-    or os.environ.get("PROTOPEN_API_KEY")
-    or os.environ.get("RESEARCHER_API_KEY")
-    or ""
-)
+KEY = os.environ.get("PROTOPEN_KEY") or os.environ.get("PROTOPEN_API_KEY") or os.environ.get("RESEARCHER_API_KEY") or ""
 DOMAIN = os.environ.get("PROTOPEN_E2E_DOMAIN", "protolabs.studio").strip()
 LAN = os.environ.get("PROTOPEN_E2E_LAN", "").strip()
 TURN_TIMEOUT = float(os.environ.get("PROTOPEN_E2E_TIMEOUT", "240"))
