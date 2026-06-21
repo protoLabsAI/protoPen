@@ -171,8 +171,21 @@ def _init_langgraph_agent():
     from graph.config import LangGraphConfig
     from sitrep import run_sitrep
 
-    config_path = _REPO_ROOT / "config" / "langgraph-config.yaml"
-    STATE.graph_config = LangGraphConfig.from_yaml(config_path)
+    # Load the persistent config override (written by the setup wizard; lives on
+    # the /sandbox mount so it survives image upgrades + OS updates) in preference
+    # to the bundled file. Then promote a local BYO key into OPENAI_API_KEY BEFORE
+    # the graph (and guardrails) build — an env/Infisical key always wins.
+    from operator_api import config_setup as _config_setup
+
+    _config_dir = _config_setup.resolve_config_dir()
+    _override = _config_setup.config_override_path(_config_dir)
+    _bundled = _REPO_ROOT / "config" / "langgraph-config.yaml"
+    try:
+        STATE.graph_config = LangGraphConfig.from_yaml(_override if _override.exists() else _bundled)
+    except Exception as exc:  # a truncated/corrupt override must not brick boot
+        print(f"[config] override unreadable ({exc}); falling back to bundled config")
+        STATE.graph_config = LangGraphConfig.from_yaml(_bundled)
+    _config_setup.load_local_key_into_env(_config_dir, STATE.graph_config.api_base)
 
     store = get_store()
 

@@ -374,6 +374,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
 
     # --- React operator-console API + webview (ported from protoAgent #237) ---
     # Webview-only: the Tauri desktop wrapper is intentionally not ported.
+    from operator_api import config_setup as _config_setup
     from operator_api.routes import register_operator_routes
     from operator_api.runtime import build_runtime_status as _build_operator_status
     from operator_api.subagents import (
@@ -384,11 +385,12 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     from operator_api.web import mount_react_app
 
     def _operator_runtime_status():
-        # protopen is configured via env/Infisical (no template setup wizard) and
-        # has no cache_warmer/goal_controller — omit those (default None).
+        # setup_complete drives the BYO-key wizard gate: false when no LLM key is
+        # configured by any path (env/Infisical, the local key file, or config), so
+        # a fresh Deck shows the wizard and a fleet Deck (env key) never does.
         return _build_operator_status(
             config=STATE.graph_config,
-            setup_complete=True,
+            setup_complete=_config_setup.is_setup_complete(graph_config=STATE.graph_config),
             graph_loaded=STATE.graph is not None,
             knowledge_store=STATE.knowledge_store,
             scheduler=_scheduler,
@@ -710,6 +712,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         workflows_run=_operator_workflow_run,
         playbooks_list=_operator_playbooks_list,
         playbooks_run=_operator_playbook_run,
+        # Setup wizard (BYO key) — callbacks read/write STATE + the persistent
+        # config override; see operator_api/config_setup.py.
+        config_setup_status=_config_setup.setup_status,
+        config_get=_config_setup.get_config,
+        config_preset=_config_setup.get_preset,
+        config_models=_config_setup.probe_models,
+        config_setup=_config_setup.run_setup,
         api_key=_operator_api_key,
     )
 

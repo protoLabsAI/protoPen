@@ -37,6 +37,12 @@ class LangGraphConfig:
     max_tokens: int = 4096
     max_iterations: int = 75
 
+    # Identity — operator-facing labels surfaced in runtime status + the setup
+    # wizard. Parsed from an optional `identity:` block; runtime.py already reads
+    # config.identity_name / config.identity_operator.
+    identity_name: str = "protopen"
+    identity_operator: str = ""
+
     # Subagents
     threat_scanner: SubagentDef = field(
         default_factory=lambda: SubagentDef(
@@ -171,6 +177,7 @@ class LangGraphConfig:
         middleware = data.get("middleware", {})
         knowledge = data.get("knowledge", {})
         compaction = data.get("compaction", {})
+        identity = data.get("identity", {}) or {}
 
         config = cls(
             model_provider=model.get("provider", cls.model_provider),
@@ -180,6 +187,8 @@ class LangGraphConfig:
             temperature=model.get("temperature", cls.temperature),
             max_tokens=model.get("max_tokens", cls.max_tokens),
             max_iterations=model.get("max_iterations", cls.max_iterations),
+            identity_name=identity.get("name", cls.identity_name),
+            identity_operator=identity.get("operator", cls.identity_operator),
             knowledge_middleware=middleware.get("knowledge", True),
             knowledge_ingest_middleware=middleware.get("knowledge_ingest", True),
             audit_middleware=middleware.get("audit", True),
