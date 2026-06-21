@@ -3424,14 +3424,14 @@ textarea {
 .intro-splash-mark {
   width: 88px;
   height: 88px;
-  filter: drop-shadow(0 0 14px rgba(167, 139, 250, 0.35));
+  filter: drop-shadow(0 0 14px rgba(62, 224, 122, 0.35));
 }
 
 .intro-splash-word {
   font-size: 2rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  background: linear-gradient(135deg, #9b87f2 0%, #818cf8 50%, #6366f1 100%);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -3450,7 +3450,7 @@ textarea {
 }
 
 /* pwnDeck launch bumper (LaunchSequence frame 2) — terminal-style ASCII frame
-   shown right after the protoLabs bumper, in the lavender→indigo brand gradient. */
+   shown right after the protoLabs bumper, in the terminal-green brand gradient. */
 .pwndeck-splash {
   position: fixed;
   inset: 0;
@@ -3472,12 +3472,12 @@ textarea {
   line-height: 1.15;
   font-weight: 600;
   white-space: pre;
-  background: linear-gradient(135deg, #9b87f2 0%, #818cf8 50%, #6366f1 100%);
+  background: var(--brand-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   color: transparent;
-  filter: drop-shadow(0 0 16px rgba(155, 135, 242, 0.35));
+  filter: drop-shadow(0 0 16px rgba(62, 224, 122, 0.35));
   animation: intro-rise 0.45s cubic-bezier(0.2, 0.6, 0.2, 1) both;
 }
 
