@@ -154,7 +154,7 @@ const caps = [
   /* Faint phosphor grid + green halo behind the hero — terminal, not garish. */
   .hero {
     position: relative;
-    padding: var(--pl-space-12) 0 var(--pl-space-10);
+    padding: var(--pl-space-12) 0;
     background:
       radial-gradient(60% 50% at 72% 0%, rgba(62, 224, 122, 0.08), transparent 70%),
       linear-gradient(rgba(62, 224, 122, 0.022) 1px, transparent 1px) 0 0 / 100% 28px,
@@ -188,6 +188,7 @@ const caps = [
     display: flex;
     gap: var(--pl-space-3);
     flex-wrap: wrap;
+    margin-bottom: var(--pl-space-5);
   }
 
   /* Shared terminal line — mono, preserves column spacing, scrolls if long. */
@@ -271,10 +272,6 @@ const caps = [
   .cap-term .tline.out {
     color: var(--pl-color-fg-muted);
   }
-  /* Mirror even rows so the terminal alternates sides — reads like a spec sheet. */
-  .cap:nth-child(even) .cap-head {
-    order: 2;
-  }
 
   .prompt {
     color: var(--pl-color-accent);
@@ -321,9 +318,6 @@ const caps = [
     .cap {
       grid-template-columns: 1fr;
       gap: var(--pl-space-5);
-    }
-    .cap:nth-child(even) .cap-head {
-      order: 0;
     }
   }
 </style>
