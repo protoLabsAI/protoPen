@@ -34,23 +34,34 @@ def parse_gtp_json(raw: str, store: "TargetStore") -> list[dict]:
     return entities
 
 
-def parse_sip_json(raw: str, store: "TargetStore") -> list[dict]:
-    """Parse SIPVicious JSON output (svmap, svcrack, svwar)."""
+def parse_sip_table(raw: str, store: "TargetStore") -> list[dict]:
+    """Parse SIPVicious pptable output (svmap / svcrack / svwar).
+
+    The real sipvicious CLI has no JSON output — svmap/svcrack/svwar print a
+    ``| col | col |`` table to stdout. Each data row becomes a finding (the first
+    column is the SIP device / extension). Tolerant: returns [] when there is no
+    table (e.g. svmap's "found nothing").
+    """
     entities: list[dict] = []
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return entities
-    results = data if isinstance(data, list) else data.get("results", [data])
-    for r in results:
+    for line in raw.splitlines():
+        line = line.strip()
+        # Keep only table data rows: start with "|", and aren't a border row.
+        if not line.startswith("|") or set(line) <= {"|", "-", "+", " "}:
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if not cells or not cells[0]:
+            continue
+        # Skip the header row (column labels, not a device).
+        if cells[0].lower() in {"sip device", "extension", "host", "user agent"}:
+            continue
         entities.append(
             {
                 "type": "telecom_finding",
                 "protocol": "sip",
                 "check": "sip_enum",
-                "target": r.get("host", r.get("ip", "")),
-                "severity": r.get("severity", "medium"),
-                "value": r.get("user_agent", r.get("extension", str(r)[:200])),
+                "target": cells[0],
+                "severity": "medium",
+                "value": " | ".join(cells[1:]) if len(cells) > 1 else cells[0],
             }
         )
     return entities
@@ -144,10 +155,10 @@ def parse_stir_shaken(raw: str, store: "TargetStore") -> list[dict]:
 
 PARSER_MAP[("telecom_attack", "gtp_scan")] = parse_gtp_json
 PARSER_MAP[("telecom_attack", "gtp_fuzzer")] = parse_gtp_json
-PARSER_MAP[("telecom_attack", "sip_enum")] = parse_sip_json
-PARSER_MAP[("telecom_attack", "sip_crack")] = parse_sip_json
+PARSER_MAP[("telecom_attack", "sip_enum")] = parse_sip_table
+PARSER_MAP[("telecom_attack", "sip_crack")] = parse_sip_table
 PARSER_MAP[("telecom_attack", "ss7_scan")] = parse_ss7_json
 PARSER_MAP[("telecom_attack", "diameter_audit")] = parse_diameter_json
 PARSER_MAP[("telecom_attack", "imsi_detect")] = parse_imsi_detect
-PARSER_MAP[("telecom_attack", "sip_flood_test")] = parse_sip_json
+PARSER_MAP[("telecom_attack", "sip_flood_test")] = parse_sip_table
 PARSER_MAP[("telecom_attack", "stir_shaken_verify")] = parse_stir_shaken
