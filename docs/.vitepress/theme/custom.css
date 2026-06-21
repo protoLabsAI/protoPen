@@ -1,0 +1,18 @@
+/* protoPen runs the app's terminal-green theme, not the fleet lavender/indigo.
+ * Override the shared @protolabsai/vitepress-theme brand tokens to the app's
+ * green palette (apps/web/src/app/theme.css) so the docs match the marketing
+ * site + the console it documents. Loaded after the theme, so this wins.
+ * Deliberate divergence from upstream brand. */
+:root {
+  --pl-color-brand-lavender: #3ee07a; /* terminal green (was lavender) */
+  --pl-color-brand-lavender-light: #6ee7b7;
+  --pl-color-brand-lavender-deep: #10b981;
+  --pl-color-brand-indigo: #10b981;
+  --pl-color-brand-indigo-bright: #6ee7b7;
+  --pl-color-brand-indigo-deep: #059669;
+  --pl-color-accent: #3ee07a;
+  --pl-color-accent-hover: #6ee7b7;
+  --pl-color-accent-fg: #6ee7b7;
+  --pl-color-focus: #3ee07a;
+  --pl-gradient-brand: linear-gradient(135deg, #6ee7b7 0%, #3ee07a 50%, #10b981 100%);
+}

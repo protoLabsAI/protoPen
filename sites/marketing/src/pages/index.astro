@@ -2,22 +2,68 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Terminal from "../components/Terminal.astro";
 
-const features = [
+// The actual stack, not a pitch — the "$ protopen --whoami" readout.
+const stack = [
+  { k: "runtime", v: "LangGraph agent · A2A 1.0 · LiteLLM gateway (your models)" },
+  { k: "host", v: "SteamOS · rootful --privileged container · survives OS updates" },
+  { k: "radios", v: "WiFi monitor + inject · HackRF/PortaPack SDR · Flipper / Marauder" },
+  { k: "arsenal", v: "BlackArch · aircrack-ng · bettercap · nmap · hashcat · OSINT" },
+];
+
+// Capability blocks — each carries a real readout, not a stock illustration.
+const caps = [
   {
-    title: "Self-driving by design",
-    body: "Goal mode, wait/yield/resume, background sub-agents, and a monitor-goal cadence let it run an engagement unattended — and a watchdog recovers it when something stalls or crashes.",
+    n: "01",
+    title: "It drives the engagement — not you",
+    body: "Goal mode, wait / yield / resume, background sub-agents, and a monitor-goal cadence let it run unattended. A watchdog recovers it when a step stalls or the process dies. Set the objective and walk away.",
+    term: [
+      { p: "$", t: 'goal "enum the lab subnet, crack weak WiFi, report criticals"' },
+      { o: "[plan]  recon → scan → deauth+capture → crack → triage → report" },
+      { o: "[bg]    sub-agent #2 cracking handshake · watchdog armed" },
+    ],
   },
   {
+    n: "02",
     title: "Hardware-in-the-loop",
-    body: "Drives PortaPack H4M, Flipper Zero, WiFi Marauder, and BlackArch from a Steam Deck — RF, WiFi, and RFID assessments from one device you can carry.",
+    body: "Real radios, passed straight through a privileged container — monitor-mode WiFi with injection, software-defined radio capture/replay, and serial to the Flipper. One rig you carry, not a rack you ship.",
+    term: [
+      { p: "$", t: "protopen devices" },
+      { o: "wlan1    Alfa AWUS036AXML (mt7921u)    monitor + inject" },
+      { o: "hackrf   PortaPack H4M / Mayhem         SDR capture · replay" },
+      { o: "ttyACM1  Flipper Zero + WiFi Marauder   sub-GHz · RFID · ESP32" },
+    ],
   },
   {
-    title: "Scope-aware & local",
-    body: "Runs on your hardware against the models you host. Kill-chain phase gating and engagement scoping keep it inside the rules of engagement; goal verifiers never execute shell.",
+    n: "03",
+    title: "The whole arsenal, one pacman away",
+    body: "The BlackArch repo ships configured, so any of ~2800 tools is one install away — and the agent already wraps the ones it reaches for: WiFi, recon, cracking, web, OSINT, telecom. Add your own skills, playbooks, and workflows on top.",
+    term: [
+      { p: "$", t: "which aircrack-ng bettercap nmap hashcat hcxdumptool" },
+      { o: "…/aircrack-ng  …/bettercap  …/nmap  …/hashcat  …/hcxdumptool" },
+      { p: "$", t: "which maigret holehe phoneinfoga sipvicious_svmap" },
+      { o: "all present · OSINT + telecom wired in" },
+    ],
   },
   {
-    title: "An operator console + A2A",
-    body: "Headless-first, with a full operator console: chat, skills, playbooks, workflows, and findings. Drive it — or chain it to other agents — over A2A 1.0.",
+    n: "04",
+    title: "Scoped, local, auditable",
+    body: "Runs on your hardware against models you host. Engagement scoping and kill-chain phase-gating keep it inside the rules of engagement; goal verifiers are read-only and never execute shell. Every tool call lands in an immutable audit log.",
+    term: [
+      { o: "engagement   active · mode=active · scope=10.13.37.0/24" },
+      { o: "phase-gate   recon✓  access·  exfil✗ (blocked: out of phase)" },
+      { o: "verifiers    read-only · audit jsonl · append-only" },
+    ],
+  },
+  {
+    n: "05",
+    title: "An operator console, or an API",
+    body: "Headless-first — but a full terminal-green console rides along: chat, an embedded PTY terminal, findings / targets / intel, and a semantic knowledge store. Drive it yourself, or chain it to other agents over A2A 1.0.",
+    term: [
+      { p: "$", t: "systemctl --user start protopen-runtime" },
+      { o: "[pwndeck] online · :7870 · console /app · /a2a streaming" },
+      { p: "$", t: "curl -s :7870/.well-known/agent-card.json | jq .name" },
+      { o: '"protoPen"' },
+    ],
   },
 ];
 ---
@@ -27,14 +73,15 @@ const features = [
     <div class="container hero-grid">
       <div class="hero-copy">
         <p class="eyebrow">pwndeck · pen.protolabs.studio</p>
-        <h1>An autonomous pen-testing companion <span class="gradient-text">for the Steam Deck</span></h1>
+        <h1>A self-driving pentest rig <span class="gradient-text">on a Steam Deck</span></h1>
         <p class="lead">
-          Self-driving security engagements on a Steam Deck wired to RF, WiFi, and
-          RFID — headless-first, scope-aware, and yours.
+          protoPen runs the engagement itself — recon, WiFi, RF, RFID, OSINT —
+          autonomously, on hardware you carry, against models you host.
+          Headless-first, scope-aware, fully auditable.
         </p>
         <div class="cta">
           <a class="btn btn-primary" href="/docs/tutorials/">Get started</a>
-          <a class="btn btn-ghost" href="/docs/">Read the docs</a>
+          <a class="btn btn-ghost" href="https://github.com/protoLabsAI/protoPen">Source</a>
         </div>
       </div>
       <div class="hero-term">
@@ -43,28 +90,60 @@ const features = [
     </div>
   </section>
 
-  <section class="features">
+  <section class="stack">
     <div class="container">
-      <div class="feature-grid">
+      <div class="readout">
+        <div class="tline"><span class="prompt">$</span> protopen --whoami</div>
         {
-          features.map((f) => (
-            <article class="feature">
-              <h3>{f.title}</h3>
-              <p>{f.body}</p>
-            </article>
+          stack.map((s) => (
+            <div class="row">
+              <span class="k">{s.k}</span>
+              <span class="v">{s.v}</span>
+            </div>
           ))
         }
       </div>
     </div>
   </section>
 
+  <section class="caps-wrap">
+    <div class="container caps">
+      {
+        caps.map((c) => (
+          <article class="cap">
+            <div class="cap-head">
+              <span class="cap-n">§{c.n}</span>
+              <h3>{c.title}</h3>
+              <p>{c.body}</p>
+            </div>
+            <div class="cap-term">
+              {c.term.map((l) =>
+                l.p ? (
+                  <div class="tline">
+                    <span class="prompt">{l.p}</span> {l.t}
+                  </div>
+                ) : (
+                  <div class="tline out">{l.o}</div>
+                ),
+              )}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
   <section class="install">
     <div class="container install-inner">
-      <h2>Built for the Deck</h2>
-      <pre class="install-cmd"><span class="prompt">$</span> git clone https://github.com/protoLabsAI/protoPen &amp;&amp; cd protoPen &amp;&amp; python -m server</pre>
+      <h2>Bring it up</h2>
+      <div class="install-cmd">
+        <div class="tline"><span class="prompt">$</span> git clone https://github.com/protoLabsAI/protoPen &amp;&amp; cd protoPen</div>
+        <div class="tline"><span class="prompt">$</span> bash deck/install.sh   <span class="comment"># SteamOS: pulls the image, wires systemd + Game Mode kiosk</span></div>
+      </div>
       <p class="install-note">
-        Then follow the <a href="/docs/tutorials/steam-deck-setup">Steam Deck setup</a> to
-        wire up the hardware, or start with the
+        Not on a Deck? <code>python -m server</code> runs the agent + console
+        anywhere. Then wire the hardware via the
+        <a href="/docs/tutorials/steam-deck-setup">Steam Deck setup</a>, or start with the
         <a href="/docs/tutorials/">getting-started tutorial</a>.
       </p>
     </div>
@@ -72,8 +151,14 @@ const features = [
 </BaseLayout>
 
 <style>
+  /* Faint phosphor grid + green halo behind the hero — terminal, not garish. */
   .hero {
-    padding: var(--pl-space-12) 0;
+    position: relative;
+    padding: var(--pl-space-12) 0 var(--pl-space-10);
+    background:
+      radial-gradient(60% 50% at 72% 0%, rgba(62, 224, 122, 0.08), transparent 70%),
+      linear-gradient(rgba(62, 224, 122, 0.022) 1px, transparent 1px) 0 0 / 100% 28px,
+      linear-gradient(90deg, rgba(62, 224, 122, 0.022) 1px, transparent 1px) 0 0 / 28px 100%;
   }
   .hero-grid {
     display: grid;
@@ -85,17 +170,18 @@ const features = [
     font-family: var(--pl-font-mono);
     font-size: 0.8rem;
     letter-spacing: 0.04em;
-    color: var(--pl-color-fg-muted);
+    color: var(--pl-color-accent);
     margin: 0 0 var(--pl-space-4);
   }
   .hero h1 {
     font-size: clamp(2rem, 5vw, 3.2rem);
     margin: 0 0 var(--pl-space-5);
+    letter-spacing: -0.01em;
   }
   .lead {
     font-size: 1.1rem;
     color: var(--pl-color-fg-muted);
-    max-width: 42ch;
+    max-width: 46ch;
     margin: 0 0 var(--pl-space-6);
   }
   .cta {
@@ -103,58 +189,136 @@ const features = [
     gap: var(--pl-space-3);
     flex-wrap: wrap;
   }
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--pl-space-5);
+
+  /* Shared terminal line — mono, preserves column spacing, scrolls if long. */
+  .tline {
+    font-family: var(--pl-font-mono);
+    white-space: pre;
   }
-  .feature {
-    padding: var(--pl-space-6);
+
+  /* The whoami spec strip. */
+  .stack {
+    padding: var(--pl-space-2) 0 var(--pl-space-10);
+  }
+  .readout {
+    padding: var(--pl-space-5) var(--pl-space-6);
     border: 1px solid var(--pl-color-border);
+    border-left: 2px solid var(--pl-color-accent);
     border-radius: calc(var(--pl-radius) * 2);
-    background: var(--pl-color-bg-raised);
+    background: var(--pl-color-bg-inset, #050506);
+    font-size: 0.9rem;
+    line-height: 1.8;
+    overflow-x: auto;
   }
-  .feature h3 {
-    margin: 0 0 var(--pl-space-3);
-    font-size: 1.05rem;
+  .readout .row {
+    font-family: var(--pl-font-mono);
   }
-  .feature p {
+  .readout .k {
+    display: inline-block;
+    width: 9ch;
+    color: var(--pl-color-accent);
+  }
+  .readout .v {
+    color: var(--pl-color-fg-muted);
+  }
+
+  /* Capability blocks — alternating manpage rows, not a grid of stock cards. */
+  .caps {
+    display: grid;
+    gap: 0;
+  }
+  .cap {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: var(--pl-space-7);
+    align-items: center;
+    padding: var(--pl-space-8) 0;
+    border-top: 1px solid var(--pl-color-border);
+  }
+  .cap-n {
+    font-family: var(--pl-font-mono);
+    font-size: 0.8rem;
+    color: var(--pl-color-accent);
+    letter-spacing: 0.05em;
+  }
+  .cap-head h3 {
+    font-size: 1.3rem;
+    margin: var(--pl-space-2) 0 var(--pl-space-3);
+  }
+  .cap-head p {
     margin: 0;
     color: var(--pl-color-fg-muted);
-    font-size: 0.95rem;
+    font-size: 0.98rem;
+    line-height: 1.6;
+    max-width: 54ch;
   }
+  .cap-term {
+    padding: var(--pl-space-4) var(--pl-space-5);
+    border: 1px solid var(--pl-color-border);
+    border-radius: calc(var(--pl-radius) * 2);
+    background: var(--pl-color-bg-inset, #050506);
+    box-shadow: var(--pl-shadow-glow);
+    font-size: 0.82rem;
+    line-height: 1.8;
+    color: var(--pl-color-fg);
+    overflow-x: auto;
+  }
+  .cap-term .tline.out {
+    color: var(--pl-color-fg-muted);
+  }
+  /* Mirror even rows so the terminal alternates sides — reads like a spec sheet. */
+  .cap:nth-child(even) .cap-head {
+    order: 2;
+  }
+
+  .prompt {
+    color: var(--pl-color-accent);
+    user-select: none;
+  }
+  .comment {
+    color: var(--pl-color-fg-subtle, var(--pl-color-fg-muted));
+  }
+
   .install {
-    padding: var(--pl-space-12) 0 0;
-  }
-  .install-inner {
+    padding: var(--pl-space-11) 0 var(--pl-space-4);
     text-align: center;
+  }
+  .install h2 {
+    margin-bottom: var(--pl-space-5);
   }
   .install-cmd {
     display: inline-block;
-    margin: var(--pl-space-2) auto var(--pl-space-4);
+    text-align: left;
+    margin: 0 auto var(--pl-space-4);
     padding: var(--pl-space-4) var(--pl-space-6);
     border: 1px solid var(--pl-color-border);
+    border-left: 2px solid var(--pl-color-accent);
     border-radius: calc(var(--pl-radius) * 2);
-    background: var(--pl-color-bg-inset, #08080a);
-    font-size: 0.95rem;
+    background: var(--pl-color-bg-inset, #050506);
+    font-size: 0.9rem;
+    line-height: 2;
     color: var(--pl-color-fg);
     max-width: 100%;
     overflow-x: auto;
   }
-  .install-cmd .prompt {
-    color: var(--pl-color-brand-lavender);
-    margin-right: var(--pl-space-2);
-  }
   .install-note {
     color: var(--pl-color-fg-muted);
+  }
+  .install-note code {
+    color: var(--pl-color-accent);
+    font-size: 0.92em;
   }
 
   @media (max-width: 820px) {
     .hero-grid {
       grid-template-columns: 1fr;
     }
-    .feature-grid {
+    .cap {
       grid-template-columns: 1fr;
+      gap: var(--pl-space-5);
+    }
+    .cap:nth-child(even) .cap-head {
+      order: 0;
     }
   }
 </style>

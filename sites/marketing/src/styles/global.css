@@ -1,6 +1,29 @@
 /* protoLabs.studio design system — tokens + base (the single brand source). */
 @import "@protolabsai/design/css";
 
+/* protoPen runs the app's terminal-green theme, not the fleet lavender/indigo.
+   We deliberately diverge from upstream here: override the shared brand tokens
+   to the app's green palette (apps/web/src/app/theme.css) so the marketing +
+   docs site reads like the console it ships. */
+:root {
+  --pl-color-brand-lavender: #3ee07a; /* terminal green (was lavender) */
+  --pl-color-brand-lavender-light: #6ee7b7;
+  --pl-color-brand-lavender-deep: #10b981;
+  --pl-color-brand-indigo: #10b981;
+  --pl-color-brand-indigo-bright: #6ee7b7;
+  --pl-color-brand-indigo-deep: #059669;
+  --pl-color-accent: #3ee07a;
+  --pl-color-accent-hover: #6ee7b7;
+  --pl-color-accent-fg: #6ee7b7;
+  --pl-color-focus: #3ee07a;
+  --pl-gradient-brand: linear-gradient(135deg, #6ee7b7 0%, #3ee07a 50%, #10b981 100%);
+  --pl-gradient-brand-light: linear-gradient(135deg, #6ee7b7 0%, #3ee07a 50%, #059669 100%);
+  --pl-shadow-glow: 0 0 80px rgba(62, 224, 122, 0.1);
+  /* Deeper, terminal-black surfaces to match the app's console. */
+  --pl-color-bg: #08080a;
+  --pl-color-bg-inset: #050506;
+}
+
 *,
 *::before,
 *::after {
