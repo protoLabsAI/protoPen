@@ -1,0 +1,19 @@
+# Keep build contexts lean and avoid baking host-local / large / conflicting
+# state into images (used by deck/Containerfile and the root Dockerfile).
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+.venv
+venv/
+**/node_modules
+# Runtime workspace — never bake the live knowledge store / audit / checkpointer
+# sqlite into an image (huge, and would collide with the running server).
+data/
+.beads/*.db
+.automaker/
+.pytest_cache/
+.mypy_cache/
+# Local backups (e.g. the Deck sddm autologin backup naming).
+*.bak
+*.bak-*
