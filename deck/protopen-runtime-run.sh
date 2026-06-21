@@ -26,6 +26,7 @@ if command -v infisical >/dev/null 2>&1; then
     [ -n "${INFISICAL_TOKEN:-}" ] && ARGS="$ARGS --token $INFISICAL_TOKEN"
     infisical export $ARGS > "$ENVFILE" 2>/dev/null || true
     sed -i -E 's/^([A-Za-z_][A-Za-z0-9_]*)="(.*)"$/\1=\2/' "$ENVFILE" || true
+    sed -i -E "s/^([A-Za-z_][A-Za-z0-9_]*)='(.*)'\$/\1=\2/" "$ENVFILE" || true
 fi
 [ -n "${OPENAI_API_KEY:-}" ] && echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> "$ENVFILE"
 
