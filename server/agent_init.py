@@ -179,8 +179,12 @@ def _init_langgraph_agent():
 
     _config_dir = _config_setup.resolve_config_dir()
     _override = _config_setup.config_override_path(_config_dir)
-    config_path = _override if _override.exists() else (_REPO_ROOT / "config" / "langgraph-config.yaml")
-    STATE.graph_config = LangGraphConfig.from_yaml(config_path)
+    _bundled = _REPO_ROOT / "config" / "langgraph-config.yaml"
+    try:
+        STATE.graph_config = LangGraphConfig.from_yaml(_override if _override.exists() else _bundled)
+    except Exception as exc:  # a truncated/corrupt override must not brick boot
+        print(f"[config] override unreadable ({exc}); falling back to bundled config")
+        STATE.graph_config = LangGraphConfig.from_yaml(_bundled)
     _config_setup.load_local_key_into_env(_config_dir, STATE.graph_config.api_base)
 
     store = get_store()

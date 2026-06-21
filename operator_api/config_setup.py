@@ -95,11 +95,19 @@ def load_local_key_into_env(config_dir: Path | None = None, api_base: str = "") 
 
 
 def is_setup_complete(config_dir: Path | None = None, graph_config: Any = None) -> bool:
-    """Whether a usable LLM key is configured by ANY path (env, local file, config)."""
+    """Whether a usable LLM key is configured by ANY path (env, local file, config).
+
+    The local-file check requires non-empty *content*, not mere existence —
+    matching ``load_local_key_into_env`` — so an empty/unreadable key file can't
+    mark setup complete and hide the wizard while the agent still has no key.
+    """
     if os.environ.get("OPENAI_API_KEY"):
         return True
-    if key_file_path(config_dir).exists():
-        return True
+    try:
+        if key_file_path(config_dir).read_text(encoding="utf-8").strip():
+            return True
+    except OSError:
+        pass
     if graph_config is None:
         from runtime.state import STATE
 

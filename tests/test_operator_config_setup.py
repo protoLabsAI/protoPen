@@ -102,6 +102,11 @@ def test_is_setup_complete_signals(monkeypatch, tmp_path) -> None:
 
     assert config_setup.is_setup_complete(graph_config=LangGraphConfig()) is False
 
+    # an EMPTY key file must NOT mark setup complete (it's unusable — the wizard
+    # would otherwise be hidden while the agent still has no working key)
+    config_setup.key_file_path(cfg_dir).write_text("   \n")
+    assert config_setup.is_setup_complete(graph_config=LangGraphConfig()) is False
+
     # a configured key file flips it
     config_setup._write_key(config_setup.key_file_path(cfg_dir), "sk-local")
     assert config_setup.is_setup_complete(graph_config=LangGraphConfig()) is True
