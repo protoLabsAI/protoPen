@@ -101,9 +101,6 @@ _RED_RULES: dict[tuple[str, str], list[dict]] = {
         {"technique_id": "T1059", "technique_name": "Command and Scripting Interpreter"},
     ],
     # Tier 3 — Telecom
-    ("telecom_attack", "gtp_scan"): [
-        {"technique_id": "T1046", "technique_name": "Network Service Discovery"},
-    ],
     ("telecom_attack", "sip_crack"): [
         {"technique_id": "T1110", "technique_name": "Brute Force"},
     ],
@@ -477,7 +474,6 @@ _HEURISTIC: dict[tuple[str, str], callable] = {
     ("llm_audit", "prompt_inject_test"): _json_has_issues,
     ("llm_audit", "jailbreak_test"): _json_has_issues,
     # Tier 3 — Telecom
-    ("telecom_attack", "gtp_scan"): _json_has_issues,
     ("telecom_attack", "sip_crack"): _json_has_issues,
     ("telecom_attack", "imsi_detect"): _prose_has_results,
     # Tier 3 — Evasion
