@@ -31,14 +31,14 @@ class TelecomAttackTool(BasePentestTool):
             "description": "Fuzz GTP protocol for crashes and anomalies",
         },
         "sip_enum": {
-            "cmd": ["sipvicious_svmap", "{target}", "--format", "json"],
+            "cmd": ["sipvicious_svmap", "{target}"],
             "timeout": 60,
-            "description": "SIP device enumeration",
+            "description": "SIP device enumeration (SIPVicious svmap)",
         },
         "sip_crack": {
-            "cmd": ["sipvicious_svcrack", "-u", "{username}", "{target}", "--format", "json"],
+            "cmd": ["sipvicious_svcrack", "-u", "{username}", "-r", "{crack_range}", "{target}"],
             "timeout": 120,
-            "description": "SIP credential cracking",
+            "description": "SIP credential cracking (SIPVicious svcrack; numeric range)",
         },
         "ss7_scan": {
             "cmd": ["ss7-tools", "scan", "--target", "{target}", "--json"],
@@ -56,9 +56,9 @@ class TelecomAttackTool(BasePentestTool):
             "description": "Scan for GSM base stations / IMSI catcher detection",
         },
         "sip_flood_test": {
-            "cmd": ["sipvicious_svwar", "-e", "{extension_range}", "{target}", "--format", "json"],
+            "cmd": ["sipvicious_svwar", "-e", "{extension_range}", "{target}"],
             "timeout": 60,
-            "description": "SIP extension enumeration via REGISTER flood",
+            "description": "SIP extension enumeration via REGISTER flood (SIPVicious svwar)",
         },
         "stir_shaken_verify": {
             "cmd": ["stir-shaken-verify", "--call-id", "{call_id}", "--target", "{target}", "--json"],
@@ -74,6 +74,7 @@ class TelecomAttackTool(BasePentestTool):
         port: int = 2123,
         count: int = 1000,
         username: str = "admin",
+        crack_range: str = "1000-9999",
         device_args: str = "rtl=0",
         extension_range: str = "100-999",
         call_id: str = "",
@@ -89,6 +90,7 @@ class TelecomAttackTool(BasePentestTool):
                 port=port,
                 count=count,
                 username=username,
+                crack_range=crack_range,
                 device_args=device_args,
                 extension_range=extension_range,
                 call_id=call_id,

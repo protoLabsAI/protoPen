@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 from tools.parsers.telecom_attack import (
     parse_gtp_json,
-    parse_sip_json,
+    parse_sip_table,
     parse_ss7_json,
     parse_diameter_json,
     parse_imsi_detect,
@@ -39,16 +39,17 @@ class TestParseGTP:
 
 class TestParseSIP:
     def test_devices(self, store):
-        raw = json.dumps([{"host": "10.0.0.2", "user_agent": "Asterisk PBX"}])
-        entities = parse_sip_json(raw, store)
+        raw = "| SIP Device    | User Agent   | Fingerprint |\n| 10.0.0.2:5060 | Asterisk PBX | disabled    |\n"
+        entities = parse_sip_table(raw, store)
         assert len(entities) == 1
         assert entities[0]["protocol"] == "sip"
+        assert entities[0]["target"] == "10.0.0.2:5060"
 
     def test_empty(self, store):
-        assert parse_sip_json("[]", store) == []
+        assert parse_sip_table("WARNING:root:found nothing\n", store) == []
 
     def test_invalid(self, store):
-        assert parse_sip_json("not json", store) == []
+        assert parse_sip_table("not a table", store) == []
 
 
 class TestParseSS7:
