@@ -92,8 +92,11 @@ if systemctl --user cat protopen.service >/dev/null 2>&1; then
     echo "==> retiring the bare-metal protopen.service"
     systemctl --user disable --now protopen.service 2>/dev/null || true
 fi
-echo "==> enabling + starting protopen-runtime.service"
-systemctl --user enable --now protopen-runtime.service
+echo "==> enabling + (re)starting protopen-runtime.service"
+systemctl --user enable protopen-runtime.service
+# restart (not just enable --now): on a re-run an already-active unit must pick up
+# the updated env.conf / infisical.conf and the freshly pulled image.
+systemctl --user restart protopen-runtime.service
 
 cat <<EOF
 

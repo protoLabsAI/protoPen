@@ -43,6 +43,10 @@ done
     exit 1
 }
 
+# Authoritative login name (don't trust a possibly-unset/spoofed $USER) — reused
+# for the sudoers grant, linger, and the tailscale operator.
+WHO="$(id -un)"
+
 TS_VERSION="${TAILSCALE_VERSION:-1.80.2}"
 TS_DIR="$HOME/.local/share/tailscale"
 TS_BIN_DIR="$HOME/.local/bin"
@@ -54,7 +58,7 @@ TS_BIN_DIR="$HOME/.local/bin"
 bootstrap_tailscale() {
     mkdir -p "$TS_DIR" "$TS_BIN_DIR"
 
-    if [ ! -x "$TS_BIN_DIR/tailscaled" ]; then
+    if [ ! -x "$TS_BIN_DIR/tailscaled" ] || [ ! -x "$TS_BIN_DIR/tailscale" ]; then
         local arch tgz url tmp
         case "$(uname -m)" in
             x86_64) arch=amd64 ;;
@@ -87,7 +91,6 @@ Wants=network-online.target
 
 [Service]
 ExecStart=/usr/bin/sudo $TS_BIN_DIR/tailscaled --statedir=$TS_DIR --socket=$TS_DIR/tailscaled.sock --tun=userspace-networking
-ExecStopPost=/usr/bin/sudo $TS_BIN_DIR/tailscale --socket=$TS_DIR/tailscaled.sock down
 Restart=on-failure
 RestartSec=5
 
@@ -101,7 +104,7 @@ UNIT
         echo "    Already authenticated (state in $TS_DIR)."
     else
         echo "    First-time auth — run this and follow the URL:"
-        echo "      sudo $TS_BIN_DIR/tailscale --socket=$TS_DIR/tailscaled.sock up --ssh --operator=$USER"
+        echo "      sudo $TS_BIN_DIR/tailscale --socket=$TS_DIR/tailscaled.sock up --ssh --operator=$WHO"
     fi
 }
 
@@ -122,9 +125,9 @@ fi
 #    by an OS update and re-applied here. Validated before install so a typo
 #    can't lock sudo out.
 SUDOERS=/etc/sudoers.d/zz-protopen
-SUDO_LINE="$USER ALL=(ALL) NOPASSWD: ALL"
+SUDO_LINE="$WHO ALL=(ALL) NOPASSWD: ALL"
 if ! sudo grep -qxF "$SUDO_LINE" "$SUDOERS" 2>/dev/null; then
-    echo "==> writing $SUDOERS (passwordless sudo for $USER)"
+    echo "==> writing $SUDOERS (passwordless sudo for $WHO)"
     TMP_SUDO="$(mktemp)"
     echo "$SUDO_LINE" >"$TMP_SUDO"
     if sudo visudo -cf "$TMP_SUDO" >/dev/null; then
@@ -143,14 +146,18 @@ fi
 #    cheap to ensure, and an OS update wipes it.
 if command -v pacman-key >/dev/null 2>&1 && [ ! -d /etc/pacman.d/gnupg ]; then
     echo "==> initializing pacman keyring"
-    sudo pacman-key --init && sudo pacman-key --populate archlinux || true
+    if ! { sudo pacman-key --init && sudo pacman-key --populate archlinux; }; then
+        echo "WARN: pacman keyring init/populate failed — host pacman installs won't verify." >&2
+    fi
 fi
 
 # 4) linger — let --user services (the runtime; optional tailscale) start at boot
 #    without an interactive login. Stored in systemd state (not the rootfs), so it
-#    survives updates; re-asserting it is a no-op.
-loginctl enable-linger "$USER" >/dev/null 2>&1 ||
-    sudo loginctl enable-linger "$USER" >/dev/null 2>&1 || true
+#    survives updates; re-asserting it is a no-op. Linger is required for autostart,
+#    so a failure is surfaced rather than swallowed.
+if ! { loginctl enable-linger "$WHO" >/dev/null 2>&1 || sudo loginctl enable-linger "$WHO" >/dev/null 2>&1; }; then
+    echo "WARN: could not enable linger — --user units may not start until you log in." >&2
+fi
 
 # 5) optional: an update-surviving tailscale (remote SSH).
 if [ "$WITH_TAILSCALE" = "1" ]; then
