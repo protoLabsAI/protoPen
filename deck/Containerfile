@@ -55,6 +55,7 @@ COPY deck/patches/libhackrf-portapack-mayhem.patch /tmp/libhackrf.patch
 RUN ( git clone --depth 1 --branch "$HACKRF_REF" https://github.com/greatscottgadgets/hackrf /tmp/hackrf \
         && ( cd /tmp/hackrf && patch -p1 --fuzz=5 < /tmp/libhackrf.patch ) \
         && cmake -S /tmp/hackrf/host -B /tmp/hackrf/build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+                 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         && cmake --build /tmp/hackrf/build -j"$(nproc)" \
         && cmake --install /tmp/hackrf/build && ldconfig ) \
     || echo "WARN: patched libhackrf build failed (ref/patch drift) — SDR needs the host lib until fixed" ; \
