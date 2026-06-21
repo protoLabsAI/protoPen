@@ -1,0 +1,19 @@
+[Unit]
+# protoPen runtime as a containerized agent server. A systemd --user unit (like
+# the bare-metal protopen.service) so it lives in /home and survives SteamOS
+# atomic updates; lingering keeps it running at boot without an interactive login.
+# Installed by deck/install.sh. Tracker: protopen-3t5.3.
+Description=protoPen runtime (containerized agent server)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/protopen-runtime-run.sh
+ExecStop=/usr/bin/sudo /usr/bin/podman --root %h/.local/share/rootful-podman --runroot /run/rootful-podman stop -t 10 protopen-rt
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

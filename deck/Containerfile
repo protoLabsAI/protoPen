@@ -1,6 +1,6 @@
 # protoPen — SteamOS runtime image (Arch base; run rootful + --privileged).
 # Architecture & on-Deck validation: docs/plans/2026-06-20-steamos-native-distribution.md
-# Tracker: protopen-3t5.1 (epic protopen-3t5)
+# Tracker: protopen-3t5.1 / 3t5.3 (epic protopen-3t5)
 #
 # Why Arch + uv instead of the repo's Debian Dockerfile: that image is the
 # fleet/production container (non-root, OSINT-subset only). The Deck runtime must
@@ -10,32 +10,83 @@
 # ships 3.14, which has no wheels yet for langgraph/gradio/sqlite-vec/PyMuPDF.
 #
 # Build (on the Deck, /home-backed rootful store — /var is only 230 MB):
-#   sudo podman --root /home/deck/.local/share/rootful-podman \
-#     --runroot /run/rootful-podman build -f deck/Containerfile -t protopen-runtime:dev .
-# Run: deck/run.sh   (privileged, host netns, device passthrough, :7871)
+#   sudo podman --root /home/deck/.local/share/rootful-podman --runroot /run/rootful-podman \
+#     --storage-opt overlay.mount_program=/usr/bin/fuse-overlayfs \
+#     build -f deck/Containerfile -t protopen-runtime:dev .
+# Install as a systemd --user service: deck/install.sh
 FROM docker.io/library/archlinux:latest
 
-# 1) System toolchain (official Arch repos) + build/runtime libs. The full
-#    BlackArch set (sipvicious, thc-ipv6, grgsm, ...) is a follow-up via the
-#    BlackArch repo; this core mirrors what the Deck runs bare-metal today.
+# 1) Core toolchain (official Arch repos) + build/runtime libs.
 RUN pacman -Syu --noconfirm --needed \
         base-devel git curl cmake pkgconf \
         iw aircrack-ng bettercap nmap tcpdump wireshark-cli bind \
-        hashcat hydra hcxdumptool \
+        hashcat hydra hcxdumptool hcxtools \
         libusb fftw usbutils \
         uv nodejs npm \
     && pacman -Scc --noconfirm
 
-# 2) TODO(protopen-3t5.1): bake patched libhackrf (PortaPack Mayhem PID 0x6018) —
-#    vendor ~/hackrf-portapack-src or add BlackArch. SDR-in-container already
-#    proven (protopen-2n5); baking it retires the host-side
-#    reinstall.sh-after-every-OS-update chore.
+# 2) BlackArch repo + curated pentest tools (the BlackArch-only binaries protoPen
+#    shells out to). Default on; `--build-arg INSTALL_BLACKARCH=0` for a lean dev
+#    build. strap.sh SHA1 from https://blackarch.org/downloads.html — re-verify on
+#    bump. Each tool installed tolerantly so a renamed/missing pkg can't fail the
+#    whole image. The repo itself stays configured, so any of BlackArch's ~2800
+#    tools is one `pacman -S` away inside the running container.
+ARG INSTALL_BLACKARCH=1
+ARG BLACKARCH_STRAP_SHA1=00688950aaf5e5804d2abebb8d3d3ea1d28525ed
+RUN if [ "$INSTALL_BLACKARCH" = "1" ]; then \
+        curl -fsSL https://blackarch.org/strap.sh -o /tmp/strap.sh \
+        && echo "${BLACKARCH_STRAP_SHA1}  /tmp/strap.sh" | sha1sum -c - \
+        && chmod +x /tmp/strap.sh && /tmp/strap.sh \
+        && pacman -Sy --noconfirm \
+        && for t in netdiscover arp-scan nbtscan enum4linux-ng theharvester \
+                    dnsenum dnsrecon sipvicious thc-ipv6 exploitdb onesixtyone \
+                    wfuzz gobuster nikto ; do \
+               pacman -S --noconfirm --needed "$t" || echo "skip blackarch pkg: $t"; \
+           done \
+        && pacman -Scc --noconfirm ; \
+    fi
 
-# 3) Python 3.12 via uv (Arch ships 3.14 -> no wheels for the heavy agent deps).
+# 3) Patched libhackrf (PortaPack Mayhem PID 0x6018) from upstream + our patch —
+#    retires the host-side reinstall.sh-after-every-OS-update chore. Best-effort:
+#    a ref/patch drift warns and continues (SDR then needs the host lib) rather
+#    than failing the whole image.
+ARG HACKRF_REF=v2024.02.1
+COPY deck/patches/libhackrf-portapack-mayhem.patch /tmp/libhackrf.patch
+RUN ( git clone --depth 1 --branch "$HACKRF_REF" https://github.com/greatscottgadgets/hackrf /tmp/hackrf \
+        && ( cd /tmp/hackrf && patch -p1 --fuzz=5 < /tmp/libhackrf.patch ) \
+        && cmake -S /tmp/hackrf/host -B /tmp/hackrf/build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+                 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        && cmake --build /tmp/hackrf/build -j"$(nproc)" \
+        && cmake --install /tmp/hackrf/build && ldconfig ) \
+    || echo "WARN: patched libhackrf build failed (ref/patch drift) — SDR needs the host lib until fixed" ; \
+    rm -rf /tmp/hackrf /tmp/libhackrf.patch
+
+# 4) OSINT tools (mirror start.sh) so the image is self-contained — isolated 3.12
+#    venvs + a pinned, checksum-verified phoneinfoga + agent-browser/Chromium.
+RUN uv venv --python 3.12 /opt/maigret-venv \
+    && uv pip install --python /opt/maigret-venv/bin/python maigret \
+    && ln -s /opt/maigret-venv/bin/maigret /usr/local/bin/maigret
+RUN uv venv --python 3.12 /opt/holehe-venv \
+    && uv pip install --python /opt/holehe-venv/bin/python holehe \
+    && ln -s /opt/holehe-venv/bin/holehe /usr/local/bin/holehe
+ARG PHONEINFOGA_VERSION=2.11.0
+ARG PHONEINFOGA_SHA256=6173dfc4ec009a6fe688068bac5a250646f5a8f56409098f5edcc7e404b12a52
+RUN curl -sSL "https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz" -o /tmp/pi.tar.gz \
+    && echo "${PHONEINFOGA_SHA256}  /tmp/pi.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/pi.tar.gz -C /usr/local/bin phoneinfoga \
+    && chmod +x /usr/local/bin/phoneinfoga && rm /tmp/pi.tar.gz
+RUN npm install -g agent-browser \
+    && pacman -Sy --noconfirm --needed chromium && pacman -Scc --noconfirm
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium \
+    MAIGRET_BIN=/usr/local/bin/maigret \
+    HOLEHE_BIN=/usr/local/bin/holehe \
+    PHONEINFOGA_BIN=/usr/local/bin/phoneinfoga
+
+# 5) Python 3.12 via uv (Arch ships 3.14 -> no wheels for the heavy agent deps).
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv-python
 RUN uv python install 3.12
 
-# 4) protoPen deps into a pinned 3.12 venv (own layer so code edits don't
+# 6) protoPen deps into a pinned 3.12 venv (own layer so code edits don't
 #    re-resolve deps).
 COPY requirements.txt /tmp/requirements.txt
 RUN uv venv --python 3.12 /opt/venv \
@@ -43,10 +94,9 @@ RUN uv venv --python 3.12 /opt/venv \
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 
-# 5) App source — all top-level modules + apps/web/dist (see .dockerignore).
-#    data/ is excluded; the container keeps its own data dir so it never
-#    collides with the live :7870 server's knowledge/audit/checkpointer sqlite.
+# 7) App source — all top-level modules + apps/web/dist (see .dockerignore).
+#    data lives in a mounted /sandbox volume; never baked in.
 COPY . /opt/protopen
 WORKDIR /opt/protopen
-EXPOSE 7871
-CMD ["bash","-lc","mkdir -p data/knowledge data/audit data/papers && exec python -m server --port ${PROTOPEN_PORT:-7871}"]
+EXPOSE 7870
+ENTRYPOINT ["/bin/bash", "/opt/protopen/deck/entrypoint.sh"]
