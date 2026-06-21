@@ -17,9 +17,9 @@ const caps = [
     title: "It drives the engagement — not you",
     body: "Goal mode, wait / yield / resume, background sub-agents, and a monitor-goal cadence let it run unattended. A watchdog recovers it when a step stalls or the process dies. Set the objective and walk away.",
     term: [
-      { p: "$", t: 'goal "enum the lab subnet, crack weak WiFi, report criticals"' },
-      { o: "[plan]  recon → scan → deauth+capture → crack → triage → report" },
-      { o: "[bg]    sub-agent #2 cracking handshake · watchdog armed" },
+      { p: "$", t: 'goal "recon lab subnet · report criticals"' },
+      { o: "[plan]  scan → capture → crack → triage → report" },
+      { o: "[bg]    sub-agent #2 cracking · watchdog armed" },
     ],
   },
   {
@@ -28,9 +28,9 @@ const caps = [
     body: "Real radios, passed straight through a privileged container — monitor-mode WiFi with injection, software-defined radio capture/replay, and serial to the Flipper. One rig you carry, not a rack you ship.",
     term: [
       { p: "$", t: "protopen devices" },
-      { o: "wlan1    Alfa AWUS036AXML (mt7921u)    monitor + inject" },
-      { o: "hackrf   PortaPack H4M / Mayhem         SDR capture · replay" },
-      { o: "ttyACM1  Flipper Zero + WiFi Marauder   sub-GHz · RFID · ESP32" },
+      { o: "wlan1    Alfa mt7921u      monitor + inject" },
+      { o: "hackrf   PortaPack/Mayhem  SDR cap · replay" },
+      { o: "ttyACM1  Flipper+Marauder  sub-GHz · RFID" },
     ],
   },
   {
@@ -38,10 +38,10 @@ const caps = [
     title: "The whole arsenal, one pacman away",
     body: "The BlackArch repo ships configured, so any of ~2800 tools is one install away — and the agent already wraps the ones it reaches for: WiFi, recon, cracking, web, OSINT, telecom. Add your own skills, playbooks, and workflows on top.",
     term: [
-      { p: "$", t: "which aircrack-ng bettercap nmap hashcat hcxdumptool" },
-      { o: "…/aircrack-ng  …/bettercap  …/nmap  …/hashcat  …/hcxdumptool" },
-      { p: "$", t: "which maigret holehe phoneinfoga sipvicious_svmap" },
-      { o: "all present · OSINT + telecom wired in" },
+      { p: "$", t: "which aircrack-ng bettercap nmap hashcat" },
+      { o: "→ all on PATH · BlackArch repo configured" },
+      { p: "$", t: "which maigret holehe sipvicious_svmap" },
+      { o: "→ OSINT + telecom wired in" },
     ],
   },
   {
@@ -49,9 +49,9 @@ const caps = [
     title: "Scoped, local, auditable",
     body: "Runs on your hardware against models you host. Engagement scoping and kill-chain phase-gating keep it inside the rules of engagement; goal verifiers are read-only and never execute shell. Every tool call lands in an immutable audit log.",
     term: [
-      { o: "engagement   active · mode=active · scope=10.13.37.0/24" },
-      { o: "phase-gate   recon✓  access·  exfil✗ (blocked: out of phase)" },
-      { o: "verifiers    read-only · audit jsonl · append-only" },
+      { o: "engagement  active · scope 10.13.37.0/24" },
+      { o: "phase-gate  recon✓  access·  exfil✗" },
+      { o: "verifiers   read-only · audit append-only" },
     ],
   },
   {
@@ -59,10 +59,10 @@ const caps = [
     title: "An operator console, or an API",
     body: "Headless-first — but a full terminal-green console rides along: chat, an embedded PTY terminal, findings / targets / intel, and a semantic knowledge store. Drive it yourself, or chain it to other agents over A2A 1.0.",
     term: [
-      { p: "$", t: "systemctl --user start protopen-runtime" },
-      { o: "[pwndeck] online · :7870 · console /app · /a2a streaming" },
-      { p: "$", t: "curl -s :7870/.well-known/agent-card.json | jq .name" },
-      { o: '"protoPen"' },
+      { p: "$", t: "systemctl --user start protopen" },
+      { o: "[pwndeck] online · :7870 · /app · /a2a" },
+      { p: "$", t: "curl :7870/.well-known/agent-card" },
+      { o: '→ "protoPen"' },
     ],
   },
 ];
@@ -231,9 +231,12 @@ const caps = [
     display: grid;
     grid-template-columns: 1.05fr 1fr;
     gap: var(--pl-space-7);
-    align-items: center;
+    align-items: start;
     padding: var(--pl-space-8) 0;
     border-top: 1px solid var(--pl-color-border);
+  }
+  .cap-head {
+    min-width: 0;
   }
   .cap-n {
     font-family: var(--pl-font-mono);
@@ -253,13 +256,15 @@ const caps = [
     max-width: 54ch;
   }
   .cap-term {
+    min-width: 0;
+    align-self: center;
     padding: var(--pl-space-4) var(--pl-space-5);
     border: 1px solid var(--pl-color-border);
     border-radius: calc(var(--pl-radius) * 2);
     background: var(--pl-color-bg-inset, #050506);
     box-shadow: var(--pl-shadow-glow);
-    font-size: 0.82rem;
-    line-height: 1.8;
+    font-size: 0.76rem;
+    line-height: 1.85;
     color: var(--pl-color-fg);
     overflow-x: auto;
   }
