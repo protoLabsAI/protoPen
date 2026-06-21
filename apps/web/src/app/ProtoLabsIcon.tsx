@@ -1,17 +1,15 @@
 /**
  * The protoLabs.studio bot mark, from protoContent's brand assets
- * (docs/assets/brand/protolabs-icon{,-outline}.svg). Ported from ORBIS's
- * `ProtoLabsIcon` so the loading screens render a crisp inline SVG instead of
- * a static <img> — and so the mark can be recolored to the app's lavender
- * chrome accent (#9b87f2) rather than the brand-default violet (#7c3aed),
- * which is muddy on the dark background.
+ * (docs/assets/brand/protolabs-icon{,-outline}.svg). Rendered as a crisp inline
+ * SVG (vs a static <img>) so the loading screens can take the console's green
+ * accent (var(--accent)) rather than a hardcoded brand color.
  *
  * Per brand rules the mark itself is never deformed; only the icon background
  * may be recolored.
  *
- * - `flat` (default): lavender rounded square + white robot — the app/brand
+ * - `flat` (default): green-accent rounded square + white robot — the app/brand
  *   icon at moderate sizes.
- * - `outline`: face-only lavender strokes on transparent — for inline-with-
+ * - `outline`: face-only green-accent strokes on transparent — for inline-with-
  *   text / no-compete contexts (what the launch splash + boot gate use).
  * - `white`: white robot, no background — for dark chrome (e.g. a title bar).
  */
@@ -28,7 +26,7 @@ export function ProtoLabsIcon({
    *  name) — avoids a redundant nested "protoLabs.studio" announcement. */
   decorative?: boolean;
 }) {
-  const robotStroke = variant === "outline" ? "#9b87f2" : "#ffffff";
+  const robotStroke = variant === "outline" ? "var(--accent)" : "#ffffff";
   const a11y = decorative
     ? { "aria-hidden": true as const }
     : { role: "img", "aria-label": "protoLabs.studio" };
@@ -41,7 +39,7 @@ export function ProtoLabsIcon({
       {...a11y}
     >
       {variant === "flat" && (
-        <rect x="16" y="16" width="224" height="224" rx="56" fill="#9b87f2" />
+        <rect x="16" y="16" width="224" height="224" rx="56" fill="var(--accent)" />
       )}
       <g
         transform="translate(224, 32) scale(-8, 8)"

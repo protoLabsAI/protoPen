@@ -1,10 +1,10 @@
 {
   "name": "protoPen — protoLabs",
   "short_name": "protoPen",
-  "description": "AI research agent by protoLabs — tracks the latest in AI/ML",
+  "description": "protoPen — autonomous security testing companion by protoLabs",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#14b8a6",
+  "theme_color": "#3ee07a",
   "background_color": "#0a0f14",
   "icons": [
     {
