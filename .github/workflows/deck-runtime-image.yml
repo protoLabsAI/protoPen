@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   build-push:
+    # workspace-config: allow-hosted-runner docker buildx build + registry push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
