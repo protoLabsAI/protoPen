@@ -6,7 +6,9 @@
  * live under [data-theme="dark"] (same specificity as :root), so out-specify it
  * with :root[data-theme] or they keep the lavender. */
 :root,
-:root[data-theme] {
+html:root,
+:root[data-theme],
+:root.dark {
   --pl-color-brand-lavender: #3ee07a; /* terminal green (was lavender) */
   --pl-color-brand-lavender-light: #6ee7b7;
   --pl-color-brand-lavender-deep: #10b981;
