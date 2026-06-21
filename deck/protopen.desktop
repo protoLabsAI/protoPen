@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=protoPen
-Comment=protoPen operator console (Game Mode kiosk)
+Name=pwnDeck
+Comment=pwnDeck — protoPen operator console (Game Mode kiosk)
 Exec=/home/deck/protopen-kiosk.sh
 Icon=applications-internet
 Categories=Utility;Network;
