@@ -3146,36 +3146,27 @@ async def llm_audit(
 async def telecom_attack(
     action: str,
     target: str = "",
-    port: int = 2123,
-    count: int = 1000,
     username: str = "admin",
-    device_args: str = "rtl=0",
+    crack_range: str = "1000-9999",
     extension_range: str = "100-999",
-    call_id: str = "",
+    device_args: str = "rtl=0",
     timeout: int = 60,
 ) -> str:
-    """5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI.
+    """Telecom security testing — SIP (SIPVicious) + IMSI detection (gr-gsm).
 
-    - gtp_scan: Scan for GTP-C/GTP-U endpoints
-    - gtp_fuzzer: Fuzz GTP protocol
-    - sip_enum: SIP device enumeration
-    - sip_crack: SIP credential cracking
-    - ss7_scan: SS7 network element scanning
-    - diameter_audit: Diameter protocol security audit
-    - imsi_detect: Scan for GSM base stations / IMSI catchers
-    - sip_flood_test: SIP extension enumeration
-    - stir_shaken_verify: Verify STIR/SHAKEN caller ID
+    - sip_enum: SIP device enumeration (svmap)
+    - sip_crack: SIP credential cracking (svcrack; numeric crack_range)
+    - sip_flood_test: SIP extension enumeration (svwar; extension_range)
+    - imsi_detect: GSM base-station / IMSI-catcher scan (device_args)
     """
     _init_pentest_singletons()
     return await _telecom_attack.execute(
         action=action,
         target=target,
-        port=port,
-        count=count,
         username=username,
-        device_args=device_args,
+        crack_range=crack_range,
         extension_range=extension_range,
-        call_id=call_id,
+        device_args=device_args,
         timeout=timeout,
     )
 

@@ -1,4 +1,9 @@
-"""5G/telecom security testing — GTP, SIP, SS7, Diameter, IMSI detection."""
+"""Telecom security testing — SIP (SIPVicious) + IMSI / GSM detection (gr-gsm).
+
+Scoped to the actions backed by real tools. Earlier GTP / SS7 / Diameter /
+STIR-SHAKEN actions were removed (they called binaries that don't exist; see
+protopen-3k1).
+"""
 
 from __future__ import annotations
 
@@ -11,25 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class TelecomAttackTool(BasePentestTool):
-    """5G/telecom protocol security testing and enumeration."""
+    """Telecom protocol security testing — SIP enum/cracking + IMSI detection."""
 
     name = "telecom_attack"
     description = (
-        "Telecom security — GTP scanning/fuzzing, SIP enumeration/cracking, "
-        "SS7 scanning, Diameter audit, IMSI catcher detection, STIR/SHAKEN verification."
+        "Telecom security — SIP enumeration/cracking (SIPVicious svmap/svcrack/"
+        "svwar) and IMSI catcher / GSM base-station detection (gr-gsm)."
     )
 
     ACTIONS: dict[str, dict[str, Any]] = {
-        "gtp_scan": {
-            "cmd": ["gtp-scan", "-t", "{target}", "-p", "{port}", "--json"],
-            "timeout": 60,
-            "description": "Scan for GTP-C/GTP-U endpoints",
-        },
-        "gtp_fuzzer": {
-            "cmd": ["gtp-fuzzer", "-t", "{target}", "-p", "{port}", "--count", "{count}", "--json"],
-            "timeout": 120,
-            "description": "Fuzz GTP protocol for crashes and anomalies",
-        },
         "sip_enum": {
             "cmd": ["sipvicious_svmap", "{target}"],
             "timeout": 60,
@@ -40,30 +35,15 @@ class TelecomAttackTool(BasePentestTool):
             "timeout": 120,
             "description": "SIP credential cracking (SIPVicious svcrack; numeric range)",
         },
-        "ss7_scan": {
-            "cmd": ["ss7-tools", "scan", "--target", "{target}", "--json"],
-            "timeout": 60,
-            "description": "SS7 network element scanning",
-        },
-        "diameter_audit": {
-            "cmd": ["diameter-audit", "--peer", "{target}", "--port", "{port}", "--json"],
-            "timeout": 60,
-            "description": "Diameter protocol security audit",
-        },
-        "imsi_detect": {
-            "cmd": ["grgsm_scanner", "--args", "{device_args}"],
-            "timeout": 30,
-            "description": "Scan for GSM base stations / IMSI catcher detection",
-        },
         "sip_flood_test": {
             "cmd": ["sipvicious_svwar", "-e", "{extension_range}", "{target}"],
             "timeout": 60,
             "description": "SIP extension enumeration via REGISTER flood (SIPVicious svwar)",
         },
-        "stir_shaken_verify": {
-            "cmd": ["stir-shaken-verify", "--call-id", "{call_id}", "--target", "{target}", "--json"],
+        "imsi_detect": {
+            "cmd": ["grgsm_scanner", "--args", "{device_args}"],
             "timeout": 30,
-            "description": "Verify STIR/SHAKEN caller ID authentication",
+            "description": "Scan for GSM base stations / IMSI catcher detection",
         },
     }
 
@@ -71,13 +51,10 @@ class TelecomAttackTool(BasePentestTool):
         self,
         action: str,
         target: str = "",
-        port: int = 2123,
-        count: int = 1000,
         username: str = "admin",
         crack_range: str = "1000-9999",
-        device_args: str = "rtl=0",
         extension_range: str = "100-999",
-        call_id: str = "",
+        device_args: str = "rtl=0",
         timeout: int = 60,
     ) -> str:
         if action not in self.ACTIONS:
@@ -87,13 +64,10 @@ class TelecomAttackTool(BasePentestTool):
         cmd = [
             str(c).format(
                 target=target,
-                port=port,
-                count=count,
                 username=username,
                 crack_range=crack_range,
-                device_args=device_args,
                 extension_range=extension_range,
-                call_id=call_id,
+                device_args=device_args,
                 timeout=timeout,
             )
             for c in spec["cmd"]
