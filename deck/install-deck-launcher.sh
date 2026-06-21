@@ -23,5 +23,8 @@ echo "3) Register it as a Non-Steam game (run in the Deck's Desktop session;"
 echo "   confirm the Steam dialog that pops):"
 echo "     steamos-add-to-steam ~/.local/share/applications/protopen.desktop"
 echo
+echo "4) (optional) Brand the Steam library art for the new shortcut:"
+echo "     deck/steam-art.sh"
+echo
 echo "Then reboot into Game Mode and launch 'pwnDeck' from your library."
 echo "(Backend defaults to the live :7870 server; set PROTOPEN_URL to retarget.)"
