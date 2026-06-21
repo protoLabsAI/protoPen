@@ -38,9 +38,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute lowercase owner
+      - name: Compute image tags
         id: meta
-        run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+        run: |
+          img="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/protopen-runtime"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            ver="${GITHUB_REF_NAME#deck-image-v}"   # deck-image-v0.1.0 -> 0.1.0
+            echo "tags=${img}:${ver},${img}:latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tags=${img}:${{ github.event.inputs.tag || 'latest' }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -48,6 +55,6 @@ jobs:
           context: .
           file: deck/Containerfile
           push: true
-          tags: ghcr.io/${{ steps.meta.outputs.owner }}/protopen-runtime:${{ github.event.inputs.tag || 'latest' }}
+          tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             INSTALL_BLACKARCH=${{ github.event.inputs.install_blackarch || '1' }}
