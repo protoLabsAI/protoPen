@@ -118,6 +118,11 @@ def register_operator_routes(
     workflows_run: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
     playbooks_list: Callable[[], dict[str, Any]] | None = None,
     playbooks_run: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
+    config_setup_status: Callable[[], dict[str, Any]] | None = None,
+    config_get: Callable[[], dict[str, Any]] | None = None,
+    config_preset: Callable[[str], dict[str, Any]] | None = None,
+    config_models: Callable[[str, str], dict[str, Any]] | None = None,
+    config_setup: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     api_key: str = "",
 ) -> None:
     """Register React operator-console routes on a FastAPI app.
@@ -515,5 +520,45 @@ def register_operator_routes(
                 if status:
                     raise HTTPException(status_code=status, detail=str(exc))
                 raise
+
+    # ── Setup wizard (apps/web/src/setup/SetupWizard.tsx) ─────────────────────
+    # BYO-key onboarding: the operator enters their own OpenAI-compatible
+    # base/key/model in-browser. Each is registered only when server.py wires the
+    # callback. All ride the same operator-key gate as the rest of the console.
+
+    @router.get("/api/config/setup-status", summary="Setup wizard status")
+    async def _config_setup_status():
+        if config_setup_status is None:
+            return {"setup_complete": True, "presets": []}
+        return await asyncio.to_thread(config_setup_status)
+
+    @router.get("/api/config", summary="Current agent config (UI-safe, no secrets)")
+    async def _config_get():
+        if config_get is None:
+            raise HTTPException(status_code=409, detail="config is not available")
+        return await asyncio.to_thread(config_get)
+
+    @router.get("/api/config/presets/{name}", summary="Read a SOUL preset")
+    async def _config_preset(name: str):
+        if config_preset is None:
+            raise HTTPException(status_code=409, detail="presets are not available")
+        try:
+            return await asyncio.to_thread(config_preset, name)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @router.post("/api/config/models", summary="Probe an OpenAI-compatible gateway for models")
+    async def _config_models(body: dict = Body(default={})):
+        if config_models is None:
+            return {"models": [], "error": "model probing is not available"}
+        return await asyncio.to_thread(config_models, (body or {}).get("api_base", ""), (body or {}).get("api_key", ""))
+
+    @router.post("/api/config/setup", summary="Write config + key and reload the agent")
+    async def _config_setup(body: dict = Body(default={})):
+        if config_setup is None:
+            raise HTTPException(status_code=409, detail="setup is not available")
+        return await asyncio.to_thread(config_setup, body or {})
 
     app.include_router(router)

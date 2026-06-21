@@ -22,6 +22,12 @@ def create_llm(config: LangGraphConfig, model_name: str | None = None) -> ChatOp
     (e.g. summarization for compaction) to a cheaper/faster gateway alias.
     """
     api_key = config.api_key or os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        # No key yet — a fresh BYO Deck before the setup wizard runs. Construct
+        # with a placeholder so the server still BOOTS and can serve the wizard;
+        # openai validates the key on use, not construction. Agent turns 401 until
+        # the operator completes setup, which rebuilds the graph with the real key.
+        api_key = "not-configured"
 
     return ChatOpenAI(
         base_url=config.api_base,

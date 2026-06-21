@@ -16,7 +16,14 @@ class AuditLogger:
 
     def __init__(self, path: str | Path = "/sandbox/audit/audit.jsonl"):
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            # /sandbox isn't writable (local dev, or a Deck before its mount is
+            # ready) — fall back to ~/.protopen like the rest of the runtime, so a
+            # missing workspace never crashes boot before the setup wizard loads.
+            self.path = Path.home() / ".protopen" / "audit" / "audit.jsonl"
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self._session_stats: dict[str, dict] = {}
 
     def log(
