@@ -103,9 +103,18 @@ RUN uv venv --python 3.12 /opt/venv \
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1
 
-# 7) App source — all top-level modules + apps/web/dist (see .dockerignore).
-#    data lives in a mounted /sandbox volume; never baked in.
+# 7) App source — all top-level modules (data lives in a mounted /sandbox volume,
+#    never baked in; see .dockerignore).
 COPY . /opt/protopen
 WORKDIR /opt/protopen
+
+# 8) Build the React operator console + setup wizard. apps/web/dist is gitignored,
+#    so it's NOT in the build context — build it here with the image's own Node.
+#    One layer + cleanup keeps node_modules out of the final image; the final
+#    `test` fails the build loudly if dist didn't render (rather than shipping a
+#    frontend-less image — exactly how v0.1.0 broke).
+RUN npm ci && npm run web:build \
+    && rm -rf node_modules apps/web/node_modules /root/.npm \
+    && test -f apps/web/dist/index.html
 EXPOSE 7870
 ENTRYPOINT ["/bin/bash", "/opt/protopen/deck/entrypoint.sh"]
