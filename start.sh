@@ -122,6 +122,26 @@ if [ ! -x "$HOLEHE_BIN" ]; then
     fi
 fi
 
+# SIPVicious OSS (telecom SIP enum/crack) — isolated venv. telecom_attack.py calls
+# sipvicious_svmap/_svcrack/_svwar by name (PATH, with --format json), so symlink
+# them into ~/.local/bin (added to PATH below). NB: this is the pip `sipvicious`
+# package, not BlackArch's classic svmap/svwar/svcrack. Idempotent; venv in $HOME.
+if [ ! -x "$HOME/.local/bin/sipvicious_svmap" ]; then
+    echo "Installing sipvicious (SIP enum/crack)…"
+    if python3 -m venv "$HOME/.sipvicious-venv" >/dev/null 2>&1 \
+        && "$HOME/.sipvicious-venv/bin/pip" install -q sipvicious >/dev/null 2>&1; then
+        mkdir -p "$HOME/.local/bin"
+        for _b in sipvicious_svmap sipvicious_svcrack sipvicious_svwar; do
+            ln -sf "$HOME/.sipvicious-venv/bin/$_b" "$HOME/.local/bin/$_b"
+        done
+        echo "✓ sipvicious installed (~/.local/bin)"
+    else
+        echo "WARN: sipvicious install failed — telecom SIP actions will be unavailable"
+    fi
+fi
+# Ensure ~/.local/bin (sipvicious_*, phoneinfoga) is on PATH for PATH-resolved tools.
+export PATH="$HOME/.local/bin:$PATH"
+
 # PhoneInfoga (OSINT phone-number recon) — pinned release binary + checksum.
 # NOTE: `go install` does NOT work for phoneinfoga v2 (its embedded web
 # client/dist isn't in the module), and piping master/install to bash is

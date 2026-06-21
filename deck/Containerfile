@@ -39,7 +39,7 @@ RUN if [ "$INSTALL_BLACKARCH" = "1" ]; then \
         && chmod +x /tmp/strap.sh && /tmp/strap.sh \
         && pacman -Sy --noconfirm \
         && for t in netdiscover arp-scan nbtscan enum4linux-ng theharvester \
-                    dnsenum dnsrecon sipvicious thc-ipv6 exploitdb onesixtyone \
+                    dnsenum dnsrecon thc-ipv6 exploitdb onesixtyone \
                     wfuzz gobuster nikto ; do \
                pacman -S --noconfirm --needed "$t" || echo "skip blackarch pkg: $t"; \
            done \
@@ -69,6 +69,15 @@ RUN uv venv --python 3.12 /opt/maigret-venv \
 RUN uv venv --python 3.12 /opt/holehe-venv \
     && uv pip install --python /opt/holehe-venv/bin/python holehe \
     && ln -s /opt/holehe-venv/bin/holehe /usr/local/bin/holehe
+# SIPVicious OSS (telecom SIP enum/crack) — the pip `sipvicious` package provides
+# sipvicious_svmap/_svcrack/_svwar (with `--format json`), which telecom_attack.py
+# calls by name. NB: BlackArch's `sipvicious` is the classic svmap/svwar/svcrack
+# (different names + no JSON) and is intentionally NOT installed.
+RUN uv venv --python 3.12 /opt/sipvicious-venv \
+    && uv pip install --python /opt/sipvicious-venv/bin/python sipvicious \
+    && for b in sipvicious_svmap sipvicious_svcrack sipvicious_svwar; do \
+           ln -s /opt/sipvicious-venv/bin/$b /usr/local/bin/$b; \
+       done
 ARG PHONEINFOGA_VERSION=2.11.0
 ARG PHONEINFOGA_SHA256=6173dfc4ec009a6fe688068bac5a250646f5a8f56409098f5edcc7e404b12a52
 RUN curl -sSL "https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz" -o /tmp/pi.tar.gz \
