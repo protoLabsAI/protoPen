@@ -12,6 +12,13 @@ const connListeners = new Set<(connected: boolean) => void>();
 let source: EventSource | null = null;
 let connected = false;
 
+// EventSource fires `onerror` on every transient blip (a momentary server stall,
+// a network hiccup) and auto-reconnects within a few seconds. Flipping straight
+// to "offline" makes the status indicator flap idle↔offline. Only surface offline
+// if the connection stays down past this grace window; a quick reconnect is invisible.
+const OFFLINE_GRACE_MS = 5000;
+let offlineTimer: ReturnType<typeof setTimeout> | null = null;
+
 function setConnected(next: boolean) {
   if (connected === next) return;
   connected = next;
@@ -34,8 +41,22 @@ function attach(name: string) {
 function ensureOpen() {
   if (source || typeof EventSource === "undefined") return;
   source = new EventSource(apiUrl("/api/events"));
-  source.onopen = () => setConnected(true);
-  source.onerror = () => setConnected(false); // EventSource auto-reconnects
+  source.onopen = () => {
+    if (offlineTimer) {
+      clearTimeout(offlineTimer);
+      offlineTimer = null;
+    }
+    setConnected(true);
+  };
+  source.onerror = () => {
+    // EventSource auto-reconnects; debounce so a brief drop doesn't flap the
+    // indicator. Only one timer in flight, and skip if we're already offline.
+    if (offlineTimer || !connected) return;
+    offlineTimer = setTimeout(() => {
+      offlineTimer = null;
+      setConnected(false);
+    }, OFFLINE_GRACE_MS);
+  };
   // Re-bind any names registered before the source existed.
   for (const name of listeners.keys()) attach(name);
 }
