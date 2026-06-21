@@ -92,13 +92,14 @@ curl -sf -o /dev/null -w '%{http_code}\n' http://localhost:7870/app/   # 200
 ```bash
 deck/install-deck-launcher.sh    # installs Chromium (flatpak) + the kiosk launcher
 steamos-add-to-steam ~/.local/share/applications/protopen.desktop
-deck/steam-art.sh                # optional: brand the library art
+deck/steam-art.sh                # rename the shortcut to pwnDeck + install grid art
 ```
 
-`steamos-add-to-steam` opens a Steam dialog — confirm it. Then **return to Game
-Mode** (Steam → Power → Switch to Game Mode) and launch **pwnDeck** from your
-library. The kiosk shows a "starting…" splash and switches to the console as soon
-as the backend answers.
+`steamos-add-to-steam` opens a Steam dialog — confirm it. `steam-art.sh` then
+renames the shortcut to **pwnDeck** and installs the hero/wide/portrait art
+(it briefly stops Steam to edit `shortcuts.vdf`, so restart Steam afterward). Then
+**return to Game Mode** (Steam → Power → Switch to Game Mode) and launch
+**pwnDeck** — the kiosk waits for the backend, then opens the console directly.
 
 ## 6. First run — the setup wizard
 
@@ -106,11 +107,14 @@ On first launch the console has no key, so the **setup wizard** opens
 automatically:
 
 1. **Identity** — name your agent + operator.
-2. **Model Gateway** — enter your **API base** and **API key**, then **Probe** to
-   list models and pick one.
-3. **Persona / Tools / Workspace** — accept the defaults or tweak.
-4. **Finish** — the wizard writes the config + key under `/sandbox` (mode `600`
+2. **Model Gateway** — enter your **API base** and **API key** (required on first
+   run; Finish stays disabled until it's set), then **Probe** to list models and
+   pick one.
+3. **Finish** — the wizard writes the config + key under `/sandbox` (mode `600`
    for the key) and reloads the agent.
+
+It's a deliberately short flow — SOUL/persona and the knowledge store keep their
+defaults; setup is just your model + key.
 
 Ask the agent something to confirm it answers. Your key is stored on the Deck only
 (never in the image), so it survives image upgrades and OS updates.
@@ -156,7 +160,7 @@ shows the wizard.
 | `podman pull` fails on read-only / sudo errors | Run `deck/bootstrap.sh` first (read-only disable + sudoers). |
 | Container won't start | `systemctl --user status protopen-runtime.service` then `journalctl --user -u protopen-runtime.service -e`. |
 | Storage error / `/var` full | Confirm rootful storage is on `/home`; `fuse-overlayfs` must be present (it ships with SteamOS). |
-| Kiosk stays on the "starting…" splash | Backend isn't answering — check `curl localhost:7870/app/` and the unit status above. |
+| Kiosk shows a connection error | Backend isn't up yet — check `curl localhost:7870/app/` and the unit status above. |
 | Wizard never appears | A key is already configured (env/Infisical or a prior run). The wizard only shows when no key exists. |
 | Agent turns 401 after setup | Wrong key/base, or the gateway lacks the chosen model. Re-open the wizard's Model step and re-Probe. |
 | Setup says "restart to apply" | The in-process reload hit a snag but your config is saved — `systemctl --user restart protopen-runtime.service`. |

@@ -26,7 +26,7 @@ deck/install.sh               # pull the image + start the container on :7870
 
 deck/install-deck-launcher.sh                                   # kiosk + Chromium
 steamos-add-to-steam ~/.local/share/applications/protopen.desktop
-deck/steam-art.sh             # optional: brand the Steam library art
+deck/steam-art.sh             # rename shortcut → pwnDeck + install library art
 ```
 
 Return to Game Mode and launch **pwnDeck**. On first run the **setup wizard**
