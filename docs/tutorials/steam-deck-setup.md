@@ -4,501 +4,203 @@ outline: deep
 
 # Steam Deck Setup
 
-This tutorial takes you from a fresh SteamOS install to a fully working protoPen installation with the server running as a systemd user service. By the end, protoPen will start automatically on boot and be reachable over Tailscale SSH.
+This tutorial takes you from a fresh SteamOS install to **pwnDeck** running as a
+Game Mode app — autostarting on boot, configured in-browser with your own model
++ API key. No fleet account required.
 
-**Time:** ~30 minutes
+The runtime is a rootful, `--privileged` podman container ([why](#why-a-container)).
+The image bakes the whole toolchain — BlackArch tools, Python 3.12, and the
+PortaPack-patched libhackrf — so you never strap repos or build from source on the
+Deck, and nothing important lives on the immutable rootfs.
+
+**Time:** ~15 minutes (plus a one-time image pull)
 
 **Prerequisites:**
 - Steam Deck with a fresh SteamOS install, connected to your network
-- A workstation on the same network (for SSH access)
-- An [Infisical](https://infisical.com) account with access to the protoPen project secrets
+- A workstation on the same network (for SSH — optional if you work on-device)
+- An OpenAI-compatible API base + key for the agent (entered later, in the wizard)
+- _(optional)_ a [Tailscale](https://tailscale.com) account for remote SSH
 
-## 1. Enable SSH
+## 1. Enable SSH (optional)
 
-SteamOS ships with no password and `sshd` disabled. You need to fix both.
-
-**On the Steam Deck** — switch to Desktop Mode, open Konsole, and run:
-
-```bash
-# Set a password for the deck user
-passwd
-
-# Enable and start the SSH daemon
-sudo systemctl enable sshd
-sudo systemctl start sshd
-
-# Grab your IP for the next step
-hostname -I
-```
-
-**From your workstation**, verify you can connect:
+Skip this if you'll work directly on the Deck in Desktop Mode. Otherwise, in
+Desktop Mode → Konsole:
 
 ```bash
-ssh deck@<DECK_IP>
+passwd                          # set a password for the deck user
+sudo systemctl enable --now sshd
+hostname -I                     # note the IP
 ```
 
-::: tip Key-based auth
-Set up SSH keys now so you never need the password again:
+From your workstation: `ssh deck@<DECK_IP>` (and `ssh-copy-id deck@<DECK_IP>` for
+key auth).
 
-```bash
-ssh-keygen -t ed25519            # skip if you already have a key
-ssh-copy-id deck@<DECK_IP>
-```
-:::
+## 2. Get the deck scripts
 
-Once Tailscale is installed (later in this guide), you will connect via:
-
-```bash
-ssh deck@steamdeck
-```
-
-## 2. Disable the read-only filesystem
-
-SteamOS mounts root as read-only. We need to disable this and configure passwordless sudo for remote commands.
-
-```bash
-# Disable the read-only lock
-sudo steamos-readonly disable
-
-# Set up passwordless sudo
-echo 'deck ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/zz-deck
-sudo chmod 0440 /etc/sudoers.d/zz-deck
-
-# Initialize the pacman keyring
-sudo pacman-key --init
-sudo pacman-key --populate archlinux
-```
-
-::: warning SteamOS updates
-SteamOS updates may re-enable the read-only lock and wipe `/etc/sudoers.d/zz-deck`. If `pacman` or passwordless `sudo` stops working after an update, re-run the commands above.
-:::
-
-**Why `zz-deck`?** SteamOS has `/etc/sudoers.d/wheel` which requires a password. Sudoers drop-in files load alphabetically — `zz-` ensures the NOPASSWD rule wins.
-
-## 3. Install BlackArch repository
-
-BlackArch layers ~2800 pentest tools on top of SteamOS via `pacman` without replacing the OS.
-
-```bash
-# Download and run the strap script
-curl -fsSL https://blackarch.org/strap.sh -o /tmp/strap.sh
-
-# Verify the SHA1 hash (check https://blackarch.org/downloads.html for the current value)
-sha1sum /tmp/strap.sh
-
-# Install
-chmod +x /tmp/strap.sh
-sudo /tmp/strap.sh
-```
-
-Install the tools protoPen uses:
-
-```bash
-sudo pacman -Sy --noconfirm \
-    nmap \
-    aircrack-ng \
-    bettercap \
-    wireshark-cli
-```
-
-Verify everything installed:
-
-```bash
-nmap --version
-bettercap -version
-tshark --version | head -1
-```
-
-::: tip
-`tshark` is part of the `wireshark-cli` package on Arch.
-:::
-
-## 4. Install Python, Git, and GitHub CLI
-
-SteamOS Holo ships with Python 3.13 and git pre-installed. Verify:
-
-```bash
-python --version   # needs 3.12+
-git --version
-```
-
-If Python is missing or too old:
-
-```bash
-sudo pacman -Sy --noconfirm python python-pip git base-devel
-```
-
-Install GitHub CLI and authenticate:
-
-```bash
-sudo pacman -Sy --noconfirm github-cli
-
-gh auth login
-gh auth setup-git
-```
-
-::: warning
-You **must** run `gh auth setup-git` — without it, `git clone` over HTTPS will fail with "could not read Username" since there is no interactive TTY in remote SSH sessions.
-:::
-
-## 5. Install Tailscale
-
-Tailscale provides the stable SSH connection between your workstation and the Deck, regardless of what WiFi network either device is on.
-
-```bash
-sudo pacman -Sy --noconfirm tailscale
-
-sudo systemctl enable tailscaled
-sudo systemctl start tailscaled
-
-sudo tailscale up --ssh
-```
-
-Follow the auth URL printed to the terminal. Once authenticated, you can reach the Deck from any device on your tailnet:
-
-```bash
-ssh deck@steamdeck
-```
-
-## 6. Clone and install protoPen
+The app runs from the container image; you only need the repo for the `deck/`
+install scripts:
 
 ```bash
 git clone https://github.com/protoLabsAI/protoPen.git ~/protoPen
 cd ~/protoPen
-git submodule update --init --recursive
-
-# Create a virtual environment
-python -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Install the nanobot submodule
-pip install ./nanobot/
 ```
 
-::: tip Build errors on sqlite-vec
-If `pip install` fails on `sqlite-vec`, install the build toolchain first:
+## 3. Bootstrap the host
+
+`deck/bootstrap.sh` does the privileged host prep that a SteamOS atomic update
+wipes — disabling the read-only rootfs, a validated passwordless-sudo rule, the
+pacman keyring, and systemd linger. It's idempotent.
 
 ```bash
-sudo pacman -S --noconfirm gcc cmake
+deck/bootstrap.sh
+# or, for remote SSH that survives OS updates (binaries + state in /home):
+deck/bootstrap.sh --with-tailscale
 ```
+
+::: tip Re-run this after every SteamOS update
+An OS update reimages the rootfs (re-enables read-only, wipes `/etc` + `/usr`).
+Re-running `deck/bootstrap.sh` re-applies all of it in seconds. Everything else —
+the container image, your config, your key, your art — lives in `/home` and is
+untouched. See [Surviving SteamOS updates](#surviving-steamos-updates).
 :::
 
-Run the test suite to verify the install:
+With `--with-tailscale`, follow the printed `tailscale … up` URL once to
+authenticate the node; it stays authenticated across reboots and updates.
+
+## 4. Install the runtime
+
+`deck/install.sh` pulls the runtime image from GHCR, sets up rootful podman
+storage on `/home` (the default `/var` is only 230 MB), installs the
+`systemd --user` unit, and **enables + starts** the container on `:7870`. The
+container is the runtime — there is no separate "start" step.
 
 ```bash
-cd ~/protoPen
-source .venv/bin/activate
-python -m pytest tests/ -v
+deck/install.sh
 ```
 
-All 196 tests should pass.
+No API key is needed up front — you'll enter yours in the setup wizard (step 6).
+For the fleet gateway instead, see [Fleet / Infisical](#fleet-infisical-optional).
 
-## 7. Install Infisical CLI and configure service token
-
-protoPen fetches secrets at runtime from Infisical — no `.env` files on disk. Install the CLI:
+Verify it's serving:
 
 ```bash
-curl -1sLf 'https://artifacts.infisical.com/repos/infisical/setup.rpm.sh' | sudo -E bash
-sudo pacman -Sy --noconfirm infisical
+curl -sf -o /dev/null -w '%{http_code}\n' http://localhost:7870/app/   # 200
 ```
 
-### Create a service token
+## 5. Add to Game Mode
 
-`start.sh` uses an `INFISICAL_TOKEN` service token for non-interactive auth (no `infisical login` required). Create a token in the Infisical dashboard for the **protoPen** project (`f7d3c43d-be5e-4a05-ac4c-c69d1e09d6c7`), scoped to the **prod** environment.
+```bash
+deck/install-deck-launcher.sh    # installs Chromium (flatpak) + the kiosk launcher
+steamos-add-to-steam ~/.local/share/applications/protopen.desktop
+deck/steam-art.sh                # optional: brand the library art
+```
 
-### Inject the token via systemd override
+`steamos-add-to-steam` opens a Steam dialog — confirm it. Then **return to Game
+Mode** (Steam → Power → Switch to Game Mode) and launch **pwnDeck** from your
+library. The kiosk shows a "starting…" splash and switches to the console as soon
+as the backend answers.
 
-Store the token in a systemd drop-in so it is available at boot without touching disk in the repo:
+## 6. First run — the setup wizard
+
+On first launch the console has no key, so the **setup wizard** opens
+automatically:
+
+1. **Identity** — name your agent + operator.
+2. **Model Gateway** — enter your **API base** and **API key**, then **Probe** to
+   list models and pick one.
+3. **Persona / Tools / Workspace** — accept the defaults or tweak.
+4. **Finish** — the wizard writes the config + key under `/sandbox` (mode `600`
+   for the key) and reloads the agent.
+
+Ask the agent something to confirm it answers. Your key is stored on the Deck only
+(never in the image), so it survives image upgrades and OS updates.
+
+## Surviving SteamOS updates {#surviving-steamos-updates}
+
+After any SteamOS update, the only thing you need to do is re-apply the host prep:
+
+```bash
+cd ~/protoPen && deck/bootstrap.sh    # (add --with-tailscale if you use it)
+```
+
+Everything else persists because it lives in `/home`:
+
+| Survives an OS update (in `/home`) | Wiped by an OS update (re-applied by `bootstrap.sh`) |
+|---|---|
+| container image + storage | read-only rootfs flag |
+| `/sandbox` data, config, **your API key** | `/etc/sudoers.d` passwordless-sudo rule |
+| systemd `--user` units + launcher | pacman keyring |
+| Steam shortcut + library art | tailscale in `/usr` → reinstalled to `/home` by `--with-tailscale` |
+
+## Fleet / Infisical (optional) {#fleet-infisical-optional}
+
+To use the fleet LiteLLM gateway via an Infisical service token instead of a
+BYO key, create the token drop-in and pass `--with-infisical`:
 
 ```bash
 mkdir -p ~/.config/systemd/user/protopen.service.d
-
-cat > ~/.config/systemd/user/protopen.service.d/infisical.conf << 'EOF'
+cat > ~/.config/systemd/user/protopen.service.d/infisical.conf <<'EOF'
 [Service]
 Environment=INFISICAL_TOKEN=<your-service-token>
 EOF
-
-systemctl --user daemon-reload
+deck/install.sh --with-infisical
 ```
 
-### Verify secrets fetch
-
-```bash
-INFISICAL_TOKEN=<your-service-token> infisical export \
-    --domain https://secrets.proto-labs.ai/api \
-    --env prod \
-    --format dotenv \
-    --silent \
-    --token "$INFISICAL_TOKEN"
-```
-
-You should see all project secrets (including `LITELLM_MASTER_KEY`, `ANTHROPIC_API_KEY`, etc.). `start.sh` exports **all** Infisical secrets into the process environment automatically — no need to cherry-pick individual keys.
-
-::: warning Zero env-on-disk policy
-protoPen never writes API keys or secrets to disk. The `start.sh` launcher fetches secrets from Infisical into environment variables at boot and they exist only in process memory. The only exception is the `INFISICAL_TOKEN` in the systemd override, which lives outside the repo at `~/.config/systemd/user/protopen.service.d/infisical.conf`.
-:::
-
-## 8. Create the /sandbox symlink
-
-protoPen stores knowledge, audit logs, and papers under `/sandbox`. On bare metal (no Docker), this needs to be a symlink to a local data directory:
-
-```bash
-mkdir -p ~/protoPen/data/knowledge ~/protoPen/data/audit ~/protoPen/data/intel ~/protoPen/data/lab
-sudo ln -sfn ~/protoPen/data /sandbox
-```
-
-## 9. Create a systemd user service
-
-A systemd user service starts protoPen automatically on boot without requiring a login session.
-
-Create the service file:
-
-```bash
-mkdir -p ~/.config/systemd/user
-
-cat > ~/.config/systemd/user/protopen.service << 'EOF'
-[Unit]
-Description=protoPen — autonomous pen-testing agent
-After=network-online.target tailscaled.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-WorkingDirectory=/home/deck/protoPen
-ExecStart=/home/deck/protoPen/start.sh --port 7870
-Restart=on-failure
-RestartSec=10
-Environment=AGENT_BACKEND=langgraph
-
-[Install]
-WantedBy=default.target
-EOF
-```
-
-Enable and start it:
-
-```bash
-systemctl --user daemon-reload
-systemctl --user enable protopen.service
-systemctl --user start protopen.service
-```
-
-Check that it is running:
-
-```bash
-systemctl --user status protopen.service
-```
-
-## 10. Enable linger
-
-By default, systemd user services only run while the user has an active login session. Linger keeps them running after you disconnect SSH:
-
-```bash
-sudo loginctl enable-linger deck
-```
-
-## 11. Set Desktop Mode as default boot target
-
-protoPen runs headless — you do not need Game Mode. Setting Desktop Mode as the default avoids wasting resources on the Steam client:
-
-```bash
-sudo steamos-session-select plasma-persistent
-```
-
-The Deck will now boot directly into KDE Plasma desktop.
-
-## 12. Verify the server
-
-From your workstation, check that the server is reachable:
-
-```bash
-# Health check — should return the agent card JSON
-curl -s http://steamdeck:7870/.well-known/agent.json | head -20
-
-# Quick chat test
-curl -s http://steamdeck:7870/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "/help"}' | python -m json.tool
-```
-
-You can also open the Gradio UI in a browser at `http://steamdeck:7870`.
-
-::: tip Checking logs
-If the server is not responding, check the journal:
-
-```bash
-journalctl --user -u protopen.service -f
-```
-:::
+An env/Infisical key always wins over the local wizard key, so a fleet Deck never
+shows the wizard.
 
 ## Troubleshooting
 
 | Issue | Fix |
 |---|---|
-| `pacman` fails with read-only errors | `sudo steamos-readonly disable` |
-| `sudo` still asks for password | Verify file is named `zz-deck` with `0440` perms: `ls -la /etc/sudoers.d/zz-deck` |
-| BlackArch strap fails GPG check | `sudo pacman-key --refresh-keys` |
-| `git clone` fails "could not read Username" | Run `gh auth setup-git` to wire the credential helper |
-| `pip install` fails on `sqlite-vec` | Install build deps: `sudo pacman -S gcc cmake` |
-| SteamOS update broke everything | Re-run steps 2 and 3 (read-only disable, sudoers, pacman keyring) |
-| Infisical fetch returns empty | Verify `INFISICAL_TOKEN` is set in the systemd override and run `systemctl --user daemon-reload` |
-| Server not reachable over Tailscale | Verify `sudo tailscale up --ssh` and check `tailscale status` |
-| tshark/dumpcap "permission denied" | `sudo usermod -aG wireshark deck` then restart the protopen service |
-| `tool_use ids without tool_result` errors | Corrupted session DB — `rm -f /sandbox/knowledge/sessions.db*` and restart |
-
-## Post-install: enable packet capture
-
-tshark (Wireshark CLI) requires the `wireshark` group for raw packet capture:
-
-```bash
-sudo usermod -aG wireshark deck
-```
-
-Verify after re-login or service restart:
-
-```bash
-groups deck  # should include 'wireshark'
-```
-
-This enables the `blackarch tshark_capture` and `net_monitor traffic_baseline` tools for live LAN traffic analysis.
+| `podman pull` fails on read-only / sudo errors | Run `deck/bootstrap.sh` first (read-only disable + sudoers). |
+| Container won't start | `systemctl --user status protopen-runtime.service` then `journalctl --user -u protopen-runtime.service -e`. |
+| Storage error / `/var` full | Confirm rootful storage is on `/home`; `fuse-overlayfs` must be present (it ships with SteamOS). |
+| Kiosk stays on the "starting…" splash | Backend isn't answering — check `curl localhost:7870/app/` and the unit status above. |
+| Wizard never appears | A key is already configured (env/Infisical or a prior run). The wizard only shows when no key exists. |
+| Agent turns 401 after setup | Wrong key/base, or the gateway lacks the chosen model. Re-open the wizard's Model step and re-Probe. |
+| Setup says "restart to apply" | The in-process reload hit a snag but your config is saved — `systemctl --user restart protopen-runtime.service`. |
+| Everything broke after a SteamOS update | Re-run `deck/bootstrap.sh`. |
+| `tool_use ids without tool_result` errors | Corrupted session DB — `rm -f ~/.local/share/protopen-rt-data/knowledge/sessions.db*` and restart the unit. |
 
 ## Hardware: HackRF / PortaPack {#hackrf-portapack}
 
-The PortaPack H4M (HackRF One + Mayhem firmware) requires extra setup on SteamOS because:
+The runtime container bakes the **PortaPack-patched libhackrf** (Mayhem
+enumerates as `1d50:6018`, which stock libhackrf ignores) and runs
+`--privileged` with `/dev/bus/usb` passed through, so SDR works without any
+host-side libhackrf build or udev rule. Two physical things still matter:
 
-1. **Wrong USB product ID in stock libhackrf** — Mayhem enumerates as `1d50:6018`. Stock libhackrf only recognises `1d50:6089` (HackRF One) and silently finds nothing.
-2. **No udev rule for `0x6018`** — the packaged udev rules don't cover Mayhem's product ID, so the device node is not accessible without root.
+**Power** — the PortaPack draws ~500 mA. The official dock allocates 160–500 mA
+per USB-A port and the device may fail to enumerate through it. **Connect directly
+to the Deck's USB-C port**, or use a powered hub.
 
-### Power requirement
-
-The PortaPack draws ~500mA. The official Steam Deck dock allocates 160–500mA per USB-A port and the device may fail to enumerate through it. **Connect directly to the Deck's USB-C port**, or use an externally powered hub.
-
-### 1. Verify enumeration
-
-```bash
-lsusb -v -d 1d50:6018 | grep -E 'iManufacturer|iProduct'
-```
-
-Expected output:
-```
-iManufacturer  1 Great Scott Gadgets
-iProduct       2 PortaPack Mayhem
-```
-
-If no output, check the cable (must be a data cable, not charge-only) and the USB-C port.
-
-### 2. Install the hackrf package and udev rule
+**Verify enumeration** on the host:
 
 ```bash
-sudo pacman -S --noconfirm hackrf soapyhackrf
-
-echo 'ATTR{idVendor}=="1d50", ATTR{idProduct}=="6018", SYMLINK+="hackrf-portapack-%k", TAG+="uaccess"' | \
-  sudo tee /etc/udev/rules.d/53-hackrf-portapack.rules
-
-sudo udevadm control --reload-rules
-sudo udevadm trigger --attr-match=idVendor=1d50
+lsusb -d 1d50:6018    # → "Great Scott Gadgets PortaPack Mayhem"
 ```
 
-### 3. Patch and rebuild libhackrf
+No output usually means a charge-only cable or an under-powered port. Once it
+enumerates, the agent's SDR tools (PortaPack capture, IMSI scan) reach it through
+the container automatically. The Flipper/serial and WiFi-monitor-mode paths work
+the same way (raw sockets + USB via `--privileged`).
 
-Stock libhackrf (`2024.02.1-3`) does not recognise `0x6018`. Build a patched version from source.
+::: tip Packet capture
+tshark/dumpcap run inside the privileged container with the needed caps, so live
+LAN capture (the `blackarch tshark_capture` / `net_monitor` tools) works out of
+the box — no host `wireshark` group needed.
+:::
 
-**Set up an Arch distrobox** (required because SteamOS rootfs lacks glibc dev headers):
+## Why a container? {#why-a-container}
 
-```bash
-distrobox create --name archbuild --image archlinux:latest --no-entry
-distrobox enter archbuild -- sudo pacman -S --noconfirm base-devel cmake libusb
-```
-
-**Clone and patch hackrf:**
-
-```bash
-git clone --depth=1 https://github.com/greatscottgadgets/hackrf.git ~/hackrf-portapack-src
-```
-
-Edit `~/hackrf-portapack-src/host/libhackrf/src/hackrf.c`:
-
-1. After the `rad1o_usb_pid` line, add:
-   ```c
-   static const uint16_t portapack_mayhem_usb_pid = 0x6018;
-   ```
-
-2. In the `hackrf_device_list()` product-ID check (around line 584), add `portapack_mayhem_usb_pid` to both OR-chains that filter by `idProduct`. There are two identical blocks — search for `rad1o_usb_pid` and add the new constant after each occurrence:
-   ```c
-   (device_descriptor.idProduct == rad1o_usb_pid) ||
-   (device_descriptor.idProduct == portapack_mayhem_usb_pid))
-   ```
-
-**Build and install:**
-
-```bash
-distrobox enter archbuild -- bash -c "
-  cd ~/hackrf-portapack-src/host
-  cmake -B build2 -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
-  cmake --build build2 -j4
-"
-sudo cmake --install ~/hackrf-portapack-src/host/build2
-sudo ldconfig
-```
-
-**Verify:**
-
-```bash
-hackrf_info
-```
-
-Expected:
-```
-Found HackRF
-Index: 0
-Serial number: Transceiver
-hackrf_board_id_read() failed: Pipe error (-1000)
-```
-
-`Found HackRF` is success. The `Pipe error` on `board_id_read` is normal — Mayhem intercepts that control transfer. SDR software via SoapyHackRF works correctly:
-
-```bash
-SoapySDRUtil --find='driver=hackrf'
-# → Found device 0  driver=hackrf  serial=00000030...
-```
-
-### 4. Persist through OS updates
-
-SteamOS A/B updates will overwrite `/usr/lib/libhackrf.so*`. Add the patched files to the keep list:
-
-```bash
-sudo tee -a /etc/atomic-update.conf.d/protopen-keep.conf << 'EOF'
-/etc/udev/rules.d/53-hackrf-portapack.rules
-/usr/lib/libhackrf.so.0.10.0
-/usr/lib/libhackrf.so.0
-/usr/lib/libhackrf.so
-/usr/bin/hackrf_info
-EOF
-```
-
-After any SteamOS OS update, re-run the reinstall script:
-
-```bash
-~/hackrf-portapack-src/reinstall.sh
-```
-
-### Troubleshooting
-
-| Symptom | Fix |
-|---|---|
-| `lsusb` shows no `1d50:` device | Cable is charge-only; try a different cable or port. Device not powered. |
-| `lsusb` shows `1d50:6018` but `hackrf_info` says "No HackRF boards found" | Patched libhackrf not installed — run step 3. |
-| `hackrf_info` exits with `Pipe error` only | Normal — Mayhem firmware. Enumeration succeeded. |
-| `SoapySDRUtil --find` returns nothing | Run step 3 first; SoapyHackRF uses libhackrf internally. |
-| After OS update, `hackrf_info` reverts to "No HackRF boards found" | Run `~/hackrf-portapack-src/reinstall.sh`. |
-| distrobox build fails — `stdint.h: No such file or directory` | Copy from a container: `find ~/.local/share/containers -name 'stdint.h' -not -path '*/isl/*' -not -path '*/c++/*' | head -1`, then `sudo cp <path> /usr/include/stdint.h`. |
-
----
+SteamOS is immutable: the rootfs is read-only and atomic updates wipe `/usr`,
+`/etc`, the pacman state, and anything you installed there. A bare-metal install
+(venv + pacman tools + a hand-built libhackrf) breaks on every OS update. Packing
+the toolchain into an image that lives on `/home` — plus a one-command
+`bootstrap.sh` for the handful of `/etc` bits an update resets — makes the setup
+reproducible and update-proof.
 
 ## What's next
 
-With protoPen running on the Deck, continue to the [First Engagement](./first-engagement) tutorial to run a passive network scan using only the Deck's built-in hardware.
+With pwnDeck running, continue to the [First Engagement](./first-engagement)
+tutorial to run a passive network scan using only the Deck's built-in hardware.
