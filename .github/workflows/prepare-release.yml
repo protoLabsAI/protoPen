@@ -32,7 +32,7 @@ concurrency:
 jobs:
   prepare:
     name: Prepare Release
-    runs-on: namespace-profile-protolabs-linux
+    runs-on: ${{ vars.NSC_RUNNER || 'namespace-profile-protolabs-linux' }}
     if: >-
       github.repository == 'protoLabsAI/protoPen' &&
       (
