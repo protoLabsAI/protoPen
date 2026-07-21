@@ -39,8 +39,13 @@ no(){ printf "  \033[31mFAIL\033[0m  %s — %s\n" "$1" "$2"; fail=$((fail+1)); }
 
 echo "== service =="
 if command -v systemctl >/dev/null 2>&1; then
-  [ "$(systemctl --user is-active protopen.service 2>/dev/null)" = active ] \
-    && ok "protopen.service active" || no "service" "not active (or not this host)"
+  # The runtime is either the containerized `protopen-runtime` (the default on the
+  # Deck) or the legacy source-run `protopen` — accept whichever is active.
+  svc=""
+  for s in protopen-runtime protopen; do
+    [ "$(systemctl --user is-active "$s.service" 2>/dev/null)" = active ] && { svc="$s"; break; }
+  done
+  [ -n "$svc" ] && ok "$svc.service active" || no "service" "not active (or not this host)"
 else
   echo "  (skip — no systemctl on this host)"
 fi
