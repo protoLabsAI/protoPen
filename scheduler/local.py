@@ -168,8 +168,10 @@ class LocalScheduler:
         db.row_factory = sqlite3.Row
         try:
             db.execute("PRAGMA journal_mode=WAL")
+            # Wait on a brief write-lock instead of erroring (port protoAgent #1398).
+            db.execute("PRAGMA busy_timeout=5000")
         except sqlite3.OperationalError as exc:
-            log.debug("[scheduler] WAL skipped: %s", exc)
+            log.debug("[scheduler] WAL/busy_timeout skipped: %s", exc)
         return db
 
     def _init_db(self) -> None:

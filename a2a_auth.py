@@ -86,9 +86,11 @@ class A2AAuthMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith(_GUARDED_PREFIX):
             return await call_next(request)
 
-        # X-API-Key (legacy) — enforced only when configured.
+        # X-API-Key (legacy) — enforced only when configured. Constant-time compare
+        # (no timing oracle on the credential), matching the bearer path below
+        # (port protoAgent #1398).
         api_key = _API_KEY[0]
-        if api_key and request.headers.get("x-api-key") != api_key:
+        if api_key and not hmac.compare_digest(request.headers.get("x-api-key") or "", api_key):
             return _unauthorized("Unauthorized")
 
         # Bearer — enforced only when configured.

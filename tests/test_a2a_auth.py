@@ -76,6 +76,17 @@ def test_allowed_origin_passes():
     assert r.status_code == 200
 
 
+def test_x_api_key_constant_time_accept_and_reject():
+    """X-API-Key is enforced when set: the exact key passes, a wrong/absent key is
+    rejected. The compare is constant-time (hmac.compare_digest, #1398) — this locks
+    the accept/reject behavior across that change."""
+    a2a_auth.configure(bearer_token="", api_key="s3cret-key", allowed_origins_raw="")
+    c = TestClient(_app())
+    assert c.post("/a2a", headers={"x-api-key": "s3cret-key"}).status_code == 200
+    assert c.post("/a2a", headers={"x-api-key": "wrong"}).status_code == 401
+    assert c.post("/a2a").status_code == 401  # missing header → rejected
+
+
 def test_guard_only_applies_to_a2a_prefix():
     """Non-/a2a paths bypass the guard entirely (origin allowlist set)."""
     a2a_auth.configure(bearer_token="", api_key="", allowed_origins_raw="https://console.example.com")
