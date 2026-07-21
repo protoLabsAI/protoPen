@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass
 
 from graph.goals.store import GoalStore
-from graph.goals.types import GoalState
+from graph.goals.types import GoalState, coerce_str_list
 from graph.goals.verifiers import VerifyContext, run_verifier
 
 log = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ class GoalController:
             return "Goal cleared." if existed else "No active goal to clear."
 
         # /goal {json}  or  /goal <free text>  → set
-        spec, condition, max_iters, no_progress, mode = self._parse_set(rest)
+        spec, condition, max_iters, no_progress, mode, contract = self._parse_set(rest)
         if condition is None:
             return (
                 "Could not parse goal. Use `/goal <text>` (fuzzy, LLM-judged) or "
@@ -89,6 +89,10 @@ class GoalController:
             mode=mode,
             max_iterations=max_iters or getattr(self._config, "goals_max_iterations", 10),
             no_progress_limit=no_progress,
+            outcome=contract["outcome"],
+            constraints=contract["constraints"],
+            boundaries=contract["boundaries"],
+            stop_when=contract["stop_when"],
         )
         self._store.set(state)
         return f"Goal set. {state.status_line()}"
@@ -99,13 +103,19 @@ class GoalController:
         condition: str,
         verifier: dict | None = None,
         mode: str = "drive",
+        *,
+        outcome: str = "",
+        constraints=None,
+        boundaries=None,
+        stop_when: str = "",
     ) -> GoalState:
         """Set a goal programmatically — the agent's ``set_goal`` tool path.
 
         Mirrors the ``/goal <text>`` set branch (same defaults + config iteration
         cap) but takes an explicit verifier spec instead of parsing a message.
         ``mode="monitor"`` (ADR 0030) sets a long-horizon goal the agent supervises
-        without storming the loop.
+        without storming the loop. The optional completion-contract fields (ADR 0073)
+        shape the continuation prompt only — the verifier still decides DONE.
         """
         spec = dict(verifier) if verifier else {"type": "llm"}
         if "type" not in spec:
@@ -116,27 +126,51 @@ class GoalController:
             verifier=spec,
             mode=("monitor" if mode == "monitor" else "drive"),
             max_iterations=getattr(self._config, "goals_max_iterations", 10),
+            outcome=outcome or "",
+            constraints=coerce_str_list(constraints),
+            boundaries=coerce_str_list(boundaries),
+            stop_when=stop_when or "",
         )
         self._store.set(state)
         return state
 
+    @staticmethod
+    def _contract_from(data: dict) -> dict:
+        """Extract the optional ADR 0073 completion-contract fields from a /goal JSON."""
+        return {
+            "outcome": str(data.get("outcome") or ""),
+            "constraints": coerce_str_list(data.get("constraints")),
+            "boundaries": coerce_str_list(data.get("boundaries")),
+            "stop_when": str(data.get("stop_when") or ""),
+        }
+
     def _parse_set(self, rest: str):
-        """Return (verifier_spec, condition, max_iterations|None, no_progress_limit|None, mode)."""
+        """Return (verifier_spec, condition, max_iterations|None, no_progress_limit|None,
+        mode, contract) — ``contract`` is the ADR 0073 outcome/constraints/boundaries/
+        stop_when dict (all-empty for a plain-text or contract-less goal)."""
+        empty_contract = {"outcome": "", "constraints": [], "boundaries": [], "stop_when": ""}
         if rest.lstrip().startswith("{"):
             try:
                 data = json.loads(rest)
             except json.JSONDecodeError:
-                return ({}, None, None, None, "drive")
+                return ({}, None, None, None, "drive", empty_contract)
             condition = data.get("condition")
             if not condition:
-                return ({}, None, None, None, "drive")
+                return ({}, None, None, None, "drive", empty_contract)
             verifier = data.get("verifier") or {"type": "llm"}
             if "type" not in verifier:
                 verifier["type"] = "llm"
             mode = "monitor" if data.get("mode") == "monitor" else "drive"
-            return (verifier, condition, data.get("max_iterations"), data.get("no_progress_limit"), mode)
+            return (
+                verifier,
+                condition,
+                data.get("max_iterations"),
+                data.get("no_progress_limit"),
+                mode,
+                self._contract_from(data),
+            )
         # plain text → fuzzy goal judged by the llm verifier
-        return ({"type": "llm"}, rest, None, None, "drive")
+        return ({"type": "llm"}, rest, None, None, "drive", empty_contract)
 
     # ── evaluation ─────────────────────────────────────────────────────────
 
@@ -223,6 +257,14 @@ class GoalController:
         return Decision(action="done", state=state, note=f"{glyph} goal {status}: {reason}")
 
     def _continuation(self, state: GoalState, result) -> str:
+        base = self._continuation_base(state, result)
+        # Re-state the completion contract every drive turn (ADR 0073). Directive
+        # ONLY — the verifier still decides DONE. A contract-less goal appends
+        # nothing, so its continuation prompt is byte-for-byte unchanged.
+        contract = self._contract_prompt(state)
+        return f"{base}\n\n{contract}" if contract else base
+
+    def _continuation_base(self, state: GoalState, result) -> str:
         evidence = (result.evidence or "").strip()
         evidence_block = f"\nEvidence:\n{evidence}\n" if evidence else "\n"
         plan_block = state.checklist.strip() or "(no plan yet — create one)"
@@ -239,3 +281,27 @@ class GoalController:
             f'of scope, emit <goal_unachievable reason="..."/> and stop. '
             f"Otherwise take the next concrete step now."
         )
+
+    @staticmethod
+    def _contract_prompt(state: GoalState) -> str:
+        """Render the goal's completion contract (ADR 0073) into one compact directive
+        block for the continuation prompt. Only non-empty fields appear; a contract-less
+        goal renders to "". Directive only — the deterministic verifier decides DONE."""
+        if not state.has_contract:
+            return ""
+        parts = [
+            "[goal contract] Reference directives for HOW to pursue this goal (the "
+            "verifier, not this block, decides when it is DONE):"
+        ]
+        if state.outcome.strip():
+            parts.append(f"- Required outcome: {state.outcome.strip()}")
+        for c in state.constraints:
+            parts.append(f"- Constraint (must hold): {c}")
+        for b in state.boundaries:
+            parts.append(f"- Boundary (do NOT): {b}")
+        if state.stop_when.strip():
+            parts.append(
+                f"- STOP and hand back to the operator when: {state.stop_when.strip()} "
+                '(emit <goal_unachievable reason="..."/> to halt).'
+            )
+        return "\n".join(parts)

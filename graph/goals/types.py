@@ -14,6 +14,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from time import time
 
+
+def coerce_str_list(value) -> list[str]:
+    """Normalize a contract list field (``constraints`` / ``boundaries``) to a
+    ``list[str]``: passes a list through (stringified, blanks dropped), splits a
+    scalar string on newlines/semicolons, and maps None → []."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [s.strip() for s in str(value).replace(";", "\n").splitlines() if s.strip()]
+
+
 # Terminal statuses (the loop stops):
 #   achieved      — verifier confirmed completion
 #   exhausted     — ran out of iteration budget without meeting the goal
@@ -44,6 +56,16 @@ class GoalState:
     session_id: str
     condition: str
     verifier: dict = field(default_factory=lambda: {"type": "llm"})
+    # Optional completion contract (ADR 0073) — DIRECTIVE ONLY. These shape the
+    # continuation prompt each drive turn; the deterministic verifier stays the sole
+    # arbiter of DONE. All default-empty, so a goal without a contract behaves exactly
+    # as before. For a pentest goal: constraints/boundaries = engagement scope ("stay
+    # on these hosts", "don't touch out-of-scope"); stop_when = "STOP and ask before
+    # exploitation".
+    outcome: str = ""  # what "done" should concretely look like
+    constraints: list[str] = field(default_factory=list)  # must-hold conditions while working
+    boundaries: list[str] = field(default_factory=list)  # hard "do NOT" limits
+    stop_when: str = ""  # a condition that should halt and hand back to the operator
     status: str = "active"
     # "drive" (default) — the agent's turns move the metric, so a not-met goal
     # re-invokes the loop. "monitor" (ADR 0030) — an external process moves it
@@ -65,6 +87,11 @@ class GoalState:
     @property
     def active(self) -> bool:
         return self.status == "active"
+
+    @property
+    def has_contract(self) -> bool:
+        """True when any completion-contract field is set (ADR 0073)."""
+        return bool(self.outcome or self.constraints or self.boundaries or self.stop_when)
 
     def to_dict(self) -> dict:
         return asdict(self)
