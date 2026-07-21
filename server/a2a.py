@@ -90,6 +90,12 @@ def mount_a2a(fastapi_app, *, api_key, card_dict, terminal_hook, chat_stream) ->
         push_config_store=push_config_store,
         push_sender=build_push_sender(push_config_store, push_client),
     )
+    # Own producer/consumer task lifetimes so the a2a-sdk 1.1.0 teardown can't GC a
+    # still-pending producer task at turn end (port protoAgent #1713). Best-effort:
+    # degrades to the stock registry + a logged warning if an SDK bump moves internals.
+    from a2a_registry import harden_active_task_registry
+
+    harden_active_task_registry(a2a_request_handler)
     add_a2a_routes_to_fastapi(
         fastapi_app,
         agent_card_routes=create_agent_card_routes(a2a_card),

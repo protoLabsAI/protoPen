@@ -1,5 +1,9 @@
 gradio>=5.0
 httpx>=0.27
+# httpcore is httpx's transport (always installed with it); declared explicitly
+# because graph/llm.py imports it directly to classify retryable mid-stream
+# transport errors when reconnecting a dropped provider stream (protoAgent #1728).
+httpcore>=1.0
 uvicorn>=0.30
 
 # A2A protocol (spec 1.0) — official SDK. Owns JSON-RPC dispatch, SSE streaming,
