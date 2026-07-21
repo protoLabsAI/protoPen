@@ -790,6 +790,10 @@ async def set_goal(
     category: str = "",
     min_count: int = 1,
     target: str = "",
+    outcome: str = "",
+    constraints: list[str] | None = None,
+    boundaries: list[str] | None = None,
+    stop_when: str = "",
 ) -> str:
     """Commit to an autonomous goal — keep working across turns until a verifier
     confirms it's met (or the iteration budget runs out).
@@ -816,6 +820,14 @@ async def set_goal(
         target: For verifier="task": which task must be done — a task id
             (e.g. "protopen-15t", exact) or a title substring. Omit to require that
             *every* tracked task is done.
+        outcome: Optional — what "done" concretely looks like. Shapes each
+            continuation prompt (directive only; the verifier still decides DONE).
+        constraints: Optional must-hold conditions while working, e.g.
+            ["stay on hosts in scope", "passive recon only until told otherwise"].
+        boundaries: Optional hard do-NOT limits, e.g.
+            ["do not touch out-of-scope hosts", "no destructive actions"].
+        stop_when: Optional condition that should halt and hand back to the
+            operator, e.g. "before running any exploit" or "if a prod system is in scope".
     """
     if _goal_controller is None:
         return "Error: goal mode is not available."
@@ -855,12 +867,22 @@ async def set_goal(
         spec["id" if re.fullmatch(r"[a-z][a-z0-9]*-[a-z0-9]+", ref) else "title"] = ref
 
     try:
-        state = await asyncio.to_thread(_goal_controller.start_goal, session_id, condition.strip(), spec)
+        state = await asyncio.to_thread(
+            _goal_controller.start_goal,
+            session_id,
+            condition.strip(),
+            spec,
+            outcome=outcome,
+            constraints=constraints,
+            boundaries=boundaries,
+            stop_when=stop_when,
+        )
     except Exception as exc:  # noqa: BLE001
         return f"Error: could not set goal: {exc}"
+    contract_note = " with a completion contract" if state.has_contract else ""
     return (
-        f"Goal set ({vtype}): {state.condition}. I'll keep working across turns "
-        f"until the verifier passes (max {state.max_iterations} iterations)."
+        f"Goal set ({vtype}){contract_note}: {state.condition}. I'll keep working across "
+        f"turns until the verifier passes (max {state.max_iterations} iterations)."
     )
 
 

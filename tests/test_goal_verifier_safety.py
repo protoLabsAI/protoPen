@@ -33,7 +33,7 @@ def _call_set_goal(verifier: str) -> str:
     started = []
 
     class _Ctrl:
-        def start_goal(self, session_id, condition, spec):
+        def start_goal(self, session_id, condition, spec, **contract):
             started.append(spec)
 
             class _S:
@@ -42,6 +42,7 @@ def _call_set_goal(verifier: str) -> str:
             s = _S()
             s.condition = condition
             s.max_iterations = 10
+            s.has_contract = any(contract.values())
             return s
 
     lg_tools.set_goal_controller(_Ctrl())
