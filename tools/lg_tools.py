@@ -886,6 +886,145 @@ async def set_goal(
     )
 
 
+# ── watches (ADR 0067) ────────────────────────────────────────────────────────
+# A watch polls a condition on its own cadence and, when it trips, re-invokes the
+# agent in this session with a follow-up instruction. Many run in parallel — watch
+# a capture AND a scan AND a host coming online, each with its own reaction. Bound
+# to the WatchManager via set_watch_manager() at startup; read lazily.
+
+_watch_manager = None  # graph.watch.WatchManager — set by the server
+
+
+def set_watch_manager(manager) -> None:
+    """Wire the watch manager so the agent's watch tools can create/list/cancel watches."""
+    global _watch_manager
+    _watch_manager = manager
+
+
+@tool
+async def watch(
+    condition: str,
+    on_trip: str,
+    verifier: str = "llm",
+    interval_s: int = 60,
+    deadline_s: int = 0,
+    stall_after_s: int = 0,
+    severity: str = "",
+    category: str = "",
+    min_count: int = 1,
+    target: str = "",
+) -> str:
+    """Set up a background watch — poll a condition on a cadence and get re-invoked to
+    react the moment it trips, without burning turns polling it yourself.
+
+    Use when something should happen *later, out of band* and you want to act on it:
+    a running scan finishing, a new critical finding landing, a target host coming
+    online, a tracked task completing. Set the watch and end your turn — you'll be
+    woken with ``on_trip`` as your prompt when the condition first becomes true. Set
+    several in parallel; each fires its own reaction. This is strictly better than
+    ``wait``+re-check loops for open-ended "tell me when X" conditions.
+
+    Args:
+        condition: Plain-language description of what you're watching for.
+        on_trip: Self-contained instruction to run when it trips — e.g. "the nmap
+            scan finished; analyze /sandbox/scan.txt and log any findings".
+        verifier: How the condition is checked (same safe set as goals) —
+            "findings" (≥ min_count engagement findings; pair with severity/category),
+            "targets" (≥ min_count discovered hosts; ``category`` filters host text),
+            "task" (a tracked beads task is done — scope with ``target``), or
+            "llm" (an evaluator judges the condition — the default).
+        interval_s: How often to check, in seconds (default 60, min 1).
+        deadline_s: Optional absolute lifetime; the watch quietly expires if it hasn't
+            tripped by then (0 = no deadline).
+        stall_after_s: Optional — if it hasn't tripped within this many seconds, wake
+            you to reassess instead of watching forever (0 = never).
+        severity: For verifier="findings": minimum severity (info|low|medium|high|critical).
+        category: For "findings": category substring. For "targets": host filter.
+        min_count: Minimum matching findings/hosts required (default 1).
+        target: For verifier="task": task id (exact) or title substring.
+    """
+    if _watch_manager is None:
+        return "Error: watches are not available."
+    from graph.goals.context import get_current_session
+
+    session_id = get_current_session()
+    if not session_id:
+        return "Error: no active session to attach the watch to."
+    if not condition.strip():
+        return "Error: condition is required."
+    if not on_trip.strip():
+        return "Error: on_trip (what to do when it trips) is required."
+
+    # Only agent-safe verifier types (ADR 0028) — all read-only / LLM-judge, never
+    # shell or eval. Same single source of truth the set_goal tool validates against.
+    from graph.goals.verifiers import AGENT_SAFE_VERIFIERS
+
+    vtype = (verifier or "llm").strip().lower()
+    if vtype not in AGENT_SAFE_VERIFIERS:
+        allowed = "|".join(sorted(AGENT_SAFE_VERIFIERS))
+        return f"Error: unknown or unsafe verifier {vtype!r} (use {allowed})."
+
+    spec: dict = {"type": vtype}
+    if vtype == "findings":
+        if severity.strip():
+            spec["severity"] = severity.strip().lower()
+        if category.strip():
+            spec["category"] = category.strip()
+        spec["min"] = max(1, int(min_count or 1))
+    elif vtype == "targets":
+        if category.strip():
+            spec["query"] = category.strip()
+        spec["min"] = max(1, int(min_count or 1))
+    elif vtype == "task" and target.strip():
+        ref = target.strip()
+        spec["id" if re.fullmatch(r"[a-z][a-z0-9]*-[a-z0-9]+", ref) else "title"] = ref
+
+    w = _watch_manager.add_watch(
+        session_id=session_id,
+        condition=condition.strip(),
+        on_trip=on_trip.strip(),
+        verifier=spec,
+        interval_s=max(1, int(interval_s or 60)),
+        deadline_s=int(deadline_s) if deadline_s and int(deadline_s) > 0 else None,
+        stall_after_s=int(stall_after_s) if stall_after_s and int(stall_after_s) > 0 else None,
+    )
+    return (
+        f"Watch set ({w.id}, {vtype} every {int(w.interval_s)}s): {w.condition}. "
+        f"You'll be re-invoked to react when it trips. End your turn now if there's "
+        f"nothing else to do."
+    )
+
+
+@tool
+async def list_watches() -> str:
+    """List the active watches for this session (id, verifier, cadence, status)."""
+    if _watch_manager is None:
+        return "Watches are not available."
+    from graph.goals.context import get_current_session
+
+    session_id = get_current_session()
+    watches = _watch_manager.list_watches(session_id)
+    active = [w for w in watches if w.active]
+    if not active:
+        return "No active watches for this session."
+    lines = [f"{len(active)} active watch(es):"]
+    for w in active:
+        lines.append(f"- {w.id} [{w.verifier.get('type', 'llm')}] every {int(w.interval_s)}s: {w.condition}")
+    return "\n".join(lines)
+
+
+@tool
+async def cancel_watch(watch_id: str) -> str:
+    """Cancel a watch by id (from ``watch`` or ``list_watches``)."""
+    if _watch_manager is None:
+        return "Watches are not available."
+    from graph.goals.context import get_current_session
+
+    # Scope to this session — you can only cancel watches you own.
+    ok = _watch_manager.cancel_watch(watch_id.strip(), session_id=get_current_session())
+    return f"Watch {watch_id} cancelled." if ok else f"No active watch {watch_id!r} to cancel."
+
+
 @tool
 async def request_user_input(prompt: str, fields: list[dict] | None = None, title: str = "") -> str:
     """Pause and ask the operator for input, then STOP and wait — do not continue
@@ -1070,6 +1209,9 @@ def get_security_tools(knowledge_store=None):
         update_task,
         close_task,
         set_goal,
+        watch,
+        list_watches,
+        cancel_watch,
         request_user_input,
         request_approval,
     ]
@@ -3805,6 +3947,9 @@ DEFERRED_BASE_TOOL_NAMES = frozenset(
         "list_schedules",
         "cancel_schedule",
         "wait",
+        "watch",
+        "list_watches",
+        "cancel_watch",
         SEARCH_TOOLS_NAME,
     }
 )

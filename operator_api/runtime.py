@@ -31,6 +31,7 @@ def build_runtime_status(
             "knowledge": {"enabled": False, "configured_path": None, "resolved_path": None},
             "scheduler": {"enabled": False, "backend": "disabled"},
             "goal": {"enabled": False, "controller_loaded": False},
+            "watch": {"enabled": False, "poll_interval_s": None},
             "cache_warmer": {"enabled": False, "loaded": False},
             "skills": {"enabled": False, "count": 0},
         }
@@ -79,7 +80,12 @@ def build_runtime_status(
             "controller_loaded": goal_controller is not None,
             "max_iterations": getattr(config, "goals_max_iterations", None),
             "no_progress_limit": getattr(config, "goals_no_progress_limit", None),
-            "monitor_interval_s": getattr(config, "goals_monitor_interval_s", None),
+        },
+        "watch": {
+            # Mirror the app-start gate (server/app.py): enabled AND poll > 0.
+            "enabled": bool(getattr(config, "watch_enabled", False))
+            and (getattr(config, "watch_poll_interval_s", 0) or 0) > 0,
+            "poll_interval_s": getattr(config, "watch_poll_interval_s", None),
         },
         "cache_warmer": {
             "enabled": bool(getattr(config, "cache_warming_enabled", False)),

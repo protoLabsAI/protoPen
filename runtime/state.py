@@ -29,8 +29,8 @@ class AppState:
     workflow_registry: Any = None
     # Goal mode / autonomy controller.
     goal_controller: Any = None
-    # Out-of-band monitor-goal evaluation loop (ADR 0030 D2.1).
-    monitor_ticker: Any = None
+    # Concurrent condition-watch manager (ADR 0067, h34.7 — supersedes monitor_ticker).
+    watch_manager: Any = None
 
 
 STATE = AppState()

@@ -75,18 +75,17 @@ class GoalController:
             return "Goal cleared." if existed else "No active goal to clear."
 
         # /goal {json}  or  /goal <free text>  → set
-        spec, condition, max_iters, no_progress, mode, contract = self._parse_set(rest)
+        spec, condition, max_iters, no_progress, contract = self._parse_set(rest)
         if condition is None:
             return (
                 "Could not parse goal. Use `/goal <text>` (fuzzy, LLM-judged) or "
                 '`/goal {"condition": "...", "verifier": {"type": "findings", '
-                '"severity": "critical", "min": 1}, "mode": "monitor"}`.'
+                '"severity": "critical", "min": 1}}`.'
             )
         state = GoalState(
             session_id=session_id,
             condition=condition,
             verifier=spec,
-            mode=mode,
             max_iterations=max_iters or getattr(self._config, "goals_max_iterations", 10),
             no_progress_limit=no_progress,
             outcome=contract["outcome"],
@@ -102,7 +101,6 @@ class GoalController:
         session_id: str,
         condition: str,
         verifier: dict | None = None,
-        mode: str = "drive",
         *,
         outcome: str = "",
         constraints=None,
@@ -112,10 +110,10 @@ class GoalController:
         """Set a goal programmatically — the agent's ``set_goal`` tool path.
 
         Mirrors the ``/goal <text>`` set branch (same defaults + config iteration
-        cap) but takes an explicit verifier spec instead of parsing a message.
-        ``mode="monitor"`` (ADR 0030) sets a long-horizon goal the agent supervises
-        without storming the loop. The optional completion-contract fields (ADR 0073)
-        shape the continuation prompt only — the verifier still decides DONE.
+        cap) but takes an explicit verifier spec instead of parsing a message. The
+        optional completion-contract fields (ADR 0073) shape the continuation prompt
+        only — the verifier still decides DONE. (Long-horizon "supervise a condition"
+        objectives are now `watch`es, ADR 0067, not a goal mode.)
         """
         spec = dict(verifier) if verifier else {"type": "llm"}
         if "type" not in spec:
@@ -124,7 +122,6 @@ class GoalController:
             session_id=session_id,
             condition=condition,
             verifier=spec,
-            mode=("monitor" if mode == "monitor" else "drive"),
             max_iterations=getattr(self._config, "goals_max_iterations", 10),
             outcome=outcome or "",
             constraints=coerce_str_list(constraints),
@@ -146,31 +143,29 @@ class GoalController:
 
     def _parse_set(self, rest: str):
         """Return (verifier_spec, condition, max_iterations|None, no_progress_limit|None,
-        mode, contract) — ``contract`` is the ADR 0073 outcome/constraints/boundaries/
+        contract) — ``contract`` is the ADR 0073 outcome/constraints/boundaries/
         stop_when dict (all-empty for a plain-text or contract-less goal)."""
         empty_contract = {"outcome": "", "constraints": [], "boundaries": [], "stop_when": ""}
         if rest.lstrip().startswith("{"):
             try:
                 data = json.loads(rest)
             except json.JSONDecodeError:
-                return ({}, None, None, None, "drive", empty_contract)
+                return ({}, None, None, None, empty_contract)
             condition = data.get("condition")
             if not condition:
-                return ({}, None, None, None, "drive", empty_contract)
+                return ({}, None, None, None, empty_contract)
             verifier = data.get("verifier") or {"type": "llm"}
             if "type" not in verifier:
                 verifier["type"] = "llm"
-            mode = "monitor" if data.get("mode") == "monitor" else "drive"
             return (
                 verifier,
                 condition,
                 data.get("max_iterations"),
                 data.get("no_progress_limit"),
-                mode,
                 self._contract_from(data),
             )
         # plain text → fuzzy goal judged by the llm verifier
-        return ({"type": "llm"}, rest, None, None, "drive", empty_contract)
+        return ({"type": "llm"}, rest, None, None, empty_contract)
 
     # ── evaluation ─────────────────────────────────────────────────────────
 
@@ -190,17 +185,6 @@ class GoalController:
 
         if result.met:
             return self._finish(state, "achieved", result.reason or "verifier passed", evidence=result.evidence)
-
-        # 1b. Monitor goals (ADR 0030): an external process moves the metric, not
-        # the agent's turns — so on not-met there's nothing to continue. Record the
-        # check and wait for the next evaluation (a later turn, or a cadence tick);
-        # no continuation, no iteration/no-progress bookkeeping, no exhaustion. It
-        # ends only on achieved (above) or cleared. Returning None stops the loop.
-        if state.mode == "monitor":
-            state.last_reason = result.reason
-            state.last_evidence = result.evidence
-            self._store.set(state)
-            return None
 
         # 2. Not met — honour an explicit give-up from the agent.
         giveup = _GIVEUP_RE.search(last_text or "")
