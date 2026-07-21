@@ -82,9 +82,9 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
         middleware.append(EnforcementMiddleware(mgr, max_phase=max_phase))
 
     # KnowledgeMiddleware stages retrieved knowledge + learned skills into
-    # state["context"]; PromptCacheMiddleware delivers that into the system
-    # message. Built when knowledge OR skills is active (skills work KB-less).
-    if (config.knowledge_middleware and knowledge_store) or skills_index is not None:
+    # state["context"]. Built when knowledge OR skills is active (skills work KB-less).
+    _knowledge_active = (config.knowledge_middleware and knowledge_store) or skills_index is not None
+    if _knowledge_active:
         middleware.append(
             KnowledgeMiddleware(
                 knowledge_store if config.knowledge_middleware else None,
@@ -94,8 +94,20 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
                 progressive_skills=getattr(config, "skills_progressive_disclosure", True),
             )
         )
-        # Deliver the volatile context into the system message (+ prompt caching).
-        # Without this the static system prompt never sees state["context"].
+
+    # WorkingStateMiddleware (ADR 0079) appends a <working_state> snapshot to the
+    # SAME context channel — after KnowledgeMiddleware so it composes with retrieved
+    # knowledge rather than clobbering it (context is a last-write-wins string).
+    _working_state = getattr(config, "working_state_enabled", True)
+    if _working_state:
+        from graph.middleware.working_state import WorkingStateMiddleware
+
+        middleware.append(WorkingStateMiddleware())
+
+    # Deliver the volatile context into the system message (+ prompt caching).
+    # Without this the static system prompt never sees state["context"]; needed
+    # whenever anything writes that channel (knowledge/skills OR working-state).
+    if _knowledge_active or _working_state:
         from graph.middleware.prompt_cache import PromptCacheMiddleware
 
         middleware.append(PromptCacheMiddleware())

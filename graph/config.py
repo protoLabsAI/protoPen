@@ -189,6 +189,12 @@ class LangGraphConfig:
     # this often and only evaluates watches that are due. <= 0 disables the manager.
     watch_enabled: bool = True
     watch_poll_interval_s: int = 5
+
+    # Working-state injection (ADR 0079, h34.8 — OODA self-driving). Inject a
+    # <working_state> snapshot (active goal + plan, live watches, pending schedules)
+    # + the yield/resume doctrine into each turn's context. Emitted only when there
+    # is live state, so idle turns carry no extra tokens.
+    working_state_enabled: bool = True
     # dream memory-consolidation cadence (ADR 0054). A 5-field cron; blank = off.
     # When set, a recurring scheduled "/dream" job is seeded at startup so memory
     # hygiene runs unattended (e.g. "0 4 * * 0" = 4am Sundays).
@@ -271,6 +277,7 @@ class LangGraphConfig:
             ),
             watch_enabled=(data.get("watch") or {}).get("enabled", cls.watch_enabled),
             watch_poll_interval_s=(data.get("watch") or {}).get("poll_interval_s", cls.watch_poll_interval_s),
+            working_state_enabled=(data.get("watch") or {}).get("working_state", cls.working_state_enabled),
             dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
             background_auto_resume=(data.get("background") or {}).get("auto_resume", cls.background_auto_resume),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
