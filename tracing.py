@@ -127,6 +127,24 @@ def end_trace():
     _caller_trace_ctx.set({})
 
 
+def _normalize_tool_calls(tool_calls: list | None) -> list[dict]:
+    """Normalize AIMessage tool_calls to plain ``[{id, name, args}]`` dicts.
+
+    Handles both the dict shape (``{'name','args','id',...}``) and object-shaped
+    tool calls so the calls the model actually emitted survive into the trace
+    verbatim — this is what makes a run minable into an SFT trajectory.
+    """
+    normalized: list[dict] = []
+    for tc in tool_calls or []:
+        if isinstance(tc, dict):
+            normalized.append({"id": tc.get("id"), "name": tc.get("name"), "args": tc.get("args", {})})
+        else:
+            normalized.append(
+                {"id": getattr(tc, "id", None), "name": getattr(tc, "name", None), "args": getattr(tc, "args", {})}
+            )
+    return normalized
+
+
 def trace_llm_call(
     model: str,
     messages: list[dict],
@@ -143,17 +161,28 @@ def trace_llm_call(
     if not _enabled:
         return None
 
+    # Persist the ACTUAL emitted tool_calls (name + args) in the generation
+    # output, not just a count — otherwise the calls the model made can't be
+    # recovered later. Content-only turns keep the plain-string output for
+    # back-compat; the metadata count is preserved either way.
+    normalized_calls = _normalize_tool_calls(response_tool_calls)
+    output: Any = (
+        {"content": response_content or "", "tool_calls": normalized_calls}
+        if normalized_calls
+        else (response_content or "")
+    )
+
     try:
         gen = _langfuse.start_observation(
             name="llm-call",
             as_type="generation",
             model=model,
             input=messages,
-            output=response_content or "",
+            output=output,
             metadata={
                 **(metadata or {}),
                 "finish_reason": finish_reason,
-                "tool_calls": len(response_tool_calls) if response_tool_calls else 0,
+                "tool_calls": len(normalized_calls),
                 **({"error": error} if error else {}),
             },
             usage_details={
