@@ -49,6 +49,7 @@ class KnowledgeMiddleware(AgentMiddleware):
         search_mode: str = "hybrid",
         skills_index=None,
         progressive_skills: bool = True,
+        inject_min_trust: int = 1,
     ):
         super().__init__()
         self._store = knowledge_store
@@ -59,6 +60,9 @@ class KnowledgeMiddleware(AgentMiddleware):
         # and let the agent load_skill bodies on demand, vs. the legacy full-body
         # top-k injection.
         self._progressive_skills = progressive_skills
+        # Trust-tier floor for auto-injected memory (ADR 0069 D8). 1 = inject every
+        # tier (curated-first re-rank only); 2 = refuse EXTERNAL memory outright.
+        self._inject_min_trust = inject_min_trust
 
     def _search(self, query: str) -> list[dict]:
         if self._search_mode == "hybrid" and hasattr(self._store, "hybrid_search"):
@@ -174,6 +178,11 @@ class KnowledgeMiddleware(AgentMiddleware):
                     results = self._search(last_human)
                 except Exception:  # noqa: BLE001 — never break the turn on retrieval
                     results = []
+                # Trust-tier gate + curated-first re-rank (ADR 0069 D8): drop memory
+                # below the configured floor and surface the most-trusted origins first.
+                from knowledge.trust import rank_by_trust
+
+                results = rank_by_trust(results, self._inject_min_trust)
                 # Split semantic facts (ADR 0021) from research knowledge. Facts are
                 # recalled memory about the operator's world — useful reference, but
                 # model-EXTRACTED and possibly stale, so framed as reference-to-verify,
