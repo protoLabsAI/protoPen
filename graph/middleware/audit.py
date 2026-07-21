@@ -150,14 +150,16 @@ class AuditMiddleware(AgentMiddleware):
 
             content = ""
             if isinstance(result, ToolMessage):
-                content = str(result.content)[:200]
+                content = str(result.content)
             success = not content.startswith("Error")
 
+            # audit.jsonl keeps a short summary; the trace stores the full result
+            # (it feeds eval trajectories) — trace_tool_call applies its own cap.
             audit_logger.log(
                 session_id=session_id,
                 tool=tool_name,
                 args=args,
-                result_summary=content,
+                result_summary=content[:200],
                 duration_ms=duration_ms,
                 success=success,
             )
@@ -185,7 +187,7 @@ class AuditMiddleware(AgentMiddleware):
             tracing.trace_tool_call(
                 tool_name=tool_name,
                 args=args,
-                result=str(exc)[:200],
+                result=str(exc),
                 duration_ms=duration_ms,
                 success=False,
                 session_id=session_id,
@@ -210,14 +212,16 @@ class AuditMiddleware(AgentMiddleware):
 
             content = ""
             if isinstance(result, ToolMessage):
-                content = str(result.content)[:200]
+                content = str(result.content)
             success = not content.startswith("Error")
 
+            # audit.jsonl keeps a short summary; the trace stores the full result
+            # (it feeds eval trajectories) — trace_tool_call applies its own cap.
             audit_logger.log(
                 session_id=session_id,
                 tool=tool_name,
                 args=args,
-                result_summary=content,
+                result_summary=content[:200],
                 duration_ms=duration_ms,
                 success=success,
             )
@@ -245,7 +249,7 @@ class AuditMiddleware(AgentMiddleware):
             tracing.trace_tool_call(
                 tool_name=tool_name,
                 args=args,
-                result=str(exc)[:200],
+                result=str(exc),
                 duration_ms=duration_ms,
                 success=False,
                 session_id=session_id,
