@@ -104,3 +104,24 @@ knowledge:
   search_mode: hybrid  # hybrid (vector + keyword RRF), vector, keyword
   enrich_chunks: true   # prepend contextual headers to chunks before embedding
   facts: true           # extract durable semantic facts from chat (ADR 0021); background + deduped
+
+# External secrets manager (ADR 0080) — OPT-IN, OFF by default.
+# When disabled (the default), protoPen's start.sh `infisical export` boot-snapshot
+# is untouched. Enable this to hydrate os.environ IN-PROCESS from Infisical (over raw
+# REST, universal-auth machine identity) on every config load (boot + hot-reload) — no
+# wrapper. (A background refresh loop for true no-restart rotation is a follow-up; today
+# rotation lands on the next config reload.) Existing env wins unless override_env: true.
+# refresh_seconds is carried for that future loop. Provide the
+# machine-identity credentials via INFISICAL_CLIENT_ID / INFISICAL_CLIENT_SECRET env
+# (or client_id/client_secret here). Set required: true to fail-fast the boot if the
+# manager is unreachable. Escape hatch: PROTOPEN_NO_SECRETS_HYDRATE=1 disables entirely.
+# secrets_manager:
+#   enabled: false
+#   provider: infisical
+#   host: https://secrets.proto-labs.ai   # self-hosted or https://us.infisical.com
+#   project_id: ""                          # Infisical workspace/project id
+#   environment: prod
+#   path: /
+#   required: false
+#   override_env: false
+#   refresh_seconds: 300
