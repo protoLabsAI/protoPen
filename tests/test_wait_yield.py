@@ -87,6 +87,41 @@ def test_wait_schedules_one_shot_into_originating_session(tmp_path):
         set_scheduler(None)
 
 
+def test_wait_supersedes_a_pending_wait_in_the_same_thread(tmp_path):
+    """One pending wait per thread (#1702): a second wait replaces the first
+    instead of stacking a second overlapping wake into the same session."""
+    s = LocalScheduler(agent_name="protopen-test", invoke_url="http://x", db_dir=str(tmp_path))
+    set_scheduler(s)
+    try:
+        first = asyncio.run(wait.coroutine(seconds=30, then="first — check scan A", state={"session_id": "a2a:sess1"}))
+        assert "superseded a pending wait" not in first
+        second = asyncio.run(
+            wait.coroutine(seconds=60, then="second — check scan B", state={"session_id": "a2a:sess1"})
+        )
+        assert "superseded a pending wait" in second
+
+        jobs = s.list_jobs()
+        assert len(jobs) == 1  # NOT two — the first wake was superseded, not stacked
+        assert jobs[0].prompt == "second — check scan B"
+        assert jobs[0].id == "wait:a2a:sess1"  # stable per-thread id
+    finally:
+        set_scheduler(None)
+
+
+def test_waits_in_different_threads_do_not_supersede_each_other(tmp_path):
+    """The per-thread id keeps separate sessions independent — a wait in one
+    conversation must not cancel a pending wait in another."""
+    s = LocalScheduler(agent_name="protopen-test", invoke_url="http://x", db_dir=str(tmp_path))
+    set_scheduler(s)
+    try:
+        asyncio.run(wait.coroutine(seconds=30, then="A", state={"session_id": "a2a:sessA"}))
+        asyncio.run(wait.coroutine(seconds=30, then="B", state={"session_id": "a2a:sessB"}))
+        jobs = {j.id for j in s.list_jobs()}
+        assert jobs == {"wait:a2a:sessA", "wait:a2a:sessB"}  # both survive
+    finally:
+        set_scheduler(None)
+
+
 # ── end-to-end: a turn that calls wait ends after the tool ───────────────────
 
 
