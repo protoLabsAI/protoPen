@@ -6,12 +6,22 @@ returns immediately with a job id, and the result is folded back into the
 *originating* conversation's NEXT turn as a ``<task-notification>`` — so the agent
 is told "done" instead of polling (which burns the recursion budget).
 
-This is protoPen's in-process adaptation of ADR 0050: jobs live in memory (lost on
-restart — the underlying artifact, e.g. a scan file, persists and can be
-re-analyzed), and the Phase-2 "autonomous wake" is an event-bus publish rather
-than the inbox protoPen dropped for its tight security profile. On completion the
-manager publishes ``background.completed`` so a console can react; the durable
-self-POST/A2A variant is a possible future enhancement.
+This is protoPen's in-process adaptation of ADR 0050. Jobs live in memory (lost on
+restart), but ADR 0070 (h34.9) fills that durability gap two ways on completion:
+
+1. PUSH delivery — a terminal job schedules a self-A2A "briefing" wake into the
+   origin session (via the local scheduler) so the agent proactively briefs the
+   operator instead of only folding results into the session's *next* organic turn.
+   A fan-out of near-simultaneous completions coalesces into ONE wake (stable job
+   id + debounce); that briefing turn drains ALL pending notifications at once.
+   Gated by ``background.auto_resume`` (default on).
+2. DURABILITY — a completed job's full result is indexed into the KB keyed to the
+   origin session, so it stays durable/searchable even though the in-memory job row
+   is volatile (full job-row persistence is a separate follow-up). Trust-tier
+   tagging lands with the KB trust-tier migration (h34.13); until then the
+   ``background_job`` source_type marks its provenance.
+
+The event-bus ``background.completed`` publish is retained so a console can react.
 """
 
 from __future__ import annotations
@@ -20,10 +30,22 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from time import time
 from typing import Any, Awaitable, Callable
 
 log = logging.getLogger(__name__)
+
+# Coalesce a burst of near-simultaneous completions (a fan-out) into a single
+# briefing wake: a short debounce plus a stable per-session wake id (#1766).
+_BRIEFING_DEBOUNCE_S = 3
+
+_BRIEFING_PROMPT = (
+    "A background job you delegated has finished. Its result may be attached above as a "
+    "<task-notification>. Review what came back, brief the operator concisely on the outcome "
+    "and any recommended next step, and act on it if warranted. If it was already handled, "
+    "just acknowledge briefly."
+)
 
 
 @dataclass
@@ -45,9 +67,24 @@ class BackgroundManager:
         self._jobs: dict[str, BackgroundJob] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._bus = event_bus
+        self._scheduler = None
+        self._knowledge = None
+        self._auto_resume = True
 
     def set_event_bus(self, bus) -> None:
         self._bus = bus
+
+    def set_scheduler(self, scheduler) -> None:
+        """Wire the local scheduler used to self-A2A-wake the origin session (ADR 0070)."""
+        self._scheduler = scheduler
+
+    def set_knowledge_store(self, store) -> None:
+        """Wire the KB the completed result is indexed into for durability (ADR 0070)."""
+        self._knowledge = store
+
+    def set_auto_resume(self, enabled: bool) -> None:
+        """Toggle the push briefing wake; KB indexing still happens either way."""
+        self._auto_resume = bool(enabled)
 
     def spawn(
         self,
@@ -85,6 +122,62 @@ class BackgroundManager:
             job.finished_at = time()
             self._tasks.pop(job_id, None)
             self._announce(job)
+            # Durability + push (ADR 0070). Skip on cancellation — the loop is
+            # unwinding and must not await new work while propagating CancelledError.
+            if not (job.status == "failed" and job.error == "cancelled"):
+                await self._on_complete(job)
+
+    async def _on_complete(self, job: BackgroundJob) -> None:
+        """Index the result for durability and push a coalesced briefing wake."""
+        await self._index_to_kb(job)
+        await self._schedule_briefing(job)
+
+    async def _index_to_kb(self, job: BackgroundJob) -> None:
+        """Store a completed job's full result in the KB, keyed to its origin session."""
+        if self._knowledge is None or job.status != "completed":
+            return
+        content = (job.result or "").strip()
+        if not content:
+            return
+        try:
+            await asyncio.to_thread(
+                self._knowledge.add_fact,
+                content,
+                job.origin_session or None,  # namespace = origin session
+                f"background:{job.id}",  # source
+                "background_job",  # source_type (provenance; trust tier comes with h34.13)
+            )
+        except Exception:  # noqa: BLE001 — durability is best-effort, never break the job
+            log.exception("[background] KB index failed for %s", job.id)
+
+    async def _schedule_briefing(self, job: BackgroundJob) -> None:
+        """Schedule a self-A2A wake so the agent briefs the operator on the result.
+
+        One pending wake per session: a stable ``bg-wake:{session}`` job id means a
+        fan-out of near-simultaneous completions supersedes into a SINGLE wake, and
+        the briefing turn drains every pending notification at once (#1766).
+        """
+        if not self._auto_resume or self._scheduler is None:
+            return
+        session = job.origin_session or ""
+        if not session:
+            return
+        wake_id = f"bg-wake:{session}"
+        fire_at = (datetime.now(UTC) + timedelta(seconds=_BRIEFING_DEBOUNCE_S)).isoformat()
+        try:
+            await asyncio.to_thread(self._scheduler.cancel_job, wake_id)
+        except Exception:  # noqa: BLE001 — a stale/absent prior wake must not block the new one
+            pass
+        try:
+            await asyncio.to_thread(
+                self._scheduler.add_job,
+                _BRIEFING_PROMPT,
+                fire_at,
+                job_id=wake_id,
+                context_id=session,
+            )
+        except Exception:  # noqa: BLE001 — push is best-effort; the pull-drain still delivers
+            log.exception("[background] briefing wake schedule failed for %s", job.id)
 
     def _announce(self, job: BackgroundJob) -> None:
         if self._bus is None:
