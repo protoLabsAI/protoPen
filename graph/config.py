@@ -184,10 +184,11 @@ class LangGraphConfig:
     # `secrets_manager:` config section to hydrate os.environ in-process (Infisical
     # over raw REST) with rotation-without-restart. See infra/secrets/.
     secrets_manager_enabled: bool = False
-    # Monitor goals (ADR 0030): an external process moves the metric, so they're
-    # evaluated out-of-band on a cadence (no agent turn). Seconds between ticks;
-    # <= 0 disables the ticker.
-    goals_monitor_interval_s: int = 60
+    # Watches (ADR 0067, h34.7 — supersedes the ADR-0030 monitor-goal ticker).
+    # N concurrent condition-watches, each on its OWN cadence; the manager polls
+    # this often and only evaluates watches that are due. <= 0 disables the manager.
+    watch_enabled: bool = True
+    watch_poll_interval_s: int = 5
     # dream memory-consolidation cadence (ADR 0054). A 5-field cron; blank = off.
     # When set, a recurring scheduled "/dream" job is seeded at startup so memory
     # hygiene runs unattended (e.g. "0 4 * * 0" = 4am Sundays).
@@ -262,7 +263,8 @@ class LangGraphConfig:
                     "enabled", cls.secrets_manager_enabled
                 )
             ),
-            goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
+            watch_enabled=(data.get("watch") or {}).get("enabled", cls.watch_enabled),
+            watch_poll_interval_s=(data.get("watch") or {}).get("poll_interval_s", cls.watch_poll_interval_s),
             dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled

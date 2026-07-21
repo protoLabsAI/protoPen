@@ -464,13 +464,23 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         # Let the agent's set_goal tool reach the controller (read lazily).
         _set_goal_controller(STATE.goal_controller)
 
-        # Monitor goals (ADR 0030 D2.1): evaluate out-of-band on a cadence so a
-        # long-horizon objective progresses with no agent turn in its session.
-        _interval = getattr(STATE.graph_config, "goals_monitor_interval_s", 60)
-        if _interval and _interval > 0:
-            from graph.goals.ticker import MonitorGoalTicker
+    # Watches (ADR 0067, h34.7) supersede the monitor-goal ticker: N concurrent
+    # condition-watches, each polled on its OWN cadence, that run a follow-up turn in
+    # the origin session on trip (self-A2A via the scheduler). Reuses the safe verifier
+    # set — no shell/eval. Independent of goal mode.
+    _watch_poll = getattr(STATE.graph_config, "watch_poll_interval_s", 5)
+    if getattr(STATE.graph_config, "watch_enabled", True) and _watch_poll and _watch_poll > 0:
+        from graph.watch import get_watch_manager as _get_watch_manager
+        from tools.lg_tools import set_watch_manager as _set_watch_manager
 
-            STATE.monitor_ticker = MonitorGoalTicker(STATE.goal_controller, interval_s=_interval, event_bus=_event_bus)
+        _watch_manager = _get_watch_manager()
+        _watch_manager.set_config(STATE.graph_config)
+        _watch_manager.set_scheduler(_scheduler)
+        _watch_manager.set_event_bus(_event_bus)
+        _watch_manager.set_poll_interval_s(_watch_poll)
+        STATE.watch_manager = _watch_manager
+        # Let the agent's watch / list_watches / cancel_watch tools reach it (lazily).
+        _set_watch_manager(_watch_manager)
 
     # Let the agent's create_task / list_tasks / update_task / close_task tools
     # track long-running work in beads. Defaults to this repo's .beads/ store so
@@ -500,12 +510,12 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
             except ValueError:
                 pass  # already seeded (duplicate id) or malformed cron — leave as-is
 
-        # Monitor-goal cadence ticker (ADR 0030 D2.1).
-        if STATE.monitor_ticker is not None:
+        # Condition-watch manager (ADR 0067, h34.7).
+        if STATE.watch_manager is not None:
             try:
-                await STATE.monitor_ticker.start()
+                await STATE.watch_manager.start()
             except Exception as exc:  # noqa: BLE001
-                print(f"[goals] monitor ticker failed to start: {exc}")
+                print(f"[watch] manager failed to start: {exc}")
 
         # Checkpoint pruner — periodic sweep to keep the SQLite history DB bounded.
         if (
@@ -521,11 +531,11 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
             await _scheduler.stop()
         except Exception as exc:  # noqa: BLE001
             print(f"[scheduler] failed to stop: {exc}")
-        if STATE.monitor_ticker is not None:
+        if STATE.watch_manager is not None:
             try:
-                await STATE.monitor_ticker.stop()
+                await STATE.watch_manager.stop()
             except Exception as exc:  # noqa: BLE001
-                print(f"[goals] monitor ticker failed to stop: {exc}")
+                print(f"[watch] manager failed to stop: {exc}")
         if STATE.checkpoint_prune_task is not None:
             STATE.checkpoint_prune_task.cancel()
 

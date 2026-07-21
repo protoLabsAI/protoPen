@@ -12,7 +12,7 @@ for the engagement-mode gating that controls when each tool is allowed, see
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_89 tools, generated from the live registry — do not edit by hand._
+_92 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -155,6 +155,9 @@ _89 tools, generated from the live registry — do not edit by hand._
 | `update_task` | Advance or re-prioritize a tracked task — set its status (open → in_progress → closed, or blocked) and/or its priority |
 | `close_task` | Mark a tracked task done/closed once its work is complete |
 | `set_goal` | Commit to an autonomous goal — keep working across turns until a verifier confirms it's met (or the iteration budget runs out) |
+| `watch` | Set up a background watch — poll a condition on a cadence and get re-invoked to react the moment it trips, without burning turns polling… |
+| `list_watches` | List the active watches for this session (id, verifier, cadence, status) |
+| `cancel_watch` | Cancel a watch by id (from ``watch`` or ``list_watches``) |
 | `request_user_input` | Pause and ask the operator for input, then STOP and wait — do not continue until they respond |
 | `request_approval` | Pause for the operator's approval of a specific action, then STOP and wait |
 
