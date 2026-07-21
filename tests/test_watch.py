@@ -69,6 +69,17 @@ def test_cancel_watch(monkeypatch):
     assert asyncio.run(m.tick()) == []
 
 
+def test_cancel_watch_enforces_session_ownership(monkeypatch):
+    m = _mgr(monkeypatch, met=False)
+    w = m.add_watch(session_id="a2a:owner", condition="c", on_trip="react", interval_s=10)
+    # A different session may not cancel it (rejected as not-found so it can't probe ids).
+    assert m.cancel_watch(w.id, session_id="a2a:intruder") is False
+    assert m.get(w.id).active
+    # The owning session can.
+    assert m.cancel_watch(w.id, session_id="a2a:owner") is True
+    assert m.get(w.id).status == "cancelled"
+
+
 # ── tick: cadence + trip ──────────────────────────────────────────────────────
 
 

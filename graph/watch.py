@@ -81,7 +81,7 @@ class WatchManager:
         self._config = config
         self._bus = event_bus
         self._scheduler = None
-        self._poll = float(poll_interval_s)
+        self._poll = max(1.0, float(poll_interval_s))  # clamp like set_poll_interval_s — never busy-spin
         self._task: asyncio.Task | None = None
         self._stopping = False
 
@@ -127,12 +127,17 @@ class WatchManager:
         self._watches[w.id] = w
         return w
 
-    def cancel_watch(self, watch_id: str) -> bool:
+    def cancel_watch(self, watch_id: str, session_id: str | None = None) -> bool:
+        """Cancel an active watch. When ``session_id`` is given, only the owning
+        session may cancel it — a cross-session request is rejected (returned as
+        not-found so it can't probe other sessions' watch ids)."""
         w = self._watches.get(watch_id)
-        if w and w.active:
-            w.status = "cancelled"
-            return True
-        return False
+        if not w or not w.active:
+            return False
+        if session_id is not None and w.session_id != session_id:
+            return False
+        w.status = "cancelled"
+        return True
 
     def list_watches(self, session_id: str | None = None) -> list[Watch]:
         return [w for w in self._watches.values() if session_id is None or w.session_id == session_id]

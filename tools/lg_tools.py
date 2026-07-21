@@ -1018,7 +1018,10 @@ async def cancel_watch(watch_id: str) -> str:
     """Cancel a watch by id (from ``watch`` or ``list_watches``)."""
     if _watch_manager is None:
         return "Watches are not available."
-    ok = _watch_manager.cancel_watch(watch_id.strip())
+    from graph.goals.context import get_current_session
+
+    # Scope to this session — you can only cancel watches you own.
+    ok = _watch_manager.cancel_watch(watch_id.strip(), session_id=get_current_session())
     return f"Watch {watch_id} cancelled." if ok else f"No active watch {watch_id!r} to cancel."
 
 
