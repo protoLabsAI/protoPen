@@ -85,6 +85,8 @@ def test_x_api_key_constant_time_accept_and_reject():
     assert c.post("/a2a", headers={"x-api-key": "s3cret-key"}).status_code == 200
     assert c.post("/a2a", headers={"x-api-key": "wrong"}).status_code == 401
     assert c.post("/a2a").status_code == 401  # missing header → rejected
+    # A non-ASCII key must reject cleanly (401), not crash compare_digest into a 500.
+    assert c.post("/a2a", headers={"x-api-key": "wrøng-ké¥"}).status_code == 401
 
 
 def test_guard_only_applies_to_a2a_prefix():
