@@ -405,17 +405,27 @@ async def test_text_deltas_stream_as_incremental_artifact_frames():
     artifact without re-emitting the text (no double answer)."""
     import json
 
-    full = (
-        "First sentence of the streamed answer here. "
-        "Second sentence that continues the answer. "
-        "Third and final sentence to wrap it up."
+    # Each chunk is over the executor's flush threshold (_FLUSH_CHARS=240, #1982) so it
+    # emits its own artifact frame — verifying incremental streaming still works while the
+    # raised threshold batches short answers into fewer frames.
+    c1 = (
+        "First sentence of the streamed answer here, padded well past the flush threshold so it emits its own live frame. "
+        * 3
     )
+    c2 = (
+        "Second sentence that continues the answer, likewise long enough on its own to flush as a distinct incremental frame. "
+        * 3
+    )
+    c3 = (
+        "Third and final sentence to wrap it up, also over the threshold so the console fills the bubble live in three steps. "
+        * 3
+    )
+    full = c1 + c2 + c3
 
     async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
-        # Each chunk is over the executor's flush threshold so it emits a frame.
-        yield ("text", "First sentence of the streamed answer here. ")
-        yield ("text", "Second sentence that continues the answer. ")
-        yield ("text", "Third and final sentence to wrap it up.")
+        yield ("text", c1)
+        yield ("text", c2)
+        yield ("text", c3)
         yield ("done", full)
 
     app = _build_app(stream)

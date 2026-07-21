@@ -43,9 +43,10 @@ def test_cancel_unknown_is_false():
 
 
 class _SleepingSubagent:
-    async def ainvoke(self, *a, **k):
+    async def astream(self, *a, **k):
+        # The runner streams values (#1394/#1879); sleep long enough to be cancelled.
         await asyncio.sleep(5)
-        return {"messages": []}
+        yield {"messages": []}
 
 
 def test_task_delegation_cancelled_by_operator_returns_graceful(monkeypatch):
