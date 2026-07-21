@@ -164,6 +164,26 @@ def test_no_generations_returns_none():
     assert ex.build_trajectory(_trace(), span_only, tasks_by_id=TASKS) is None
 
 
+def test_tools_called_strips_none_and_empty_from_both_sides():
+    """A malformed assistant tool_call (name None/"") must not leak into tools_called.
+
+    Guards an operator-precedence bug where ``A | B - {None, ''}`` stripped only B.
+    """
+    gen = _obs(
+        input=[{"role": "system", "content": "s"}, {"role": "user", "content": "u"}],
+        output={
+            "content": "",
+            "tool_calls": [
+                {"id": "c1", "name": "cve_search", "args": {}},
+                {"id": "c2", "name": None, "args": {}},
+                {"id": "c3", "name": "", "args": {}},
+            ],
+        },
+    )
+    rec = ex.build_trajectory(_trace(), [gen], tasks_by_id=TASKS)
+    assert rec["labels"]["tools_called"] == ["cve_search"]
+
+
 def test_langfuse_score_overrides_when_named():
     trace = _trace(scores=[NS(name="quality", value=0.42)])
     rec = ex.build_trajectory(trace, _cve_session_observations(), tasks_by_id=TASKS, score_name="quality")

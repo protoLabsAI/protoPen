@@ -212,10 +212,9 @@ def build_trajectory(
     tool_infos = [_tool_info(o) for o in tools]
     tools_ok = all(ti["success"] for ti in tool_infos) if tool_infos else True
 
-    tools_called = sorted(
-        {tc.get("name") for m in messages if m.get("role") == "assistant" for tc in (m.get("tool_calls") or [])}
-        | {ti["name"] for ti in tool_infos} - {None, ""}
-    )
+    called = {tc.get("name") for m in messages if m.get("role") == "assistant" for tc in (m.get("tool_calls") or [])}
+    called |= {ti["name"] for ti in tool_infos}
+    tools_called = sorted(called - {None, ""})
     expected_tools = list(task.get("expected_tools", [])) if task else []
     coverage = len([t for t in expected_tools if t in tools_called]) / len(expected_tools) if expected_tools else 1.0
 
