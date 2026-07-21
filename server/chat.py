@@ -11,11 +11,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import queue as _queue_mod
 import re
 from typing import Any
 
 from runtime.state import STATE
+
+log = logging.getLogger(__name__)
 
 
 def _strip_think(text: str) -> str:
@@ -134,6 +137,25 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
         response = _strip_think(response)
         return [{"role": "assistant", "content": response}]
     except Exception as e:
+        from graph.llm import RETRYABLE_STREAM_ERRORS
+
+        if isinstance(e, RETRYABLE_STREAM_ERRORS):
+            # The provider dropped the stream and the per-call reconnects
+            # (graph.llm._astream) were exhausted, or content had already
+            # streamed. That's a clean terminal outcome — most likely rate
+            # limiting — not a code bug (port protoAgent #1728).
+            log.warning(
+                "[chat] provider closed the stream for session=%s (%s: %s) — possible rate limit",
+                session_id,
+                type(e).__name__,
+                e,
+            )
+            return [
+                {
+                    "role": "assistant",
+                    "content": "**Error:** the model provider closed the stream (possibly rate-limited). Please retry.",
+                }
+            ]
         return [{"role": "assistant", "content": f"**Error:** {e}"}]
     finally:
         tracing.end_trace()
@@ -343,7 +365,23 @@ async def _chat_langgraph_stream(
             turn_input = decision.message
 
     except Exception as e:
-        yield ("error", str(e))
+        from graph.llm import RETRYABLE_STREAM_ERRORS
+
+        if isinstance(e, RETRYABLE_STREAM_ERRORS):
+            # Provider dropped the stream and the per-call reconnects were
+            # exhausted (or content had already streamed). Clean terminal
+            # outcome — likely rate limiting, not a bug — so a background
+            # scheduler can observe the failed turn and reschedule (#1728).
+            log.warning(
+                "[a2a-stream] provider closed the stream for session=%s (%s: %s) — "
+                "possible rate limit; failing the turn cleanly",
+                session_id,
+                type(e).__name__,
+                e,
+            )
+            yield ("error", "The model provider closed the stream (possibly rate-limited). Please retry.")
+        else:
+            yield ("error", str(e))
 
 
 def chat_streaming(message: str, history: list[dict], session_id: str):

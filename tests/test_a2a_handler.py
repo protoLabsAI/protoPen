@@ -195,6 +195,11 @@ def _build_app(stream_fn, *, bearer=None, api_key="", allowed_origins=None):
         agent_card=card,
         push_config_store=InMemoryPushNotificationConfigStore(),
     )
+    # Mirror production wiring (protoAgent #1713): every test turn runs through the
+    # owned-producer registry, exactly like server/a2a.py mounts it.
+    from a2a_registry import harden_active_task_registry
+
+    assert harden_active_task_registry(handler)
     app = FastAPI()
     if bearer is not None or api_key or allowed_origins is not None:
         import a2a_auth
