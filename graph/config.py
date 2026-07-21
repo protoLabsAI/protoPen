@@ -1,10 +1,13 @@
 """LangGraph configuration loader for protoPen."""
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+log = logging.getLogger(__name__)
 
 
 def _as_name_list(value: Any) -> list[str]:
@@ -17,6 +20,34 @@ def _as_name_list(value: Any) -> list[str]:
     if isinstance(value, (list, tuple)):
         return [str(s).strip() for s in value if str(s).strip()]
     return []
+
+
+def _hydrate_external_secrets(data: dict) -> None:
+    """External secrets-manager hydration (port protoAgent ADR 0080): populate
+    ``os.environ`` from the configured manager BEFORE the dataclass parse, so the env
+    fallback tier (gateway key / auth tokens / tool env) sees manager values on every
+    load path — boot, hot-reload, CLIs.
+
+    Inert without an enabled ``secrets_manager`` section (no import, no network).
+    protoPen has no ``secrets.yaml``, so credentials resolve from the raw config or the
+    provider's bootstrap env (``INFISICAL_CLIENT_ID`` / ``INFISICAL_CLIENT_SECRET``).
+    Never breaks config load: fetch failures warn and fall through to whatever the env
+    already has — except ``secrets_manager.required: true``, which propagates so a boot
+    with a hard manager dependency fails fast instead of serving a half-configured
+    agent."""
+    if not isinstance(data, dict) or not (data.get("secrets_manager") or {}).get("enabled"):
+        return
+    try:
+        from infra.secrets import SecretsRequiredError, hydrate_from_docs
+    except Exception as e:  # noqa: BLE001 — hydration must not take config load down
+        log.warning("[secrets] hydration unavailable (import failed): %s", e)
+        return
+    try:
+        hydrate_from_docs(data, None)
+    except SecretsRequiredError:
+        raise
+    except Exception as e:  # noqa: BLE001 — belt-and-suspenders around the never-raise contract
+        log.warning("[secrets] hydration failed unexpectedly: %s", e)
 
 
 @dataclass
@@ -145,6 +176,11 @@ class LangGraphConfig:
     goals_enabled: bool = True
     goals_max_iterations: int = 10
     goals_no_progress_limit: int = 4
+    # External secrets manager (ADR 0080). OFF by default — protoPen's start.sh
+    # `infisical export` boot-snapshot keeps working untouched. Enable the
+    # `secrets_manager:` config section to hydrate os.environ in-process (Infisical
+    # over raw REST) with rotation-without-restart. See infra/secrets/.
+    secrets_manager_enabled: bool = False
     # Monitor goals (ADR 0030): an external process moves the metric, so they're
     # evaluated out-of-band on a cadence (no agent turn). Seconds between ticks;
     # <= 0 disables the ticker.
@@ -171,6 +207,11 @@ class LangGraphConfig:
 
         with open(p) as f:
             data = yaml.safe_load(f) or {}
+
+        # ADR 0080: hydrate os.environ from the configured secrets manager BEFORE the
+        # parse, so the env fallback tier (gateway key, tokens, tool env) sees manager
+        # values. Inert unless secrets_manager.enabled — no import, no network.
+        _hydrate_external_secrets(data)
 
         model = data.get("model", {})
         subagents = data.get("subagents", {})
@@ -213,6 +254,9 @@ class LangGraphConfig:
             goals_enabled=(data.get("goals") or {}).get("enabled", cls.goals_enabled),
             goals_max_iterations=(data.get("goals") or {}).get("max_iterations", cls.goals_max_iterations),
             goals_no_progress_limit=(data.get("goals") or {}).get("no_progress_limit", cls.goals_no_progress_limit),
+            secrets_manager_enabled=bool(
+                (data.get("secrets_manager") or {}).get("enabled", cls.secrets_manager_enabled)
+            ),
             goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
             dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
