@@ -14,6 +14,14 @@ from typing import Any
 _langfuse = None
 _enabled = False
 
+# Tool results also feed eval trajectories, so store them at full fidelity —
+# bounded only by a generous safety cap so a pathological payload can't bloat
+# Langfuse ingestion. Override with PROTOPEN_TRACE_TOOL_OUTPUT_MAX.
+try:
+    _TOOL_OUTPUT_MAX = int(os.environ.get("PROTOPEN_TRACE_TOOL_OUTPUT_MAX", "50000"))
+except ValueError:
+    _TOOL_OUTPUT_MAX = 50000
+
 # Context vars — inherited by asyncio.create_task() children
 _trace_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("_trace_id_ctx", default="")
 _session_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("_session_id_ctx", default="")
@@ -220,7 +228,7 @@ def trace_tool_call(
             name=f"tool:{tool_name}",
             as_type="tool",
             input=safe_args,
-            output=result[:1000] if result else "",
+            output=result[:_TOOL_OUTPUT_MAX] if result else "",
             metadata={
                 "duration_ms": duration_ms,
                 "success": success,

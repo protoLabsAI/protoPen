@@ -207,3 +207,46 @@ def test_wrap_model_call_reraises_handler_error_after_tracing(monkeypatch):
         AuditMiddleware().wrap_model_call(request, _handler)
     # the error was traced before re-raising
     assert calls["error"] == "gateway exploded"
+
+
+# ---- trace_tool_call full-fidelity output -----------------------------------
+
+
+def test_trace_tool_call_stores_full_result(monkeypatch):
+    """Tool spans store the full result (was capped at 1000) so it can feed trajectories."""
+    fake = _fake_langfuse(monkeypatch)
+    long_result = "OPEN PORTS\n" + ("22/tcp open ssh\n" * 400)  # well past the old 1000 cap
+    tracing.trace_tool_call("nmap", {"t": "10.0.0.1"}, long_result, 12, True, "s1")
+    assert fake.captured["output"] == long_result
+    assert len(fake.captured["output"]) > 1000
+
+
+def test_trace_tool_call_caps_at_safety_max(monkeypatch):
+    """A pathological result is still bounded by the safety cap."""
+    monkeypatch.setattr(tracing, "_TOOL_OUTPUT_MAX", 100)
+    fake = _fake_langfuse(monkeypatch)
+    tracing.trace_tool_call("dump", {}, "x" * 5000, 1, True, "s1")
+    assert fake.captured["output"] == "x" * 100
+
+
+def test_tool_wrapper_traces_full_result_but_audits_short_summary(monkeypatch):
+    """The tool wrapper sends the full result to the trace but a 200-char summary to audit.jsonl."""
+    import audit as audit_mod
+    import metrics as metrics_mod
+
+    audited: dict = {}
+    traced: dict = {}
+    monkeypatch.setattr(audit_mod.audit_logger, "log", lambda **kw: audited.update(kw))
+    monkeypatch.setattr(tracing, "trace_tool_call", lambda **kw: traced.update(kw))
+    monkeypatch.setattr(metrics_mod, "record_tool_call", lambda *a, **k: None)
+
+    long_content = "finding\n" + ("detail line\n" * 300)  # far more than 200 chars
+    tool_msg = ToolMessage(content=long_content, tool_call_id="c1")
+    request = NS(state={"session_id": "sess-tool"}, tool_call={"name": "cve_search", "args": {"id": "CVE-1"}})
+
+    out = AuditMiddleware().wrap_tool_call(request, lambda req: tool_msg)
+
+    assert out is tool_msg
+    assert traced["result"] == long_content  # full fidelity reaches the trace
+    assert audited["result_summary"] == long_content[:200]  # audit.jsonl stays a summary
+    assert len(audited["result_summary"]) == 200
