@@ -134,5 +134,5 @@ The system prompt is assembled from multiple sources:
 |---|---|---|
 | **audit.py** | JSONL log of every tool call with args, result, duration, session | `/sandbox/audit/audit.jsonl` |
 | **metrics.py** | Prometheus counters/histograms for LLM calls, tool latency, sessions | `/metrics` endpoint |
-| **tracing.py** | Langfuse spans for tool calls, organized by research phase | Langfuse server |
+| **tracing.py** | Langfuse observations: `llm-call` generations (input messages + the assistant's content and the actual `tool_calls` it emitted, with token usage) and per-tool spans, organized by research phase | Langfuse server |
 | **Discord alerts** | Real-time webhook notifications for critical/high findings | Discord channel |
