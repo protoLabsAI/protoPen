@@ -14,11 +14,32 @@ import json
 import logging
 import queue as _queue_mod
 import re
+import weakref
 from typing import Any
 
 from runtime.state import STATE
 
 log = logging.getLogger(__name__)
+
+# Per-thread_id async locks (WeakValueDictionary so a lock is GC'd once no turn
+# holds it, bounding memory). Serializes turns on the SAME checkpointer thread so
+# two concurrent A2A message/send on one context_id can't lost-update each other's
+# history (port protoAgent #1410). Different sessions never block each other.
+_THREAD_LOCKS: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
+
+
+def _thread_lock(thread_id: str) -> asyncio.Lock:
+    lock = _THREAD_LOCKS.get(thread_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _THREAD_LOCKS[thread_id] = lock
+    return lock
+
+
+# Fallback answer when a turn streams no text (a native-reasoning-only turn with no
+# trailing tool output) — surfaces the last tool output or a placeholder rather than a
+# silent blank bubble, matching the non-streaming path (#1410).
+_EMPTY_ANSWER_PLACEHOLDER = "(the agent completed this turn without a textual reply.)"
 
 
 def _strip_think(text: str) -> str:
@@ -261,7 +282,8 @@ async def _chat_langgraph_stream(
     # thread_id keys this session's history in the checkpointer (bound at compile
     # time in create_researcher_graph). The a2a:/gradio: prefixes isolate the two
     # chat paths. A checkpointer in the invoke config is ignored by LangGraph.
-    config = {"configurable": {"thread_id": f"a2a:{session_id}"}, "recursion_limit": 200}
+    thread_id = f"a2a:{session_id}"
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 200}
 
     # Mark the session for any goal-aware tool (set_goal) running this turn.
     from graph.goals.context import set_current_session
@@ -292,7 +314,14 @@ async def _chat_langgraph_stream(
     turn_input = f"{_bg}\n\n{message}" if _bg else message
     guard = 0
     hard_cap = 30
+    # Last non-empty tool output across the whole turn — the empty-answer fallback (#1410).
+    last_tool_out = ""
 
+    # Serialize concurrent turns on this checkpointer thread (#1410). Acquire before the
+    # loop and release in finally so the lock spans every goal iteration and is freed even
+    # if the consumer abandons the generator (GeneratorExit runs the finally).
+    _lock = _thread_lock(thread_id)
+    await _lock.acquire()
     try:
         while True:
             accumulated_text = ""
@@ -317,16 +346,27 @@ async def _chat_langgraph_stream(
 
                 elif kind == "on_tool_end":
                     output = event.get("data", {}).get("output", "")
+                    _out = _coerce_tool_output(output)
+                    if _out:
+                        last_tool_out = _out  # empty-answer fallback (#1410)
                     yield (
                         "tool_end",
                         {
                             "id": event.get("run_id") or name,
                             "name": name,
-                            "output": _coerce_tool_output(output),
+                            "output": _out,
                         },
                     )
 
                 elif kind == "on_chat_model_stream":
+                    # Subagent token streams bubble onto the lead turn's astream_events
+                    # because LangChain propagates the parent run's callbacks into the
+                    # nested subagent invoke. Suppress any chunk tagged with a
+                    # parent_task_id (a subagent run, stamped in graph.agent._run) so the
+                    # subagent's tokens don't pollute/interleave the lead answer — its
+                    # result still returns via the task tool's ToolMessage (#1394).
+                    if event.get("metadata", {}).get("parent_task_id"):
+                        continue
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
@@ -349,7 +389,7 @@ async def _chat_langgraph_stream(
 
             # No active goal → this is a normal turn; finish.
             if STATE.goal_controller is None or STATE.goal_controller.active_goal(session_id) is None:
-                yield ("done", final)
+                yield ("done", final or last_tool_out or _EMPTY_ANSWER_PLACEHOLDER)
                 return
 
             guard += 1
@@ -357,7 +397,7 @@ async def _chat_langgraph_stream(
             if decision is None or decision.action == "done" or guard >= hard_cap:
                 if decision is not None and decision.note:
                     yield ("text", f"\n\n_{decision.note}_")
-                yield ("done", final)
+                yield ("done", final or last_tool_out or _EMPTY_ANSWER_PLACEHOLDER)
                 return
 
             # Goal not met — re-invoke with the continuation prompt.
@@ -382,6 +422,10 @@ async def _chat_langgraph_stream(
             yield ("error", "The model provider closed the stream (possibly rate-limited). Please retry.")
         else:
             yield ("error", str(e))
+    finally:
+        # Release the per-thread turn lock (#1410). Always held here — acquired
+        # before the try; runs on normal return, error, or generator close.
+        _lock.release()
 
 
 def chat_streaming(message: str, history: list[dict], session_id: str):

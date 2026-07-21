@@ -199,7 +199,10 @@ class ProtoPenExecutor(AgentExecutor):
         answer_aid = f"{context.task_id or 'turn'}-answer"
         _text_buf = ""
         _answer_started = False  # first flush creates the artifact; rest append
-        _FLUSH_CHARS = 24
+        # Batch answer deltas into fewer, larger artifact frames: a ~2k-char answer
+        # becomes ~10 frames instead of ~90, shrinking the SSE backpressure / teardown-
+        # cancel window that can strand a terminal frame (port protoAgent #1982).
+        _FLUSH_CHARS = 240
 
         async def _flush_text() -> None:
             nonlocal _text_buf, _answer_started

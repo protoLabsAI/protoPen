@@ -256,11 +256,36 @@ def _build_task_tool(config: LangGraphConfig, all_tools: list[BaseTool]):
         )
 
         async def _run() -> str:
-            result = await subagent.ainvoke(
-                {"messages": [{"role": "user", "content": prompt}]},
-                config={"recursion_limit": sub_config.max_turns},
-            )
-            return _extract_result(result.get("messages", []), subagent_type, description)
+            # Stream values (not ainvoke) for two reasons:
+            #  1. Stamp parent_task_id so the lead chat stream can suppress THIS subagent's
+            #     model tokens — they bubble up through the shared callback manager and
+            #     would otherwise pollute/interleave the lead answer (port protoAgent #1394).
+            #  2. A recursion-limit stop salvages the partial transcript instead of raising
+            #     GraphRecursionError and losing the whole run — max_turns is a budget, not
+            #     a bomb (port protoAgent #1879).
+            from langgraph.errors import GraphRecursionError
+
+            sub_result: dict = {}
+            hard_stop = False
+            try:
+                async for _state in subagent.astream(
+                    {"messages": [{"role": "user", "content": prompt}]},
+                    config={
+                        "recursion_limit": sub_config.max_turns,
+                        "metadata": {"parent_task_id": tool_call_id},
+                    },
+                    stream_mode="values",
+                ):
+                    sub_result = _state
+            except GraphRecursionError:
+                hard_stop = True
+            out = _extract_result(sub_result.get("messages", []), subagent_type, description)
+            if hard_stop and "no output produced" in out:
+                return (
+                    f"[{subagent_type} hard-stopped at max_turns: {description}] — no salvageable "
+                    "output; treat this lane as a Gap, not a verdict."
+                )
+            return out
 
         # Background (ADR 0050): spawn detached, return now, notified on a later turn.
         if run_in_background:
@@ -339,11 +364,21 @@ async def run_manual_subagent(
         middleware=_subagent_middleware(config),
         system_prompt=build_subagent_prompt(subagent_type),
     )
+    # Stream values so a recursion-limit stop salvages the partial transcript instead of
+    # raising GraphRecursionError and losing the whole run (port protoAgent #1879).
+    from langgraph.errors import GraphRecursionError
+
+    result: dict = {}
+    hard_stop = False
     try:
-        result = await subagent.ainvoke(
+        async for _state in subagent.astream(
             {"messages": [{"role": "user", "content": prompt}]},
             config={"recursion_limit": sub_config.max_turns},
-        )
+            stream_mode="values",
+        ):
+            result = _state
+    except GraphRecursionError:
+        hard_stop = True
     except Exception as e:
         raise ValueError(f"Subagent '{subagent_type}' failed: {e}") from e
     for msg in reversed(result.get("messages", [])):
@@ -351,7 +386,10 @@ async def run_manual_subagent(
         if content:
             text = content if isinstance(content, str) else str(content)
             if text:
-                return f"[{subagent_type} completed: {description}]\n\n{text}"
+                suffix = " — hard-stopped at max_turns, partial" if hard_stop else ""
+                return f"[{subagent_type} completed: {description}{suffix}]\n\n{text}"
+    if hard_stop:
+        return f"[{subagent_type} hard-stopped at max_turns: {description}] — no salvageable output."
     return f"[{subagent_type} completed: {description}] — no output produced."
 
 
