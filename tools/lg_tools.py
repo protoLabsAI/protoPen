@@ -18,9 +18,12 @@ from graph.state import WAIT_YIELD_MARKER as _WAIT_YIELD_MARKER, session_id_from
 
 import asyncio
 import json
+import logging
 import os
 import re
 import threading
+
+log = logging.getLogger(__name__)
 
 from tools.cve_search import CVESearchTool
 from tools.security_feeds import SecurityFeedsTool
@@ -587,15 +590,42 @@ async def wait(seconds: int, then: str, state: Annotated[dict, InjectedState] = 
 
     resume_at = (datetime.now(UTC) + timedelta(seconds=secs)).isoformat()
     session_id = session_id_from_state(state)
+    # ONE pending wait per thread (port protoAgent #1702). A stable per-session job
+    # id means a new wait SUPERSEDES a still-pending one instead of stacking beside
+    # it — the bug behind "old resume messages catching up": an agent that
+    # under-waited then re-waited scheduled N overlapping wakes that all fired into
+    # this thread. cancel-then-add is safe because waits within a turn are sequential.
+    wait_job_id = f"wait:{session_id or 'activity'}"
+    superseded = False
     try:
-        job = await asyncio.to_thread(_scheduler_backend.add_job, then, resume_at, context_id=(session_id or None))
+        superseded = await asyncio.to_thread(_scheduler_backend.cancel_job, wait_job_id)
+    except Exception:  # noqa: BLE001 — a stale/absent prior wait must not block the new one
+        pass
+    try:
+        job = await asyncio.to_thread(
+            _scheduler_backend.add_job,
+            then,
+            resume_at,
+            job_id=wait_job_id,
+            context_id=(session_id or None),
+        )
     except Exception as exc:  # noqa: BLE001
         return f"Error: could not schedule the resume: {exc}"
+    # Observability (#1702): every wait is logged with its thread, delay, resume
+    # snippet, and whether it replaced a pending wait — so a stacking loop is visible.
+    log.info(
+        "[wait] thread=%s in %ss%s → resume: %.80s",
+        session_id or "activity",
+        secs,
+        " (superseded a pending wait)" if superseded else "",
+        then,
+    )
     # The leading marker lets WaitYieldMiddleware end the turn on a *successful*
     # wait (an "Error:" return above does NOT yield — you see it and react).
     return (
         f"{_WAIT_YIELD_MARKER} for {secs}s — this turn is ending now. You will be "
-        f"re-invoked at {resume_at} (job {job.id}) to: {then}"
+        f"re-invoked at {resume_at} (job {job.id}"
+        f"{', superseded a pending wait' if superseded else ''}) to: {then}"
     )
 
 
