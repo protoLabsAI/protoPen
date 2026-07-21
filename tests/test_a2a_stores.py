@@ -173,6 +173,34 @@ async def test_reconcile_fails_only_interrupted_states(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_ttl_sweep_preserves_hitl_pauses(tmp_path):
+    """A resumable input_required pause survives the TTL sweep even when stale, while
+    stateless/dead rows past the TTL are still swept (port protoAgent #1398)."""
+    from datetime import UTC, datetime, timedelta
+
+    from a2a.server.models import TaskModel
+    from a2a.types import a2a_pb2
+    from sqlalchemy import update
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    store, engine, ctx = await _seed_states(tmp_path)
+    # Backdate every seeded row well past the 24h TTL.
+    old = datetime.now(UTC) - timedelta(hours=48)
+    sm = async_sessionmaker(engine, expire_on_commit=False)
+    async with sm() as session:
+        await session.execute(update(TaskModel).values(last_updated=old))
+        await session.commit()
+
+    deleted = await sweep_expired_tasks(engine)
+    assert deleted == 3  # submitted + working + completed swept — NOT the pause
+    assert (await store.get("waiting", ctx)).status.state == a2a_pb2.TASK_STATE_INPUT_REQUIRED
+    assert await store.get("submitted", ctx) is None
+    assert await store.get("working", ctx) is None
+    assert await store.get("done", ctx) is None
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_reconcile_is_idempotent(tmp_path):
     """A second pass touches nothing (already-failed isn't an interrupted state)."""
     store, engine, ctx = await _seed_states(tmp_path)

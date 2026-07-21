@@ -64,6 +64,10 @@ class KnowledgeStore:
             import sqlite_vec
 
             db = sqlite3.connect(str(self.db_path), check_same_thread=False)
+            # Wait briefly on a write-lock instead of erroring — a swallowed add_chunk
+            # failure silently loses data. Aligns with the sibling stores (scheduler /
+            # a2a) that set busy_timeout (port protoAgent #1398).
+            db.execute("PRAGMA busy_timeout=5000")
             db.enable_load_extension(True)
             sqlite_vec.load(db)
             db.enable_load_extension(False)

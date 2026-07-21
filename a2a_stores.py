@@ -34,7 +34,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-from sqlalchemy import delete, update
+from sqlalchemy import and_, delete, or_, update
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from a2a.server.context import ServerCallContext
@@ -277,11 +277,28 @@ async def sweep_expired_tasks(engine: AsyncEngine, *, ttl_s: int = _DEFAULT_TTL_
     cutoff = now - timedelta(seconds=ttl_s)
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
+    # Preserve resumable HITL / auth pauses even past the TTL: their LangGraph
+    # checkpoint survives a restart and resumes on the next message, so deleting
+    # one purely by age would silently drop a live pause (port protoAgent #1398).
+    # A stateless / dead row (state NULL or any other state) is still swept. Uses
+    # the same JSON-path filter reconcile_interrupted_tasks relies on.
+    state = TaskModel.status["state"].as_string()
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     async with session_maker() as session:
-        result = await session.execute(delete(TaskModel).where(TaskModel.last_updated < cutoff))
+        result = await session.execute(
+            delete(TaskModel).where(
+                and_(
+                    TaskModel.last_updated < cutoff,
+                    or_(state.is_(None), state.not_in(_PRESERVED_TASK_STATES)),
+                )
+            )
+        )
         await session.commit()
         return result.rowcount or 0
+
+
+# HITL / auth pauses whose LangGraph checkpoint survives a restart — never TTL-swept.
+_PRESERVED_TASK_STATES = ("TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED")
 
 
 # Non-terminal states a restart leaves dead: a queued (``submitted``) or

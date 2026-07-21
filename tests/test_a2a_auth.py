@@ -76,6 +76,36 @@ def test_allowed_origin_passes():
     assert r.status_code == 200
 
 
+def test_x_api_key_constant_time_accept_and_reject():
+    """X-API-Key is enforced when set: the exact key passes, a wrong/absent key is
+    rejected. The compare is constant-time (hmac.compare_digest, #1398) — this locks
+    the accept/reject behavior across that change."""
+    a2a_auth.configure(bearer_token="", api_key="s3cret-key", allowed_origins_raw="")
+    c = TestClient(_app())
+    assert c.post("/a2a", headers={"x-api-key": "s3cret-key"}).status_code == 200
+    assert c.post("/a2a", headers={"x-api-key": "wrong"}).status_code == 401
+    assert c.post("/a2a").status_code == 401  # missing header → rejected
+
+
+def test_x_api_key_non_ascii_header_rejects_not_crashes():
+    """A wire header carrying non-ASCII (latin-1) bytes decodes to a non-ASCII str
+    server-side; hmac.compare_digest raises TypeError on such a str, so the check must
+    encode to bytes and reject cleanly (401) instead of 500-ing. Driven at the
+    middleware level because the test HTTP client refuses to send non-ASCII headers."""
+    import asyncio
+    from types import SimpleNamespace as NS
+
+    a2a_auth.configure(bearer_token="", api_key="s3cret-key", allowed_origins_raw="")
+    mw = a2a_auth.A2AAuthMiddleware(app=lambda: None)
+    req = NS(url=NS(path="/a2a"), headers={"x-api-key": "wrøng-ké¥"})  # non-ASCII value
+
+    async def _call_next(_req):
+        raise AssertionError("should have been rejected before reaching the app")
+
+    resp = asyncio.run(mw.dispatch(req, _call_next))
+    assert resp.status_code == 401  # rejected cleanly, no TypeError
+
+
 def test_guard_only_applies_to_a2a_prefix():
     """Non-/a2a paths bypass the guard entirely (origin allowlist set)."""
     a2a_auth.configure(bearer_token="", api_key="", allowed_origins_raw="https://console.example.com")
