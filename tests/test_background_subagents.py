@@ -113,6 +113,152 @@ def test_render_task_notifications_format():
     assert "vuln_analyst done" in block and "result body" in block
 
 
+# ── ADR 0070 push-resume + KB durability (h34.9) ─────────────────────────────
+
+
+def _work(val):
+    async def _w():
+        return val
+
+    return _w
+
+
+async def _spawn_and_finish(mgr, work, *, session="a2a:s1", subagent_type="vuln_analyst", desc="d"):
+    """Spawn a job and await the detached run to full completion (incl. _on_complete)."""
+    jid = mgr.spawn(work, origin_session=session, subagent_type=subagent_type, description=desc)
+    await mgr._tasks[jid]  # awaits KB indexing + briefing-wake scheduling in the finally
+    return jid
+
+
+class _FakeScheduler:
+    def __init__(self):
+        self.added: list[dict] = []
+        self.cancelled: list[str] = []
+
+    def cancel_job(self, job_id):
+        self.cancelled.append(job_id)
+        return True
+
+    def add_job(self, prompt, schedule, *, job_id=None, context_id=None):
+        self.added.append({"prompt": prompt, "schedule": schedule, "job_id": job_id, "context_id": context_id})
+        return type("J", (), {"id": job_id})()
+
+
+class _FakeKB:
+    def __init__(self):
+        self.facts: list[dict] = []
+
+    def add_fact(self, content, namespace=None, source="harvest", source_type="extracted"):
+        self.facts.append({"content": content, "namespace": namespace, "source": source, "source_type": source_type})
+        return "fact-id"
+
+
+def test_completed_job_indexes_full_result_to_kb():
+    kb = _FakeKB()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_knowledge_store(kb)  # no scheduler → isolate the KB path
+        await _spawn_and_finish(mgr, _work("recon: 3 hosts, 1 critical"), session="a2a:s1")
+
+    asyncio.run(scenario())
+    assert len(kb.facts) == 1
+    f = kb.facts[0]
+    assert f["content"] == "recon: 3 hosts, 1 critical"
+    assert f["namespace"] == "a2a:s1"  # keyed to the origin session
+    assert f["source_type"] == "background_job"
+    assert f["source"].startswith("background:bg-")
+
+
+def test_completed_job_schedules_briefing_wake():
+    sched = _FakeScheduler()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_scheduler(sched)
+        await _spawn_and_finish(mgr, _work("done"), session="a2a:s1")
+
+    asyncio.run(scenario())
+    assert len(sched.added) == 1
+    a = sched.added[0]
+    assert a["job_id"] == "bg-wake:a2a:s1"
+    assert a["context_id"] == "a2a:s1"  # wake fires into the origin session
+    assert "brief the operator" in a["prompt"].lower()
+    assert sched.cancelled == ["bg-wake:a2a:s1"]  # supersede attempted first
+
+
+def test_fanout_coalesces_into_one_wake_id():
+    sched = _FakeScheduler()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_scheduler(sched)
+        await _spawn_and_finish(mgr, _work("a"), session="a2a:s1", desc="job A")
+        await _spawn_and_finish(mgr, _work("b"), session="a2a:s1", desc="job B")
+
+    asyncio.run(scenario())
+    # Two completions, but every wake uses the SAME stable id → they supersede into
+    # a single pending wake (the scheduler dedups by id); each cancels the prior.
+    assert {a["job_id"] for a in sched.added} == {"bg-wake:a2a:s1"}
+    assert sched.cancelled == ["bg-wake:a2a:s1", "bg-wake:a2a:s1"]
+
+
+def test_auto_resume_off_skips_wake_but_still_indexes():
+    sched = _FakeScheduler()
+    kb = _FakeKB()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_scheduler(sched)
+        mgr.set_knowledge_store(kb)
+        mgr.set_auto_resume(False)
+        await _spawn_and_finish(mgr, _work("payload"), session="a2a:s1")
+
+    asyncio.run(scenario())
+    assert sched.added == []  # no push wake when auto_resume off
+    assert len(kb.facts) == 1  # durability indexing still happens
+
+
+def test_failed_job_briefs_but_is_not_indexed():
+    sched = _FakeScheduler()
+    kb = _FakeKB()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_scheduler(sched)
+        mgr.set_knowledge_store(kb)
+
+        async def boom():
+            raise RuntimeError("scan died")
+
+        await _spawn_and_finish(mgr, boom, session="a2a:s1")
+
+    asyncio.run(scenario())
+    assert len(sched.added) == 1  # operator still gets briefed on failure
+    assert kb.facts == []  # nothing useful to index
+
+
+def test_empty_result_is_not_indexed():
+    kb = _FakeKB()
+
+    async def scenario():
+        mgr = BackgroundManager()
+        mgr.set_knowledge_store(kb)
+        await _spawn_and_finish(mgr, _work("   "), session="a2a:s1")
+
+    asyncio.run(scenario())
+    assert kb.facts == []
+
+
+def test_completion_without_scheduler_or_store_is_safe():
+    async def scenario():
+        mgr = BackgroundManager()  # neither scheduler nor KB wired
+        jid = await _spawn_and_finish(mgr, _work("ok"), session="a2a:s1")
+        return mgr.get(jid).status
+
+    assert asyncio.run(scenario()) == "completed"
+
+
 # ── task tool integration ────────────────────────────────────────────────────
 
 

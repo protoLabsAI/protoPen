@@ -193,6 +193,12 @@ class LangGraphConfig:
     # hygiene runs unattended (e.g. "0 4 * * 0" = 4am Sundays).
     dream_cadence_cron: str = ""
 
+    # Background push-resume (ADR 0070, h34.9). When on, a terminal background job
+    # self-A2A-wakes its origin session to brief the operator (coalesced) instead of
+    # waiting for the session's next organic turn. KB indexing of the result for
+    # durability happens regardless of this flag.
+    background_auto_resume: bool = True
+
     # Deferred tools (ADR 0005 #3 — progressive tool disclosure). OFF by default.
     # When on, most tool *schemas* are withheld from the model each turn (every
     # tool stays callable) and the agent loads them on demand via the
@@ -264,6 +270,7 @@ class LangGraphConfig:
             ),
             goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
             dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
+            background_auto_resume=(data.get("background") or {}).get("auto_resume", cls.background_auto_resume),
             tools_deferred_enabled=((data.get("tools") or {}).get("deferred") or {}).get(
                 "enabled", cls.tools_deferred_enabled
             ),

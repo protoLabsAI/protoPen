@@ -449,9 +449,16 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
 
     # Background subagents (ADR 0050): let the manager publish completion events on
     # the bus so a console can react (Phase 2 wake, adapted off the dropped inbox).
+    # ADR 0070 (h34.9): also wire the scheduler (self-A2A briefing wake) and the KB
+    # (durable result indexing) so a terminal job pushes a briefing into its origin
+    # session and survives the volatile in-memory job row.
     from graph.background import get_background_manager as _get_bg_manager
 
-    _get_bg_manager().set_event_bus(_event_bus)
+    _bg_manager = _get_bg_manager()
+    _bg_manager.set_event_bus(_event_bus)
+    _bg_manager.set_scheduler(_scheduler)
+    _bg_manager.set_knowledge_store(STATE.knowledge_store)
+    _bg_manager.set_auto_resume(getattr(STATE.graph_config, "background_auto_resume", True))
 
     # Goal mode (autonomy): the chat-stream path checks /goal control messages +
     # runs the verifier-backed re-invocation loop. Off when goals_enabled=false.
