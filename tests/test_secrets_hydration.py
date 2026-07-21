@@ -362,3 +362,41 @@ def test_infisical_token_cached_across_fetches():
     assert provider.fetch(_infisical_cfg()).ok
     assert provider.fetch(_infisical_cfg()).ok
     assert calls["login"] == 1
+
+
+# --- CodeRabbit #283 hardening ---------------------------------------------
+
+
+def test_non_dict_secrets_manager_does_not_crash_from_yaml(fake, tmp_path):
+    """`secrets_manager: true` (a non-dict) must not crash config load."""
+    from graph.config import LangGraphConfig
+
+    p = _write_config(tmp_path, "secrets_manager: true\n")
+    cfg = LangGraphConfig.from_yaml(p)  # must not raise
+    assert cfg.secrets_manager_enabled is False
+    assert fake.calls == 0
+
+
+def test_cached_required_failure_still_reraises(fake):
+    """A required source that failed must fail-fast on a repeated load INSIDE the TTL
+    window too — the cache can't silently serve a half-configured agent."""
+    fake.result = FetchResult(error="down", error_kind=ErrorKind.NETWORK)
+    with pytest.raises(SecretsRequiredError):
+        hydrate_from_docs(*_docs(required=True))
+    # Second call is within the retry window (cached) — must still raise, not return.
+    with pytest.raises(SecretsRequiredError):
+        hydrate_from_docs(*_docs(required=True))
+    assert fake.calls == 1  # the second call used the cache (no refetch) yet still raised
+
+
+def test_rotated_out_value_purged_from_redaction_set(fake, monkeypatch):
+    """A secret value that the manager stops returning is dropped from the redaction
+    set (no unbounded growth / stale redaction)."""
+    monkeypatch.delenv("ROTATING_KEY", raising=False)
+    fake.values = {"ROTATING_KEY": "old-value-123456"}
+    hydrate_from_docs(*_docs())
+    assert "old-value-123456" in sensitive_values()
+    fake.values = {"ROTATING_KEY": "new-value-789012"}
+    hydrate_from_docs(*_docs(), force=True)
+    assert "new-value-789012" in sensitive_values()
+    assert "old-value-123456" not in sensitive_values()  # purged

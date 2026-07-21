@@ -164,6 +164,15 @@ def hydrate_from_docs(merged: dict | None, secrets_doc: dict | None, *, force: b
             if not _LAST_OK:
                 window = FAILURE_RETRY_SECONDS
             if (time.monotonic() - _LAST_ATTEMPT_MONO) < window:
+                # A cached failure must still fail-fast a required source — a repeated
+                # load (e.g. hot-reload) inside the TTL window can't silently serve a
+                # half-configured agent just because the last attempt was recent
+                # (CodeRabbit #283).
+                if cfg.required and not _LAST_OK:
+                    raise SecretsRequiredError(
+                        f"secrets_manager.required is set and the last {cfg.provider} fetch "
+                        f"failed ({_LAST_STATUS.error_kind or 'error'}): {_LAST_STATUS.error}"
+                    )
                 return _LAST_STATUS
 
         provider = get_provider(cfg.provider)
@@ -243,6 +252,10 @@ def _apply(values: dict[str, str], cfg: SourceConfig, protected: set[str]) -> tu
             invalid += 1
             continue
         if name in protected:
+            # A manager attempt to overwrite a protected var (process env or a bootstrap
+            # credential) is dropped — but it's a meaningful signal (misconfig or a
+            # compromised store), so log it rather than swallow it silently (CodeRabbit #283).
+            log.debug("[secrets] refused to overwrite protected var %s from the manager", name)
             continue
         if not isinstance(value, str) or value == "":
             continue  # a blank secret can't be meaningfully exported
@@ -255,8 +268,6 @@ def _apply(values: dict[str, str], cfg: SourceConfig, protected: set[str]) -> tu
             os.environ[name] = value
             changed += 1
         _APPLIED[name] = value
-        if len(value) >= 8:
-            _SENSITIVE_VALUES.add(value)
 
     # A var we own that a *successful* fetch no longer returns was deleted/moved in the
     # manager — un-export it (unless the operator overwrote it since; then it's theirs).
@@ -266,6 +277,11 @@ def _apply(values: dict[str, str], cfg: SourceConfig, protected: set[str]) -> tu
             changed += 1
             log.info("[secrets] %s no longer in the manager — removed from the environment", name)
         del _APPLIED[name]
+
+    # Rebuild the redaction set from the currently-owned values so a rotated-out or
+    # removed secret's old value doesn't linger to be redacted forever (CodeRabbit #283).
+    _SENSITIVE_VALUES.clear()
+    _SENSITIVE_VALUES.update(v for v in _APPLIED.values() if len(v) >= 8)
 
     if invalid:
         log.warning("[secrets] skipped %d secret(s) whose names are not valid env vars", invalid)

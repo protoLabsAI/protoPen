@@ -35,7 +35,10 @@ def _hydrate_external_secrets(data: dict) -> None:
     already has — except ``secrets_manager.required: true``, which propagates so a boot
     with a hard manager dependency fails fast instead of serving a half-configured
     agent."""
-    if not isinstance(data, dict) or not (data.get("secrets_manager") or {}).get("enabled"):
+    # A non-dict secrets_manager (e.g. `secrets_manager: true`) must NOT crash config
+    # load — the whole point is "never breaks the load" (CodeRabbit #283).
+    sm = data.get("secrets_manager") if isinstance(data, dict) else None
+    if not isinstance(sm, dict) or not sm.get("enabled"):
         return
     try:
         from infra.secrets import SecretsRequiredError, hydrate_from_docs
@@ -255,7 +258,9 @@ class LangGraphConfig:
             goals_max_iterations=(data.get("goals") or {}).get("max_iterations", cls.goals_max_iterations),
             goals_no_progress_limit=(data.get("goals") or {}).get("no_progress_limit", cls.goals_no_progress_limit),
             secrets_manager_enabled=bool(
-                (data.get("secrets_manager") or {}).get("enabled", cls.secrets_manager_enabled)
+                (data.get("secrets_manager") if isinstance(data.get("secrets_manager"), dict) else {}).get(
+                    "enabled", cls.secrets_manager_enabled
+                )
             ),
             goals_monitor_interval_s=(data.get("goals") or {}).get("monitor_interval_s", cls.goals_monitor_interval_s),
             dream_cadence_cron=(data.get("goals") or {}).get("dream_cadence_cron", cls.dream_cadence_cron),
