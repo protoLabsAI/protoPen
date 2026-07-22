@@ -151,6 +151,11 @@ class LangGraphConfig:
     # about the operator's world) from the exchange and stores them as searchable
     # memory. Background, deduped, never blocks the response. knowledge.facts.
     knowledge_facts: bool = True
+    # Trust-tier floor for auto-injected memory (ADR 0069 D8, h34.13). 1 = inject
+    # every tier (curated-first re-rank only, no behavior change); 2 = refuse to
+    # auto-inject tier-1 EXTERNAL memory (scraped threat-intel / OSINT — the
+    # attacker-controllable surface). See knowledge/trust.py.
+    knowledge_inject_min_trust: int = 1
 
     # Workflows — declarative multi-step subagent recipes (ADR 0002), exposed via
     # the run_workflow tool. Bundled examples ship in the repo workflows/ dir;
@@ -258,6 +263,7 @@ class LangGraphConfig:
             knowledge_search_mode=knowledge.get("search_mode", cls.knowledge_search_mode),
             knowledge_enrich_chunks=knowledge.get("enrich_chunks", cls.knowledge_enrich_chunks),
             knowledge_facts=knowledge.get("facts", cls.knowledge_facts),
+            knowledge_inject_min_trust=knowledge.get("inject_min_trust", cls.knowledge_inject_min_trust),
             workflows_enabled=(data.get("workflows") or {}).get("enabled", cls.workflows_enabled),
             workflow_dir=(data.get("workflows") or {}).get("dir", cls.workflow_dir),
             skills_enabled=(data.get("skills") or {}).get("enabled", cls.skills_enabled),

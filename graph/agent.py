@@ -92,6 +92,7 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
                 search_mode=config.knowledge_search_mode,
                 skills_index=skills_index,
                 progressive_skills=getattr(config, "skills_progressive_disclosure", True),
+                inject_min_trust=getattr(config, "knowledge_inject_min_trust", 1),
             )
         )
 
