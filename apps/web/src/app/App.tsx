@@ -54,6 +54,7 @@ import { LaunchSequence } from "./LaunchSequence";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
 import { useIsHandheld } from "../lib/useIsHandheld";
+import { useKeyboardInset } from "../lib/useKeyboardInset";
 import type {
   AgentRun,
   AuditEntry,
@@ -232,6 +233,8 @@ export function App() {
   // Chat-first shell on touch handhelds (the Steam Deck). Capability-switched, not
   // width-switched — see useIsHandheld / docs/plans/2026-07-22-chat-first-deck-ui.md.
   const isHandheld = useIsHandheld();
+  // Publish the on-screen-keyboard height as --kb-inset so the composer stays visible.
+  useKeyboardInset();
   // Background-streaming indicator for the Home rail (narrow selector → only
   // re-renders when the boolean flips, not per streamed token).
   const chatStreaming = useAnyChatStreaming();
