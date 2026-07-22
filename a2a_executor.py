@@ -72,6 +72,12 @@ class TurnOutcome:
     llm_calls: int = 0
     tool_calls: int = 0
     models: list[str] = field(default_factory=list)
+    # Message ``origin`` metadata: "scheduler" for a self-initiated turn (a
+    # scheduler wake / wait-resume / background push-resume delivered via the
+    # scheduler's /a2a loopback), "" for a normal caller-driven turn. Lets the
+    # host tell a turn the client is streaming itself apart from one it never
+    # started, so only the latter is pushed to the console (protopen-1hw.11).
+    origin: str = ""
 
 
 # A terminal hook the host can register (ADR 0003 / 0006): invoked with a
@@ -170,6 +176,7 @@ class ProtoPenExecutor(AgentExecutor):
         text = context.get_user_input()
         caller_trace = _extract_caller_trace(context)
         interactive = _extract_interactive(context)
+        origin = _extract_origin(context)
 
         started = time.monotonic()
         accumulated = ""
@@ -248,6 +255,7 @@ class ProtoPenExecutor(AgentExecutor):
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 models=list(models),
+                origin=origin,
             )
 
         try:
@@ -396,6 +404,15 @@ def _extract_interactive(context: RequestContext) -> bool:
     input, preserving full autonomy. The web console (and any sender that handles
     input-required) sets it true to enable the form/approval flow."""
     return bool(_request_metadata(context).get("protolabs.interactive"))
+
+
+def _extract_origin(context: RequestContext) -> str:
+    """The message ``origin`` metadata. The scheduler loopback stamps
+    ``origin="scheduler"`` on every fire (scheduler.local._fire), so a wait-resume
+    / scheduled task / background push-resume is distinguishable from a normal
+    caller-driven turn. Empty string when absent."""
+    origin = _request_metadata(context).get("origin")
+    return origin if isinstance(origin, str) else ""
 
 
 def _tool_call_part(event_type: str, payload: Any) -> Part | None:

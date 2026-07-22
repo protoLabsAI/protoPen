@@ -247,6 +247,35 @@ export const chatStore = {
   setPendingDraft(text: string | null) {
     setState((current) => ({ ...current, pendingDraft: text }));
   },
+
+  // Append a SELF-INITIATED assistant turn pushed via the `chat.resumed` server
+  // event (a scheduler wake / wait-resume / background push-resume). The browser
+  // has no open stream for a turn it didn't start, so this is how it lands live
+  // instead of only on the next refetch (protopen-1hw.11). No-op when the target
+  // session isn't on this client. Persisted like any message, so it survives a
+  // reload; marked `resumed` so the surface can flag it as agent-initiated.
+  appendResumedTurn(sessionId: string, text: string) {
+    if (!sessionId || !text) return;
+    setState((current) => {
+      if (!current.sessions.some((session) => session.id === sessionId)) return current;
+      const message: ChatMessage = {
+        id: id("resumed"),
+        role: "assistant",
+        content: text,
+        createdAt: Date.now(),
+        status: "done",
+        resumed: true,
+      };
+      return {
+        ...current,
+        sessions: current.sessions.map((session) =>
+          session.id === sessionId
+            ? { ...session, messages: [...session.messages, message], updatedAt: Date.now() }
+            : session,
+        ),
+      };
+    });
+  },
 };
 
 export function useChatState() {

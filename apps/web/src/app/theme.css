@@ -156,6 +156,21 @@ h2 {
   font-size: 12px;
 }
 
+/* Marker on an agent-initiated (scheduler / wait-resume / background) chat turn
+   pushed live via `chat.resumed` — companion presence (protopen-1hw.11). */
+.message-resumed-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
 /* Terminal-style caps labels. */
 .brand-subline,
 .panel-kicker,
