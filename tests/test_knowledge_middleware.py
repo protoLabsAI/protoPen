@@ -58,11 +58,11 @@ def test_recalled_memory_is_wrapped_in_untrusted_envelope():
     assert "authoritative" not in ctx.lower()
     assert "answer from these directly" not in ctx
     assert "User prefers reports in Markdown." in ctx
-    # Facts keep their own block (no table tag); research keeps its [table:id] tag.
-    assert "[facts:f1]" not in ctx
+    # Every hit carries its [table:id] tag now (trust-tier framing, ADR 0069 D8).
+    assert "[facts:f1]" in ctx
     assert "[cves:CVE-2024-1]" in ctx
-    # Facts block precedes the research block (recall first), both inside the envelope.
-    assert ctx.index("Recalled facts") < ctx.index("prior research")
+    # Curated (tier-3) is framed before agent-recalled (tier-2), both inside the envelope.
+    assert ctx.index("Curated reference") < ctx.index("Recalled memory")
 
 
 @needs_langchain
@@ -71,7 +71,8 @@ def test_only_knowledge_no_facts_block():
 
     store = _FakeStore([{"table": "cves", "source_id": "CVE-1", "preview": "x"}])
     ctx = KnowledgeMiddleware(store).before_model(_state("ssh cves?"), None)["context"]
-    assert "Recalled facts about the operator" not in ctx
+    assert "Recalled memory" not in ctx  # no agent-tier hits → no agent framing
+    assert "Curated reference" in ctx  # cve framed as curated (tier-3)
     assert "[cves:CVE-1]" in ctx
     assert "<injected_memory>" in ctx  # still enveloped
 
@@ -82,8 +83,9 @@ def test_only_facts_no_research_block():
 
     store = _FakeStore([{"table": "facts", "source_id": "f1", "preview": "Operator runs headless."}])
     ctx = KnowledgeMiddleware(store).before_model(_state("how do I run it?"), None)["context"]
-    assert "Recalled facts about the operator" in ctx
-    assert "prior research" not in ctx
+    assert "Recalled memory" in ctx  # agent-tier framing for a fact
+    assert "Curated reference" not in ctx
+    assert "[facts:f1]" in ctx
     assert "<injected_memory>" in ctx
 
 

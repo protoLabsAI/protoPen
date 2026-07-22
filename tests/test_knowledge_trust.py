@@ -115,3 +115,41 @@ def test_middleware_min_trust_1_injects_all_but_curated_first():
     ctx = _run_before_model(store, min_trust=1)["context"]
     assert "external note" in ctx and "curated note" in ctx
     assert ctx.index("curated note") < ctx.index("external note")  # curated ranked first
+
+
+def test_curated_is_framed_before_facts():
+    # Guards the CodeRabbit finding: the old facts/other split emitted facts (tier-2)
+    # before curated (tier-3), undoing the trust order. Now framing follows tier.
+    store = _FakeStore(
+        [
+            {"table": "facts", "source_id": "f1", "preview": "an extracted fact"},
+            {"table": "cves", "source_id": "c1", "preview": "a curated cve"},
+        ]
+    )
+    ctx = _run_before_model(store, min_trust=1)["context"]
+    assert ctx.index("a curated cve") < ctx.index("an extracted fact")
+    assert ctx.index("Curated reference") < ctx.index("Recalled memory")
+
+
+def test_osint_sourced_fact_is_framed_external_not_extracted():
+    # An OSINT-sourced facts row is tier-1 EXTERNAL — it must be framed untrusted,
+    # not labeled "model-extracted" (the other half of the CodeRabbit finding).
+    store = _FakeStore(
+        [{"table": "facts", "source_id": "f1", "preview": "scraped osint claim", "source_type": "osint"}]
+    )
+    ctx = _run_before_model(store, min_trust=1)["context"]
+    assert "scraped osint claim" in ctx
+    assert "UNTRUSTED" in ctx  # external framing applied
+    assert "model-extracted" not in ctx  # not mislabeled as agent memory
+
+
+def test_osint_sourced_fact_dropped_at_min_trust_2():
+    store = _FakeStore(
+        [
+            {"table": "facts", "source_id": "f1", "preview": "scraped osint claim", "source_type": "osint"},
+            {"table": "cves", "source_id": "c1", "preview": "curated cve"},
+        ]
+    )
+    ctx = _run_before_model(store, min_trust=2)["context"]
+    assert "scraped osint claim" not in ctx  # tier-1 osint fact refused even from the facts table
+    assert "curated cve" in ctx
