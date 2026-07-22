@@ -184,7 +184,13 @@ export function ChatSurface({
         altTitle="Hand the drive to the scheduler — it keeps working and reports back here"
         onConfirm={() => {
           if (pendingDeleteId) {
-            if (pendingDeleteActive) void api.clearGoal(pendingDeleteId).catch(() => {});
+            // Surface a failed stop (same as the detach path) — otherwise the tab
+            // vanishes while the goal may still be looping server-side, with no UI
+            // left to retry from and no hint anything went wrong.
+            if (pendingDeleteActive)
+              void api
+                .clearGoal(pendingDeleteId)
+                .catch((e) => onError(e instanceof Error ? e.message : String(e)));
             chatStore.deleteSession(pendingDeleteId);
             refreshDrives();
           }

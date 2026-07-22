@@ -70,7 +70,10 @@ export function GoalsSurface({
       const history = await api.chatHistory(goal.session_id);
       messages = (history.messages || []).map((m, i) => ({
         id: `attached-${goal.session_id}-${i}`,
-        role: m.role === "user" ? "user" : "assistant",
+        // Preserve the role rather than collapsing everything non-user to
+        // assistant — ChatMessage allows "system", and mislabeling it would
+        // misattribute a system line to the agent.
+        role: m.role === "user" ? "user" : m.role === "system" ? "system" : "assistant",
         content: m.content,
         createdAt: Date.now(),
         status: "done" as const,

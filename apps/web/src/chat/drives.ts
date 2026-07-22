@@ -19,13 +19,20 @@ let serialized = "[]"; // last payload, to keep object identity stable between p
 const listeners = new Set<() => void>();
 let timer: number | null = null;
 let inFlight = false;
+let queued = false;
 
 function emit() {
   listeners.forEach((listener) => listener());
 }
 
 async function load() {
-  if (inFlight) return;
+  if (inFlight) {
+    // A refresh raced the in-flight poll. Detach/clear/turn-finish all call
+    // refreshDrives() right after mutating goal state — remember to run once
+    // more when this poll settles so that eager refresh isn't silently dropped.
+    queued = true;
+    return;
+  }
   inFlight = true;
 
   try {
@@ -43,6 +50,10 @@ async function load() {
     // Best-effort: a drive badge is not worth surfacing an error banner for.
   } finally {
     inFlight = false;
+    if (queued) {
+      queued = false;
+      void load();
+    }
   }
 }
 

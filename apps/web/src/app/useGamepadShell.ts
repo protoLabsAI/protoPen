@@ -56,9 +56,13 @@ export function useGamepadShell({
 
       const direction = DIRECTIONS[intent];
       if (direction) {
-        // Let the stick/d-pad move the caret while typing rather than yanking
-        // focus out of a half-written message.
-        if (isTyping() && (direction === "left" || direction === "right")) return;
+        // While the composer holds focus, ALL directions belong to the caret
+        // (native arrows move within the multi-line textarea) — not to focus
+        // movement, which would yank you out of a half-written message. Up/Down
+        // are line moves just as much as Left/Right are char moves, so guard
+        // every direction, not just the horizontal pair. B (back) is the
+        // deliberate way out of the composer.
+        if (isTyping()) return;
         moveFocus(direction);
         return;
       }

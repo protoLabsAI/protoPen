@@ -140,24 +140,35 @@ export function onGamepadIntent(handler: Handler): () => void {
  *  it on for a Steam Input layout that emulates keyboard/mouse instead, where no
  *  pad ever connects. */
 export function useGamepadPresent(): boolean {
-  const [present, setPresent] = useState(() => {
+  // `?nav=gamepad` PINS the mode on — for a Steam Input layout that emulates
+  // keyboard/mouse, where no pad ever connects. Absent the override, presence
+  // tracks whether a pad is actually attached, and goes back OFF when the last
+  // one is unplugged: a pad user who switches to touch shouldn't be left with an
+  // always-visible focus ring and the keyboard mirror still armed.
+  const forced = (() => {
     try {
-      if (new URLSearchParams(window.location.search).get("nav") === "gamepad") return true;
+      return new URLSearchParams(window.location.search).get("nav") === "gamepad";
     } catch {
-      // malformed URL — fall through to the capability check
+      return false; // malformed URL — fall through to the capability check
     }
-    return Boolean(navigator.getGamepads && Array.from(navigator.getGamepads()).some(Boolean));
-  });
+  })();
+  const anyPad = () =>
+    Boolean(navigator.getGamepads && Array.from(navigator.getGamepads()).some(Boolean));
+  const [present, setPresent] = useState(() => forced || anyPad());
 
   useEffect(() => {
-    const check = () =>
-      setPresent(
-        (current) =>
-          current || Boolean(navigator.getGamepads && Array.from(navigator.getGamepads()).some(Boolean)),
-      );
-    window.addEventListener("gamepadconnected", check);
-    return () => window.removeEventListener("gamepadconnected", check);
-  }, []);
+    if (forced) {
+      setPresent(true);
+      return; // pinned on — nothing to track
+    }
+    const recompute = () => setPresent(anyPad());
+    window.addEventListener("gamepadconnected", recompute);
+    window.addEventListener("gamepaddisconnected", recompute);
+    return () => {
+      window.removeEventListener("gamepadconnected", recompute);
+      window.removeEventListener("gamepaddisconnected", recompute);
+    };
+  }, [forced]);
 
   return present;
 }
