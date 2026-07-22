@@ -651,6 +651,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     def _operator_audit_recent(n: int = 50, session_id: str | None = None):
         return _recent_audit(_audit_logger, n=n, session_id=session_id)
 
+    # Injected-memory forensics (ADR 0069 D7) — what recalled memory reached the model.
+    from observability.injection_log import injection_logger as _injection_logger
+    from operator_api.injections import recent_injections as _recent_injections
+
+    def _operator_injections_recent(n: int = 50, session_id: str | None = None):
+        return _recent_injections(_injection_logger, n=n, session_id=session_id)
+
     # Live agent monitoring: launch manual subagents as tracked, cancellable
     # background tasks (the synchronous /api/subagents/* path stays available).
     from operator_api.agent_runtime import agent_registry as _agent_registry
@@ -714,6 +721,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         engagements_list=_operator_engagements_list,
         intel_search=_operator_intel_search,
         audit_recent=_operator_audit_recent,
+        injections_recent=_operator_injections_recent,
         agent_launch=_operator_agent_launch,
         agent_list=lambda: _agent_registry.snapshot(),
         agent_get=lambda task_id: _agent_registry.get(task_id),

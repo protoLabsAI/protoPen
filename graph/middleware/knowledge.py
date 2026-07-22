@@ -212,6 +212,19 @@ class KnowledgeMiddleware(AgentMiddleware):
                     mem_lines.append(f"- [{r.get('table')}:{r.get('source_id')}] {preview}")
                 if mem_lines:
                     memory_parts.append("\n".join(mem_lines))
+                    # Forensic record of what was injected (ADR 0069 D6) — best-effort,
+                    # so a poisoning incident can be reconstructed after the fact.
+                    try:
+                        from graph.state import session_id_from_state
+                        from observability.injection_log import injection_logger
+
+                        injection_logger.log(
+                            session_id=session_id_from_state(state),
+                            hits=results,
+                            min_trust=self._inject_min_trust,
+                        )
+                    except Exception:  # noqa: BLE001 — logging must never break the turn
+                        pass
 
         if memory_parts:
             parts.append(_wrap_injected_memory(memory_parts))

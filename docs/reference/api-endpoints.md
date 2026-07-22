@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_55 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_56 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -560,6 +560,21 @@ Unified intel search
 |---|---|---|---|---|
 | `q` | query | yes | string |  |
 | `k` | query | no | integer | `20` |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Memory
+
+#### `GET /api/memory/injections`
+
+Recent auto-injected memory (ADR 0069 forensics)
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `n` | query | no | integer | `50` |
+| `session_id` | query | no | string |  |
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
