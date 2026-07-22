@@ -31,6 +31,10 @@ class InjectionLogger:
         for candidate in (self.path, Path.home() / ".protopen" / "knowledge" / "injections.jsonl"):
             try:
                 candidate.parent.mkdir(parents=True, exist_ok=True)
+                # Probe append access: a creatable-but-read-only dir (or unwritable file)
+                # must fall through to ~/.protopen, not silently drop every later event.
+                with candidate.open("a", encoding="utf-8"):
+                    pass
                 self.path = candidate
                 return
             except OSError:
