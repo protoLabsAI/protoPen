@@ -2,6 +2,21 @@
 
 Concise procedure for deploying code changes to the Steam Deck.
 
+## Frontend-only changes (fast path — no image rebuild)
+
+The runtime container bind-mounts a **host** `apps/web/dist` over its baked copy, so
+console changes deploy in seconds without rebuilding the ~15-min runtime image:
+
+```bash
+scripts/deck-web.sh          # builds apps/web, rsyncs dist to the Deck, verifies the served bundle
+```
+
+The bind mount reflects host changes live (no restart). **Gotcha:** if that host dist
+goes stale it silently shadows the fresh *baked* build — that once froze the console UI
+for a month. `scripts/deck-web.sh` keeps it fresh and fails loudly if the served bundle
+doesn't match what it just built. (Backend changes still need a full image rebuild +
+`deck-runtime-image.yml` + pull/restart — the backend is baked, not mounted.)
+
 ## Prerequisites
 
 - SSH or Tailscale access to the Steam Deck (`steamdeck` hostname)
