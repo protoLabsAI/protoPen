@@ -2446,6 +2446,20 @@ textarea {
   white-space: nowrap;
 }
 
+/* User messages right-align into a bubble (chat-app convention, matches the mockup);
+   the agent's turns stay full-width on the left. */
+.app-shell[data-shell="handheld"] .message-user {
+  justify-items: end;
+  text-align: right;
+}
+.app-shell[data-shell="handheld"] .message-user .message-body {
+  max-width: 85%;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  text-align: left;
+}
+
 /* Topbar presence reads as a contained pill on the handheld (matching the Deck
    mockup) instead of stretched inline text — border + accent-soft ground. */
 .app-shell[data-shell="handheld"] .companion {
