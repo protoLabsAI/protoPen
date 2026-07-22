@@ -110,6 +110,8 @@ knowledge:
   top_k: 10
   search_mode: hybrid
   enrich_chunks: true
+  inject_min_trust: 1   # trust floor for auto-injected memory (ADR 0069 D8): 1 = re-rank
+                        # curated-first only; 2 = refuse tier-1 EXTERNAL (scraped/OSINT) memory
 
 # Skills (SKILL.md methodology). Progressive disclosure (default on): a lightweight
 # <available_skills> catalog (name + description) is injected each turn and the
@@ -140,8 +142,20 @@ goals:
   enabled: true
   max_iterations: 10
   no_progress_limit: 4
-  monitor_interval_s: 60      # out-of-band cadence for monitor goals (<=0 disables)
   dream_cadence_cron: ""      # 5-field cron to seed a recurring /dream pass (blank = off)
+
+# Watches (ADR 0067) + working-state injection (ADR 0079) — the self-driving loop.
+# N concurrent condition-watches, each on its own cadence, that run a follow-up turn
+# on trip; the manager polls this often and evaluates only watches that are due.
+watch:
+  enabled: true
+  poll_interval_s: 5
+  working_state: true         # inject the per-turn <working_state> snapshot (OODA)
+
+# Background sub-agents (ADR 0070). auto_resume: on completion a job self-wakes its
+# origin session to brief the operator (coalesced) and indexes its result to the KB.
+background:
+  auto_resume: true
 ```
 
 ### Key Sections
@@ -151,11 +165,13 @@ goals:
 | `model` | LLM provider, model name, API base, generation parameters |
 | `subagents` | Per-subagent tool allowlists, enable/disable, max turns |
 | `middleware` | Toggle knowledge injection, audit logging, memory consolidation |
-| `knowledge` | Embedding model, vector search config, contextual enrichment setting |
+| `knowledge` | Embedding model, vector search config, contextual enrichment, `inject_min_trust` (recalled-memory trust floor, ADR 0069 D8) |
 | `skills` | SKILL.md retrieval — enable, dir, db path, top-k, `progressive_disclosure` (catalog + load_skill) |
 | `workflows` | Declarative subagent recipes — enable, writable dir |
 | `tools.deferred` | Progressive tool disclosure (ADR 0005) — `enabled`, `keep` |
-| `goals` | Goal mode (autonomy) — `enabled`, `max_iterations`, `no_progress_limit`, `monitor_interval_s` (monitor-goal cadence), `dream_cadence_cron` (scheduled memory hygiene) |
+| `goals` | Goal mode (autonomy) — `enabled`, `max_iterations`, `no_progress_limit`, `dream_cadence_cron` (scheduled memory hygiene) |
+| `watch` | Condition-watches (ADR 0067) + `working_state` OODA injection (ADR 0079) — `enabled`, `poll_interval_s`, `working_state` |
+| `background` | Background sub-agents (ADR 0070) — `auto_resume` (self-wake briefing + KB durability) |
 
 ---
 
