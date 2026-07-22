@@ -1149,14 +1149,20 @@ def create_memory_curation_tools(store=None):
 
     @tool
     async def forget_memory(fact_id: str, reason: str = "") -> str:
-        """Delete exactly ONE durable fact by its id (from memory_list) — for pruning a
-        stale, superseded, or duplicate fact. No wildcard/bulk delete. Give a brief reason."""
+        """Forget exactly ONE durable fact by its id (from memory_list) — for pruning a
+        stale, superseded, or duplicate fact. No wildcard/bulk delete. Give a brief reason.
+
+        The fact is SUPERSEDED, not hard-deleted (ADR 0069 D9): it drops out of recall
+        immediately but the row is retained as history, so a poisoned/erroneous fact
+        can't silently erase its own audit trail."""
         fid = (fact_id or "").strip().lstrip("#")
         if not fid:
             return "Error: fact_id is required (see memory_list for #ids)."
-        ok = await asyncio.to_thread(_store.delete_fact, fid)
+        # Prefer supersede (keeps history); fall back to delete for backends without it.
+        superseder = getattr(_store, "supersede_fact", None) or _store.delete_fact
+        ok = await asyncio.to_thread(superseder, fid)
         if not ok:
-            return f"No fact deleted for id {fid!r} (already gone or unknown id)."
+            return f"No fact forgotten for id {fid!r} (already gone or unknown id)."
         return f"Forgot fact {fid} ({reason.strip() or 'no reason given'})."
 
     return [memory_list, forget_memory]
