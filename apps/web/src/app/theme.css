@@ -2435,6 +2435,17 @@ textarea {
   animation: deck-rise 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* Stack messages (role label above the content) instead of the desktop's 88px role
+   column — full reading width on the narrow screen, and the agent-initiated tag no
+   longer wraps. Matches the Deck mockup. */
+.app-shell[data-shell="handheld"] .message {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.app-shell[data-shell="handheld"] .message-resumed-tag {
+  white-space: nowrap;
+}
+
 /* Topbar presence reads as a contained pill on the handheld (matching the Deck
    mockup) instead of stretched inline text — border + accent-soft ground. */
 .app-shell[data-shell="handheld"] .companion {
