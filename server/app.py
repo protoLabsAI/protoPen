@@ -294,31 +294,46 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         if event is not None:
             _event_bus.publish(*event)
 
+    async def _thread_transcript(context_id: str) -> list[dict]:
+        """Visible (user/assistant) messages on an A2A context's checkpointer
+        thread. Tool + system messages are omitted — this is the surface view."""
+        messages: list[dict] = []
+        if STATE.checkpointer is None:
+            return messages
+        thread_id = f"a2a:{context_id}"
+        try:
+            tup = await STATE.checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+            raw = (tup.checkpoint or {}).get("channel_values", {}).get("messages", []) if tup else []
+        except Exception:
+            print(f"[transcript] failed to read thread {thread_id}")
+            raw = []
+        for m in raw:
+            role = getattr(m, "type", "")
+            content = getattr(m, "content", "")
+            if not isinstance(content, str):
+                content = str(content)
+            if role == "human":
+                messages.append({"role": "user", "content": content})
+            elif role == "ai":
+                visible = _strip_think(content)
+                if visible.strip():
+                    messages.append({"role": "assistant", "content": visible})
+        return messages
+
     async def _operator_activity_list() -> dict:
         """Return the Activity thread's message history from the checkpointer
         (ADR 0003). The console loads this when opening the Activity surface."""
-        messages: list[dict] = []
-        if STATE.checkpointer is not None:
-            thread_id = f"a2a:{ACTIVITY_CONTEXT}"
-            try:
-                tup = await STATE.checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
-                raw = (tup.checkpoint or {}).get("channel_values", {}).get("messages", []) if tup else []
-            except Exception:
-                print(f"[activity] failed to read thread {thread_id}")
-                raw = []
-            for m in raw:
-                role = getattr(m, "type", "")
-                content = getattr(m, "content", "")
-                if not isinstance(content, str):
-                    content = str(content)
-                if role == "human":
-                    messages.append({"role": "user", "content": content})
-                elif role == "ai":
-                    visible = _strip_think(content)
-                    if visible.strip():
-                        messages.append({"role": "assistant", "content": visible})
-                # tool/system messages are omitted from the surface view
-        return {"context_id": ACTIVITY_CONTEXT, "messages": messages}
+        return {
+            "context_id": ACTIVITY_CONTEXT,
+            "messages": await _thread_transcript(ACTIVITY_CONTEXT),
+        }
+
+    async def _operator_chat_history(session_id: str) -> dict:
+        """Return a chat session's durable transcript. Backs "attach": binding a
+        console tab to a session it has no local copy of — a drive that ran
+        headless, or one started from another client — so the operator sees the
+        turns that already happened, not just the next one."""
+        return {"session_id": session_id, "messages": await _thread_transcript(session_id)}
 
     def _operator_workflows_list() -> dict:
         """List workflow recipes for the console's Workflows surface (ADR 0002)."""
@@ -628,9 +643,25 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         return {"enabled": True, "goals": [g.to_dict() for g in STATE.goal_controller.store.all()]}
 
     def _operator_goal_clear(session_id: str):
+        from operator_api.drives import cancel_detach
+
+        # Drop any pending detached continuation with the goal — a job that
+        # outlives its goal would wake the agent to "continue" nothing.
+        detach_canceled = cancel_detach(_scheduler, session_id)
         if STATE.goal_controller is None:
-            return {"cleared": False}
-        return {"cleared": STATE.goal_controller.store.clear(session_id)}
+            return {"cleared": False, "detach_canceled": detach_canceled}
+        return {
+            "cleared": STATE.goal_controller.store.clear(session_id),
+            "detach_canceled": detach_canceled,
+        }
+
+    def _operator_goal_detach(session_id: str):
+        """Detach this session's goal drive so it keeps iterating headless
+        (operator_api.drives). Idempotent — a second detach replaces the pending
+        continuation job rather than stacking one."""
+        from operator_api.drives import detach_drive
+
+        return detach_drive(STATE.goal_controller, _scheduler, session_id)
 
     # Targets & Intel surface: browse discovered hosts, past engagements, and
     # search across everything captured (read-only over the existing stores).
@@ -738,6 +769,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         skills_list=_operator_skills_list,
         goals_list=_operator_goals_list,
         goal_clear=_operator_goal_clear,
+        goal_detach=_operator_goal_detach,
         targets_list=_operator_targets_list,
         target_get=_operator_target_get,
         engagements_list=_operator_engagements_list,
@@ -755,6 +787,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         # Surfaces relocated off the hand-rolled A2A handler in the a2a-sdk
         # migration (#140) — same operator-key gate, now on the operator router.
         activity_list=_operator_activity_list,  # ADR 0003: Activity thread history
+        chat_history=_operator_chat_history,  # attach: a chat session's durable transcript
         workflows_list=_operator_workflows_list,  # ADR 0002: Workflows surface
         workflows_run=_operator_workflow_run,
         playbooks_list=_operator_playbooks_list,

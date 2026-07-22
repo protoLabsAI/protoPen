@@ -10,8 +10,11 @@ export function ConfirmDialog({
   message,
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
+  altLabel,
+  altTitle,
   tone = "danger",
   onConfirm,
+  onAlt,
   onCancel,
 }: {
   open: boolean;
@@ -19,8 +22,14 @@ export function ConfirmDialog({
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  // Optional third, non-destructive choice sitting between Cancel and Confirm —
+  // for decisions that aren't do-it-or-don't (closing a drive tab is "stop the
+  // drive" vs "let it keep running headless" vs "never mind").
+  altLabel?: string;
+  altTitle?: string;
   tone?: "danger" | "default";
   onConfirm: () => void;
+  onAlt?: () => void;
   onCancel: () => void;
 }) {
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -54,6 +63,11 @@ export function ConfirmDialog({
           <button ref={cancelRef} className="secondary-button" type="button" onClick={onCancel}>
             {cancelLabel}
           </button>
+          {altLabel && onAlt ? (
+            <button className="secondary-button" type="button" onClick={onAlt} title={altTitle}>
+              {altLabel}
+            </button>
+          ) : null}
           <button
             className={`primary-button${tone === "danger" ? " danger" : ""}`}
             type="button"

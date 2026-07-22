@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_56 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_58 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -65,6 +65,18 @@ Cancel a pending steer
 |---|---|---|---|---|
 | `session_id` | path | yes | string |  |
 | `msg_id` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/chat/{session_id}/history`
+
+Chat session transcript
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | path | yes | string |  |
 
 **Responses:** `200` Successful Response, `422` Validation Error
 
@@ -531,6 +543,18 @@ Server→client event stream (SSE)
 #### `DELETE /api/goal/{session_id}`
 
 Clear a goal
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `session_id` | path | yes | string |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/goal/{session_id}/detach`
+
+Detach a goal drive (run headless)
 
 **Parameters**
 

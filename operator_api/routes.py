@@ -98,6 +98,7 @@ def register_operator_routes(
     skills_list: Callable[[str], dict[str, Any]] | None = None,
     goals_list: Callable[[], dict[str, Any]] | None = None,
     goal_clear: Callable[[str], dict[str, Any]] | None = None,
+    goal_detach: Callable[[str], dict[str, Any]] | None = None,
     targets_list: Callable[[str, str, int], dict[str, Any]] | None = None,
     target_get: Callable[[int], dict[str, Any]] | None = None,
     engagements_list: Callable[[], dict[str, Any]] | None = None,
@@ -115,6 +116,7 @@ def register_operator_routes(
     notes_service: NotesService | None = None,
     chat_commands: Callable[[], dict[str, Any]] | None = None,
     activity_list: Callable[[], Awaitable[dict[str, Any]]] | None = None,
+    chat_history: Callable[[str], Awaitable[dict[str, Any]]] | None = None,
     workflows_list: Callable[[], dict[str, Any]] | None = None,
     workflows_run: Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]] | None = None,
     playbooks_list: Callable[[], dict[str, Any]] | None = None,
@@ -251,6 +253,31 @@ def register_operator_routes(
             return {"cleared": False}
         try:
             return await asyncio.to_thread(goal_clear, session_id)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.post("/api/goal/{session_id}/detach", summary="Detach a goal drive (run headless)")
+    async def _goal_detach(session_id: str):
+        """Hand a goal's drive loop to the scheduler so it keeps iterating with
+        no console attached. The console calls this when the operator closes (or
+        detaches) a drive tab; the resulting self-initiated turn pushes back over
+        ``chat.resumed`` if a console is watching that session again."""
+        if goal_detach is None:
+            raise HTTPException(status_code=409, detail="goal detach is not available")
+        try:
+            return await asyncio.to_thread(goal_detach, session_id)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/chat/{session_id}/history", summary="Chat session transcript")
+    async def _chat_history(session_id: str):
+        """The durable transcript for a chat session, read from the checkpointer.
+        Lets the console ATTACH to a session it has no local copy of — a drive
+        that ran headless, or one started from another client."""
+        if chat_history is None:
+            return {"session_id": session_id, "messages": []}
+        try:
+            return await chat_history(session_id)
         except Exception as exc:
             raise _http_error(exc) from exc
 
