@@ -376,6 +376,22 @@ export const api = {
     return request<{ cleared: boolean }>(`/api/goal/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   },
 
+  // Hand a drive to the scheduler so it keeps iterating with no console attached.
+  detachGoal(sessionId: string) {
+    return request<{ detached: boolean; reason?: string; condition?: string }>(
+      `/api/goal/${encodeURIComponent(sessionId)}/detach`,
+      { method: "POST" },
+    );
+  },
+
+  // A chat session's durable transcript — how a console ATTACHES to a session it
+  // has no local copy of (a drive that ran headless, or one from another client).
+  chatHistory(sessionId: string) {
+    return request<{ session_id: string; messages: { role: string; content: string }[] }>(
+      `/api/chat/${encodeURIComponent(sessionId)}/history`,
+    );
+  },
+
   playbooks() {
     return request<{ count: number; playbooks: PlaybookSummary[] }>("/api/playbooks");
   },

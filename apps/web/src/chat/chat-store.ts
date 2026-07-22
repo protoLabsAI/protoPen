@@ -165,6 +165,40 @@ export const chatStore = {
     return session;
   },
 
+  // ATTACH a session the server already knows about but this client doesn't —
+  // a drive that ran headless, or a session started from another console. The id
+  // is the server's (it keys the checkpointer thread AND the goal), so we adopt it
+  // verbatim rather than minting one: every subsequent turn, and any `chat.resumed`
+  // push, lands in this tab. Returns the session (existing one if already local).
+  attachSession(sessionId: string, title?: string, messages: ChatMessage[] = []) {
+    const existing = state.sessions.find((session) => session.id === sessionId);
+    if (existing) {
+      chatStore.switchSession(sessionId);
+      return existing;
+    }
+    const now = Date.now();
+    const session: ChatSession = {
+      id: sessionId,
+      title: title?.trim() || "Attached drive",
+      messages,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setState((current) => {
+      const sessions = [session, ...current.sessions].slice(0, MAX_SESSIONS);
+      return {
+        ...current,
+        sessions,
+        currentSessionId: session.id,
+        activeSessions: ensureActiveSessions(
+          { ...current, sessions, currentSessionId: session.id },
+          session.id,
+        ),
+      };
+    });
+    return session;
+  },
+
   deleteSession(sessionId: string) {
     setState((current) => {
       const sessions = current.sessions.filter((session) => session.id !== sessionId);

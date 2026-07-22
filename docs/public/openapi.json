@@ -477,6 +477,82 @@
         }
       }
     },
+    "/api/goal/{session_id}/detach": {
+      "post": {
+        "summary": "Detach a goal drive (run headless)",
+        "description": "Hand a goal's drive loop to the scheduler so it keeps iterating with\nno console attached. The console calls this when the operator closes (or\ndetaches) a drive tab; the resulting self-initiated turn pushes back over\n``chat.resumed`` if a console is watching that session again.",
+        "operationId": "_goal_detach_api_goal__session_id__detach_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/{session_id}/history": {
+      "get": {
+        "summary": "Chat session transcript",
+        "description": "The durable transcript for a chat session, read from the checkpointer.\nLets the console ATTACH to a session it has no local copy of — a drive\nthat ran headless, or one started from another client.",
+        "operationId": "_chat_history_api_chat__session_id__history_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/targets": {
       "get": {
         "summary": "List discovered targets",

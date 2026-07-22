@@ -10,6 +10,10 @@ import type { ReactNode } from "react";
 
 type Item = { id: string; label: string; icon: ReactNode };
 
+// Surface order — also what the gamepad's bumpers cycle through (P3), hence
+// exported rather than kept private to the nav.
+export const NAV_SURFACES = ["home", "engagement", "findings", "activity", "capabilities"];
+
 const ITEMS: Item[] = [
   { id: "home", label: "Chat", icon: <MessageSquare size={22} /> },
   { id: "engagement", label: "Engage", icon: <Target size={22} /> },
@@ -23,18 +27,24 @@ export function BottomNav({
   onSelect,
   activityUnread = 0,
   chatStreaming = false,
+  driveActive = false,
 }: {
   surface: string;
   onSelect: (surface: string) => void;
   activityUnread?: number;
   chatStreaming?: boolean;
+  // A goal is driving somewhere — including headless, with nothing streaming
+  // into this browser. Worth a standing marker on Chat: the companion is working
+  // even when the screen is idle (P2).
+  driveActive?: boolean;
 }) {
   return (
     <nav className="thumbnav" aria-label="Primary">
       {ITEMS.map((item) => {
         const active = surface === item.id;
-        // A turn streaming into chat while you're on another surface earns a dot on Chat.
-        const dot = item.id === "home" && chatStreaming && surface !== "home";
+        // A turn streaming into chat while you're on another surface earns a dot on
+        // Chat — as does an active drive, which may be running with nothing streaming.
+        const dot = item.id === "home" && (chatStreaming || driveActive) && surface !== "home";
         const badge = item.id === "activity" && activityUnread > 0 ? activityUnread : 0;
         return (
           <button
@@ -46,7 +56,9 @@ export function BottomNav({
           >
             <span className="nav-icon">
               {item.icon}
-              {dot ? <span className="nav-dot" aria-hidden="true" /> : null}
+              {dot ? (
+                <span className={`nav-dot ${!chatStreaming && driveActive ? "drive" : ""}`} aria-hidden="true" />
+              ) : null}
               {badge ? <span className="nav-badge">{badge > 9 ? "9+" : badge}</span> : null}
             </span>
             {item.label}

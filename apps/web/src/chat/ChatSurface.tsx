@@ -1,4 +1,4 @@
-import { Loader2, MessageSquarePlus, Send, Square, TerminalSquare, X } from "lucide-react";
+import { Loader2, MessageSquarePlus, Radar, Send, Square, TerminalSquare, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../lib/api";
@@ -6,6 +6,8 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { onServerEvent } from "../lib/events";
 import type { ChatMessage, HitlPayload, SlashCommand } from "../lib/types";
 import { chatStore, MAX_ACTIVE_SESSIONS, useChatState } from "./chat-store";
+import { DriveStrip } from "./DriveStrip";
+import { refreshDrives, useDrive, useDrives } from "./drives";
 import { HitlForm } from "./HitlForm";
 import { Markdown } from "./LazyMarkdown";
 import { ToolCalls } from "./ToolCalls";
@@ -38,6 +40,12 @@ export function ChatSurface({
   const pendingDelete = pendingDeleteId
     ? chat.sessions.find((session) => session.id === pendingDeleteId) || null
     : null;
+  // Drives (P2): a goal bound to a session turns its tab into a drive tab. The
+  // goal store is keyed by session id, so the join is just a lookup.
+  const drives = useDrives();
+  const driveFor = (sessionId: string) => drives.find((goal) => goal.session_id === sessionId) || null;
+  const pendingDeleteDrive = pendingDeleteId ? driveFor(pendingDeleteId) : null;
+  const pendingDeleteActive = pendingDeleteDrive?.status === "active";
 
   useEffect(() => {
     if (!chat.currentSessionId && chat.sessions.length === 0) {
@@ -57,6 +65,8 @@ export function ChatSurface({
         const sessionId = typeof data.session_id === "string" ? data.session_id : "";
         const text = typeof data.text === "string" ? data.text : "";
         chatStore.appendResumedTurn(sessionId, text);
+        // A detached drive just landed a turn — its goal likely moved.
+        refreshDrives();
       }),
     [],
   );
@@ -78,9 +88,23 @@ export function ChatSurface({
             const active = session.id === chat.currentSessionId;
             const status = chat.sessionStatusMap[session.id] || "idle";
             const editing = editingId === session.id;
+            const drive = driveFor(session.id);
             return (
-              <div className={`chat-tab ${active ? "active" : ""}`} key={session.id}>
-                <span className={`session-dot ${status}`} title={status} />
+              <div
+                className={`chat-tab ${active ? "active" : ""} ${drive ? `drive drive-${drive.status}` : ""}`}
+                key={session.id}
+              >
+                {drive ? (
+                  <span
+                    className="chat-tab-drive"
+                    title={`Drive (${drive.status}) — ${drive.condition}`}
+                    aria-label="drive"
+                  >
+                    <Radar size={13} />
+                  </span>
+                ) : (
+                  <span className={`session-dot ${status}`} title={status} />
+                )}
                 {editing ? (
                   <input
                     className="chat-tab-rename"
@@ -142,19 +166,50 @@ export function ChatSurface({
         ))}
       </div>
 
+      {/* Closing a DRIVE tab is a three-way choice, not a delete: stop the goal,
+          or let it keep driving headless (detach) and just close the tab. A plain
+          session keeps the original two-button delete. */}
       <ConfirmDialog
         open={pendingDelete !== null}
-        title="Delete session?"
+        title={pendingDeleteActive ? "Close this drive?" : "Delete session?"}
         message={
-          pendingDelete
-            ? `“${pendingDelete.title}” and its messages will be permanently removed. This can't be undone.`
-            : undefined
+          pendingDeleteActive && pendingDeleteDrive
+            ? `This tab is driving a goal: “${pendingDeleteDrive.condition}”. Detach to keep it running without the tab (it reports back when it lands), or stop the goal outright. Either way the transcript is removed from this browser.`
+            : pendingDelete
+              ? `“${pendingDelete.title}” and its messages will be permanently removed. This can't be undone.`
+              : undefined
         }
-        confirmLabel="Delete session"
+        confirmLabel={pendingDeleteActive ? "Stop goal & close" : "Delete session"}
+        altLabel={pendingDeleteActive ? "Detach & close" : undefined}
+        altTitle="Hand the drive to the scheduler — it keeps working and reports back here"
         onConfirm={() => {
-          if (pendingDeleteId) chatStore.deleteSession(pendingDeleteId);
+          if (pendingDeleteId) {
+            // Surface a failed stop (same as the detach path) — otherwise the tab
+            // vanishes while the goal may still be looping server-side, with no UI
+            // left to retry from and no hint anything went wrong.
+            if (pendingDeleteActive)
+              void api
+                .clearGoal(pendingDeleteId)
+                .catch((e) => onError(e instanceof Error ? e.message : String(e)));
+            chatStore.deleteSession(pendingDeleteId);
+            refreshDrives();
+          }
           setPendingDeleteId(null);
         }}
+        onAlt={
+          pendingDeleteActive
+            ? () => {
+                if (pendingDeleteId) {
+                  void api.detachGoal(pendingDeleteId).catch((e) =>
+                    onError(e instanceof Error ? e.message : String(e)),
+                  );
+                  chatStore.deleteSession(pendingDeleteId);
+                  refreshDrives();
+                }
+                setPendingDeleteId(null);
+              }
+            : undefined
+        }
         onCancel={() => setPendingDeleteId(null)}
       />
     </section>
@@ -172,6 +227,7 @@ function ChatSessionSlot({
 }) {
   const session = useSession(sessionId);
   const chat = useChatState();
+  const drive = useDrive(sessionId);
   const [draft, setDraft] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -516,6 +572,9 @@ function ChatSessionSlot({
     } finally {
       abortRef.current = null;
       setTaskId("");
+      // A turn is when a drive advances (or lands) — don't make the strip wait
+      // out the poll interval to show the new iteration/verdict.
+      refreshDrives();
     }
   }
 
@@ -536,6 +595,9 @@ function ChatSessionSlot({
 
   return (
     <div className="chat-session-slot" hidden={!visible}>
+      {/* This tab is driving a goal — show what it's chasing, how far in it is,
+          and the way out (detach / stop). See DriveStrip. */}
+      {drive ? <DriveStrip goal={drive} onError={onError} /> : null}
       <div className="message-list" ref={listRef}>
         {messages.length === 0 ? (
           <div className="empty-state">

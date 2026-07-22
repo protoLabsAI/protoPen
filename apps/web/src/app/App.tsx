@@ -42,12 +42,15 @@ import { EngagementSurface } from "../targets/EngagementSurface";
 import { CapabilitiesSurface } from "../targets/CapabilitiesSurface";
 import { ChatSurface } from "../chat/ChatSurface";
 import { chatStore, useAnyChatStreaming } from "../chat/chat-store";
+import { useDrives } from "../chat/drives";
+import { useGamepadPresent } from "../lib/gamepad";
+import { useGamepadShell } from "./useGamepadShell";
 import { TerminalSurface } from "../terminal/TerminalSurface";
 import { buildOnce, buildRepeat, describeSchedule, WEEKDAYS } from "../schedule/schedule-builder";
 import type { RepeatFreq } from "../schedule/schedule-builder";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
-import { BottomNav } from "./BottomNav";
+import { BottomNav, NAV_SURFACES } from "./BottomNav";
 import { CompanionStatus } from "./CompanionStatus";
 import { HomeSurface } from "./HomeSurface";
 import { LaunchSequence } from "./LaunchSequence";
@@ -238,6 +241,19 @@ export function App() {
   // Background-streaming indicator for the Home rail (narrow selector → only
   // re-renders when the boolean flips, not per streamed token).
   const chatStreaming = useAnyChatStreaming();
+  // Is a goal driving anywhere? True even for a DETACHED drive with nothing
+  // streaming into this browser — that's the case worth a standing marker (P2).
+  const driveActive = useDrives().some((goal) => goal.status === "active");
+  // Game Mode (P3): with a pad attached the shell becomes fully drivable —
+  // directional focus, A/B, bumpers for surfaces — and wears an always-visible
+  // focus ring. Off entirely on a plain desktop, so nothing here changes there.
+  const gamepad = useGamepadPresent();
+  useGamepadShell({
+    enabled: gamepad,
+    surfaces: NAV_SURFACES,
+    surface,
+    setSurface: (next) => setSurface(next as Surface),
+  });
   // Lazy-mount the terminal: don't spawn a shell until the rail is first opened,
   // then keep it mounted (hidden off-rail) so a running command survives nav.
   const [terminalOpened, setTerminalOpened] = useState(false);
@@ -956,7 +972,11 @@ export function App() {
   ];
 
   return (
-    <div className="app-shell" data-shell={isHandheld ? "handheld" : "desktop"}>
+    <div
+      className="app-shell"
+      data-shell={isHandheld ? "handheld" : "desktop"}
+      data-gamepad={gamepad ? "on" : undefined}
+    >
       <LaunchSequence />
       <header className="topbar">
         <div className="brand-lockup">
@@ -1107,7 +1127,7 @@ export function App() {
                 {engagementTab === "engagement"
                   ? "The live engagement — scope, mode ceiling, progress. Set it loose and watch."
                   : engagementTab === "goals"
-                    ? "Autonomy — loop the agent toward a verifier (set with /goal in chat)."
+                    ? "Autonomy — each goal drives a chat session. Set one with /goal in chat; attach to watch it."
                     : engagementTab === "playbooks"
                       ? "Orchestration — a fixed sequence of tool actions (deterministic, no LLM)."
                       : "History — scope, target, and outcome of past engagements."}
@@ -1115,7 +1135,11 @@ export function App() {
               {engagementTab === "engagement" ? (
                 <EngagementSurface engagement={engagement} onChange={setEngagement} onError={setError} />
               ) : null}
-              {engagementTab === "goals" ? <GoalsSurface onError={setError} /> : null}
+              {/* Attaching a drive only makes sense if you then LAND in the chat
+                  tab it just bound — hence onOpenChat (P2). */}
+              {engagementTab === "goals" ? (
+                <GoalsSurface onError={setError} onOpenChat={() => setSurface("home")} />
+              ) : null}
               {engagementTab === "playbooks" ? <PlaybooksSurface onError={setError} /> : null}
               {engagementTab === "history" ? <IntelSurface tab="engagements" onError={setError} /> : null}
             </>
@@ -1996,6 +2020,7 @@ export function App() {
           onSelect={(s) => setSurface(s as Surface)}
           activityUnread={activityUnread}
           chatStreaming={chatStreaming}
+          driveActive={driveActive}
         />
       ) : null}
 
