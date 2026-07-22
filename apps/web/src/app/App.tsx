@@ -47,11 +47,13 @@ import { buildOnce, buildRepeat, describeSchedule, WEEKDAYS } from "../schedule/
 import type { RepeatFreq } from "../schedule/schedule-builder";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { HoverPopover } from "../components/HoverPopover";
+import { BottomNav } from "./BottomNav";
 import { CompanionStatus } from "./CompanionStatus";
 import { HomeSurface } from "./HomeSurface";
 import { LaunchSequence } from "./LaunchSequence";
 import { api, getOperatorKey, setOperatorKey, UnauthorizedError } from "../lib/api";
 import { onConnectionChange, onServerEvent } from "../lib/events";
+import { useIsHandheld } from "../lib/useIsHandheld";
 import type {
   AgentRun,
   AuditEntry,
@@ -227,6 +229,9 @@ function groupIssues(issues: BeadsIssue[]) {
 
 export function App() {
   const [surface, setSurface] = useState<Surface>("home");
+  // Chat-first shell on touch handhelds (the Steam Deck). Capability-switched, not
+  // width-switched — see useIsHandheld / docs/plans/2026-07-22-chat-first-deck-ui.md.
+  const isHandheld = useIsHandheld();
   // Background-streaming indicator for the Home rail (narrow selector → only
   // re-renders when the boolean flips, not per streamed token).
   const chatStreaming = useAnyChatStreaming();
@@ -948,7 +953,7 @@ export function App() {
   ];
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-shell={isHandheld ? "handheld" : "desktop"}>
       <LaunchSequence />
       <header className="topbar">
         <div className="brand-lockup">
@@ -960,6 +965,15 @@ export function App() {
         </div>
         <CompanionStatus engagement={engagement} live={live} />
         <div className="topbar-status">
+          <button
+            type="button"
+            className={`topbar-system-gear ${surface === "system" ? "active" : ""}`}
+            onClick={() => setSurface("system")}
+            aria-label="System"
+            title="System"
+          >
+            <Gauge size={18} />
+          </button>
           <HoverPopover
             placement="bottom-end"
             label="System status"
@@ -997,7 +1011,7 @@ export function App() {
 
       <div
         className={`workspace ${rightCollapsed ? "right-collapsed" : ""}`}
-        style={{ gridTemplateColumns: workspaceCols }}
+        style={isHandheld ? undefined : { gridTemplateColumns: workspaceCols }}
       >
         <aside className="rail" aria-label="Workspace surfaces">
           <RailButton
@@ -1970,6 +1984,15 @@ export function App() {
           ) : null}
         </aside>
       </div>
+
+      {isHandheld ? (
+        <BottomNav
+          surface={surface}
+          onSelect={(s) => setSurface(s as Surface)}
+          activityUnread={activityUnread}
+          chatStreaming={chatStreaming}
+        />
+      ) : null}
 
       <footer className="utility-bar">
         <div className="util-spacer" />
