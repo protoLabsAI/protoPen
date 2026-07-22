@@ -2435,6 +2435,42 @@ textarea {
   animation: deck-rise 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* Stack messages (role label above the content) instead of the desktop's 88px role
+   column — full reading width on the narrow screen, and the agent-initiated tag no
+   longer wraps. Matches the Deck mockup. */
+.app-shell[data-shell="handheld"] .message {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+}
+.app-shell[data-shell="handheld"] .message-resumed-tag {
+  white-space: nowrap;
+}
+
+/* User messages right-align into a bubble (chat-app convention, matches the mockup);
+   the agent's turns stay full-width on the left. */
+.app-shell[data-shell="handheld"] .message-user {
+  justify-items: end;
+  text-align: right;
+}
+.app-shell[data-shell="handheld"] .message-user .message-body {
+  max-width: 85%;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  text-align: left;
+}
+
+/* Topbar presence reads as a contained pill on the handheld (matching the Deck
+   mockup) instead of stretched inline text — border + accent-soft ground. */
+.app-shell[data-shell="handheld"] .companion {
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  gap: 9px;
+  padding: 7px 12px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

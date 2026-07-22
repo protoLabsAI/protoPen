@@ -962,8 +962,10 @@ export function App() {
         <div className="brand-lockup">
           <img src="/app/protolabs-icon-outline.svg" alt="" className="brand-mark" />
           <div>
-            <div className="brand-name">protoPen</div>
-            <div className="brand-subline">protoLabs.studio</div>
+            {/* On the handheld/Deck the wordmark is the appliance's own name (pwnDeck),
+                matching the Deck mockup; the desktop console stays protoPen. */}
+            <div className="brand-name">{isHandheld ? "pwnDeck" : "protoPen"}</div>
+            <div className="brand-subline">{isHandheld ? "protoPen" : "protoLabs.studio"}</div>
           </div>
         </div>
         <CompanionStatus engagement={engagement} live={live} />
