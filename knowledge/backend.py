@@ -58,6 +58,11 @@ class KnowledgeBackend(Protocol):
         """Delete one fact by id. Returns True if a row was removed."""
         ...
 
+    def supersede_fact(self, fact_id: str) -> bool:
+        """Supersede one fact by id (ADR 0069 D9): drop it from recall but keep the row
+        as history (stamped invalidated_at). Returns True if an active fact was superseded."""
+        ...
+
     # ── introspection ─────────────────────────────────────────────────────────
     def get_stats(self) -> dict[str, int]:
         """Row counts per store, for status surfaces."""

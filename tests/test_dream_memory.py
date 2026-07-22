@@ -53,9 +53,11 @@ def test_memory_list_and_forget_memory_tools(tmp_path):
     # forget accepts the id with or without a leading '#'
     out = asyncio.run(forget_memory.coroutine(fact_id=f"#{fid}", reason="duplicate"))
     assert "Forgot fact" in out and "duplicate" in out
+    # Superseded (ADR 0069 D9): dropped from the default list, but the row is retained.
     assert store.list_facts() == []
+    assert any(f["id"] == fid for f in store.list_facts(include_invalidated=True))
 
-    assert "No fact deleted" in asyncio.run(forget_memory.coroutine(fact_id="nope"))
+    assert "No fact forgotten" in asyncio.run(forget_memory.coroutine(fact_id="nope"))
     assert asyncio.run(forget_memory.coroutine(fact_id="")).startswith("Error:")
 
 

@@ -86,9 +86,12 @@ class KnowledgeStore:
                     rowid INTEGER PRIMARY KEY,
                     source_table TEXT NOT NULL,
                     source_id TEXT NOT NULL,
-                    content_preview TEXT
+                    content_preview TEXT,
+                    source_type TEXT,
+                    created_at TEXT
                 )
             """)
+            self._migrate_provenance(db)
             db.commit()
             self._db = db
             return db
@@ -127,6 +130,26 @@ class KnowledgeStore:
                 return f"[{header}] {chunk}"
         return chunk
 
+    @staticmethod
+    def _migrate_provenance(db: sqlite3.Connection) -> None:
+        """Idempotent additive migrations for existing DBs (ADR 0069 phases 3-4).
+
+        A new DB already gets these columns from the CREATE above; an existing Deck DB
+        is ALTERed in place. Purely additive — old rows get NULL, which tiers by table
+        default (correct) and simply shows no stored date. Guarded like the scheduler's
+        lazy migration (scheduler/local.py). No backfill: back-populating provenance for
+        historical rows isn't needed for correctness and isn't worth touching live data.
+        """
+        # Column name is index 1 of PRAGMA table_info (cid, name, type, ...).
+        vec_cols = {r[1] for r in db.execute("PRAGMA table_info(knowledge_vec_map)").fetchall()}
+        if "source_type" not in vec_cols:
+            db.execute("ALTER TABLE knowledge_vec_map ADD COLUMN source_type TEXT")
+        if "created_at" not in vec_cols:
+            db.execute("ALTER TABLE knowledge_vec_map ADD COLUMN created_at TEXT")
+        fact_cols = {r[1] for r in db.execute("PRAGMA table_info(facts)").fetchall()}
+        if fact_cols and "invalidated_at" not in fact_cols:
+            db.execute("ALTER TABLE facts ADD COLUMN invalidated_at TEXT")
+
     def _store_vector(
         self,
         db: sqlite3.Connection,
@@ -134,6 +157,7 @@ class KnowledgeStore:
         table: str,
         source_id: str,
         doc_context: str = "",
+        source_type: str | None = None,
     ) -> bool:
         embed_text = text
         if self.enrich_chunks and doc_context:
@@ -144,8 +168,9 @@ class KnowledgeStore:
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
         cursor = db.execute("INSERT INTO knowledge_vec (embedding) VALUES (?)", (vec_bytes,))
         db.execute(
-            "INSERT INTO knowledge_vec_map (rowid, source_table, source_id, content_preview) VALUES (?, ?, ?, ?)",
-            (cursor.lastrowid, table, str(source_id), text[:_CONTENT_PREVIEW_LEN]),
+            "INSERT INTO knowledge_vec_map (rowid, source_table, source_id, content_preview, source_type, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (cursor.lastrowid, table, str(source_id), text[:_CONTENT_PREVIEW_LEN], source_type, self._now_iso()),
         )
         db.execute(
             "INSERT INTO knowledge_fts (content, source_table, source_id) VALUES (?, ?, ?)",
@@ -186,7 +211,7 @@ class KnowledgeStore:
                 "INSERT INTO facts (id, content, namespace, source, source_type, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (fact_id, content, namespace, source, source_type, self._now_iso()),
             )
-            if not self._store_vector(db, content, "facts", fact_id):
+            if not self._store_vector(db, content, "facts", fact_id, source_type=source_type):
                 # Embeddings down — keep the fact at least keyword-searchable.
                 db.execute(
                     "INSERT INTO knowledge_fts (content, source_table, source_id) VALUES (?, ?, ?)",
@@ -198,17 +223,21 @@ class KnowledgeStore:
             print(f"[knowledge] add_fact failed: {e}")
             return None
 
-    def list_facts(self, namespace: Optional[str] = None, limit: int = 500) -> list[dict[str, Any]]:
+    def list_facts(
+        self, namespace: Optional[str] = None, limit: int = 500, include_invalidated: bool = False
+    ) -> list[dict[str, Any]]:
         """Return stored facts (newest first), optionally namespace-scoped, for
-        consolidation/dedup. ``namespace=None`` returns the global bucket."""
+        consolidation/dedup. ``namespace=None`` returns the global bucket. Superseded
+        facts (``invalidated_at`` set, ADR 0069 D9) are excluded unless requested."""
         db = self._get_db()
         if db is None:
             return []
         try:
             # ``IS`` is null-safe: namespace=None matches the NULL (global) rows.
+            stale_filter = "" if include_invalidated else "AND invalidated_at IS NULL "
             rows = db.execute(
                 "SELECT id, content, namespace, created_at FROM facts "
-                "WHERE namespace IS ? ORDER BY created_at DESC LIMIT ?",
+                f"WHERE namespace IS ? {stale_filter}ORDER BY created_at DESC LIMIT ?",
                 (namespace, limit),
             ).fetchall()
             return [{"id": r[0], "content": r[1], "namespace": r[2], "created_at": r[3]} for r in rows]
@@ -250,6 +279,42 @@ class KnowledgeStore:
             return removed
         except Exception as e:
             print(f"[knowledge] delete_fact failed: {e}")
+            return False
+
+    def supersede_fact(self, fact_id: str) -> bool:
+        """Supersede a fact instead of hard-deleting it (ADR 0069 D9). Stamps
+        ``invalidated_at`` so the facts row survives as history, and removes its FTS +
+        vector entries so it drops out of recall. Returns True if an active fact was
+        superseded. This is what the dream consolidation pass uses to prune — the row
+        stays auditable, but stale/poisoned memory can no longer be recalled."""
+        fact_id = (fact_id or "").strip()
+        if not fact_id:
+            return False
+        db = self._get_db()
+        if db is None:
+            return False
+        try:
+            cur = db.execute(
+                "UPDATE facts SET invalidated_at = ? WHERE id = ? AND invalidated_at IS NULL",
+                (self._now_iso(), fact_id),
+            )
+            superseded = cur.rowcount > 0
+            # Drop it from recall (FTS + vector), same cleanup as delete_fact.
+            db.execute("DELETE FROM knowledge_fts WHERE source_table = 'facts' AND source_id = ?", (fact_id,))
+            vec_rows = db.execute(
+                "SELECT rowid FROM knowledge_vec_map WHERE source_table = 'facts' AND source_id = ?",
+                (fact_id,),
+            ).fetchall()
+            for (rowid,) in vec_rows:
+                try:
+                    db.execute("DELETE FROM knowledge_vec WHERE rowid = ?", (rowid,))
+                except Exception:
+                    pass  # vec0 table may be absent when embeddings are off
+            db.execute("DELETE FROM knowledge_vec_map WHERE source_table = 'facts' AND source_id = ?", (fact_id,))
+            db.commit()
+            return superseded
+        except Exception as e:
+            print(f"[knowledge] supersede_fact failed: {e}")
             return False
 
     # --- CVEs ---
@@ -453,7 +518,9 @@ class KnowledgeStore:
             (content, source, source_type, topic, intel_type, severity, target_relevance, now),
         )
         doc_context = f"Threat intel ({intel_type}) on topic: {topic or 'general'}. Source: {source or 'unknown'}"
-        self._store_vector(db, content, "threat_intel", str(cursor.lastrowid), doc_context=doc_context)
+        self._store_vector(
+            db, content, "threat_intel", str(cursor.lastrowid), doc_context=doc_context, source_type=source_type
+        )
         db.commit()
         return True
 
@@ -546,7 +613,7 @@ class KnowledgeStore:
             return self.keyword_search(query, k=k, filter_table=filter_table)
         vec_bytes = struct.pack(f"{len(embedding)}f", *embedding)
         rows = db.execute(
-            """SELECT m.source_table, m.source_id, m.content_preview, v.distance
+            """SELECT m.source_table, m.source_id, m.content_preview, v.distance, m.source_type, m.created_at
                FROM knowledge_vec v
                JOIN knowledge_vec_map m ON m.rowid = v.rowid
                WHERE v.embedding MATCH ? AND k = ?
@@ -555,15 +622,18 @@ class KnowledgeStore:
         ).fetchall()
 
         results = []
-        for table, source_id, preview, distance in rows:
+        for table, source_id, preview, distance, source_type, created_at in rows:
             if filter_table and table != filter_table:
                 continue
             results.append(
                 {
+                    "id": f"{table}:{source_id}",
                     "table": table,
                     "source_id": source_id,
                     "preview": preview,
                     "distance": distance,
+                    "source_type": source_type,
+                    "created_at": created_at,
                 }
             )
         return results
@@ -582,10 +652,13 @@ class KnowledgeStore:
             return []
         try:
             rows = db.execute(
-                """SELECT source_table, source_id, content, rank
+                """SELECT knowledge_fts.source_table, knowledge_fts.source_id, knowledge_fts.content,
+                          knowledge_fts.rank, m.source_type, m.created_at
                    FROM knowledge_fts
+                   LEFT JOIN knowledge_vec_map m
+                     ON m.source_table = knowledge_fts.source_table AND m.source_id = knowledge_fts.source_id
                    WHERE knowledge_fts MATCH ?
-                   ORDER BY rank
+                   ORDER BY knowledge_fts.rank
                    LIMIT ?""",
                 (query, k * 2),
             ).fetchall()
@@ -593,16 +666,19 @@ class KnowledgeStore:
             return []
 
         results = []
-        for table, source_id, content, rank in rows:
+        for table, source_id, content, rank, source_type, created_at in rows:
             if filter_table and table != filter_table:
                 continue
             results.append(
                 {
+                    "id": f"{table}:{source_id}",
                     "table": table,
                     "source_id": source_id,
                     "preview": content,
                     "distance": 0.0,
                     "bm25_rank": rank,
+                    "source_type": source_type,
+                    "created_at": created_at,
                 }
             )
             if len(results) >= k:

@@ -13,7 +13,16 @@ import inspect
 from knowledge.backend import KnowledgeBackend
 from knowledge.store import KnowledgeStore
 
-_METHODS = ["search", "keyword_search", "hybrid_search", "add_fact", "list_facts", "delete_fact", "get_stats"]
+_METHODS = [
+    "search",
+    "keyword_search",
+    "hybrid_search",
+    "add_fact",
+    "list_facts",
+    "delete_fact",
+    "supersede_fact",
+    "get_stats",
+]
 
 
 def test_store_is_instance_of_backend(tmp_path):
