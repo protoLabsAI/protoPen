@@ -177,6 +177,10 @@ export type ChatMessage = {
   /** A2A task id for this turn — persisted so a stuck `streaming` message can be
    *  reconciled against the server's task state on reload (self-heal). */
   taskId?: string;
+  /** The agent started this turn on its own — a scheduler wake, a wait-resume, or
+   *  a background push-resume — rather than in reply to a user message. Pushed live
+   *  via the `chat.resumed` server event and flagged so the surface can mark it. */
+  resumed?: boolean;
 };
 
 export type SlashCommand = {

@@ -34,6 +34,31 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _event_bus = EventBus()
 
 
+def _terminal_event(outcome) -> tuple[str, dict] | None:
+    """Decide which live event (if any) a terminal ``TurnOutcome`` should push
+    to connected consoles. Pure + host-agnostic so it is unit-testable without a
+    running app (see tests/test_chat_resumed.py).
+
+    - Durable Activity thread → ``activity.message`` (ADR 0003, unchanged).
+    - A SELF-INITIATED turn landing in a chat session (a scheduler wake /
+      wait-resume / background push-resume, marked ``origin="scheduler"`` by the
+      scheduler loopback) → ``chat.resumed``, so the console appends it live
+      instead of only on the next refetch (protopen-1hw.11).
+    - A normal caller-driven chat turn (``origin=""``) → ``None``: the browser is
+      already streaming that turn over its own open connection, so re-publishing
+      it here would double-render it.
+    """
+    text = _strip_think(getattr(outcome, "text", "") or "")
+    if not text.strip():
+        return None
+    context_id = getattr(outcome, "context_id", "") or ""
+    if context_id == ACTIVITY_CONTEXT:
+        return "activity.message", {"role": "assistant", "text": text, "context_id": context_id}
+    if getattr(outcome, "origin", "") == "scheduler":
+        return "chat.resumed", {"role": "assistant", "text": text, "session_id": context_id}
+    return None
+
+
 def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     """Assemble the protoPen ASGI app (see module docstring)."""
     # ---------------------------------------------------------------------------
@@ -259,18 +284,15 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
 
     def _a2a_terminal(outcome) -> None:
         """A2A terminal hook (ADR 0003). Fired by ProtoPenExecutor with a
-        TurnOutcome when a turn reaches a terminal state: when the turn belongs
-        to the durable Activity thread, push the assistant's visible output to
-        the event bus so connected consoles append it live. No-op otherwise."""
-        if getattr(outcome, "context_id", "") != ACTIVITY_CONTEXT:
-            return None
-        text = _strip_think(getattr(outcome, "text", "") or "")
-        if not text.strip():
-            return None
-        _event_bus.publish(
-            "activity.message",
-            {"role": "assistant", "text": text, "context_id": ACTIVITY_CONTEXT},
-        )
+        TurnOutcome when a turn reaches a terminal state. Pushes the assistant's
+        visible output to the event bus so connected consoles append it live —
+        as ``activity.message`` for the durable Activity thread, or ``chat.resumed``
+        for a self-initiated turn in a chat session (scheduler / wait-resume /
+        background push-resume). A normal caller-streamed chat turn is a no-op
+        here (the browser already rendered it). See ``_terminal_event``."""
+        event = _terminal_event(outcome)
+        if event is not None:
+            _event_bus.publish(*event)
 
     async def _operator_activity_list() -> dict:
         """Return the Activity thread's message history from the checkpointer

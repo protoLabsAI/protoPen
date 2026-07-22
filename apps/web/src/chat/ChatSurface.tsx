@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { onServerEvent } from "../lib/events";
 import type { ChatMessage, HitlPayload, SlashCommand } from "../lib/types";
 import { chatStore, MAX_ACTIVE_SESSIONS, useChatState } from "./chat-store";
 import { HitlForm } from "./HitlForm";
@@ -43,6 +44,22 @@ export function ChatSurface({
       chatStore.createSession();
     }
   }, [chat.currentSessionId, chat.sessions.length]);
+
+  // Live-render self-initiated turns (a scheduler wake / wait-resume / background
+  // push-resume): the server pushes `chat.resumed` because the browser has no open
+  // stream for a turn it didn't start (protopen-1hw.11). Append it to the target
+  // session so it appears live instead of only on the next refetch. One
+  // app-lifetime subscription here (this surface stays mounted for the app's life),
+  // not per-slot — a resumed turn can target a session that isn't currently open.
+  useEffect(
+    () =>
+      onServerEvent("chat.resumed", (data) => {
+        const sessionId = typeof data.session_id === "string" ? data.session_id : "";
+        const text = typeof data.text === "string" ? data.text : "";
+        chatStore.appendResumedTurn(sessionId, text);
+      }),
+    [],
+  );
 
   const atSessionCap = chat.sessions.length >= MAX_ACTIVE_SESSIONS;
 
@@ -528,7 +545,14 @@ function ChatSessionSlot({
         ) : (
           messages.map((message) => (
             <article className={`message message-${message.role}`} key={message.id || `${message.role}-${message.createdAt}`}>
-              <div className="message-role">{message.role}</div>
+              <div className="message-role">
+                {message.role}
+                {message.resumed ? (
+                  <span className="message-resumed-tag" title="The agent started this turn on its own (scheduled task, wait-resume, or a completed background job)">
+                    ↻ agent-initiated
+                  </span>
+                ) : null}
+              </div>
               <div className="message-body">
                 {message.toolCalls && message.toolCalls.length > 0 ? (
                   <ToolCalls calls={message.toolCalls} />
