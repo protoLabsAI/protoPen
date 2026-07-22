@@ -148,7 +148,7 @@ _92 tools, generated from the live registry — do not edit by hand._
 | `cancel_schedule` | Cancel a scheduled job by id (from ``schedule_task`` or ``list_schedules``) |
 | `wait` | Yield this turn and get re-invoked later — instead of busy-waiting |
 | `memory_list` | List durable semantic facts, each prefixed with its #id so you can target one for forget_memory |
-| `forget_memory` | Delete exactly ONE durable fact by its id (from memory_list) — for pruning a stale, superseded, or duplicate fact |
+| `forget_memory` | Forget exactly ONE durable fact by its id (from memory_list) — for pruning a stale, superseded, or duplicate fact |
 | `recent_activity` | Read-only digest of recent tool activity (the audit log) — what the agent has been doing lately |
 | `create_task` | Track a long-running or multi-step task in the persistent tracker (beads) |
 | `list_tasks` | List tracked tasks |
