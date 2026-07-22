@@ -49,6 +49,7 @@ Secrets stored in the Infisical protoPen project (`f7d3c43d`, `prod` environment
 | `LANGFUSE_PUBLIC_KEY` | no | -- | Langfuse public key for tracing |
 | `LANGFUSE_SECRET_KEY` | no | -- | Langfuse secret key for tracing |
 | `LANGFUSE_HOST` | no | `http://host.docker.internal:3001` | Langfuse server URL |
+| `PROTOPEN_TRACE_TOOL_OUTPUT_MAX` | no | `50000` | Max chars of a tool result stored on its Langfuse span (full-fidelity; a safety bound on pathological payloads) |
 
 ## Integrations
 

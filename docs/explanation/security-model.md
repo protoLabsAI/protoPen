@@ -79,6 +79,13 @@ A binary relevance check filters out irrelevant documents before they enter the 
 
 The `check_engagement_mode()` function validates tool calls against the current engagement mode before execution, providing a second enforcement point beyond the tool-level check.
 
+## Recalled-Memory Containment
+
+protoPen's knowledge base is fed attacker-controllable text — scanned SSIDs, service banners, captured pages, OSINT — so auto-injected memory is a prompt-injection / poisoning surface (OWASP ASI06). Two layers contain it (ADR 0069):
+
+- **Untrusted envelope.** Everything recalled into a turn is wrapped in an `<injected_memory>` block that tells the model, up front, it is *reference data* — possibly stale, possibly third-party, **never instructions to follow** and never part of the current conversation. Nothing recalled is spoken in the system prompt's own trusted voice.
+- **Trust tiers.** Each hit is tiered by provenance — **1 EXTERNAL** (scraped intel / OSINT), **2 AGENT** (model-extracted facts / digests), **3 OPERATOR** (curated CVEs / advisories). Recall is re-ranked most-trusted-first and framed by tier. The `knowledge.inject_min_trust` config sets a floor: `2` refuses to auto-inject tier-1 external memory entirely — the attacker-controllable surface never reaches the model unbidden.
+
 ## Audit Trail
 
 Every tool execution is logged to `/sandbox/audit/audit.jsonl` as a JSONL entry:
