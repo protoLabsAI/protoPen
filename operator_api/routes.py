@@ -103,6 +103,7 @@ def register_operator_routes(
     engagements_list: Callable[[], dict[str, Any]] | None = None,
     intel_search: Callable[[str, int], dict[str, Any]] | None = None,
     audit_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
+    injections_recent: Callable[[int, str | None], dict[str, Any]] | None = None,
     agent_launch: Callable[[dict[str, Any]], str] | None = None,
     agent_list: Callable[[], list[dict[str, Any]]] | None = None,
     agent_get: Callable[[str], dict[str, Any] | None] | None = None,
@@ -295,6 +296,15 @@ def register_operator_routes(
             return {"count": 0, "entries": [], "summary": {"total": 0, "successes": 0, "failures": 0}}
         try:
             return await asyncio.to_thread(audit_recent, n, session_id)
+        except Exception as exc:
+            raise _http_error(exc) from exc
+
+    @router.get("/api/memory/injections", summary="Recent auto-injected memory (ADR 0069 forensics)")
+    async def _memory_injections(n: int = 50, session_id: str | None = None):
+        if injections_recent is None:
+            return {"count": 0, "events": [], "summary": {"total": 0, "by_tier": {"1": 0, "2": 0, "3": 0}}}
+        try:
+            return await asyncio.to_thread(injections_recent, n, session_id)
         except Exception as exc:
             raise _http_error(exc) from exc
 
