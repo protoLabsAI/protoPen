@@ -122,7 +122,7 @@ curl -s http://steamdeck:7870/tasks/$TASK_ID | jq '.artifacts[0].parts[0].text'
 
 ## Streaming (SSE)
 
-### JSON-RPC stream (POST /a2a, method: message/sendStream)
+### JSON-RPC stream (POST /a2a, method: message/stream)
 
 ```bash
 curl -N -X POST http://steamdeck:7870/a2a \
@@ -131,7 +131,7 @@ curl -N -X POST http://steamdeck:7870/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 2,
-    "method": "message/sendStream",
+    "method": "message/stream",
     "params": {
       "message": {
         "role": "user",
@@ -270,7 +270,7 @@ If no API key is configured, the A2A endpoint is open to anyone who can reach th
 
 Recon, audits, and multi-step exploits can take 5–10 minutes. Rather than polling every few seconds, use one of:
 
-- **SSE streaming** (`message/sendStream` or `POST /message:stream`) — get incremental output as the agent works
+- **SSE streaming** (`message/stream` or `POST /message:stream`) — get incremental output as the agent works
 - **Webhooks** — register a push notification config and receive a POST when the task completes
 - **Subscribe endpoint** (`GET /tasks/{id}:subscribe`) — reconnect to a running task's SSE stream at any point
 

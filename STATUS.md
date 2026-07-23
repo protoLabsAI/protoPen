@@ -109,7 +109,7 @@ technique_library, playbook, chain_planner
 
 - **Discord Webhook** — Created `protoPen Security Reports` webhook for channel `1493168494945243227`. Used for publishing engagement reports as color-coded severity embeds.
 - **Infisical** — `DISCORD_WEBHOOK_URL` added to protoPen `prod` vault. Auto-exported at startup via `start.sh`.
-- **A2A Protocol** — Verified end-to-end: JSON-RPC `message/send` and `message/sendStream` working for agent-to-agent delegation. Used to orchestrate a full LAN red team engagement remotely.
+- **A2A Protocol** — Verified end-to-end: JSON-RPC `message/send` and `message/stream` working for agent-to-agent delegation. Used to orchestrate a full LAN red team engagement remotely. The `/a2a` mount dispatches both the A2A-spec JSON-RPC names (`message/send`, `message/stream`, `tasks/get`, …) and the gRPC-style proto names (`SendMessage`, `SendStreamingMessage`, `GetTask`, …) via `enable_v0_3_compat` (issue #322).
 - **Engagement Reports** — `engagement generate_report` saves full markdown report to `<workspace_dir>/<engagement_name>/report.md` (default: `/home/deck/engagements/`).
 
 ## Bugfixes (2026-04-13)

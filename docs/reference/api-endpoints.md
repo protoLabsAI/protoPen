@@ -745,12 +745,19 @@ Returns the A2A agent card describing protoPen's capabilities and skills.
 
 JSON-RPC 2.0 envelope. Dispatches to the method named in `"method"`.
 
+The endpoint accepts **two equivalent method-name sets** (issue #322): the
+A2A-spec JSON-RPC names below (`message/send`, `message/stream`, `tasks/get`,
+`tasks/cancel`, `agent/getAuthenticatedExtendedCard`, …) and the gRPC-style
+proto names the console and scheduler use (`SendMessage`,
+`SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, …). Both drive the
+same executor. External callers should prefer the spec names.
+
 **Methods:**
 
 | Method | Description |
 |---|---|
 | `message/send` | Submit task — returns `submitted` immediately, runs in background |
-| `message/sendStream` | Submit task and stream SSE events; first frame is always `submitted` |
+| `message/stream` | Submit task and stream SSE events; first frame is always `submitted` |
 
 ---
 
@@ -772,7 +779,7 @@ REST alias for `message/send`. Returns `HTTP 202 Accepted` with the task record 
 
 ### `POST /message:stream`
 
-REST alias for `message/sendStream`. Returns `text/event-stream`. First SSE frame carries `submitted` state + task ID.
+REST alias for `message/stream`. Returns `text/event-stream`. First SSE frame carries `submitted` state + task ID.
 
 ---
 
