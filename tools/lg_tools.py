@@ -26,6 +26,7 @@ import threading
 log = logging.getLogger(__name__)
 
 from tools.cve_search import CVESearchTool
+from tools.vuln_range import VulnRangeTool
 from tools.security_feeds import SecurityFeedsTool
 from tools.github_trending import GitHubTrendingTool
 from tools.security_memory import SecurityMemoryTool
@@ -119,6 +120,7 @@ from tools.traffic_analysis import TrafficAnalysisTool
 
 # Instantiate underlying tool classes (stateless singletons)
 _cve_search = CVESearchTool()
+_vuln_range = VulnRangeTool()
 _security_feeds = SecurityFeedsTool()
 _github_trending = GitHubTrendingTool()
 _browser = BrowserTool()
@@ -286,6 +288,37 @@ async def cve_search(
         product=product,
         days=days,
         limit=limit,
+    )
+
+
+@tool
+async def vuln_range(
+    action: str,
+    target_image: str,
+    cmd: str = "",
+    workdir: str = "",
+    path: str = "",
+    content_b64: str = "",
+    timeout_s: int = 60,
+) -> str:
+    """Isolated workbench for memory-safety vuln research on a staged C/C++ target.
+
+    - exec:  run a shell command in the sandbox (read /src, `secb build`, run the binary
+             against your candidate input, read the AddressSanitizer/UBSan output)
+    - write: write bytes to a file (base64) — for binary PoC inputs
+    - reset: tear the sandbox down and start fresh
+
+    Builds and files persist across calls (one container per target_image). Confirm the crash
+    here before reporting the PoC.
+    """
+    return await _vuln_range.execute(
+        action=action,
+        target_image=target_image,
+        cmd=cmd,
+        workdir=workdir,
+        path=path,
+        content_b64=content_b64,
+        timeout_s=timeout_s,
     )
 
 
@@ -1199,6 +1232,7 @@ def get_security_tools(knowledge_store=None):
     """Get security-domain tools as LangChain tool objects."""
     tools = [
         cve_search,
+        vuln_range,
         security_feeds,
         github_trending,
         browser,
