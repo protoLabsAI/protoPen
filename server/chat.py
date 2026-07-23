@@ -48,6 +48,72 @@ def _strip_think(text: str) -> str:
     return text.strip()
 
 
+class _ThinkStreamFilter:
+    """Stateful ``<think>...</think>`` remover for STREAMED chunks.
+
+    Removing think blocks by applying ``_strip_think`` per chunk is wrong two ways: (1) it leaks
+    hidden reasoning when a tag straddles a chunk boundary (``<think>`` / ``secret`` / ``</think>``
+    arrive in separate tokens, so no single chunk contains the full pair) and (2) the per-chunk
+    ``.strip()`` eats the leading space each streamed token carries, concatenating the answer.
+
+    This filter tracks in/out-of-think state across chunks and buffers a partial tag straddling a
+    boundary, so reasoning never leaks and whitespace is preserved. Visible text only.
+    """
+
+    _OPEN = "<think>"
+    _CLOSE = "</think>"
+
+    def __init__(self) -> None:
+        self._in_think = False
+        self._buf = ""  # unresolved tail — may be the start of a tag we haven't fully seen yet
+
+    @staticmethod
+    def _partial_tail(s: str, tag: str) -> int:
+        """Length of the longest suffix of ``s`` that is a proper prefix of ``tag``."""
+        for k in range(min(len(s), len(tag) - 1), 0, -1):
+            if s.endswith(tag[:k]):
+                return k
+        return 0
+
+    def feed(self, chunk: str) -> str:
+        self._buf += chunk
+        out: list[str] = []
+        while True:
+            if not self._in_think:
+                oi = self._buf.find(self._OPEN)
+                ci = self._buf.find(self._CLOSE)
+                if oi >= 0 and (ci < 0 or oi < ci):  # enter a think block
+                    out.append(self._buf[:oi])
+                    self._buf = self._buf[oi + len(self._OPEN) :]
+                    self._in_think = True
+                    continue
+                if ci >= 0:  # stray close tag — drop it
+                    out.append(self._buf[:ci])
+                    self._buf = self._buf[ci + len(self._CLOSE) :]
+                    continue
+                keep = max(self._partial_tail(self._buf, self._OPEN), self._partial_tail(self._buf, self._CLOSE))
+                if keep < len(self._buf):
+                    out.append(self._buf[: len(self._buf) - keep])
+                self._buf = self._buf[len(self._buf) - keep :]
+                break
+            else:
+                ci = self._buf.find(self._CLOSE)
+                if ci >= 0:  # leave the think block (content dropped)
+                    self._buf = self._buf[ci + len(self._CLOSE) :]
+                    self._in_think = False
+                    continue
+                keep = self._partial_tail(self._buf, self._CLOSE)  # suppress all but a partial close
+                self._buf = self._buf[len(self._buf) - keep :]
+                break
+        return "".join(out)
+
+    def flush(self) -> str:
+        """End of stream: emit any buffered visible text (nothing if still mid-think)."""
+        out = "" if self._in_think else self._buf
+        self._buf = ""
+        return out
+
+
 # ── on-demand slash skills / subagents (protopen-1hw.13 / 1hw.14) ─────────────
 
 
@@ -325,6 +391,7 @@ async def _chat_langgraph_stream(
     try:
         while True:
             accumulated_text = ""
+            think_filter = _ThinkStreamFilter()
             async for event in STATE.graph.astream_events(
                 {"messages": [HumanMessage(content=turn_input)], "session_id": session_id},
                 config=config,
@@ -369,11 +436,17 @@ async def _chat_langgraph_stream(
                         continue
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
-                        content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                        content = _strip_think(content)
+                        raw = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                        # stateful filter: removes <think> across chunk boundaries, preserves spaces
+                        content = think_filter.feed(raw)
                         if content:
                             accumulated_text += content
                             yield ("text", content)
+
+            tail = think_filter.flush()  # any buffered trailing visible text at stream end
+            if tail:
+                accumulated_text += tail
+                yield ("text", tail)
 
             final = _strip_think(accumulated_text)
 
