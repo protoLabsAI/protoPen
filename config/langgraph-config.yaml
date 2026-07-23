@@ -3,7 +3,7 @@
 
 model:
   provider: gateway  # LiteLLM gateway on ava (Tailscale)
-  name: protolabs/reasoning
+  name: protolabs/smart
   api_base: http://ava:4000/v1
   api_key: ""  # read from OPENAI_API_KEY env at runtime
   temperature: 0.3
