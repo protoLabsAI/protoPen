@@ -10,7 +10,9 @@ only; scoring is done independently by the range's /detonate verifier (the agent
 so it cannot game its own reward) — mirrors SEC-bench's separation of solver and checker.
 
 Env:
-  RANGE_URL   base URL of the range daemon (default http://10.99.9.56:8443)
+  RANGE_URL   base URL of the range daemon. Default is the tailnet forward
+              (https://protolabs.taild25506.ts.net:8446 → range VM), reachable from any
+              protoPen node. Override with http://10.99.9.56:8443 when running on the range host.
 
 Authorized use only — the operator's own isolated range, security research.
 """
@@ -27,7 +29,7 @@ import httpx
 
 from tools._tool_base import Tool
 
-_RANGE_URL = os.environ.get("RANGE_URL", "http://10.99.9.56:8443")
+_RANGE_URL = os.environ.get("RANGE_URL", "https://protolabs.taild25506.ts.net:8446")
 _TIMEOUT = 120
 
 
