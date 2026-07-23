@@ -179,8 +179,15 @@ def test_build_agent_card_omits_bearer_when_not_configured():
 # ── ProtoPenExecutor end-to-end (through a2a-sdk) ───────────────────────────
 
 
-def _build_app(stream_fn, *, bearer=None, api_key="", allowed_origins=None):
-    """Mount a real a2a-sdk app driven by ProtoPenExecutor(stream_fn)."""
+def _build_app(stream_fn, *, bearer=None, api_key="", allowed_origins=None, compat=True):
+    """Mount a real a2a-sdk app driven by ProtoPenExecutor(stream_fn).
+
+    ``compat`` mirrors production (server/a2a.py mounts with
+    ``enable_v0_3_compat=True``) so the spec-standard JSON-RPC method names
+    (``message/send`` / ``message/stream`` / ``tasks/get`` …) dispatch alongside
+    the gRPC-style proto names (``SendMessage`` …). Defaults on so every test
+    exercises the same wiring the server ships.
+    """
     card = pa.build_agent_card(
         name="test",
         description="d",
@@ -213,7 +220,7 @@ def _build_app(stream_fn, *, bearer=None, api_key="", allowed_origins=None):
     add_a2a_routes_to_fastapi(
         app,
         agent_card_routes=create_agent_card_routes(card),
-        jsonrpc_routes=create_jsonrpc_routes(handler, rpc_url="/a2a"),
+        jsonrpc_routes=create_jsonrpc_routes(handler, rpc_url="/a2a", enable_v0_3_compat=compat),
     )
     return app
 
@@ -707,3 +714,107 @@ def test_caller_trace_empty_when_absent():
     msg = type("Msg", (), {"metadata": None})()
     ctx = type("Ctx", (), {"metadata": {}, "message": msg})()
     assert _extract_caller_trace(ctx) == {}
+
+
+# ── v0.3 JSON-RPC method names dispatch (issue #322) ──────────────────────────
+# The a2a-sdk dispatcher keys natively only on the gRPC-style proto names
+# (SendMessage / GetTask / …). The A2A-spec-standard names (message/send,
+# message/stream, tasks/get, …) — what external clients, our docs, and
+# cross-agent peers send — dispatch only when the mount enables v0.3 compat.
+# server/a2a.py mounts with enable_v0_3_compat=True; these lock that in.
+
+# v0.3 message shape: lowercase role + member-tagged parts ({"kind": "text"}),
+# not the proto ROLE_USER / {"text": …} shape the proto SendMessage path takes.
+_V03_MSG = {"message": {"messageId": "m1", "role": "user", "parts": [{"kind": "text", "text": "ping"}]}}
+
+
+@pytest.mark.asyncio
+async def test_v03_message_send_dispatches_and_completes():
+    """POST {method: "message/send"} runs the turn end-to-end and returns a
+    v0.3-shaped task carrying the answer artifact — the interface every doc,
+    tutorial, and external A2A caller uses."""
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
+        yield ("text", "hello ")
+        yield ("text", "world")
+        yield ("done", "hello world")
+
+    app = _build_app(stream)  # compat=True (production parity)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        r = await c.post(
+            "/a2a",
+            json={"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": _V03_MSG},
+        )
+        assert r.status_code == 200
+        body = r.json()
+        assert "error" not in body, body
+        task = body["result"]
+        assert task["kind"] == "task"
+        assert task["status"]["state"] == "completed"
+        texts = [p["text"] for a in task["artifacts"] for p in a["parts"] if p.get("kind") == "text"]
+        assert "hello world" in texts
+
+
+@pytest.mark.asyncio
+async def test_v03_message_stream_dispatches_as_sse():
+    """POST {method: "message/stream"} returns an SSE stream of JSON-RPC result
+    frames driven by the same ProtoPenExecutor."""
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
+        yield ("text", "streamed")
+        yield ("done", "streamed")
+
+    app = _build_app(stream)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        async with c.stream(
+            "POST",
+            "/a2a",
+            json={"jsonrpc": "2.0", "id": "1", "method": "message/stream", "params": _V03_MSG},
+        ) as r:
+            assert r.status_code == 200
+            assert "text/event-stream" in r.headers.get("content-type", "")
+            saw_result = False
+            async for line in r.aiter_lines():
+                if line.startswith("data:") and '"result"' in line:
+                    saw_result = True
+                    break
+            assert saw_result
+
+
+@pytest.mark.asyncio
+async def test_v03_names_return_method_not_found_without_compat():
+    """Guard: with compat disabled the spec-standard names 404 at the JSON-RPC
+    layer (-32601). This is exactly the #322 breakage — documents why the mount
+    must keep enable_v0_3_compat=True."""
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
+        yield ("done", "x")
+
+    app = _build_app(stream, compat=False)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        r = await c.post(
+            "/a2a",
+            json={"jsonrpc": "2.0", "id": "1", "method": "message/send", "params": _V03_MSG},
+        )
+        assert r.status_code == 200
+        assert r.json()["error"]["code"] == -32601
+
+
+@pytest.mark.asyncio
+async def test_proto_send_message_still_dispatches_with_compat():
+    """The proto names the console / scheduler / smoke path use keep working with
+    compat on — the flag is additive, not a replacement."""
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
+        yield ("text", "proto ok")
+        yield ("done", "proto ok")
+
+    app = _build_app(stream)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        r = await _send_msg(c)  # method="SendMessage", proto message shape
+        assert r.status_code == 200
+        body = r.json()
+        assert "error" not in body, body
+        # Proto SendMessage wraps the task in result.task (SendMessageResponse);
+        # v0.3 message/send returns the task directly at result — both dispatch.
+        assert body["result"]["task"]["id"]
