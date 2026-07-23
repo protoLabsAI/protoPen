@@ -58,29 +58,28 @@ class _ThinkStreamFilter:
             if not self._in_think:
                 oi = self._buf.find(self._OPEN)
                 ci = self._buf.find(self._CLOSE)
-                if oi >= 0 and (ci < 0 or oi < ci):        # enter a think block
+                if oi >= 0 and (ci < 0 or oi < ci):  # enter a think block
                     out.append(self._buf[:oi])
-                    self._buf = self._buf[oi + len(self._OPEN):]
+                    self._buf = self._buf[oi + len(self._OPEN) :]
                     self._in_think = True
                     continue
-                if ci >= 0:                                # stray close tag — drop it
+                if ci >= 0:  # stray close tag — drop it
                     out.append(self._buf[:ci])
-                    self._buf = self._buf[ci + len(self._CLOSE):]
+                    self._buf = self._buf[ci + len(self._CLOSE) :]
                     continue
-                keep = max(self._partial_tail(self._buf, self._OPEN),
-                           self._partial_tail(self._buf, self._CLOSE))
+                keep = max(self._partial_tail(self._buf, self._OPEN), self._partial_tail(self._buf, self._CLOSE))
                 if keep < len(self._buf):
-                    out.append(self._buf[:len(self._buf) - keep])
-                self._buf = self._buf[len(self._buf) - keep:]
+                    out.append(self._buf[: len(self._buf) - keep])
+                self._buf = self._buf[len(self._buf) - keep :]
                 break
             else:
                 ci = self._buf.find(self._CLOSE)
-                if ci >= 0:                                # leave the think block (content dropped)
-                    self._buf = self._buf[ci + len(self._CLOSE):]
+                if ci >= 0:  # leave the think block (content dropped)
+                    self._buf = self._buf[ci + len(self._CLOSE) :]
                     self._in_think = False
                     continue
                 keep = self._partial_tail(self._buf, self._CLOSE)  # suppress all but a partial close
-                self._buf = self._buf[len(self._buf) - keep:]
+                self._buf = self._buf[len(self._buf) - keep :]
                 break
         return "".join(out)
 

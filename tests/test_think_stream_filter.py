@@ -3,6 +3,7 @@
 Covers the failure modes of the old per-chunk _strip_think: hidden reasoning leaking when a tag
 straddles a chunk boundary, and inter-token spaces being stripped.
 """
+
 from server.chat import _ThinkStreamFilter
 
 
