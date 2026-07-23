@@ -17,6 +17,29 @@ for a month. `scripts/deck-web.sh` keeps it fresh and fails loudly if the served
 doesn't match what it just built. (Backend changes still need a full image rebuild +
 `deck-runtime-image.yml` + pull/restart — the backend is baked, not mounted.)
 
+## Keeping the Deck reachable (disable suspend)
+
+Deep-suspend (S3) freezes **everything** — wifi, `tailscaled`, and the runtime
+container — so a suspended Deck is offline in *both* Desktop and Game Mode, and any
+in-flight or [headless goal drive](../reference/goals.md#headless-drives-detach--attach)
+stalls. This is **not** a tailscale problem: `tailscaled` is a lingering,
+boot-persistent user service that stays up across sessions. Suspend is driven by
+Steam/SteamOS via `logind` → `suspend.target`.
+
+To keep the Deck always reachable (e.g. for remote ops or a headless drive), mask
+the sleep targets:
+
+```bash
+ssh deck@steamdeck 'sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target'
+# verify it refuses to sleep WITHOUT actually sleeping:
+ssh deck@steamdeck 'sudo systemctl start suspend.target'   # → "Unit suspend.target is masked."
+```
+
+The mask lives in `/etc`, which atomic OS updates wipe — add the four
+`/etc/systemd/system/*.target` symlinks to `/etc/atomic-update.conf.d/protopen-keep.conf`
+so they persist. Reverse any time with `systemctl unmask …`. Tradeoff: no
+battery-saving auto-sleep, so power the Deck off manually when you're done.
+
 ## Prerequisites
 
 - SSH or Tailscale access to the Steam Deck (`steamdeck` hostname)

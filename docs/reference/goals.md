@@ -28,6 +28,40 @@ with a continuation prompt until the verifier passes. See the
 [`set_goal` tool](tools.md) and the *Autonomous Goal Pursuit* section of
 `config/SOUL.md`.
 
+> **Goal vs. watch.** A goal *drives* — it re-invokes turns to reach a finish
+> line, then stops. To **supervise a standing condition** in parallel (react when
+> something becomes true, on its own cadence) use a **watch** instead — see
+> [Autonomy → watch](../explanation/autonomy.md). Watches replaced the old
+> monitor-goal mode, so a goal has no "monitor" mode; it always drives.
+
+## Completion contract (optional)
+
+Beyond the `verifier` (which decides *when* the goal is done), a JSON goal may
+carry a **completion contract** — four optional fields that steer *how* the agent
+pursues it. They are **directive-only**: re-stated in the continuation prompt
+every drive turn, but the verifier — not the contract — still decides DONE. A
+contract-less goal renders nothing extra (its prompt is byte-for-byte the plain
+one).
+
+| Field | Type | Injected each turn as | Use for |
+|---|---|---|---|
+| `outcome` | string | `Required outcome: …` | what "done" should concretely look like |
+| `constraints` | string[] | `Constraint (must hold): …` | conditions that must stay true while working |
+| `boundaries` | string[] | `Boundary (do NOT): …` | hard "do not" limits |
+| `stop_when` | string | `STOP and hand back when: …` | a condition that should halt and return to the operator (agent emits `<goal_unachievable/>`) |
+
+```text
+/goal {"condition":"find a critical vuln on the lab subnet",
+       "verifier":{"type":"findings","severity":"critical","min":1},
+       "outcome":"at least one verified critical with a repro path",
+       "constraints":["log every finding as you go"],
+       "boundaries":["stay on 10.0.9.0/24","no exploitation without approval"],
+       "stop_when":"any action would fall outside the engagement scope"}
+```
+
+The `set_goal` tool takes the same four fields as arguments, so the agent can
+attach a contract to a goal it sets itself.
+
 ## Verifiers
 
 | Type | Met when… | Spec fields | Reads |
@@ -91,16 +125,34 @@ rebuilds the server does on config reload.
 ## Console & API
 
 The operator console's **Goals** tab (top of the Agents stack) lists active and
-past goals and can clear an active one. It's read-only otherwise — goals are
-*set* from chat or by the agent.
+past goals and can clear an active one. On the chat-first (handheld/Deck) shell a
+goal set in a chat tab surfaces there as a **drive** — the tab shows its
+condition, iteration, and verifier, with **Detach** / **Stop**, and the Goals
+surface can **Attach** to a drive it isn't already showing.
 
 | Method | Route | Purpose |
 |---|---|---|
 | `GET` | `/api/goals` | `{enabled, goals[]}` across sessions |
 | `DELETE` | `/api/goal/{session_id}` | clear a session's goal |
+| `POST` | `/api/goal/{session_id}/detach` | hand the drive to the scheduler → keeps iterating **headless** |
+| `GET` | `/api/chat/{session_id}/history` | the session's durable transcript (used to **attach** to a drive) |
 
-Both are auth-gated. Runtime status (`/api/runtime/status`) reports
+These are auth-gated. Runtime status (`/api/runtime/status`) reports
 `goal.{enabled, controller_loaded, max_iterations, no_progress_limit}`.
+
+### Headless drives (detach / attach)
+
+A goal only advances while a turn runs on its session, so a drive normally needs
+a console (or a caller) holding the stream. **Detach** removes that requirement:
+it enqueues a one-shot scheduler job on the same session (`context_id`), which
+fires back through the agent's own A2A endpoint with `origin="scheduler"`, runs
+the goal loop to a verdict server-side, and pushes the result over the
+`chat.resumed` event — so a console that re-**attaches** to the session sees the
+turn land live. Clearing a goal also cancels any pending detached continuation.
+
+> **Ops note:** a headless drive keeps running only while the host is awake. On a
+> Steam Deck, that means [suspend must be disabled](../guides/deploy-updates.md)
+> or the drive stalls when the device sleeps.
 
 ## Extending — adding a verifier
 
