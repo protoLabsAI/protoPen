@@ -50,28 +50,28 @@ RUN cd /tmp \
     && rm phoneinfoga.tar.gz
 
 
-# Install Python deps
-RUN pip install --no-cache-dir \
-    gradio sqlite-vec httpx uvicorn langfuse prometheus-client PyMuPDF pyyaml \
-    langchain langchain-openai langgraph websockets croniter
+# Install Python deps — requirements.txt is the single source of truth. A
+# hardcoded package list silently drifts from it (issue #323: from-scratch
+# builds died on missing serial/a2a-sdk/langgraph-checkpoint-sqlite). Copied on
+# its own first so this layer caches independently of the app source. `git`
+# (installed above) lets pip clone the protolabs-a2a git dependency.
+COPY requirements.txt /opt/protopen/requirements.txt
+RUN pip install --no-cache-dir -r /opt/protopen/requirements.txt
 
-# Install protoPen
-COPY tools/ /opt/protopen/tools/
-COPY knowledge/ /opt/protopen/knowledge/
-COPY lab/ /opt/protopen/lab/
-COPY graph/ /opt/protopen/graph/
-COPY skills/ /opt/protopen/skills/
-COPY audit.py /opt/protopen/audit.py
-COPY tracing.py /opt/protopen/tracing.py
-COPY metrics.py /opt/protopen/metrics.py
-COPY chat_ui.py /opt/protopen/chat_ui.py
-COPY server/ /opt/protopen/server/
-COPY runtime/ /opt/protopen/runtime/
-COPY discord_bot.py /opt/protopen/discord_bot.py
-COPY guardrails.py /opt/protopen/guardrails.py
-COPY entrypoint.sh /opt/protopen/entrypoint.sh
-COPY config/ /opt/protopen/config/
-COPY static/ /opt/protopen/static/
+# Install protoPen — copy the whole tree, not a cherry-picked subset. A curated
+# COPY list drops top-level packages/modules as they're added (issue #323:
+# events/, enforcement/, operator_api/, playbooks/, protopen_scripts/, the
+# a2a_*.py modules, run_playbook.py, sitrep.py were all missing), crashing the
+# image on startup with ModuleNotFoundError. .dockerignore keeps the context
+# lean (.git / .venv / node_modules / data/ excluded).
+COPY . /opt/protopen/
+
+# The app is COPY'd as root but runs as `sandbox`, and creates runtime-writable
+# state under /opt/protopen (the technique-library sqlite at
+# /opt/protopen/data/techniques.db). Pre-create that dir and hand the tree to
+# sandbox so it isn't a PermissionError on first write (issue #323).
+RUN mkdir -p /opt/protopen/data \
+    && chown -R sandbox:sandbox /opt/protopen
 
 # Sandbox workspace + knowledge/audit/papers dirs
 RUN mkdir -p /sandbox /tmp/sandbox /sandbox/audit /sandbox/knowledge /sandbox/papers \
