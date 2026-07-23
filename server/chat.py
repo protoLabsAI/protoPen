@@ -18,10 +18,13 @@ from typing import Any
 from runtime.state import STATE
 
 
-def _strip_think(text: str) -> str:
+def _strip_think(text: str, trim: bool = True) -> str:
     text = re.sub(r"<think>[\s\S]*?</think>", "", text)
     text = re.sub(r"</think>\s*", "", text)
-    return text.strip()
+    # trim=False for per-token STREAM chunks: stripping each token kills the leading space it
+    # carries (" quick" -> "quick") and the assembled text loses ALL inter-token spaces. Only the
+    # non-streaming path (full accumulated text) should .strip().
+    return text.strip() if trim else text
 
 
 # ── on-demand slash skills / subagents (protopen-1hw.13 / 1hw.14) ─────────────
@@ -308,7 +311,7 @@ async def _chat_langgraph_stream(
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         content = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
-                        content = _strip_think(content)
+                        content = _strip_think(content, trim=False)  # per-token: filter think, keep spaces
                         if content:
                             accumulated_text += content
                             yield ("text", content)
