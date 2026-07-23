@@ -98,8 +98,6 @@ def mount_a2a(fastapi_app, *, api_key, card_dict, terminal_hook, chat_stream) ->
         # "tasks/get") that our clients use are only accepted with enable_v0_3_compat=True — without
         # it EVERY v0.3 call returns -32601 (see protoPen#322). Enable both so 1.0-native and legacy
         # clients work through one endpoint.
-        jsonrpc_routes=create_jsonrpc_routes(
-            a2a_request_handler, rpc_url="/a2a", enable_v0_3_compat=True
-        ),
+        jsonrpc_routes=create_jsonrpc_routes(a2a_request_handler, rpc_url="/a2a", enable_v0_3_compat=True),
     )
     print("[a2a] a2a-sdk routes mounted (JSON-RPC at /a2a, card at /.well-known/agent-card.json; v0.3-compat on)")
