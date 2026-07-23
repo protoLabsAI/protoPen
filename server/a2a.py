@@ -93,6 +93,13 @@ def mount_a2a(fastapi_app, *, api_key, card_dict, terminal_hook, chat_stream) ->
     add_a2a_routes_to_fastapi(
         fastapi_app,
         agent_card_routes=create_agent_card_routes(a2a_card),
-        jsonrpc_routes=create_jsonrpc_routes(a2a_request_handler, rpc_url="/a2a"),
+        # a2a-sdk >=1.1 defaults the JSON-RPC dispatch to A2A 1.0 method names ("SendMessage",
+        # "SendStreamingMessage", "GetTask", …). The legacy v0.3 names ("message/send",
+        # "tasks/get") that our clients use are only accepted with enable_v0_3_compat=True — without
+        # it EVERY v0.3 call returns -32601 (see protoPen#322). Enable both so 1.0-native and legacy
+        # clients work through one endpoint.
+        jsonrpc_routes=create_jsonrpc_routes(
+            a2a_request_handler, rpc_url="/a2a", enable_v0_3_compat=True
+        ),
     )
-    print("[a2a] a2a-sdk routes mounted (JSON-RPC at /a2a, card at /.well-known/agent-card.json)")
+    print("[a2a] a2a-sdk routes mounted (JSON-RPC at /a2a, card at /.well-known/agent-card.json; v0.3-compat on)")
