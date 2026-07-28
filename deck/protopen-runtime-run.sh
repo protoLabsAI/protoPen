@@ -30,6 +30,13 @@ if command -v infisical >/dev/null 2>&1; then
 fi
 [ -n "${OPENAI_API_KEY:-}" ] && echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> "$ENVFILE"
 
+# Range egress goes through tailscaled's userspace outbound proxy: the Deck has no
+# kernel route to the tailnet (--tun=userspace-networking), so vuln_range's requests
+# must be proxied. It reads RANGE_PROXY and applies it to range requests ONLY (see
+# tools/vuln_range.py) — the agent's other egress stays direct. tailscaled exposes the
+# proxy on 127.0.0.1:1055 (--socks5-server / --outbound-http-proxy-listen).
+echo "RANGE_PROXY=${RANGE_PROXY:-http://127.0.0.1:1055}" >> "$ENVFILE"
+
 exec sudo podman \
     --root "$STORE" --runroot "$RUNROOT" \
     --storage-driver overlay --storage-opt overlay.mount_program=/usr/bin/fuse-overlayfs \
