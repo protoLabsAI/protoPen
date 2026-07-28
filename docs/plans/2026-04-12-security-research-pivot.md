@@ -59,7 +59,7 @@ In `_openai_models()` (~line 1201):
 
 In the chat UI placeholder (~line 1107):
 ```python
-placeholder="Describe your target scope or ask about recent security intel..."
+placeholder = "Describe your target scope or ask about recent security intel..."
 ```
 
 - [ ] **Step 3: Update static/manifest.json**
@@ -363,6 +363,7 @@ Replace research dataclasses with security equivalents:
 
 ```python
 """Data models for the protoPen security intelligence store."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -371,10 +372,10 @@ from typing import Optional
 
 @dataclass
 class Advisory:
-    id: str                                    # CVE-YYYY-NNNNN or vendor ID
+    id: str  # CVE-YYYY-NNNNN or vendor ID
     title: str
     description: str = ""
-    severity: str = ""                         # critical, high, medium, low, info
+    severity: str = ""  # critical, high, medium, low, info
     cvss_score: Optional[float] = None
     cvss_vector: str = ""
     affected_products: list[str] = field(default_factory=list)
@@ -411,7 +412,7 @@ class ThreatIntel:
     source: str = ""
     source_type: str = ""
     topic: str = ""
-    intel_type: str = ""                       # technique, tool_release, campaign, advisory, ttp
+    intel_type: str = ""  # technique, tool_release, campaign, advisory, ttp
     significance: str = "incremental"
     related_advisory_id: str = ""
     created_at: str = ""
@@ -868,28 +869,32 @@ git add guardrails.py && git commit -m "guardrails: retarget scope validation fo
 - [ ] **Step 1: Replace `deep_research` and `summarize` skills**
 
 ```python
-{
-    "id": "threat_intel",
-    "name": "Threat Intelligence",
-    "description": (
-        "Research security threats relevant to a target scope. Scans CVE databases, "
-        "Exploit-DB, security feeds, and GitHub for vulnerabilities, exploits, and "
-        "attack techniques. Correlates findings with target intel database."
-    ),
-    "inputModes": ["text/plain"],
-    "outputModes": ["text/markdown"],
-},
-{
-    "id": "security_digest",
-    "name": "Security Digest",
-    "description": (
-        "Generate a threat intelligence digest — recent CVEs, exploit activity, and "
-        "security tool releases relevant to engaged systems. Optionally scoped to a "
-        "topic or product."
-    ),
-    "inputModes": ["text/plain"],
-    "outputModes": ["text/markdown"],
-},
+(
+    {
+        "id": "threat_intel",
+        "name": "Threat Intelligence",
+        "description": (
+            "Research security threats relevant to a target scope. Scans CVE databases, "
+            "Exploit-DB, security feeds, and GitHub for vulnerabilities, exploits, and "
+            "attack techniques. Correlates findings with target intel database."
+        ),
+        "inputModes": ["text/plain"],
+        "outputModes": ["text/markdown"],
+    },
+)
+(
+    {
+        "id": "security_digest",
+        "name": "Security Digest",
+        "description": (
+            "Generate a threat intelligence digest — recent CVEs, exploit activity, and "
+            "security tool releases relevant to engaged systems. Optionally scoped to a "
+            "topic or product."
+        ),
+        "inputModes": ["text/plain"],
+        "outputModes": ["text/markdown"],
+    },
+)
 ```
 
 - [ ] **Step 2: Update agent card description**

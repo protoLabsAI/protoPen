@@ -22,6 +22,7 @@
 ```python
 # tests/test_parsers_dispatch.py
 """Tests for the parser dispatch layer."""
+
 import pytest
 from unittest.mock import MagicMock
 from knowledge.target_store import TargetStore
@@ -58,9 +59,12 @@ class TestDispatcher:
 
     def test_parser_error_returns_empty(self, store, monkeypatch):
         """A parser that raises should be caught; returns empty list."""
+
         def bad_parser(raw, s):
             raise ValueError("boom")
+
         from tools.parsers import PARSER_MAP
+
         monkeypatch.setitem(PARSER_MAP, ("blackarch", "nmap_scan"), bad_parser)
         result = ingest_output("blackarch", "nmap_scan", "<bad/>", store)
         assert result == []
@@ -85,6 +89,7 @@ Expected: ImportError — `tools.parsers` does not exist
 Each parser: parse(raw: str, store: TargetStore) -> list[dict]
 Parsers are registered in PARSER_MAP keyed by (tool_name, action).
 """
+
 from __future__ import annotations
 
 import logging
@@ -122,10 +127,10 @@ def ingest_output(
 
 
 # ---- register parsers (imports trigger registration) ----
-from tools.parsers import nmap_xml      # noqa: E402,F401
-from tools.parsers import bettercap     # noqa: E402,F401
-from tools.parsers import marauder_wifi # noqa: E402,F401
-from tools.parsers import flipper_rf    # noqa: E402,F401
+from tools.parsers import nmap_xml  # noqa: E402,F401
+from tools.parsers import bettercap  # noqa: E402,F401
+from tools.parsers import marauder_wifi  # noqa: E402,F401
+from tools.parsers import flipper_rf  # noqa: E402,F401
 ```
 
 - [ ] **Step 4: Create empty parser stubs so imports don't fail**
@@ -135,10 +140,13 @@ Create four stub files that each register themselves in `PARSER_MAP`:
 ```python
 # tools/parsers/nmap_xml.py
 """Parser for nmap -oX - XML output."""
+
 from tools.parsers import PARSER_MAP
+
 
 def parse(raw, store):
     return []
+
 
 PARSER_MAP[("blackarch", "nmap_scan")] = parse
 PARSER_MAP[("blackarch", "nmap_vuln_scan")] = parse
@@ -147,10 +155,13 @@ PARSER_MAP[("blackarch", "nmap_vuln_scan")] = parse
 ```python
 # tools/parsers/bettercap.py
 """Parser for bettercap net.show ASCII table output."""
+
 from tools.parsers import PARSER_MAP
+
 
 def parse(raw, store):
     return []
+
 
 PARSER_MAP[("blackarch", "bettercap_recon")] = parse
 ```
@@ -158,13 +169,17 @@ PARSER_MAP[("blackarch", "bettercap_recon")] = parse
 ```python
 # tools/parsers/marauder_wifi.py
 """Parser for ESP32 Marauder scan_aps / scan_stations output."""
+
 from tools.parsers import PARSER_MAP
+
 
 def parse_aps(raw, store):
     return []
 
+
 def parse_stations(raw, store):
     return []
+
 
 PARSER_MAP[("marauder", "scan_aps")] = parse_aps
 PARSER_MAP[("marauder", "scan_stations")] = parse_stations
@@ -173,16 +188,21 @@ PARSER_MAP[("marauder", "scan_stations")] = parse_stations
 ```python
 # tools/parsers/flipper_rf.py
 """Parser for Flipper Zero nfc/rfid/subghz output."""
+
 from tools.parsers import PARSER_MAP
+
 
 def parse_nfc(raw, store):
     return []
 
+
 def parse_rfid(raw, store):
     return []
 
+
 def parse_subghz(raw, store):
     return []
+
 
 PARSER_MAP[("flipper", "nfc_detect")] = parse_nfc
 PARSER_MAP[("flipper", "rfid_read")] = parse_rfid
@@ -215,6 +235,7 @@ git commit -m "feat(parsers): add dispatch registry with stubs for all parser mo
 ```python
 # tests/test_parser_nmap.py
 """Tests for nmap XML output parser."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.nmap_xml import parse
@@ -324,6 +345,7 @@ Expected: FAIL — `parse` returns `[]`
 ```python
 # tools/parsers/nmap_xml.py
 """Parser for nmap -oX - XML output → hosts + ports into TargetStore."""
+
 from __future__ import annotations
 
 import logging
@@ -373,14 +395,23 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
             continue
 
         host_id = store.upsert_host(
-            ip=ip, mac=mac, hostname=hostname,
-            os=os_match, vendor=vendor,
+            ip=ip,
+            mac=mac,
+            hostname=hostname,
+            os=os_match,
+            vendor=vendor,
         )
-        entities.append({
-            "type": "host", "id": host_id,
-            "ip": ip, "mac": mac, "hostname": hostname,
-            "os": os_match, "vendor": vendor,
-        })
+        entities.append(
+            {
+                "type": "host",
+                "id": host_id,
+                "ip": ip,
+                "mac": mac,
+                "hostname": hostname,
+                "os": os_match,
+                "vendor": vendor,
+            }
+        )
 
         ports_el = host_el.find("ports")
         if ports_el is None:
@@ -401,15 +432,24 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
                     banner = f"{product} {version}".strip()
 
             port_row_id = store.upsert_port(
-                host_id=host_id, port=portid, protocol=protocol,
-                state=state, service=service, banner=banner,
+                host_id=host_id,
+                port=portid,
+                protocol=protocol,
+                state=state,
+                service=service,
+                banner=banner,
             )
-            entities.append({
-                "type": "port", "id": port_row_id,
-                "host_id": host_id, "port": portid,
-                "protocol": protocol, "service": service,
-                "banner": banner,
-            })
+            entities.append(
+                {
+                    "type": "port",
+                    "id": port_row_id,
+                    "host_id": host_id,
+                    "port": portid,
+                    "protocol": protocol,
+                    "service": service,
+                    "banner": banner,
+                }
+            )
 
     return entities
 
@@ -444,6 +484,7 @@ git commit -m "feat(parsers): nmap XML parser — hosts, ports, OS, MAC/vendor"
 ```python
 # tests/test_parser_bettercap.py
 """Tests for bettercap net.show ASCII table parser."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.bettercap import parse
@@ -517,6 +558,7 @@ Expected: FAIL — `parse` returns `[]`
 ```python
 # tools/parsers/bettercap.py
 """Parser for bettercap net.show ASCII table → hosts into TargetStore."""
+
 from __future__ import annotations
 
 import re
@@ -551,13 +593,21 @@ def parse(raw: str, store: TargetStore) -> list[dict]:
         vendor = m.group(4).strip()
 
         host_id = store.upsert_host(
-            ip=ip, mac=mac, hostname=hostname, vendor=vendor,
+            ip=ip,
+            mac=mac,
+            hostname=hostname,
+            vendor=vendor,
         )
-        entities.append({
-            "type": "host", "id": host_id,
-            "ip": ip, "mac": mac,
-            "hostname": hostname, "vendor": vendor,
-        })
+        entities.append(
+            {
+                "type": "host",
+                "id": host_id,
+                "ip": ip,
+                "mac": mac,
+                "hostname": hostname,
+                "vendor": vendor,
+            }
+        )
     return entities
 
 
@@ -592,6 +642,7 @@ The ESP32 Marauder firmware outputs scan results in a characteristic format. AP 
 ```python
 # tests/test_parser_marauder.py
 """Tests for Marauder WiFi scan output parsers."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.marauder_wifi import parse_aps, parse_stations
@@ -687,6 +738,7 @@ Expected: FAIL — parsers return `[]`
 ```python
 # tools/parsers/marauder_wifi.py
 """Parser for ESP32 Marauder scan_aps / scan_stations serial output."""
+
 from __future__ import annotations
 
 import re
@@ -724,15 +776,23 @@ def parse_aps(raw: str, store: TargetStore) -> list[dict]:
         encryption = m.group(5)
 
         net_id = store.upsert_wifi_network(
-            bssid=bssid, ssid=ssid, channel=channel,
-            rssi=rssi, encryption=encryption,
+            bssid=bssid,
+            ssid=ssid,
+            channel=channel,
+            rssi=rssi,
+            encryption=encryption,
         )
-        entities.append({
-            "type": "wifi_network", "id": net_id,
-            "bssid": bssid, "ssid": ssid,
-            "channel": channel, "rssi": rssi,
-            "encryption": encryption,
-        })
+        entities.append(
+            {
+                "type": "wifi_network",
+                "id": net_id,
+                "bssid": bssid,
+                "ssid": ssid,
+                "channel": channel,
+                "rssi": rssi,
+                "encryption": encryption,
+            }
+        )
     return entities
 
 
@@ -747,10 +807,14 @@ def parse_stations(raw: str, store: TargetStore) -> list[dict]:
         # For now, store the station without the FK link — the data is still
         # captured and can be correlated later via the WiFi networks table.
         sta_id = store.upsert_wifi_station(mac=mac, rssi=rssi)
-        entities.append({
-            "type": "wifi_station", "id": sta_id,
-            "mac": mac, "rssi": rssi,
-        })
+        entities.append(
+            {
+                "type": "wifi_station",
+                "id": sta_id,
+                "mac": mac,
+                "rssi": rssi,
+            }
+        )
     return entities
 
 
@@ -786,6 +850,7 @@ Flipper Zero CLI output follows a key-value format. These fixtures are based on 
 ```python
 # tests/test_parser_flipper.py
 """Tests for Flipper Zero NFC/RFID/SubGHz output parsers."""
+
 import pytest
 from knowledge.target_store import TargetStore
 from tools.parsers.flipper_rf import parse_nfc, parse_rfid, parse_subghz
@@ -914,6 +979,7 @@ Expected: FAIL — parsers return `[]`
 ```python
 # tools/parsers/flipper_rf.py
 """Parsers for Flipper Zero NFC, RFID, and Sub-GHz serial output."""
+
 from __future__ import annotations
 
 import re
@@ -949,14 +1015,22 @@ def parse_nfc(raw: str, store: TargetStore) -> list[dict]:
     sak = sak_m.group(1).strip() if sak_m else ""
 
     tag_id = store.upsert_rfid_nfc_tag(
-        tag_type=tag_type, uid=uid, protocol="NFC",
-        atqa=atqa, sak=sak,
+        tag_type=tag_type,
+        uid=uid,
+        protocol="NFC",
+        atqa=atqa,
+        sak=sak,
     )
-    return [{
-        "type": "rfid_nfc_tag", "id": tag_id,
-        "tag_type": tag_type, "uid": uid,
-        "atqa": atqa, "sak": sak,
-    }]
+    return [
+        {
+            "type": "rfid_nfc_tag",
+            "id": tag_id,
+            "tag_type": tag_type,
+            "uid": uid,
+            "atqa": atqa,
+            "sak": sak,
+        }
+    ]
 
 
 # ---- RFID read ----
@@ -975,13 +1049,19 @@ def parse_rfid(raw: str, store: TargetStore) -> list[dict]:
     data_hex = data_m.group(1).strip()
     # For 125 kHz RFID, use protocol name as tag_type and data as UID
     tag_id = store.upsert_rfid_nfc_tag(
-        tag_type=protocol, uid=data_hex, protocol="RFID",
+        tag_type=protocol,
+        uid=data_hex,
+        protocol="RFID",
         data_hex=data_hex,
     )
-    return [{
-        "type": "rfid_nfc_tag", "id": tag_id,
-        "tag_type": protocol, "data_hex": data_hex,
-    }]
+    return [
+        {
+            "type": "rfid_nfc_tag",
+            "id": tag_id,
+            "tag_type": protocol,
+            "data_hex": data_hex,
+        }
+    ]
 
 
 # ---- Sub-GHz RX ----
@@ -1013,14 +1093,20 @@ def parse_subghz(raw: str, store: TargetStore) -> list[dict]:
         freq = int(m.group(3))
 
         sig_id = store.add_rf_signal(
-            frequency_hz=freq, protocol=protocol,
-            data_hex=data_hex, source_device="flipper",
+            frequency_hz=freq,
+            protocol=protocol,
+            data_hex=data_hex,
+            source_device="flipper",
         )
-        entities.append({
-            "type": "rf_signal", "id": sig_id,
-            "protocol": protocol, "data_hex": data_hex,
-            "frequency_hz": freq,
-        })
+        entities.append(
+            {
+                "type": "rf_signal",
+                "id": sig_id,
+                "protocol": protocol,
+                "data_hex": data_hex,
+                "frequency_hz": freq,
+            }
+        )
     return entities
 
 
@@ -1058,6 +1144,7 @@ git commit -m "feat(parsers): flipper NFC, RFID, SubGHz parsers"
 ```python
 # tests/test_parser_wiring.py
 """Integration tests: tool execute() auto-ingests to TargetStore."""
+
 import asyncio
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -1083,12 +1170,11 @@ NMAP_XML = """<?xml version="1.0"?>
 class TestBlackArchWiring:
     def test_nmap_auto_ingests_host(self, store):
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=NMAP_XML):
-            result = asyncio.get_event_loop().run_until_complete(
-                tool.execute(action="nmap_scan", target="10.0.0.5")
-            )
+            result = asyncio.get_event_loop().run_until_complete(tool.execute(action="nmap_scan", target="10.0.0.5"))
         # Raw output still returned to agent
         assert "<nmaprun>" in result
         # Host auto-ingested
@@ -1103,13 +1189,12 @@ SCAN_APS = " SSID: TestNet, BSSID: AA:BB:CC:DD:EE:01, CH: 6, RSSI: -50, ENC: WPA
 class TestMarauderWiring:
     def test_scan_aps_auto_ingests(self, store):
         from tools.marauder import MarauderTool
+
         conn = MagicMock()
         conn.send.return_value = SCAN_APS
         tool = MarauderTool(conn)
         tool._target_store = store
-        result = asyncio.get_event_loop().run_until_complete(
-            tool.execute(action="scan_aps")
-        )
+        result = asyncio.get_event_loop().run_until_complete(tool.execute(action="scan_aps"))
         assert "TestNet" in result
         assert store.get_stats()["wifi_networks"] == 1
 
@@ -1120,13 +1205,12 @@ NFC_OUTPUT = "NFC card detected\nType: NTAG215\nUID: 04:A3:2B:1C:7E:6D:80\nATQA:
 class TestFlipperWiring:
     def test_nfc_auto_ingests(self, store):
         from tools.flipper import FlipperTool
+
         conn = MagicMock()
         conn.send.return_value = NFC_OUTPUT
         tool = FlipperTool(conn)
         tool._target_store = store
-        result = asyncio.get_event_loop().run_until_complete(
-            tool.execute(action="nfc_detect")
-        )
+        result = asyncio.get_event_loop().run_until_complete(tool.execute(action="nfc_detect"))
         assert "NTAG215" in result
         assert store.get_stats()["rfid_nfc_tags"] == 1
 ```
@@ -1239,6 +1323,7 @@ swallowed — a broken parser never breaks a tool."
 ```python
 # tests/test_parser_e2e.py
 """End-to-end: tool output → parser → TargetStore → query back."""
+
 import asyncio
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -1277,13 +1362,12 @@ class TestE2EPipeline:
     def test_nmap_then_query(self, store):
         """Full pipeline: nmap XML → parse → store → query hosts and ports."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=FULL_NMAP):
-            asyncio.get_event_loop().run_until_complete(
-                tool.execute(action="nmap_scan", target="192.168.1.0/24")
-            )
+            asyncio.get_event_loop().run_until_complete(tool.execute(action="nmap_scan", target="192.168.1.0/24"))
 
         # Verify hosts
         hosts = store.query_hosts(ip_prefix="192.168.1.")
@@ -1307,6 +1391,7 @@ class TestE2EPipeline:
     def test_multi_tool_convergence(self, store):
         """nmap discovers host, bettercap rediscovers same host — one row."""
         from tools.blackarch import BlackArchTool
+
         tool = BlackArchTool()
         tool._target_store = store
 
@@ -1317,20 +1402,13 @@ class TestE2EPipeline:
               <service name="ssh"/></port></ports></host>
         </nmaprun>"""
 
-        bettercap_out = (
-            "│ 10.0.0.1       │ DE:AD:BE:EF:00:01 │ router           "
-            "│ Cisco            │  10k │   20k │"
-        )
+        bettercap_out = "│ 10.0.0.1       │ DE:AD:BE:EF:00:01 │ router           │ Cisco            │  10k │   20k │"
 
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=nmap_xml):
-            asyncio.get_event_loop().run_until_complete(
-                tool.execute(action="nmap_scan", target="10.0.0.1")
-            )
+            asyncio.get_event_loop().run_until_complete(tool.execute(action="nmap_scan", target="10.0.0.1"))
 
         with patch.object(tool, "_run", new_callable=AsyncMock, return_value=bettercap_out):
-            asyncio.get_event_loop().run_until_complete(
-                tool.execute(action="bettercap_recon", interface="eth0")
-            )
+            asyncio.get_event_loop().run_until_complete(tool.execute(action="bettercap_recon", interface="eth0"))
 
         hosts = store.query_hosts(ip_prefix="10.0.0.")
         assert len(hosts) == 1

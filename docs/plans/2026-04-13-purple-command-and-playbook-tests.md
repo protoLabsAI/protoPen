@@ -22,6 +22,7 @@
 
 ```python
 """Tests for the playbook system — loader, runner, schema integration."""
+
 import pytest
 from playbooks.loader import load_playbook, list_playbooks
 from playbooks.schema import Playbook, StepStatus
@@ -208,10 +209,13 @@ async def _handle_purple_command(args: str, session_id: str) -> list[dict[str, A
     from playbooks.schema import StepStatus
 
     try:
-        pb = load_playbook("purple_team_exercise", {
-            "target": scope,
-            "exercise_name": f"purple-{session_id[:8]}",
-        })
+        pb = load_playbook(
+            "purple_team_exercise",
+            {
+                "target": scope,
+                "exercise_name": f"purple-{session_id[:8]}",
+            },
+        )
     except FileNotFoundError:
         return _msg("❌ Purple team exercise playbook not found.")
 
@@ -235,6 +239,7 @@ async def _handle_purple_command(args: str, session_id: str) -> list[dict[str, A
         else:
             # Direct tool dispatch fallback
             from tools.lg_tools import get_pentest_tools, get_combined_tools
+
             all_tools = get_combined_tools()
             for t in all_tools:
                 if t.name == tool_name:
@@ -253,9 +258,11 @@ async def _handle_purple_command(args: str, session_id: str) -> list[dict[str, A
 
     # Extract coverage report from the last step's output if available
     report_step = next(
-        (s for s in reversed(pb.steps)
-         if s.tool == "purple_team" and s.action == "exercise_report"
-         and s.status == StepStatus.COMPLETED),
+        (
+            s
+            for s in reversed(pb.steps)
+            if s.tool == "purple_team" and s.action == "exercise_report" and s.status == StepStatus.COMPLETED
+        ),
         None,
     )
     if report_step and report_step.output:
@@ -298,6 +305,7 @@ git commit -m "feat: /purple chat command — runs purple team exercise playbook
 
 ```python
 """Tests for the /purple chat command."""
+
 import sys
 from types import ModuleType
 from unittest.mock import AsyncMock, patch, MagicMock
@@ -312,10 +320,12 @@ if "langchain_core" not in sys.modules:
     _lc_core_tools.tool = lambda f: f
     _lc_core.tools = _lc_core_tools
     _lc_core_msgs = ModuleType("langchain_core.messages")
+
     class _ToolMessage:
         def __init__(self, content="", tool_call_id="", **kw):
             self.content = content
             self.tool_call_id = tool_call_id
+
     _lc_core_msgs.ToolMessage = _ToolMessage
     _lc_core.messages = _lc_core_msgs
     sys.modules["langchain_core"] = _lc_core
@@ -329,6 +339,7 @@ class TestPurpleCommandParsing:
     @pytest.mark.asyncio
     async def test_no_args_shows_usage(self):
         from server import _handle_purple_command
+
         result = await _handle_purple_command("", "test-session")
         assert len(result) == 1
         assert "Usage" in result[0]["content"]
@@ -336,6 +347,7 @@ class TestPurpleCommandParsing:
     @pytest.mark.asyncio
     async def test_whitespace_only_shows_usage(self):
         from server import _handle_purple_command
+
         result = await _handle_purple_command("   ", "test-session")
         assert "Usage" in result[0]["content"]
 
@@ -347,9 +359,11 @@ class TestPurpleCommandExecution:
 
         mock_results = [{"role": "assistant", "content": '{"status":"ok"}'}]
 
-        with patch("server._BACKEND", "langgraph"), \
-             patch("server._graph", MagicMock()), \
-             patch("server._chat_langgraph", AsyncMock(return_value=mock_results)):
+        with (
+            patch("server._BACKEND", "langgraph"),
+            patch("server._graph", MagicMock()),
+            patch("server._chat_langgraph", AsyncMock(return_value=mock_results)),
+        ):
             result = await _handle_purple_command("192.168.4.0/24", "test-session")
 
         content = result[0]["content"]

@@ -110,7 +110,7 @@ the external-attack tools follows in [External Attack Simulation](#external-atta
 
 <!-- BEGIN GENERATED TOOLS — run: python scripts/gen_tool_docs.py -->
 
-_92 tools, generated from the live registry — do not edit by hand._
+_93 tools, generated from the live registry — do not edit by hand._
 
 ### Threat Intelligence & Research
 
@@ -178,6 +178,7 @@ _92 tools, generated from the live registry — do not edit by hand._
 | Tool | Description |
 |---|---|
 | `msf_exploit` | Metasploit Framework — module search, exploit execution, payload generation |
+| `vuln_range` | Isolated workbench for memory-safety vuln research on a staged C/C++ target |
 | `credential_attack` | Credential attacks — hydra brute force, password spraying, combo lists, Responder LLMNR/NBT-NS poisoning, CrackMapExec SMB enumeration/sp… |
 | `hashcat_rules` | Hash cracking — hashcat, john the ripper, hash identification |
 | `ad_attack` | Active Directory security testing — BloodHound, Certipy, impacket |
