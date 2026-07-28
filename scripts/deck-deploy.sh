@@ -51,7 +51,11 @@ echo "==> [4/5] refreshing frontend (host dist bind-mount shadows the baked one)
 if [ "${SKIP_WEB:-}" = "1" ]; then
   echo "    SKIP_WEB=1 — skipping deck-web.sh"
 else
-  DECK_HOST="$DECK_HOST" DECK_URL="$DECK_URL" "$ROOT/scripts/deck-web.sh"
+  # Non-fatal: the backend is already deployed by this point, and the loop doesn't
+  # depend on the console. A frontend build hiccup (e.g. missing tsc/deps) warns
+  # and continues instead of aborting the whole deploy.
+  DECK_HOST="$DECK_HOST" DECK_URL="$DECK_URL" "$ROOT/scripts/deck-web.sh" || \
+    echo "    !! frontend refresh failed (tsc/deps? run 'npm ci' in apps/web, or SKIP_WEB=1) — backend is deployed; continuing"
 fi
 
 echo "==> [5/5] verifying…"

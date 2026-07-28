@@ -24,6 +24,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/apps/web"
 
 if [ "${SKIP_BUILD:-}" != "1" ]; then
+  # tsc is a local devDep — on a fresh checkout `npm run build` dies with
+  # "tsc: not found" unless deps are installed. Ensure them first.
+  if [ ! -x node_modules/.bin/tsc ]; then
+    echo "==> installing web deps (npm ci)…"
+    npm ci
+  fi
   echo "==> building console (npm run build)…"
   npm run build
 fi
