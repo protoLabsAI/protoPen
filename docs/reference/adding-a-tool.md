@@ -68,8 +68,7 @@ class DnsTakeoverTool(Tool):
             "required": ["action"],
         }
 
-    async def execute(self, action: str = "", target: str = "", **kwargs: Any) -> str:
-        ...
+    async def execute(self, action: str = "", target: str = "", **kwargs: Any) -> str: ...
 ```
 
 For CLI-backed tools, subclass behaviour from `tools/base.py::BasePentestTool` —
@@ -93,6 +92,7 @@ _dns_takeover: DnsTakeoverTool | None = None
 _dns_takeover = DnsTakeoverTool()
 _dns_takeover._target_store = _target_store
 
+
 # the LangChain wrapper — its DOCSTRING is the LLM-facing description.
 # List one bullet per action.
 @tool
@@ -103,6 +103,7 @@ async def dns_takeover(action: str, target: str = "") -> str:
     """
     _init_pentest_singletons()
     return await _dns_takeover.execute(action=action, target=target)
+
 
 # register in get_pentest_tools(): add `dns_takeover,` to the `tools = [ … ]` list
 ```

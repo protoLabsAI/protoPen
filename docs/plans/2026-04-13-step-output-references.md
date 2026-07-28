@@ -190,12 +190,14 @@ def _resolve_step_refs(params: dict[str, Any], playbook: Playbook) -> dict[str, 
     resolved = {}
     for key, value in params.items():
         if isinstance(value, str) and "${steps." in value:
+
             def _replace(match):
                 step_name = match.group(1)
                 for step in playbook.steps:
                     if step.name == step_name:
                         return step.output  # "" if step failed/hasn't run
                 return match.group(0)  # leave unresolved
+
             resolved[key] = _STEP_REF_RE.sub(_replace, value)
         else:
             resolved[key] = value

@@ -372,6 +372,7 @@ This is the largest task. The store follows the same singleton/lazy-init pattern
 
 ```python
 """Tests for the TargetStore — CRUD, upsert, query, diff."""
+
 import json
 import pytest
 from pathlib import Path
@@ -530,6 +531,7 @@ Create `knowledge/target_store.py` with the following structure:
 Tracks hosts, WiFi networks/stations, RF signals, BLE devices, RFID/NFC tags,
 open ports, and credentials across all sensor platforms.
 """
+
 from __future__ import annotations
 
 import json
@@ -557,7 +559,7 @@ def _normalize_mac(mac: str) -> str:
     # Handle Cisco-style aabb.ccdd.eeff
     if len(clean) == 14 and ":" not in mac and "." in mac:
         h = clean.replace(":", "")
-        clean = ":".join(h[i:i+2] for i in range(0, 12, 2))
+        clean = ":".join(h[i : i + 2] for i in range(0, 12, 2))
     return clean
 
 
@@ -583,12 +585,15 @@ class TargetStore:
     # ── Scan Sessions ──────────────────────────────────────────────
 
     def create_scan_session(
-        self, tool: str, action: str, engagement: str = "", notes: str = "",
+        self,
+        tool: str,
+        action: str,
+        engagement: str = "",
+        notes: str = "",
     ) -> int:
         db = self._get_db()
         cur = db.execute(
-            "INSERT INTO scan_sessions (engagement, tool, action, started_at, notes) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO scan_sessions (engagement, tool, action, started_at, notes) VALUES (?, ?, ?, ?, ?)",
             (engagement, tool, action, _now(), notes),
         )
         db.commit()
@@ -629,15 +634,18 @@ class TargetStore:
         existing = None
         if ip and mac:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE ip = ? AND mac = ?", (ip, mac),
+                "SELECT id FROM hosts WHERE ip = ? AND mac = ?",
+                (ip, mac),
             ).fetchone()
         elif ip:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE ip = ? AND (mac = '' OR mac IS NULL)", (ip,),
+                "SELECT id FROM hosts WHERE ip = ? AND (mac = '' OR mac IS NULL)",
+                (ip,),
             ).fetchone()
         elif mac:
             existing = db.execute(
-                "SELECT id FROM hosts WHERE mac = ? AND (ip = '' OR ip IS NULL)", (mac,),
+                "SELECT id FROM hosts WHERE mac = ? AND (ip = '' OR ip IS NULL)",
+                (mac,),
             ).fetchone()
 
         if existing:
@@ -681,9 +689,19 @@ class TargetStore:
             "INSERT INTO hosts (ip, mac, hostname, os, vendor, device_type, tags, "
             "first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (ip, mac, hostname, os, vendor, device_type,
-             json.dumps(tags or []), now, now,
-             scan_session_id or None, notes),
+            (
+                ip,
+                mac,
+                hostname,
+                os,
+                vendor,
+                device_type,
+                json.dumps(tags or []),
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -757,8 +775,7 @@ class TargetStore:
         cur = db.execute(
             "INSERT INTO ports (host_id, port, protocol, state, service, banner, "
             "first_seen, last_seen, scan_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (host_id, port, protocol, state, service, banner, now, now,
-             scan_session_id or None),
+            (host_id, port, protocol, state, service, banner, now, now, scan_session_id or None),
         )
         db.commit()
         return cur.lastrowid
@@ -766,7 +783,8 @@ class TargetStore:
     def get_ports(self, host_id: int) -> list[dict]:
         db = self._get_db()
         rows = db.execute(
-            "SELECT * FROM ports WHERE host_id = ? ORDER BY port", (host_id,),
+            "SELECT * FROM ports WHERE host_id = ? ORDER BY port",
+            (host_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -788,7 +806,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM wifi_networks WHERE bssid = ?", (bssid,),
+            "SELECT id FROM wifi_networks WHERE bssid = ?",
+            (bssid,),
         ).fetchone()
         if existing:
             nid = existing["id"]
@@ -817,8 +836,19 @@ class TargetStore:
             "INSERT INTO wifi_networks (bssid, ssid, channel, rssi, encryption, wps, "
             "host_id, first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (bssid, ssid, channel, rssi, encryption, int(wps),
-             host_id or None, now, now, scan_session_id or None, notes),
+            (
+                bssid,
+                ssid,
+                channel,
+                rssi,
+                encryption,
+                int(wps),
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -838,7 +868,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM wifi_stations WHERE mac = ?", (mac,),
+            "SELECT id FROM wifi_stations WHERE mac = ?",
+            (mac,),
         ).fetchone()
         if existing:
             sid = existing["id"]
@@ -863,8 +894,16 @@ class TargetStore:
         cur = db.execute(
             "INSERT INTO wifi_stations (mac, network_id, rssi, probed_ssids, host_id, "
             "first_seen, last_seen, scan_session_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (mac, network_id or None, rssi, json.dumps(probed_ssids or []),
-             host_id or None, now, now, scan_session_id or None),
+            (
+                mac,
+                network_id or None,
+                rssi,
+                json.dumps(probed_ssids or []),
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -891,9 +930,20 @@ class TargetStore:
             "signal_strength, source_device, capture_file, decoded_text, "
             "first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (frequency_hz, modulation, protocol, data_hex, signal_strength,
-             source_device, capture_file, decoded_text, now, now,
-             scan_session_id or None, notes),
+            (
+                frequency_hz,
+                modulation,
+                protocol,
+                data_hex,
+                signal_strength,
+                source_device,
+                capture_file,
+                decoded_text,
+                now,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -915,7 +965,8 @@ class TargetStore:
         now = _now()
         db = self._get_db()
         existing = db.execute(
-            "SELECT id FROM ble_devices WHERE mac = ?", (mac,),
+            "SELECT id FROM ble_devices WHERE mac = ?",
+            (mac,),
         ).fetchone()
         if existing:
             bid = existing["id"]
@@ -941,8 +992,18 @@ class TargetStore:
             "INSERT INTO ble_devices (mac, name, address_type, rssi, services, "
             "manufacturer_data, host_id, first_seen, last_seen, scan_session_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (mac, name, address_type, rssi, json.dumps(services or []),
-             manufacturer_data, host_id or None, now, now, scan_session_id or None),
+            (
+                mac,
+                name,
+                address_type,
+                rssi,
+                json.dumps(services or []),
+                manufacturer_data,
+                host_id or None,
+                now,
+                now,
+                scan_session_id or None,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -991,8 +1052,7 @@ class TargetStore:
             "INSERT INTO rfid_nfc_tags (tag_type, uid, protocol, atqa, sak, data_hex, "
             "label, first_seen, last_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (tag_type, uid, protocol, atqa, sak, data_hex, label,
-             now, now, scan_session_id or None, notes),
+            (tag_type, uid, protocol, atqa, sak, data_hex, label, now, now, scan_session_id or None, notes),
         )
         db.commit()
         return cur.lastrowid
@@ -1017,9 +1077,18 @@ class TargetStore:
             "INSERT INTO credentials (username, password, hash_type, cracked, source, "
             "host_id, wifi_network_id, first_seen, scan_session_id, notes) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (username, password, hash_type, int(cracked), source,
-             host_id or None, wifi_network_id or None, now,
-             scan_session_id or None, notes),
+            (
+                username,
+                password,
+                hash_type,
+                int(cracked),
+                source,
+                host_id or None,
+                wifi_network_id or None,
+                now,
+                scan_session_id or None,
+                notes,
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -1029,8 +1098,15 @@ class TargetStore:
     def get_stats(self) -> dict:
         db = self._get_db()
         tables = [
-            "hosts", "ports", "wifi_networks", "wifi_stations",
-            "rf_signals", "ble_devices", "rfid_nfc_tags", "credentials", "scan_sessions",
+            "hosts",
+            "ports",
+            "wifi_networks",
+            "wifi_stations",
+            "rf_signals",
+            "ble_devices",
+            "rfid_nfc_tags",
+            "credentials",
+            "scan_sessions",
         ]
         stats = {}
         for table in tables:
@@ -1043,13 +1119,18 @@ class TargetStore:
         db = self._get_db()
         diff = {}
         for table, col in [
-            ("hosts", "first_seen"), ("ports", "first_seen"),
-            ("wifi_networks", "first_seen"), ("wifi_stations", "first_seen"),
-            ("rf_signals", "first_seen"), ("ble_devices", "first_seen"),
-            ("rfid_nfc_tags", "first_seen"), ("credentials", "first_seen"),
+            ("hosts", "first_seen"),
+            ("ports", "first_seen"),
+            ("wifi_networks", "first_seen"),
+            ("wifi_stations", "first_seen"),
+            ("rf_signals", "first_seen"),
+            ("ble_devices", "first_seen"),
+            ("rfid_nfc_tags", "first_seen"),
+            ("credentials", "first_seen"),
         ]:
             row = db.execute(
-                f"SELECT COUNT(*) as cnt FROM {table} WHERE {col} >= ?", (since,),
+                f"SELECT COUNT(*) as cnt FROM {table} WHERE {col} >= ?",
+                (since,),
             ).fetchone()
             diff[f"new_{table}"] = row["cnt"]
         return diff
@@ -1087,6 +1168,7 @@ git commit -m "feat(targets): add TargetStore with CRUD, upsert, query, diff"
 
 ```python
 """Tests for the TargetIntelTool agent wrapper."""
+
 import pytest
 import asyncio
 
@@ -1112,9 +1194,7 @@ class TestToolInterface:
         assert "action" in tool.parameters["properties"]
 
     def test_unknown_action(self, tool):
-        result = asyncio.get_event_loop().run_until_complete(
-            tool.execute(action="bogus")
-        )
+        result = asyncio.get_event_loop().run_until_complete(tool.execute(action="bogus"))
         assert "Unknown action" in result
 
 
@@ -1128,17 +1208,13 @@ class TestUpsertHost:
 
 class TestQueryHosts:
     def test_query_empty(self, tool):
-        result = asyncio.get_event_loop().run_until_complete(
-            tool.execute(action="query_hosts")
-        )
+        result = asyncio.get_event_loop().run_until_complete(tool.execute(action="query_hosts"))
         assert "0 host" in result.lower() or "no host" in result.lower()
 
 
 class TestStats:
     def test_stats(self, tool):
-        result = asyncio.get_event_loop().run_until_complete(
-            tool.execute(action="stats")
-        )
+        result = asyncio.get_event_loop().run_until_complete(tool.execute(action="stats"))
         assert "hosts" in result.lower()
 ```
 
@@ -1156,6 +1232,7 @@ pytest tests/test_target_intel.py -v
 Wraps TargetStore as a nanobot/LangGraph-compatible Tool for the agent
 to query, upsert, and analyze target data across all sensor domains.
 """
+
 from __future__ import annotations
 
 import json
@@ -1198,15 +1275,20 @@ class TargetIntelTool(Tool):
                     "type": "string",
                     "description": "Action to perform",
                     "enum": [
-                        "upsert_host", "query_hosts", "get_host",
+                        "upsert_host",
+                        "query_hosts",
+                        "get_host",
                         "upsert_port",
-                        "upsert_wifi_network", "upsert_wifi_station",
+                        "upsert_wifi_network",
+                        "upsert_wifi_station",
                         "add_rf_signal",
                         "upsert_ble_device",
                         "upsert_rfid_nfc_tag",
                         "add_credential",
-                        "start_scan", "end_scan",
-                        "stats", "diff",
+                        "start_scan",
+                        "end_scan",
+                        "stats",
+                        "diff",
                     ],
                 },
                 "ip": {"type": "string"},
@@ -1274,9 +1356,12 @@ class TargetIntelTool(Tool):
 
     def _upsert_host(self, kw: dict) -> str:
         hid = self._store.upsert_host(
-            ip=kw.get("ip", ""), mac=kw.get("mac", ""),
-            hostname=kw.get("hostname", ""), os=kw.get("os", ""),
-            vendor=kw.get("vendor", ""), device_type=kw.get("device_type", "unknown"),
+            ip=kw.get("ip", ""),
+            mac=kw.get("mac", ""),
+            hostname=kw.get("hostname", ""),
+            os=kw.get("os", ""),
+            vendor=kw.get("vendor", ""),
+            device_type=kw.get("device_type", "unknown"),
         )
         host = self._store.get_host(hid)
         return f"Host upserted (id={hid}): {host['ip'] or host['mac']}"
@@ -1323,16 +1408,20 @@ class TargetIntelTool(Tool):
 
     def _upsert_port(self, kw: dict) -> str:
         pid = self._store.upsert_port(
-            host_id=kw["host_id"], port=kw["port"],
+            host_id=kw["host_id"],
+            port=kw["port"],
             protocol=kw.get("protocol", "tcp"),
-            service=kw.get("service", ""), banner=kw.get("banner", ""),
+            service=kw.get("service", ""),
+            banner=kw.get("banner", ""),
         )
         return f"Port upserted (id={pid}): {kw['port']}/{kw.get('protocol', 'tcp')}"
 
     def _upsert_wifi_network(self, kw: dict) -> str:
         nid = self._store.upsert_wifi_network(
-            bssid=kw["bssid"], ssid=kw.get("ssid", ""),
-            channel=kw.get("channel", 0), rssi=kw.get("rssi", 0),
+            bssid=kw["bssid"],
+            ssid=kw.get("ssid", ""),
+            channel=kw.get("channel", 0),
+            rssi=kw.get("rssi", 0),
             encryption=kw.get("encryption", ""),
         )
         return f"WiFi network upserted (id={nid}): {kw.get('ssid', '')} [{kw['bssid']}]"
@@ -1355,22 +1444,26 @@ class TargetIntelTool(Tool):
 
     def _upsert_ble_device(self, kw: dict) -> str:
         bid = self._store.upsert_ble_device(
-            mac=kw["mac"], name=kw.get("name", ""),
+            mac=kw["mac"],
+            name=kw.get("name", ""),
             rssi=kw.get("rssi", 0),
         )
         return f"BLE device upserted (id={bid}): {kw.get('name', '')} [{kw['mac']}]"
 
     def _upsert_rfid_nfc_tag(self, kw: dict) -> str:
         tid = self._store.upsert_rfid_nfc_tag(
-            tag_type=kw["tag_type"], uid=kw["uid"],
+            tag_type=kw["tag_type"],
+            uid=kw["uid"],
             label=kw.get("label", ""),
         )
         return f"RFID/NFC tag upserted (id={tid}): {kw['tag_type']} {kw['uid']}"
 
     def _add_credential(self, kw: dict) -> str:
         cid = self._store.add_credential(
-            username=kw.get("username", ""), password=kw.get("password", ""),
-            hash_type=kw.get("hash_type", ""), source=kw.get("source", ""),
+            username=kw.get("username", ""),
+            password=kw.get("password", ""),
+            hash_type=kw.get("hash_type", ""),
+            source=kw.get("source", ""),
             host_id=kw.get("host_id", 0),
             wifi_network_id=kw.get("wifi_network_id", 0),
         )
@@ -1378,7 +1471,8 @@ class TargetIntelTool(Tool):
 
     def _start_scan(self, kw: dict) -> str:
         sid = self._store.create_scan_session(
-            tool=kw.get("tool", ""), action=kw.get("scan_action", ""),
+            tool=kw.get("tool", ""),
+            action=kw.get("scan_action", ""),
             engagement=kw.get("engagement", ""),
         )
         return f"Scan session started (id={sid})"
@@ -1435,6 +1529,7 @@ When `log_finding` is called and the finding detail contains an IP or MAC addres
 
 ```python
 """Tests for engagement → target_store auto-upsert integration."""
+
 import json
 import pytest
 from pathlib import Path
@@ -1466,7 +1561,8 @@ class TestAutoUpsert:
     def test_finding_with_ip_creates_host(self, mgr, store):
         mgr.start("test-engagement", scope="192.168.1.0/24")
         mgr.log_finding(
-            severity="high", category="open-port",
+            severity="high",
+            category="open-port",
             title="SSH on 192.168.1.1",
             detail="Port 22 open on 192.168.1.1 running OpenSSH 9.0",
         )
@@ -1476,15 +1572,18 @@ class TestAutoUpsert:
     def test_finding_without_ip_no_crash(self, mgr, store):
         mgr.start("test-engagement")
         mgr.log_finding(
-            severity="info", category="general",
-            title="Observation", detail="Nothing to upsert here",
+            severity="info",
+            category="general",
+            title="Observation",
+            detail="Nothing to upsert here",
         )
         assert store.get_stats()["hosts"] == 0
 
     def test_finding_with_mac_creates_host(self, mgr, store):
         mgr.start("test-engagement")
         mgr.log_finding(
-            severity="medium", category="wifi",
+            severity="medium",
+            category="wifi",
             title="Rogue AP",
             detail="Detected rogue AP with BSSID AA:BB:CC:DD:EE:FF",
         )
@@ -1514,8 +1613,9 @@ self.target_store = None  # Injected TargetStore for auto-upsert
 
 Add a helper method after `log_finding`:
 ```python
-_IP_RE = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
-_MAC_RE = re.compile(r'\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b')
+_IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b")
+
 
 def _auto_upsert_targets(self, detail: str):
     """Extract IPs and MACs from finding detail and upsert into target store."""
@@ -1564,10 +1664,12 @@ Near the existing `_knowledge_store` singleton (around line 307), add:
 ```python
 _target_store = None
 
+
 def _get_target_store():
     global _target_store
     if _target_store is None:
         from knowledge.target_store import TargetStore
+
         _target_store = TargetStore()
     return _target_store
 ```
@@ -1578,6 +1680,7 @@ Find where tools are assembled (in `_init_langgraph_agent` or equivalent) and ad
 
 ```python
 from tools.target_intel import TargetIntelTool
+
 target_store = _get_target_store()
 target_tool = TargetIntelTool(target_store)
 ```

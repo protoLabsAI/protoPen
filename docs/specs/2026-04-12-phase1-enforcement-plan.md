@@ -60,6 +60,7 @@ prompt instructions.
 
 ```python
 """Tests for ScopeValidator — engagement scope enforcement."""
+
 import pytest
 
 from enforcement.scope import ScopeValidator
@@ -207,6 +208,7 @@ python3 -m pytest tests/test_scope_validator.py --tb=short 2>&1 | tail -5
 Validates that tool targets (IPs, hostnames, URLs) are within the defined
 engagement scope before allowing execution.
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -300,10 +302,7 @@ class ScopeValidator:
         if not hostname:
             return False
         hostname_lower = hostname.lower()
-        return any(
-            fnmatch.fnmatch(hostname_lower, pattern.lower())
-            for pattern in self._targets
-        )
+        return any(fnmatch.fnmatch(hostname_lower, pattern.lower()) for pattern in self._targets)
 
     @staticmethod
     def _extract_ip(target: str) -> Optional[ipaddress.IPv4Address | ipaddress.IPv6Address]:
@@ -385,6 +384,7 @@ git commit -m "feat: ScopeValidator for engagement target enforcement"
 
 ```python
 """Tests for kill chain phase tagging."""
+
 import pytest
 
 from enforcement.phases import KillChainPhase, TOOL_PHASE_MAP, get_tool_phase
@@ -438,6 +438,7 @@ class TestToolPhaseMap:
     def test_all_engagement_config_tools_are_mapped(self):
         """Every tool in engagement-config.json tool_risk must be in TOOL_PHASE_MAP."""
         import json
+
         with open("config/engagement-config.json") as f:
             config = json.load(f)
         tool_risk = config.get("tool_risk", {})
@@ -478,6 +479,7 @@ Maps every pentest tool action to its minimum kill chain phase.
 Used by EnforcementMiddleware to enforce phase ceilings — an engagement
 capped at ENUMERATION cannot invoke EXPLOITATION-phase tools.
 """
+
 from __future__ import annotations
 
 from enum import IntEnum
@@ -486,6 +488,7 @@ from typing import Optional
 
 class KillChainPhase(IntEnum):
     """Simplified kill chain phases for engagement phase gating."""
+
     RECON = 0
     ENUMERATION = 1
     EXPLOITATION = 2
@@ -514,7 +517,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "rf_app_start": KillChainPhase.RECON,
     "rf_replay": KillChainPhase.EXPLOITATION,
     "rf_send_pocsag": KillChainPhase.EXPLOITATION,
-
     # ── Flipper Zero ──
     "flip_subghz_rx": KillChainPhase.RECON,
     "flip_nfc_read": KillChainPhase.RECON,
@@ -527,7 +529,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "flip_rfid_write": KillChainPhase.EXPLOITATION,
     "flip_ir_tx": KillChainPhase.EXPLOITATION,
     "flip_subghz_bruteforce": KillChainPhase.EXPLOITATION,
-
     # ── WiFi Marauder ──
     "wifi_scan_aps": KillChainPhase.RECON,
     "wifi_scan_stations": KillChainPhase.RECON,
@@ -536,7 +537,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "wifi_beacon_spam": KillChainPhase.EXPLOITATION,
     "wifi_evil_portal": KillChainPhase.EXPLOITATION,
     "wifi_karma": KillChainPhase.EXPLOITATION,
-
     # ── BlackArch / Network ──
     "nmap_scan": KillChainPhase.RECON,
     "nmap_vuln_scan": KillChainPhase.ENUMERATION,
@@ -546,7 +546,6 @@ TOOL_PHASE_MAP: dict[str, KillChainPhase] = {
     "bettercap_recon": KillChainPhase.RECON,
     "bettercap_mitm": KillChainPhase.EXPLOITATION,
     "shell_exec": KillChainPhase.EXPLOITATION,
-
     # ── BlackArch curated actions (dispatch names) ──
     "nikto_scan": KillChainPhase.ENUMERATION,
     "gobuster_scan": KillChainPhase.ENUMERATION,
@@ -601,6 +600,7 @@ git commit -m "feat: KillChainPhase enum and tool-to-phase mapping"
 
 ```python
 """Tests for RateLimiter — sliding window rate limiting for tool calls."""
+
 import time
 import pytest
 
@@ -663,20 +663,24 @@ class TestSlidingWindow:
 
 class TestMultipleActions:
     def test_independent_counters(self):
-        rl = RateLimiter({
-            "action_a": {"max": 1, "window_seconds": 3600},
-            "action_b": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "action_a": {"max": 1, "window_seconds": 3600},
+                "action_b": {"max": 1, "window_seconds": 3600},
+            }
+        )
         rl.check("action_a")
         # action_b should still be allowed
         allowed, _ = rl.check("action_b")
         assert allowed is True
 
     def test_different_limits(self):
-        rl = RateLimiter({
-            "fast": {"max": 10, "window_seconds": 3600},
-            "slow": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "fast": {"max": 10, "window_seconds": 3600},
+                "slow": {"max": 1, "window_seconds": 3600},
+            }
+        )
         for _ in range(10):
             rl.check("fast")
         # fast exhausted
@@ -698,10 +702,12 @@ class TestReset:
         assert allowed is True
 
     def test_reset_single_action(self):
-        rl = RateLimiter({
-            "a": {"max": 1, "window_seconds": 3600},
-            "b": {"max": 1, "window_seconds": 3600},
-        })
+        rl = RateLimiter(
+            {
+                "a": {"max": 1, "window_seconds": 3600},
+                "b": {"max": 1, "window_seconds": 3600},
+            }
+        )
         rl.check("a")
         rl.check("b")
         rl.reset("a")
@@ -728,6 +734,7 @@ python3 -m pytest tests/test_rate_limiter.py --tb=short 2>&1 | tail -5
 In-memory only — resets on process restart (by design: rate limits are
 per-engagement, not persistent). For persistent audit, use EngagementStore.
 """
+
 from __future__ import annotations
 
 import time
@@ -770,10 +777,7 @@ class RateLimiter:
         self._windows[action] = [t for t in timestamps if t > cutoff]
 
         if len(self._windows[action]) >= max_calls:
-            return False, (
-                f"Rate limit exceeded for '{action}': "
-                f"{max_calls} calls per {window_secs}s window"
-            )
+            return False, (f"Rate limit exceeded for '{action}': {max_calls} calls per {window_secs}s window")
 
         # Record this call
         self._windows[action].append(now)
@@ -831,6 +835,7 @@ All tests mock the engagement_manager and handler to avoid needing
 a real LangGraph agent. The middleware operates on request.tool_call
 dicts, identical to AuditMiddleware's pattern.
 """
+
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
@@ -1100,6 +1105,7 @@ On pass: calls handler(request) and returns the result.
 Must be placed FIRST in the middleware chain (before AuditMiddleware)
 so that blocked calls are still logged by audit but never executed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -1189,9 +1195,7 @@ class EnforcementMiddleware(AgentMiddleware):
         # ── Check 4: Mode enforcement ──
         if not mgr.is_allowed(action):
             risk = getattr(mgr, "_tool_risk", {}).get(action, "?")
-            logger.warning(
-                "BLOCKED %s: mode %s insufficient (risk=%s)", action, mgr.mode.name, risk
-            )
+            logger.warning("BLOCKED %s: mode %s insufficient (risk=%s)", action, mgr.mode.name, risk)
             return (
                 f"[BLOCKED] Tool '{action}' denied by mode enforcement. "
                 f"Current mode: {mgr.mode.name} (level={mgr.mode.value}), "
@@ -1203,10 +1207,7 @@ class EnforcementMiddleware(AgentMiddleware):
             target = self._scope_validator.extract_target(action, args)
             if target and not self._scope_validator.is_in_scope(target):
                 logger.warning("BLOCKED %s: target '%s' out of scope", action, target)
-                return (
-                    f"[BLOCKED] Target '{target}' is outside engagement scope. "
-                    f"Tool '{action}' denied."
-                )
+                return f"[BLOCKED] Target '{target}' is outside engagement scope. Tool '{action}' denied."
 
         # ── Check 6: Phase ceiling ──
         if self._max_phase is not None:
@@ -1214,7 +1215,9 @@ class EnforcementMiddleware(AgentMiddleware):
             if tool_phase is not None and tool_phase > self._max_phase:
                 logger.warning(
                     "BLOCKED %s: phase %s exceeds ceiling %s",
-                    action, tool_phase.name, self._max_phase.name,
+                    action,
+                    tool_phase.name,
+                    self._max_phase.name,
                 )
                 return (
                     f"[BLOCKED] Tool '{action}' is phase {tool_phase.name} "
@@ -1277,6 +1280,7 @@ git commit -m "feat: EnforcementMiddleware with mode, scope, phase, and rate lim
 
 ```python
 # Add this function after get_combined_tools():
+
 
 def get_engagement_manager():
     """Return the EngagementManager singleton (lazy-init if needed).
@@ -1357,29 +1361,29 @@ In `__init__` (around line 35), after `self.findings: list[dict] = []`, add:
 In `start()` method (around line 104), modify the signature and body:
 
 ```python
-    def start(self, name: str, scope: str = "", mode: str = None,
-              max_phase: str = None, scope_config: dict = None):
-        ws = self._workspace_root / name
-        ws.mkdir(parents=True, exist_ok=True)
-        if mode:
-            self._mode = EngagementMode[mode.upper()]
-        if max_phase:
-            self.max_phase = max_phase
-        if scope_config:
-            self.scope_config = scope_config
-        self.active_engagement = {
-            "name": name,
-            "scope": scope,
-            "mode": self._mode.name,
-            "max_phase": self.max_phase,
-            "scope_config": self.scope_config,
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "workspace": str(ws),
-        }
-        self.findings = []
-        (ws / "engagement.json").write_text(json.dumps(self.active_engagement, indent=2))
-        logger.info("Engagement '%s' started — scope: %s, mode: %s, max_phase: %s",
-                     name, scope, self._mode.name, self.max_phase)
+def start(self, name: str, scope: str = "", mode: str = None, max_phase: str = None, scope_config: dict = None):
+    ws = self._workspace_root / name
+    ws.mkdir(parents=True, exist_ok=True)
+    if mode:
+        self._mode = EngagementMode[mode.upper()]
+    if max_phase:
+        self.max_phase = max_phase
+    if scope_config:
+        self.scope_config = scope_config
+    self.active_engagement = {
+        "name": name,
+        "scope": scope,
+        "mode": self._mode.name,
+        "max_phase": self.max_phase,
+        "scope_config": self.scope_config,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "workspace": str(ws),
+    }
+    self.findings = []
+    (ws / "engagement.json").write_text(json.dumps(self.active_engagement, indent=2))
+    logger.info(
+        "Engagement '%s' started — scope: %s, mode: %s, max_phase: %s", name, scope, self._mode.name, self.max_phase
+    )
 ```
 
 In `_exec_start()` (around line 143), pass the new params:
@@ -1451,19 +1455,23 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, engagement_
         rate_limits = getattr(engagement_manager, "_config", {}).get("rate_limits", {})
         rate_limiter = RateLimiter(rate_limits) if rate_limits else None
 
-        middleware.append(EnforcementMiddleware(
-            engagement_manager=engagement_manager,
-            scope_validator=scope_validator,
-            rate_limiter=rate_limiter,
-            max_phase=max_phase,
-        ))
+        middleware.append(
+            EnforcementMiddleware(
+                engagement_manager=engagement_manager,
+                scope_validator=scope_validator,
+                rate_limiter=rate_limiter,
+                max_phase=max_phase,
+            )
+        )
 
     if config.knowledge_middleware and knowledge_store:
-        middleware.append(KnowledgeMiddleware(
-            knowledge_store,
-            top_k=config.knowledge_top_k,
-            search_mode=config.knowledge_search_mode,
-        ))
+        middleware.append(
+            KnowledgeMiddleware(
+                knowledge_store,
+                top_k=config.knowledge_top_k,
+                search_mode=config.knowledge_search_mode,
+            )
+        )
 
     if config.audit_middleware:
         middleware.append(AuditMiddleware())
@@ -1696,10 +1704,10 @@ Actually, simpler: modify `shell_exec` to check `self._engagement_mode` which is
 Replace the force check line with:
 
 ```python
-        # Resolve current engagement mode
-        eng_mode = self._engagement_mode
-        if hasattr(self, '_engagement_manager') and self._engagement_manager:
-            eng_mode = self._engagement_manager.mode.value
+# Resolve current engagement mode
+eng_mode = self._engagement_mode
+if hasattr(self, "_engagement_manager") and self._engagement_manager:
+    eng_mode = self._engagement_manager.mode.value
 ```
 
 Then use `eng_mode` instead of `self._engagement_mode` in the force checks:
@@ -1838,6 +1846,7 @@ CREATE INDEX IF NOT EXISTS idx_approval_status ON approval_log(status);
 
 ```python
 """Tests for EngagementStore — SQLite audit trail for engagements."""
+
 import json
 import pytest
 
@@ -1966,8 +1975,18 @@ class TestEngagementSummary:
         store.log_finding(eid, "high", "wifi", "F1", "d1")
         store.log_finding(eid, "low", "rf", "F2", "d2")
         store.log_tool_call(eid, "blackarch", "nmap_scan", "{}", "ok", True, duration_ms=100, phase="RECON")
-        store.log_tool_call(eid, "blackarch", "deauth", "{}", "", False, blocked=True,
-                            block_reason="mode", duration_ms=0, phase="EXPLOITATION")
+        store.log_tool_call(
+            eid,
+            "blackarch",
+            "deauth",
+            "{}",
+            "",
+            False,
+            blocked=True,
+            block_reason="mode",
+            duration_ms=0,
+            phase="EXPLOITATION",
+        )
         summary = store.get_engagement_summary(eid)
         assert summary["name"] == "summary-test"
         assert summary["finding_count"] == 2
@@ -2005,6 +2024,7 @@ python3 -m pytest tests/test_engagement_store.py --tb=short 2>&1 | tail -5
 Records engagements, findings, tool calls (pass and block), phase transitions,
 and approval decisions. Follows the same pattern as TargetStore.
 """
+
 from __future__ import annotations
 
 import json
@@ -2054,8 +2074,7 @@ class EngagementStore:
     ) -> int:
         db = self._get_db()
         cur = db.execute(
-            "INSERT INTO engagements (name, scope_json, mode, max_phase, started_at) "
-            "VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO engagements (name, scope_json, mode, max_phase, started_at) VALUES (?, ?, ?, ?, ?)",
             (name, scope_json, mode, max_phase, _now()),
         )
         db.commit()
@@ -2072,7 +2091,8 @@ class EngagementStore:
     def get_engagement(self, engagement_id: int) -> Optional[dict]:
         db = self._get_db()
         row = db.execute(
-            "SELECT * FROM engagements WHERE id = ?", (engagement_id,),
+            "SELECT * FROM engagements WHERE id = ?",
+            (engagement_id,),
         ).fetchone()
         return dict(row) if row else None
 
@@ -2092,8 +2112,7 @@ class EngagementStore:
         cur = db.execute(
             "INSERT INTO findings (engagement_id, severity, category, title, detail, "
             "target_ip, target_mac, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (engagement_id, severity, category, title, detail,
-             target_ip, target_mac, _now()),
+            (engagement_id, severity, category, title, detail, target_ip, target_mac, _now()),
         )
         db.commit()
         return cur.lastrowid
@@ -2118,7 +2137,8 @@ class EngagementStore:
             params.append(category)
         where = " AND ".join(clauses) if clauses else "1=1"
         rows = db.execute(
-            f"SELECT * FROM findings WHERE {where} ORDER BY created_at DESC", params,
+            f"SELECT * FROM findings WHERE {where} ORDER BY created_at DESC",
+            params,
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -2142,8 +2162,19 @@ class EngagementStore:
             "INSERT INTO tool_calls (engagement_id, tool_name, action, args_json, "
             "result_summary, success, blocked, block_reason, duration_ms, phase, created_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (engagement_id, tool_name, action, args_json, result_summary,
-             int(success), int(blocked), block_reason, duration_ms, phase, _now()),
+            (
+                engagement_id,
+                tool_name,
+                action,
+                args_json,
+                result_summary,
+                int(success),
+                int(blocked),
+                block_reason,
+                duration_ms,
+                phase,
+                _now(),
+            ),
         )
         db.commit()
         return cur.lastrowid
@@ -2167,7 +2198,8 @@ class EngagementStore:
             clauses.append("blocked = 1")
         where = " AND ".join(clauses) if clauses else "1=1"
         rows = db.execute(
-            f"SELECT * FROM tool_calls WHERE {where} ORDER BY created_at DESC", params,
+            f"SELECT * FROM tool_calls WHERE {where} ORDER BY created_at DESC",
+            params,
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -2332,82 +2364,93 @@ Before `self.active_engagement = None`, add:
 **Add audit logging** to `awrap_tool_call` and `wrap_tool_call`. Replace both methods:
 
 ```python
-    def wrap_tool_call(self, request, handler):
-        """Sync enforcement gate."""
-        import time
-        tool_name = request.tool_call.get("name", "unknown")
-        args = request.tool_call.get("args", {})
-        action = args.get("action", tool_name)
+def wrap_tool_call(self, request, handler):
+    """Sync enforcement gate."""
+    import time
 
-        blocked = self._enforce(request)
-        if blocked:
-            self._log_to_store(tool_name, action, args, "", False, True, blocked, 0)
-            return blocked
+    tool_name = request.tool_call.get("name", "unknown")
+    args = request.tool_call.get("args", {})
+    action = args.get("action", tool_name)
 
-        t0 = time.monotonic()
-        result = handler(request)
-        duration_ms = int((time.monotonic() - t0) * 1000)
+    blocked = self._enforce(request)
+    if blocked:
+        self._log_to_store(tool_name, action, args, "", False, True, blocked, 0)
+        return blocked
 
-        result_str = ""
-        if hasattr(result, "content"):
-            result_str = str(result.content)[:200]
-        self._log_to_store(tool_name, action, args, result_str, True, False, "", duration_ms)
-        return result
+    t0 = time.monotonic()
+    result = handler(request)
+    duration_ms = int((time.monotonic() - t0) * 1000)
 
-    async def awrap_tool_call(self, request, handler):
-        """Async enforcement gate."""
-        import time
-        tool_name = request.tool_call.get("name", "unknown")
-        args = request.tool_call.get("args", {})
-        action = args.get("action", tool_name)
+    result_str = ""
+    if hasattr(result, "content"):
+        result_str = str(result.content)[:200]
+    self._log_to_store(tool_name, action, args, result_str, True, False, "", duration_ms)
+    return result
 
-        blocked = self._enforce(request)
-        if blocked:
-            self._log_to_store(tool_name, action, args, "", False, True, blocked, 0)
-            return blocked
 
-        t0 = time.monotonic()
-        result = await handler(request)
-        duration_ms = int((time.monotonic() - t0) * 1000)
+async def awrap_tool_call(self, request, handler):
+    """Async enforcement gate."""
+    import time
 
-        result_str = ""
-        if hasattr(result, "content"):
-            result_str = str(result.content)[:200]
-        self._log_to_store(tool_name, action, args, result_str, True, False, "", duration_ms)
-        return result
+    tool_name = request.tool_call.get("name", "unknown")
+    args = request.tool_call.get("args", {})
+    action = args.get("action", tool_name)
 
-    def _log_to_store(
-        self, tool_name: str, action: str, args: dict,
-        result_summary: str, success: bool,
-        blocked: bool, block_reason: str, duration_ms: int,
-    ):
-        """Best-effort logging to EngagementStore."""
-        if not self._engagement_store:
-            return
-        if not self._is_pentest_tool(tool_name):
-            return
-        try:
-            import json
-            mgr = self._engagement_manager
-            engagement_id = getattr(mgr, "_store_engagement_id", None)
-            phase = ""
-            tool_phase = get_tool_phase(action)
-            if tool_phase:
-                phase = tool_phase.name
-            self._engagement_store.log_tool_call(
-                engagement_id=engagement_id,
-                tool_name=tool_name,
-                action=action,
-                args_json=json.dumps(args, default=str),
-                result_summary=result_summary,
-                success=success,
-                blocked=blocked,
-                block_reason=block_reason,
-                duration_ms=duration_ms,
-                phase=phase,
-            )
-        except Exception as exc:
-            logger.warning("Failed to log tool call to engagement store: %s", exc)
+    blocked = self._enforce(request)
+    if blocked:
+        self._log_to_store(tool_name, action, args, "", False, True, blocked, 0)
+        return blocked
+
+    t0 = time.monotonic()
+    result = await handler(request)
+    duration_ms = int((time.monotonic() - t0) * 1000)
+
+    result_str = ""
+    if hasattr(result, "content"):
+        result_str = str(result.content)[:200]
+    self._log_to_store(tool_name, action, args, result_str, True, False, "", duration_ms)
+    return result
+
+
+def _log_to_store(
+    self,
+    tool_name: str,
+    action: str,
+    args: dict,
+    result_summary: str,
+    success: bool,
+    blocked: bool,
+    block_reason: str,
+    duration_ms: int,
+):
+    """Best-effort logging to EngagementStore."""
+    if not self._engagement_store:
+        return
+    if not self._is_pentest_tool(tool_name):
+        return
+    try:
+        import json
+
+        mgr = self._engagement_manager
+        engagement_id = getattr(mgr, "_store_engagement_id", None)
+        phase = ""
+        tool_phase = get_tool_phase(action)
+        if tool_phase:
+            phase = tool_phase.name
+        self._engagement_store.log_tool_call(
+            engagement_id=engagement_id,
+            tool_name=tool_name,
+            action=action,
+            args_json=json.dumps(args, default=str),
+            result_summary=result_summary,
+            success=success,
+            blocked=blocked,
+            block_reason=block_reason,
+            duration_ms=duration_ms,
+            phase=phase,
+        )
+    except Exception as exc:
+        logger.warning("Failed to log tool call to engagement store: %s", exc)
 ```
 
 ### Step 7.6 — Wire EngagementStore in lg_tools.py and graph/agent.py
@@ -2415,20 +2458,23 @@ Before `self.active_engagement = None`, add:
 - [ ] In `tools/lg_tools.py` `_init_pentest_singletons()`, after `_engagement.target_store = _target_store`, add:
 
 ```python
-    from knowledge.engagement_store import EngagementStore
-    _engagement.engagement_store = EngagementStore()
+from knowledge.engagement_store import EngagementStore
+
+_engagement.engagement_store = EngagementStore()
 ```
 
 - [ ] In `graph/agent.py` `_build_middleware()`, update the `EnforcementMiddleware` construction to pass the store:
 
 ```python
-        middleware.append(EnforcementMiddleware(
-            engagement_manager=engagement_manager,
-            scope_validator=scope_validator,
-            rate_limiter=rate_limiter,
-            max_phase=max_phase,
-            engagement_store=getattr(engagement_manager, 'engagement_store', None),
-        ))
+middleware.append(
+    EnforcementMiddleware(
+        engagement_manager=engagement_manager,
+        scope_validator=scope_validator,
+        rate_limiter=rate_limiter,
+        max_phase=max_phase,
+        engagement_store=getattr(engagement_manager, "engagement_store", None),
+    )
+)
 ```
 
 ### Step 7.7 — Verify
