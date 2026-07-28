@@ -97,9 +97,16 @@ class VulnRangeTool(Tool):
                     cmd = kwargs.get("cmd")
                     if not cmd:
                         return "Error: exec requires 'cmd'."
-                    r = await client.post(f"{_RANGE_URL}/exec", json={
-                        "target_image": image, "session": session, "cmd": cmd,
-                        "workdir": kwargs.get("workdir"), "timeout_s": timeout})
+                    r = await client.post(
+                        f"{_RANGE_URL}/exec",
+                        json={
+                            "target_image": image,
+                            "session": session,
+                            "cmd": cmd,
+                            "workdir": kwargs.get("workdir"),
+                            "timeout_s": timeout,
+                        },
+                    )
                     return _fmt_exec(r)
 
                 if action == "write":
@@ -111,14 +118,18 @@ class VulnRangeTool(Tool):
                     except Exception:
                         return "Error: content_b64 is not valid base64."
                     # write via the sandbox itself (decode in-container → binary-safe)
-                    cmd = (f"mkdir -p \"$(dirname {_sh(path)})\" && "
-                           f"printf %s {_sh(c64)} | base64 -d > {_sh(path)} && "
-                           f"wc -c < {_sh(path)}")
-                    r = await client.post(f"{_RANGE_URL}/exec", json={
-                        "target_image": image, "session": session, "cmd": cmd, "timeout_s": timeout})
+                    cmd = (
+                        f'mkdir -p "$(dirname {_sh(path)})" && '
+                        f"printf %s {_sh(c64)} | base64 -d > {_sh(path)} && "
+                        f"wc -c < {_sh(path)}"
+                    )
+                    r = await client.post(
+                        f"{_RANGE_URL}/exec",
+                        json={"target_image": image, "session": session, "cmd": cmd, "timeout_s": timeout},
+                    )
                     d = r.json()
                     if d.get("exit_code") == 0:
-                        return f"wrote {d.get('stdout','').strip()} bytes to {path}"
+                        return f"wrote {d.get('stdout', '').strip()} bytes to {path}"
                     return f"write failed: {d.get('stderr') or d.get('error')}"
 
                 if action == "reset":
@@ -140,9 +151,12 @@ def _fmt_exec(r: httpx.Response) -> str:
     if "error" in d:
         return f"range error: {d['error']}"
     out, err = d.get("stdout", ""), d.get("stderr", "")
-    parts = [f"[exit {d.get('exit_code')}"
-             + (" TIMED OUT" if d.get("timed_out") else "")
-             + ("  (new sandbox)" if d.get("created") else "") + "]"]
+    parts = [
+        f"[exit {d.get('exit_code')}"
+        + (" TIMED OUT" if d.get("timed_out") else "")
+        + ("  (new sandbox)" if d.get("created") else "")
+        + "]"
+    ]
     if out:
         parts.append(out.rstrip())
     if err:
