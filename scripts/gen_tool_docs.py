@@ -107,6 +107,7 @@ CATEGORIES: list[tuple[str, list[str]]] = [
         "Exploitation & Post-Exploitation",
         [
             "msf_exploit",
+            "vuln_range",
             "credential_attack",
             "hashcat_rules",
             "ad_attack",
