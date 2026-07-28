@@ -84,6 +84,16 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="prepare-release/v${VERSION}"
 
+          # Idempotency: when several PRs merge before the bump PR does, each merge
+          # triggers this workflow and all compute the same next version — the second
+          # run would otherwise push a different commit onto an existing branch and
+          # fail non-fast-forward. If the branch is already out there, the bump for
+          # this version is already prepared; this run is a no-op.
+          if git ls-remote --exit-code --heads origin "${BRANCH}" >/dev/null 2>&1; then
+            echo "::notice::${BRANCH} already exists — a bump PR for v${VERSION} is already open; nothing to do."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
