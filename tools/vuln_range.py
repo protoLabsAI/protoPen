@@ -91,8 +91,11 @@ class VulnRangeTool(Tool):
         session = _session_for(image)
         timeout = int(kwargs.get("timeout_s") or 60)
 
+        # client must outwait the daemon-side command timeout (+ response overhead),
+        # or a long build appears to fail locally while it is still running remotely.
+        client_timeout = max(_TIMEOUT, timeout + 30)
         try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=client_timeout) as client:
                 if action == "exec":
                     cmd = kwargs.get("cmd")
                     if not cmd:
@@ -107,6 +110,7 @@ class VulnRangeTool(Tool):
                             "timeout_s": timeout,
                         },
                     )
+                    r.raise_for_status()
                     return _fmt_exec(r)
 
                 if action == "write":
@@ -127,18 +131,20 @@ class VulnRangeTool(Tool):
                         f"{_RANGE_URL}/exec",
                         json={"target_image": image, "session": session, "cmd": cmd, "timeout_s": timeout},
                     )
+                    r.raise_for_status()
                     d = r.json()
                     if d.get("exit_code") == 0:
                         return f"wrote {d.get('stdout', '').strip()} bytes to {path}"
                     return f"write failed: {d.get('stderr') or d.get('error')}"
 
                 if action == "reset":
-                    await client.post(f"{_RANGE_URL}/exec/end", json={"session": session})
+                    r = await client.post(f"{_RANGE_URL}/exec/end", json={"session": session})
+                    r.raise_for_status()
                     return f"sandbox reset for {image}"
 
                 return f"Unknown action: {action}. Available: exec, write, reset."
         except httpx.HTTPError as e:
-            return f"range unreachable ({_RANGE_URL}): {e}"
+            return f"range request failed ({_RANGE_URL}): {e}"
 
 
 def _sh(s: str) -> str:

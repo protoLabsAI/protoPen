@@ -298,7 +298,7 @@ async def vuln_range(
     cmd: str = "",
     workdir: str = "",
     path: str = "",
-    content_b64: str = "",
+    content_b64: Optional[str] = None,
     timeout_s: int = 60,
 ) -> str:
     """Isolated workbench for memory-safety vuln research on a staged C/C++ target.
