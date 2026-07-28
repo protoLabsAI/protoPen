@@ -13,6 +13,11 @@ Env:
   RANGE_URL   base URL of the range daemon. Default is the tailnet forward
               (https://protolabs.taild25506.ts.net:8446 → range VM), reachable from any
               protoPen node. Override with http://10.99.9.56:8443 when running on the range host.
+  RANGE_PROXY optional HTTP/SOCKS proxy for range requests ONLY (scoped to this tool, so
+              the agent's other egress is untouched). Needed on nodes whose tailscale runs
+              in userspace-networking mode with no kernel route to the tailnet — e.g. the
+              Steam Deck, where tailscaled exposes an outbound proxy on 127.0.0.1:1055 and
+              this is set to http://127.0.0.1:1055. Unset ⇒ direct connection.
 
 Authorized use only — the operator's own isolated range, security research.
 """
@@ -30,6 +35,8 @@ import httpx
 from tools._tool_base import Tool
 
 _RANGE_URL = os.environ.get("RANGE_URL", "https://protolabs.taild25506.ts.net:8446")
+# Scoped proxy for range traffic only (see module docstring). None ⇒ direct.
+_RANGE_PROXY = os.environ.get("RANGE_PROXY") or None
 _TIMEOUT = 120
 
 
@@ -95,7 +102,7 @@ class VulnRangeTool(Tool):
         # or a long build appears to fail locally while it is still running remotely.
         client_timeout = max(_TIMEOUT, timeout + 30)
         try:
-            async with httpx.AsyncClient(timeout=client_timeout) as client:
+            async with httpx.AsyncClient(timeout=client_timeout, proxy=_RANGE_PROXY) as client:
                 if action == "exec":
                     cmd = kwargs.get("cmd")
                     if not cmd:
