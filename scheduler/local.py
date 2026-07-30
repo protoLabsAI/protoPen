@@ -15,7 +15,11 @@ Architecture:
 - Firing = HTTP POST to the running agent's own ``/a2a`` endpoint as
   a ``message/send``. Going through HTTP rather than calling into the
   graph directly gets us free parity with real callers — same audit
-  log, same cost-v1 capture, same auth path.
+  log, same cost-v1 capture, same auth path. The response only arrives
+  when the turn *ends*, so a fire counts as delivered once the agent
+  accepts it (including "still working past the read timeout"); only
+  connect errors and HTTP error responses count as failures, and those
+  back off exponentially rather than retrying every tick (#337).
 - One-shot ISO schedules are deleted after firing. Cron schedules
   reschedule via croniter.
 - On startup: any job whose ``next_fire`` is in the past but within a
@@ -52,6 +56,17 @@ DEFAULT_DB_DIR = "/sandbox/scheduler"
 _POLL_INTERVAL_S = 1.0
 _MISSED_FIRE_WINDOW_S = 24 * 60 * 60  # 24h — matches Workstacean
 _LOCK_RETRY_INTERVAL_S = 15.0  # how often to re-attempt the owner-lock
+
+# Fire delivery (#337). The POST to /a2a is answered only when the turn ends,
+# so the read timeout is a *dispatch confirmation* window, not a turn budget:
+# past it we assume the agent is working and count the fire as delivered.
+_FIRE_CONNECT_TIMEOUT_S = 10.0
+_FIRE_DISPATCH_TIMEOUT_S = 15.0
+# Backoff for genuine delivery failures. Without a cap, a persistently failing
+# job retries at poll frequency (1/s) forever.
+_FIRE_RETRY_BASE_S = 30.0
+_FIRE_RETRY_MAX_S = 900.0  # 15 min ceiling between attempts
+_FIRE_MAX_ATTEMPTS = 5
 
 
 def _resolve_db_path(db_dir: str | Path | None, agent_name: str) -> Path:
@@ -121,7 +136,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_fire   TEXT,
     enabled     INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT NOT NULL,
-    context_id  TEXT
+    context_id  TEXT,
+    fire_attempts INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_next_fire   ON jobs(next_fire);
@@ -184,6 +200,10 @@ class LocalScheduler:
             cols = {r["name"] for r in db.execute("PRAGMA table_info(jobs)").fetchall()}
             if "context_id" not in cols:
                 db.execute("ALTER TABLE jobs ADD COLUMN context_id TEXT")
+            # Lazy migration: the retry budget (#337). Existing rows start at 0
+            # attempts, which is the correct state for a job that has not failed.
+            if "fire_attempts" not in cols:
+                db.execute("ALTER TABLE jobs ADD COLUMN fire_attempts INTEGER NOT NULL DEFAULT 0")
             db.commit()
             db.close()
         except sqlite3.DatabaseError:
@@ -388,18 +408,82 @@ class LocalScheduler:
         now = datetime.now(UTC)
         due = self._claim_due_jobs(now)
         for job in due:
-            # Reschedule (or delete) only when delivery actually
-            # succeeded. A transient HTTP failure leaves the row in
-            # place so the next tick retries; a one-shot stays alive
-            # until it lands rather than vanishing on the first
-            # network blip.
+            # Reschedule (or delete) once delivery is *accepted* — not once the
+            # turn finishes. A turn that outruns the dispatch window is still a
+            # successful fire (see ``_fire``), so the schedule advances and the
+            # next tick can't re-claim the same row.
+            #
+            # A genuine delivery failure leaves the row in place so it retries,
+            # but backs off first: retrying at poll frequency turned a single
+            # wedged job into ~18h of continuous re-fires (#337).
             if await self._fire(job):
                 self._reschedule_or_delete(job, fired_at=now)
             else:
-                log.warning(
-                    "[scheduler] fire failed for job %s; leaving in place for retry",
+                self._back_off(job, now=now)
+
+    def _back_off(self, job: Job, *, now: datetime) -> None:
+        """Push a failed job's ``next_fire`` forward, then give up eventually.
+
+        Both the backoff and the attempt counter are persisted — written in the
+        same UPDATE as ``next_fire`` — so a restart mid-backoff resets neither
+        the delay nor the retry budget. Holding the counter in memory would let
+        a job that keeps failing across restarts retry past the cap forever.
+
+        After ``_FIRE_MAX_ATTEMPTS`` consecutive failures the job stops retrying
+        this slot: cron rolls to its next natural slot, one-shots are dropped
+        rather than retried indefinitely.
+        """
+        attempts = job.fire_attempts + 1
+
+        if attempts >= _FIRE_MAX_ATTEMPTS:
+            if is_cron(job.schedule):
+                log.error(
+                    "[scheduler] job %s failed %d consecutive fires; skipping to its next slot",
                     job.id,
+                    attempts,
                 )
+                self._reschedule_or_delete(job, fired_at=now)
+            else:
+                log.error(
+                    "[scheduler] one-shot job %s failed %d consecutive fires; dropping it",
+                    job.id,
+                    attempts,
+                )
+                self._delete_job_row(job.id)
+            return
+
+        delay = min(_FIRE_RETRY_BASE_S * (2 ** (attempts - 1)), _FIRE_RETRY_MAX_S)
+        retry_at = (now + timedelta(seconds=delay)).isoformat()
+        db = self._connect()
+        try:
+            # One statement: the delay and the budget it spends move together, so
+            # a crash between them can't leave a job retrying with a fresh count.
+            db.execute(
+                "UPDATE jobs SET next_fire = ?, fire_attempts = ? WHERE id = ?",
+                (retry_at, attempts, job.id),
+            )
+            db.commit()
+        except sqlite3.DatabaseError:
+            log.exception("[scheduler] backoff update failed for job %s", job.id)
+        finally:
+            db.close()
+        log.warning(
+            "[scheduler] fire failed for job %s (attempt %d/%d); retrying in %.0fs",
+            job.id,
+            attempts,
+            _FIRE_MAX_ATTEMPTS,
+            delay,
+        )
+
+    def _delete_job_row(self, job_id: str) -> None:
+        db = self._connect()
+        try:
+            db.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+            db.commit()
+        except sqlite3.DatabaseError:
+            log.exception("[scheduler] delete failed for job %s", job_id)
+        finally:
+            db.close()
 
     def _claim_due_jobs(self, now: datetime) -> list[Job]:
         db = self._connect()
@@ -421,8 +505,10 @@ class LocalScheduler:
         try:
             if is_cron(job.schedule):
                 next_iso = _compute_next_fire(job.schedule, after=fired_at)
+                # Clear the retry budget: this slot is settled, either by an
+                # accepted dispatch or by giving up and skipping ahead.
                 db.execute(
-                    "UPDATE jobs SET next_fire = ?, last_fire = ? WHERE id = ?",
+                    "UPDATE jobs SET next_fire = ?, last_fire = ?, fire_attempts = 0 WHERE id = ?",
                     (next_iso, fired_at.isoformat(), job.id),
                 )
             else:
@@ -475,10 +561,22 @@ class LocalScheduler:
     async def _fire(self, job: Job) -> bool:
         """Deliver a job by POSTing to the agent's own A2A endpoint.
 
-        Returns ``True`` on a 2xx response, ``False`` on any HTTP
-        error or network exception. Callers use the return value to
-        decide whether to advance the schedule (success) or leave
-        the row in place for the next tick to retry (failure).
+        Returns ``True`` when the fire was **accepted**, ``False`` only on a
+        genuine delivery failure. Callers use the return value to decide
+        whether to advance the schedule (accepted) or back off and retry
+        (failed).
+
+        "Accepted" deliberately includes *the agent is still working on it*.
+        The POST is answered only when the turn completes, so any turn longer
+        than the read timeout raises ``ReadTimeout`` — even though the agent
+        received the prompt and is running it. Treating that as a failure is
+        what caused #337: the schedule never advanced, the 1s poll loop
+        re-claimed the same past-due row every tick, and a ``*/15`` job fired
+        every ~31s for ~18h while each "failed" fire still cost a full turn.
+        A read timeout therefore means dispatched, not failed.
+
+        Connect errors (agent not up yet) and HTTP error responses remain
+        real failures — those mean the prompt never landed.
         """
         import httpx
 
@@ -518,8 +616,12 @@ class LocalScheduler:
                 },
             },
         }
+        timeout = httpx.Timeout(
+            _FIRE_DISPATCH_TIMEOUT_S,
+            connect=_FIRE_CONNECT_TIMEOUT_S,
+        )
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 r = await client.post(f"{self._invoke_url}/a2a", headers=headers, json=body)
             if r.status_code >= 400:
                 log.error(
@@ -530,6 +632,16 @@ class LocalScheduler:
                 )
                 return False
             log.info("[scheduler] fired job %s", job.id)
+            return True
+        except httpx.ReadTimeout:
+            # The agent took the prompt and is still running the turn. Long
+            # turns are normal (a capture step alone can outlast the window),
+            # so this is the success path, not a retry path — see the docstring.
+            log.info(
+                "[scheduler] job %s dispatched; turn still running after %.0fs",
+                job.id,
+                _FIRE_DISPATCH_TIMEOUT_S,
+            )
             return True
         except (httpx.ConnectError, httpx.ConnectTimeout):
             # The agent isn't accepting connections yet — common on startup
@@ -562,4 +674,5 @@ def _row_to_job(row: Any) -> Job:
         enabled=bool(row["enabled"]),
         created_at=row["created_at"],
         context_id=row["context_id"] if "context_id" in keys else None,
+        fire_attempts=(row["fire_attempts"] or 0) if "fire_attempts" in keys else 0,
     )
