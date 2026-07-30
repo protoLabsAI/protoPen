@@ -487,3 +487,69 @@ async def test_retries_are_capped(tmp_path, monkeypatch):
     assert one_shot.id not in ids, "one-shot retried past the cap instead of being dropped"
     assert cron.id in ids
     assert parse_iso_to_utc(s.list_jobs()[0].next_fire) > datetime.now(UTC)
+
+
+@pytest.mark.asyncio
+async def test_retry_budget_survives_a_restart(tmp_path, monkeypatch):
+    """The attempt cap must not reset when the process restarts mid-backoff.
+
+    An in-memory counter would let a job that keeps failing across restarts
+    retry forever — the cap would only ever bound a single uninterrupted run.
+    """
+    import httpx
+
+    class _RefusingClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **k):
+            raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _RefusingClient)
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+
+    s = _sched(tmp_path)
+    one_shot = s.add_job("once", (datetime.now(UTC) + timedelta(days=1)).isoformat())
+
+    # Fail it repeatedly, but hand it to a *fresh* scheduler instance each time —
+    # a new process against the same jobs.db.
+    for _ in range(_local._FIRE_MAX_ATTEMPTS):
+        s = _sched(tmp_path)  # "restart"
+        db = s._connect()
+        db.execute("UPDATE jobs SET next_fire = ? WHERE id = ?", (past, one_shot.id))
+        db.commit()
+        db.close()
+        assert s.list_jobs()[0].fire_attempts >= 0  # counter is readable from disk
+        await s._tick()
+
+    assert one_shot.id not in {j.id for j in s.list_jobs()}, (
+        "one-shot survived the cap across restarts — the retry budget reset"
+    )
+
+
+def test_fire_attempts_lazy_migration(tmp_path):
+    """A jobs.db predating the retry budget gains the column, defaulting to 0."""
+    import sqlite3
+
+    d = tmp_path / "protopen-test"
+    d.mkdir(parents=True)
+    db = sqlite3.connect(str(d / "jobs.db"))
+    db.executescript(
+        "CREATE TABLE jobs (id TEXT PRIMARY KEY, prompt TEXT, schedule TEXT, agent_name TEXT,"
+        " next_fire TEXT, last_fire TEXT, enabled INTEGER, created_at TEXT, context_id TEXT);"
+    )
+    db.execute(
+        "INSERT INTO jobs VALUES ('old', 'p', '0 9 * * *', 'protopen-test',"
+        " '2030-01-01T00:00:00+00:00', NULL, 1, '2026-01-01T00:00:00+00:00', NULL)"
+    )
+    db.commit()
+    db.close()
+
+    s = _sched(tmp_path)  # __init__ runs the lazy migration
+    assert s.list_jobs()[0].fire_attempts == 0

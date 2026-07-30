@@ -136,7 +136,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     last_fire   TEXT,
     enabled     INTEGER NOT NULL DEFAULT 1,
     created_at  TEXT NOT NULL,
-    context_id  TEXT
+    context_id  TEXT,
+    fire_attempts INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_next_fire   ON jobs(next_fire);
@@ -174,8 +175,6 @@ class LocalScheduler:
         self._lock_path = self.path.with_name(self.path.name + ".lock")
         self._lock_fh = None
         self._stopping = False
-        # job id → consecutive delivery failures, for backoff (#337).
-        self._fire_failures: dict[str, int] = {}
         self._init_db()
 
     # ── DB plumbing ─────────────────────────────────────────────────────────
@@ -201,6 +200,10 @@ class LocalScheduler:
             cols = {r["name"] for r in db.execute("PRAGMA table_info(jobs)").fetchall()}
             if "context_id" not in cols:
                 db.execute("ALTER TABLE jobs ADD COLUMN context_id TEXT")
+            # Lazy migration: the retry budget (#337). Existing rows start at 0
+            # attempts, which is the correct state for a job that has not failed.
+            if "fire_attempts" not in cols:
+                db.execute("ALTER TABLE jobs ADD COLUMN fire_attempts INTEGER NOT NULL DEFAULT 0")
             db.commit()
             db.close()
         except sqlite3.DatabaseError:
@@ -414,7 +417,6 @@ class LocalScheduler:
             # but backs off first: retrying at poll frequency turned a single
             # wedged job into ~18h of continuous re-fires (#337).
             if await self._fire(job):
-                self._fire_failures.pop(job.id, None)
                 self._reschedule_or_delete(job, fired_at=now)
             else:
                 self._back_off(job, now=now)
@@ -422,17 +424,18 @@ class LocalScheduler:
     def _back_off(self, job: Job, *, now: datetime) -> None:
         """Push a failed job's ``next_fire`` forward, then give up eventually.
 
-        Exponential backoff persisted to ``next_fire`` (not held in memory), so
-        a restart mid-backoff doesn't reset the job to firing every tick. After
-        ``_FIRE_MAX_ATTEMPTS`` consecutive failures the job stops retrying this
-        slot: cron rolls to its next natural slot, one-shots are dropped rather
-        than retried forever.
+        Both the backoff and the attempt counter are persisted — written in the
+        same UPDATE as ``next_fire`` — so a restart mid-backoff resets neither
+        the delay nor the retry budget. Holding the counter in memory would let
+        a job that keeps failing across restarts retry past the cap forever.
+
+        After ``_FIRE_MAX_ATTEMPTS`` consecutive failures the job stops retrying
+        this slot: cron rolls to its next natural slot, one-shots are dropped
+        rather than retried indefinitely.
         """
-        attempts = self._fire_failures.get(job.id, 0) + 1
-        self._fire_failures[job.id] = attempts
+        attempts = job.fire_attempts + 1
 
         if attempts >= _FIRE_MAX_ATTEMPTS:
-            self._fire_failures.pop(job.id, None)
             if is_cron(job.schedule):
                 log.error(
                     "[scheduler] job %s failed %d consecutive fires; skipping to its next slot",
@@ -453,7 +456,12 @@ class LocalScheduler:
         retry_at = (now + timedelta(seconds=delay)).isoformat()
         db = self._connect()
         try:
-            db.execute("UPDATE jobs SET next_fire = ? WHERE id = ?", (retry_at, job.id))
+            # One statement: the delay and the budget it spends move together, so
+            # a crash between them can't leave a job retrying with a fresh count.
+            db.execute(
+                "UPDATE jobs SET next_fire = ?, fire_attempts = ? WHERE id = ?",
+                (retry_at, attempts, job.id),
+            )
             db.commit()
         except sqlite3.DatabaseError:
             log.exception("[scheduler] backoff update failed for job %s", job.id)
@@ -497,8 +505,10 @@ class LocalScheduler:
         try:
             if is_cron(job.schedule):
                 next_iso = _compute_next_fire(job.schedule, after=fired_at)
+                # Clear the retry budget: this slot is settled, either by an
+                # accepted dispatch or by giving up and skipping ahead.
                 db.execute(
-                    "UPDATE jobs SET next_fire = ?, last_fire = ? WHERE id = ?",
+                    "UPDATE jobs SET next_fire = ?, last_fire = ?, fire_attempts = 0 WHERE id = ?",
                     (next_iso, fired_at.isoformat(), job.id),
                 )
             else:
@@ -664,4 +674,5 @@ def _row_to_job(row: Any) -> Job:
         enabled=bool(row["enabled"]),
         created_at=row["created_at"],
         context_id=row["context_id"] if "context_id" in keys else None,
+        fire_attempts=(row["fire_attempts"] or 0) if "fire_attempts" in keys else 0,
     )
