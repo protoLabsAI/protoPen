@@ -737,6 +737,13 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
             description=req.get("description", "") or req.get("prompt", "")[:80],
         )
 
+    # A2A tasks — read-only view of the turns themselves (#339). Sits beside the
+    # scheduler surface: jobs are what's *scheduled*, tasks are what's running.
+    def _operator_tasks_list(limit: int = 100, state: str | None = None, context_id: str | None = None):
+        from operator_api.tasks import list_tasks
+
+        return list_tasks(limit, state, context_id)
+
     # Scheduler management — list/create/cancel jobs on the local scheduler.
     def _operator_scheduler_list():
         return {"jobs": [j.as_dict() for j in _scheduler.list_jobs()], "backend": _scheduler.name}
@@ -780,6 +787,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         agent_list=lambda: _agent_registry.snapshot(),
         agent_get=lambda task_id: _agent_registry.get(task_id),
         agent_cancel=lambda task_id: _agent_registry.cancel(task_id),
+        tasks_list=_operator_tasks_list,
         scheduler_list=_operator_scheduler_list,
         scheduler_add=_operator_scheduler_add,
         scheduler_cancel=_operator_scheduler_cancel,

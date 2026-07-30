@@ -235,6 +235,16 @@ def _resolve_db_path(leaf: str) -> str:
         return str(fallback)
 
 
+def resolve_task_db_path() -> str:
+    """Where the durable A2A task store lives.
+
+    Same resolution ``build_a2a_stores`` uses, exposed so read-only consumers
+    (the operator ``/api/tasks`` surface) find the identical file without having
+    to construct a store or thread the path through app wiring.
+    """
+    return _resolve_db_path("a2a-tasks.db")
+
+
 def make_sqlite_engine(db_path: str) -> AsyncEngine:
     """Async SQLAlchemy engine for a local SQLite file (aiosqlite driver)."""
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
