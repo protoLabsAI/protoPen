@@ -109,6 +109,7 @@ def register_operator_routes(
     agent_list: Callable[[], list[dict[str, Any]]] | None = None,
     agent_get: Callable[[str], dict[str, Any] | None] | None = None,
     agent_cancel: Callable[[str], bool] | None = None,
+    tasks_list: Callable[[int, str | None, str | None], dict[str, Any]] | None = None,
     scheduler_list: Callable[[], dict[str, Any]] | None = None,
     scheduler_add: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     scheduler_cancel: Callable[[str], dict[str, Any]] | None = None,
@@ -375,6 +376,18 @@ def register_operator_routes(
     @router.post("/api/agents/{task_id}/cancel", summary="Cancel an agent run")
     async def _agent_cancel(task_id: str):
         return {"cancelled": bool(agent_cancel(task_id)) if agent_cancel else False}
+
+    @router.get("/api/tasks", summary="List A2A tasks (in-flight + recent)")
+    async def _tasks_list(limit: int = 100, state: str | None = None, context_id: str | None = None):
+        """What the agent is actually working on, alongside the scheduler's jobs.
+
+        ``counts_by_state`` covers the whole store regardless of the page — a
+        pile of stuck ``TASK_STATE_WORKING`` rows is the signature of a runaway
+        (#337) and must be visible without paging.
+        """
+        if tasks_list is None:
+            return {"tasks": [], "count": 0, "counts_by_state": {}, "available": False}
+        return tasks_list(limit, state, context_id)
 
     @router.get("/api/scheduler/jobs", summary="List scheduled jobs")
     async def _scheduler_jobs():

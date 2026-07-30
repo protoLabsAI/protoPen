@@ -53,6 +53,7 @@ def _client(
     agent_list=None,
     agent_get=None,
     agent_cancel=None,
+    tasks_list=None,
     scheduler_list=None,
     scheduler_add=None,
     scheduler_cancel=None,
@@ -85,6 +86,7 @@ def _client(
         scheduler_list=scheduler_list,
         scheduler_add=scheduler_add,
         scheduler_cancel=scheduler_cancel,
+        tasks_list=tasks_list,
         chat_commands=chat_commands,
         notes_service=notes,
         beads_service=_Beads(),
@@ -327,3 +329,31 @@ def test_chat_commands_route_returns_registry() -> None:
 def test_chat_commands_route_empty_when_unwired() -> None:
     client, _ = _client()  # chat_commands omitted
     assert client.get("/api/chat/commands").json() == {"commands": []}
+
+
+# ── /api/tasks — operator visibility into A2A turns (#339) ───────────────────
+
+
+def test_tasks_route_passes_filters_and_returns_payload() -> None:
+    seen = {}
+
+    def t_list(limit, state, context_id):
+        seen["args"] = (limit, state, context_id)
+        return {
+            "tasks": [{"id": "t1", "context_id": "system:activity", "state": "TASK_STATE_WORKING"}],
+            "count": 1,
+            "counts_by_state": {"TASK_STATE_WORKING": 1},
+            "available": True,
+        }
+
+    client, _ = _client(tasks_list=t_list)
+    body = client.get("/api/tasks?limit=25&state=working&context_id=system:activity").json()
+    assert seen["args"] == (25, "working", "system:activity")
+    assert body["tasks"][0]["id"] == "t1"
+    assert body["counts_by_state"] == {"TASK_STATE_WORKING": 1}
+
+
+def test_tasks_route_when_unwired() -> None:
+    client, _ = _client()
+    body = client.get("/api/tasks").json()
+    assert body == {"tasks": [], "count": 0, "counts_by_state": {}, "available": False}

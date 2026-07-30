@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_58 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_59 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -663,6 +663,22 @@ Target profile
 | Name | In | Required | Type | Default |
 |---|---|---|---|---|
 | `host_id` | path | yes | integer |  |
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+### Tasks
+
+#### `GET /api/tasks`
+
+List A2A tasks (in-flight + recent)
+
+**Parameters**
+
+| Name | In | Required | Type | Default |
+|---|---|---|---|---|
+| `limit` | query | no | integer | `100` |
+| `state` | query | no | string |  |
+| `context_id` | query | no | string |  |
 
 **Responses:** `200` Successful Response, `422` Validation Error
 

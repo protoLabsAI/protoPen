@@ -1017,6 +1017,77 @@
         }
       }
     },
+    "/api/tasks": {
+      "get": {
+        "summary": "List A2A tasks (in-flight + recent)",
+        "description": "What the agent is actually working on, alongside the scheduler's jobs.\n\n``counts_by_state`` covers the whole store regardless of the page — a\npile of stuck ``TASK_STATE_WORKING`` rows is the signature of a runaway\n(#337) and must be visible without paging.",
+        "operationId": "_tasks_list_api_tasks_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "context_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Context Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/scheduler/jobs": {
       "get": {
         "summary": "List scheduled jobs",
