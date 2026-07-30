@@ -818,3 +818,71 @@ async def test_proto_send_message_still_dispatches_with_compat():
         # Proto SendMessage wraps the task in result.task (SendMessageResponse);
         # v0.3 message/send returns the task directly at result — both dispatch.
         assert body["result"]["task"]["id"]
+
+
+@pytest.mark.asyncio
+async def test_cancel_halts_the_running_turn():
+    """CancelTask must stop the work, not just relabel the row.
+
+    Nothing in protoPen performs the cancellation: ``ActiveTask.cancel``
+    (a2a-sdk ``active_task.py``) cancels the producer task *before* calling
+    ``ProtoPenExecutor.cancel``, and that propagates CancelledError into our
+    stream — our executor only publishes the status. That's a load-bearing
+    assumption about SDK internals, and ``a2a_registry`` already documents that
+    an SDK bump can move them (protoAgent #1713), so the property is worth
+    pinning: after a cancel, the turn stops *doing work*.
+
+    Verified to bite: neutering the producer cancellation leaves the status
+    write intact and this fails with "turn kept working after cancel".
+
+    Investigated under #338, where ~2,000 concurrent turns made a live cancel
+    look like a no-op. It isn't — but only a test keeps it that way.
+    """
+    ticks = 0
+    saw_cancel = False
+
+    async def stream(text, ctx, *, resume=False, caller_trace=None, interactive=False):
+        nonlocal ticks, saw_cancel
+        try:
+            yield ("text", "working ")
+            for _ in range(500):  # far longer than the test needs
+                await asyncio.sleep(0.01)
+                ticks += 1
+            yield ("done", "finished")
+        except asyncio.CancelledError:
+            saw_cancel = True
+            raise
+
+    app = _build_app(stream)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", timeout=10) as c:
+        # Non-blocking send so the turn keeps running while we cancel it.
+        r = await c.post(
+            "/a2a",
+            headers=A2A_HEADERS,
+            json={
+                "jsonrpc": "2.0",
+                "id": "r1",
+                "method": "SendMessage",
+                "params": {
+                    "message": {"messageId": "m1", "role": "ROLE_USER", "parts": [{"text": "go"}]},
+                    "configuration": {"returnImmediately": True},
+                },
+            },
+        )
+        task_id = r.json()["result"]["task"]["id"]
+
+        await asyncio.sleep(0.2)
+        assert ticks > 0, "turn never started; the test would pass vacuously"
+
+        cancel = await c.post(
+            "/a2a",
+            headers=A2A_HEADERS,
+            json={"jsonrpc": "2.0", "id": "c", "method": "CancelTask", "params": {"id": task_id}},
+        )
+        assert cancel.json()["result"]["status"]["state"] == "TASK_STATE_CANCELED"
+
+        at_cancel = ticks
+        await asyncio.sleep(0.3)  # ~30 ticks' worth of work if it kept going
+
+    assert ticks <= at_cancel + 1, f"turn kept working after cancel ({at_cancel} → {ticks} ticks)"
+    assert saw_cancel, "the stream never saw CancelledError — cancellation didn't reach the turn"
