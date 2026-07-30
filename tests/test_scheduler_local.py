@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -325,3 +326,164 @@ def test_lazy_migration_adds_context_id_column(tmp_path):
     # New jobs can now set it.
     s.add_job("resume", "2030-02-01T00:00:00+00:00", context_id="a2a:x")
     assert any(j.context_id == "a2a:x" for j in s.list_jobs())
+
+
+# ── fire-on-dispatch + bounded retry (#337) ──────────────────────────────────
+#
+# The runaway: `_fire` awaited the whole turn on a 30s timeout, so any turn
+# longer than that raised ReadTimeout and was scored a failure. `next_fire`
+# never advanced, and the 1s poll loop re-claimed the same past-due row every
+# tick — a `*/15` job fired every ~31s for ~18h, each "failed" fire still
+# costing a real turn. These lock in: long turn ⇒ fires once per slot, and no
+# failure mode can retry at poll frequency.
+
+
+class _SlowClient:
+    """Agent accepts the prompt but is still working when the read window ends."""
+
+    def __init__(self, *a, **k):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def post(self, *a, **k):
+        import httpx
+
+        raise httpx.ReadTimeout("timed out reading response")
+
+
+@pytest.mark.asyncio
+async def test_long_turn_counts_as_dispatched(tmp_path, monkeypatch, caplog):
+    """A turn that outlasts the dispatch window is delivered, not failed."""
+    import httpx
+
+    from scheduler.interface import Job
+
+    monkeypatch.setattr(httpx, "AsyncClient", _SlowClient)
+    s = _sched(tmp_path)
+    job = Job(id="slow", prompt="capture", schedule="*/15 * * * *", next_fire="", agent_name="protopen-test")
+
+    with caplog.at_level(logging.INFO, logger="scheduler.local"):
+        ok = await s._fire(job)
+
+    assert ok is True
+    assert any("still running" in r.getMessage() for r in caplog.records)
+    assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_long_turn_fires_once_per_slot(tmp_path, monkeypatch):
+    """The regression itself: repeated ticks must not re-fire the same slot."""
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", _SlowClient)
+    s = _sched(tmp_path)
+    # Due now, on a 15-minute cron.
+    job = s.add_job("capture", "*/15 * * * *")
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    db = s._connect()
+    db.execute("UPDATE jobs SET next_fire = ? WHERE id = ?", (past, job.id))
+    db.commit()
+    db.close()
+
+    fires = 0
+    real_fire = s._fire
+
+    async def counting_fire(j):
+        nonlocal fires
+        fires += 1
+        return await real_fire(j)
+
+    s._fire = counting_fire
+    for _ in range(5):  # five poll ticks, as the 1s loop would do
+        await s._tick()
+
+    assert fires == 1, f"re-fired {fires}× for one slot (runaway regression)"
+    stored = s.list_jobs()[0]
+    assert parse_iso_to_utc(stored.next_fire) > datetime.now(UTC)  # advanced, not past-due
+    assert stored.last_fire is not None  # and recorded, so the surface isn't lying
+
+
+@pytest.mark.asyncio
+async def test_delivery_failure_backs_off_instead_of_hammering(tmp_path, monkeypatch):
+    """A genuine failure retries later — never at poll frequency."""
+    import httpx
+
+    class _RefusingClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **k):
+            raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _RefusingClient)
+    s = _sched(tmp_path)
+    job = s.add_job("ping", "*/15 * * * *")
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    db = s._connect()
+    db.execute("UPDATE jobs SET next_fire = ? WHERE id = ?", (past, job.id))
+    db.commit()
+    db.close()
+
+    await s._tick()
+    after_first = parse_iso_to_utc(s.list_jobs()[0].next_fire)
+    assert after_first > datetime.now(UTC), "failed job stayed past-due → re-fires every tick"
+
+    # Backoff grows rather than staying flat.
+    delays = []
+    for _ in range(2):
+        db = s._connect()
+        db.execute("UPDATE jobs SET next_fire = ? WHERE id = ?", (past, job.id))
+        db.commit()
+        db.close()
+        before = datetime.now(UTC)
+        await s._tick()
+        delays.append((parse_iso_to_utc(s.list_jobs()[0].next_fire) - before).total_seconds())
+    assert delays[1] > delays[0], f"backoff not increasing: {delays}"
+
+
+@pytest.mark.asyncio
+async def test_retries_are_capped(tmp_path, monkeypatch):
+    """After the attempt cap, cron skips to its next slot; one-shots are dropped."""
+    import httpx
+
+    class _RefusingClient:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **k):
+            raise httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(httpx, "AsyncClient", _RefusingClient)
+    s = _sched(tmp_path)
+    cron = s.add_job("cron", "*/15 * * * *")
+    one_shot = s.add_job("once", (datetime.now(UTC) + timedelta(days=1)).isoformat())
+
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    for _ in range(_local._FIRE_MAX_ATTEMPTS):
+        db = s._connect()
+        db.execute("UPDATE jobs SET next_fire = ?", (past,))
+        db.commit()
+        db.close()
+        await s._tick()
+
+    ids = {j.id for j in s.list_jobs()}
+    assert one_shot.id not in ids, "one-shot retried past the cap instead of being dropped"
+    assert cron.id in ids
+    assert parse_iso_to_utc(s.list_jobs()[0].next_fire) > datetime.now(UTC)
