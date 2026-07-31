@@ -107,9 +107,13 @@ and remember GHCR `:latest` may be newer than the last tag (manual dispatches pu
   separate display-wake concern and shipped anyway.) If sleep is ever masked again the
   fix is `sudo systemctl unmask sleep.target suspend.target hibernate.target
   hybrid-sleep.target` + drop those paths from `/etc/atomic-update.conf.d/protopen-keep.conf`.
-  The right way to keep the Deck reachable across a suspend is a resume hook
-  (`/usr/lib/systemd/system-sleep/`) that restarts tailscaled + `protopen-runtime`,
-  not preventing sleep.
+  Keeping the Deck reachable across a suspend is the **watchdog's** job, not sleep
+  prevention: `protopen-watchdog.timer` (user scope, installed by `deck/install.sh`)
+  probes the tailnet + runtime every 30s and repairs only what's broken. It's a
+  realtime timer on purpose — a tick that elapses during suspend runs on resume, so
+  it doubles as the post-resume trigger with nothing root-owned to preserve.
+  Check it with `systemctl --user list-timers protopen-watchdog.timer` and
+  `journalctl --user -u protopen-watchdog.service`.
 - **Tailscale SSH kills child processes on disconnect** — never `nohup`/`setsid` a
   server; always the systemd user service.
 - **Corrupted session** (`tool_use ids … without tool_result`):
