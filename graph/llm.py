@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator, Callable
 
 import httpcore
 import httpx
+from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from graph.config import LangGraphConfig
@@ -88,16 +89,56 @@ class _ReconnectingChatOpenAI(ChatOpenAI):
             yield chunk
 
 
-def create_llm(config: LangGraphConfig, model_name: str | None = None) -> ChatOpenAI:
+def flatten_content(content: object) -> str:
+    """Flatten a chat message's ``content`` to plain answer text.
+
+    The gateway path returns a plain string, but the native OAuth providers (ADR 0097)
+    return **content blocks** — a list like ``[{"type": "text", "text": ...},
+    {"type": "thinking", ...}]`` (Anthropic extended thinking, or a Responses payload).
+    Stringifying that list raw renders the console the literal repr
+    (``[{'type': 'text', ...}]``), so the stream/final-answer/transcript sites route
+    content through here: strings pass through untouched (a no-op for the gateway), a
+    block list keeps only the visible ``text`` blocks — thinking/tool blocks drop out of
+    the rendered answer — joined with no separator so streamed deltas concatenate cleanly.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") in (None, "text") and block.get("text"):
+                    parts.append(str(block["text"]))
+            elif isinstance(block, str):
+                parts.append(block)
+        return "".join(parts)
+    return str(content) if content is not None else ""
+
+
+def create_llm(config: LangGraphConfig, model_name: str | None = None) -> BaseChatModel:
     """Create a LangChain ChatModel from config.
 
-    Routes through the LiteLLM gateway which handles provider
-    routing (Anthropic, OpenAI, vLLM, etc.) behind a single
-    OpenAI-compatible endpoint.
+    Default: routes through the LiteLLM gateway which handles provider routing
+    (Anthropic, OpenAI, vLLM, etc.) behind a single OpenAI-compatible endpoint.
+    When ``model.provider`` is a native OAuth-subscription provider
+    (``anthropic-oauth`` / ``openai-codex``, ADR 0097) this returns a Claude/OpenAI
+    client authenticated by a coding-agent OAuth token instead — same native
+    pipeline, no gateway.
 
     ``model_name`` overrides the configured model — used to route auxiliary work
-    (e.g. summarization for compaction) to a cheaper/faster gateway alias.
+    (e.g. summarization for compaction) to a cheaper/faster model. With a native
+    OAuth provider the aux/subagent slots inherit that provider, so the override
+    must be a real Claude/OpenAI model id (a gateway alias raises a clear error).
     """
+    # Native OAuth-subscription providers (ADR 0097): authenticate THIS call with a
+    # coding-agent OAuth token straight through the native pipeline — no gateway.
+    # Gated on model.provider so the default gateway path below is unchanged; the
+    # branch that isn't taken imports nothing heavy (builders are lazy).
+    from graph.providers import build_native_oauth_llm, is_native_oauth_provider
+
+    if is_native_oauth_provider(getattr(config, "model_provider", "")):
+        return build_native_oauth_llm(config.model_provider, config, model_name=model_name)
+
     api_key = config.api_key or os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
         # No key yet — a fresh BYO Deck before the setup wizard runs. Construct

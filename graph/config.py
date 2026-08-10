@@ -70,6 +70,10 @@ class LangGraphConfig:
     temperature: float = 0.3
     max_tokens: int = 4096
     max_iterations: int = 75
+    # Reasoning effort ("low"|"medium"|"high"|"max"|""); "" = model default. Used by
+    # the native OAuth providers (ADR 0097): Claude's thinking budget + Codex's
+    # reasoning.effort. Harmless for the gateway path (only read when set).
+    reasoning_effort: str = ""
 
     # Identity — operator-facing labels surfaced in runtime status + the setup
     # wizard. Parsed from an optional `identity:` block; runtime.py already reads
@@ -249,6 +253,7 @@ class LangGraphConfig:
             temperature=model.get("temperature", cls.temperature),
             max_tokens=model.get("max_tokens", cls.max_tokens),
             max_iterations=model.get("max_iterations", cls.max_iterations),
+            reasoning_effort=model.get("reasoning_effort", cls.reasoning_effort),
             identity_name=identity.get("name", cls.identity_name),
             identity_operator=identity.get("operator", cls.identity_operator),
             knowledge_middleware=middleware.get("knowledge", True),

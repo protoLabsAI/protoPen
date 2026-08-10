@@ -2,10 +2,20 @@
 # Used when AGENT_BACKEND=langgraph
 
 model:
+  # provider selects how the native pipeline authenticates (ADR 0097):
+  #   gateway / openai / vllm  → OpenAI-compatible LiteLLM gateway (api_base + api_key)
+  #   anthropic-oauth          → Claude Pro/Max on a Claude Code OAuth token (no gateway).
+  #                              `name` must be a real Claude id (e.g. claude-sonnet-4-5);
+  #                              sign in from the console (or `claude` / CLAUDE_CODE_OAUTH_TOKEN).
+  #   openai-codex             → ChatGPT/Codex on a Codex OAuth token (Responses API, no
+  #                              gateway). `name` must be a per-account slug (e.g. gpt-5-codex);
+  #                              sign in from the console (or `codex`). Opt-in ToS gray area.
+  # With a native OAuth provider the aux/compaction/subagent slots inherit it, so leave
+  # routing.aux_model / compaction.model blank (they fall back to `name`) or set real ids.
   provider: gateway  # LiteLLM gateway on ava (Tailscale)
   name: protolabs/smart
   api_base: http://ava:4000/v1
-  api_key: ""  # read from OPENAI_API_KEY env at runtime
+  api_key: ""  # read from OPENAI_API_KEY env at runtime (unused by the *-oauth providers)
   temperature: 0.3
   max_tokens: 4096
   max_iterations: 75

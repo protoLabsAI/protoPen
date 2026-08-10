@@ -29,7 +29,13 @@ websockets>=12.0
 # LangGraph agent backend (used when AGENT_BACKEND=langgraph)
 langchain>=1.2.3
 langgraph>=1.1.0
-langchain-openai>=0.3.0
+# >=1.0 for the Responses API (use_responses_api/output_version/include) the
+# openai-codex native OAuth provider needs (ADR 0097).
+langchain-openai>=1.0
+# Native Claude client for the anthropic-oauth subscription provider (ADR 0097).
+# Only imported when model.provider == "anthropic-oauth"; the gateway path never
+# touches it.
+langchain-anthropic>=1.0
 # Durable conversation history — SQLite checkpointer so multi-turn chats survive
 # a server restart (graph/checkpointer.py). Bound at graph-compile time.
 langgraph-checkpoint-sqlite>=2.0

@@ -311,7 +311,10 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
             role = getattr(m, "type", "")
             content = getattr(m, "content", "")
             if not isinstance(content, str):
-                content = str(content)
+                # Native OAuth providers (ADR 0097) store content BLOCKS, not a string.
+                from graph.llm import flatten_content
+
+                content = flatten_content(content)
             if role == "human":
                 messages.append({"role": "user", "content": content})
             elif role == "ai":
@@ -412,6 +415,7 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
     # --- React operator-console API + webview (ported from protoAgent #237) ---
     # Webview-only: the Tauri desktop wrapper is intentionally not ported.
     from operator_api import config_setup as _config_setup
+    from operator_api import oauth_routes as _oauth_routes
     from operator_api.routes import register_operator_routes
     from operator_api.runtime import build_runtime_status as _build_operator_status
     from operator_api.subagents import (
@@ -799,6 +803,14 @@ def build_app(blocks, *, port: int, dump_openapi: str | None = None):
         config_preset=_config_setup.get_preset,
         config_models=_config_setup.probe_models,
         config_setup=_config_setup.run_setup,
+        # Native OAuth-subscription sign-in (ADR 0097) — run Claude/ChatGPT on
+        # your own coding-agent plan; see operator_api/oauth_routes.py.
+        config_oauth_status=_oauth_routes.oauth_status,
+        config_oauth_start=_oauth_routes.oauth_start,
+        config_oauth_poll=_oauth_routes.oauth_poll,
+        config_oauth_complete=_oauth_routes.oauth_complete,
+        config_oauth_cancel=_oauth_routes.oauth_cancel,
+        config_oauth_disconnect=_oauth_routes.oauth_disconnect,
         api_key=_operator_api_key,
     )
 

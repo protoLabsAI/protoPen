@@ -101,6 +101,27 @@ def is_setup_complete(config_dir: Path | None = None, graph_config: Any = None) 
     matching ``load_local_key_into_env`` — so an empty/unreadable key file can't
     mark setup complete and hide the wizard while the agent still has no key.
     """
+    # Native OAuth-subscription provider (ADR 0097): "setup complete" means signed in,
+    # not "has an API key" — it authenticates from a credential store, no key/base.
+    resolved_config = graph_config
+    if resolved_config is None:
+        try:
+            from runtime.state import STATE
+
+            resolved_config = STATE.graph_config
+        except Exception:  # noqa: BLE001 — STATE may be unbuilt very early in boot
+            resolved_config = None
+    provider = getattr(resolved_config, "model_provider", "") if resolved_config is not None else ""
+    try:
+        from graph.providers import is_native_oauth_provider
+
+        if is_native_oauth_provider(provider):
+            from graph.providers.discovery import oauth_status
+
+            return oauth_status(provider).signed_in
+    except Exception:  # noqa: BLE001 — never let provider probing brick the wizard gate
+        return False
+
     if os.environ.get("OPENAI_API_KEY"):
         return True
     try:

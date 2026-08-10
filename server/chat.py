@@ -218,7 +218,11 @@ async def _chat_langgraph(message: str, session_id: str) -> list[dict[str, Any]]
         response = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage) and msg.content:
-                response = msg.content if isinstance(msg.content, str) else str(msg.content)
+                # Native OAuth providers (ADR 0097) return content BLOCKS, not a string;
+                # flatten_content extracts the answer text (no-op for gateway strings).
+                from graph.llm import flatten_content
+
+                response = flatten_content(msg.content)
                 break
 
         response = _strip_think(response)
@@ -436,7 +440,11 @@ async def _chat_langgraph_stream(
                         continue
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
-                        raw = chunk.content if isinstance(chunk.content, str) else str(chunk.content)
+                        # Native OAuth providers (ADR 0097) stream content BLOCKS, not a
+                        # string; flatten_content extracts the text delta (no-op for gateway).
+                        from graph.llm import flatten_content
+
+                        raw = flatten_content(chunk.content)
                         # stateful filter: removes <think> across chunk boundaries, preserves spaces
                         content = think_filter.feed(raw)
                         if content:
