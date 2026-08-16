@@ -71,6 +71,12 @@ def _get_flow(flow_id: str, provider: str) -> _Flow:
     flow = _FLOWS.get(flow_id)
     if flow is None or flow.provider != provider:
         raise OAuthLoginError("Sign-in session expired — start again.", provider=provider)
+    # Enforce the TTL on read too: the sweep in _new_flow only runs when a *new* sign-in
+    # starts, so without this an abandoned flow's device/PKCE state would stay resolvable
+    # past the documented 15-minute window if no other login ever began.
+    if flow.created_at < _now() - _FLOW_TTL_S:
+        _FLOWS.pop(flow_id, None)
+        raise OAuthLoginError("Sign-in session expired — start again.", provider=provider)
     return flow
 
 
@@ -101,9 +107,7 @@ def codex_login_start() -> dict[str, Any]:
             provider="openai-codex",
         )
     if resp.status_code != 200:
-        raise OAuthLoginError(
-            f"Device-code request failed (HTTP {resp.status_code}).", provider="openai-codex"
-        )
+        raise OAuthLoginError(f"Device-code request failed (HTTP {resp.status_code}).", provider="openai-codex")
     d = resp.json()
     user_code = str(d.get("user_code", "") or "")
     device_auth_id = str(d.get("device_auth_id", "") or "")
@@ -232,9 +236,11 @@ def anthropic_login_complete(flow_id: str, code: str) -> dict[str, str]:
     raw = (code or "").strip()
     if not raw:
         return {"status": "error", "error": "Paste the code Anthropic showed after you approved."}
-    # Anthropic returns the code as `<code>#<state>`.
+    # Anthropic returns the code as `<code>#<state>`. Compare state unconditionally — a
+    # pasted value with no `#state` suffix must not bypass the check (the flow documents
+    # `code#state` as its input format; the PKCE verifier also binds the exchange).
     auth_code, _, returned_state = raw.partition("#")
-    if returned_state and returned_state != flow.data["state"]:
+    if returned_state != flow.data["state"]:
         return {"status": "error", "error": "Sign-in state mismatch — start again."}
     try:
         resp = httpx.post(
@@ -253,7 +259,10 @@ def anthropic_login_complete(flow_id: str, code: str) -> dict[str, str]:
     except httpx.HTTPError as exc:
         return {"status": "error", "error": f"Token exchange could not reach Anthropic: {exc}"}
     if resp.status_code != 200:
-        return {"status": "error", "error": f"Token exchange failed (HTTP {resp.status_code}) — the code may have expired."}
+        return {
+            "status": "error",
+            "error": f"Token exchange failed (HTTP {resp.status_code}) — the code may have expired.",
+        }
     tokens = resp.json()
     if not str(tokens.get("access_token", "") or ""):
         return {"status": "error", "error": "Token exchange returned no access_token."}

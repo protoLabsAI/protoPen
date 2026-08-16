@@ -115,12 +115,16 @@ def is_setup_complete(config_dir: Path | None = None, graph_config: Any = None) 
     try:
         from graph.providers import is_native_oauth_provider
 
-        if is_native_oauth_provider(provider):
+        native = is_native_oauth_provider(provider)
+    except Exception:  # noqa: BLE001 — provider package unavailable: fall back to key checks
+        native = False
+    if native:
+        try:
             from graph.providers.discovery import oauth_status
 
             return oauth_status(provider).signed_in
-    except Exception:  # noqa: BLE001 — never let provider probing brick the wizard gate
-        return False
+        except Exception:  # noqa: BLE001 — never let provider probing brick the wizard gate
+            return False
 
     if os.environ.get("OPENAI_API_KEY"):
         return True

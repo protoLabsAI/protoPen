@@ -38,6 +38,26 @@ def _clear_provider_env(monkeypatch):
         monkeypatch.delenv(var, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_instance_root(monkeypatch, tmp_path):
+    """Point the instance store + disconnect marker at a per-test tmp dir.
+
+    ``resolve_anthropic_oauth`` / ``resolve_codex_oauth`` read protoPen's own instance
+    store (``anthropic-oauth.json`` / ``codex-oauth.json``) and the disconnect marker via
+    ``instance_paths()`` — unpatched, a real ``~/.protopen`` credential or marker on the
+    developer/CI machine would change results and flake the ``signed_in``/resolve tests.
+    ``oauth`` bound ``instance_paths`` at import; discovery/oauth_login import it at call
+    time, so patch both the module binding and the source.
+    """
+    import infra.paths as _paths
+    from infra.paths import InstancePaths
+
+    fake = InstancePaths(config_dir=tmp_path / "instance-config")
+    fake.config_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(_paths, "instance_paths", lambda: fake)
+    monkeypatch.setattr(oauth_mod, "instance_paths", lambda: fake)
+
+
 def _jwt(claims: dict) -> str:
     seg = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
     return f"h.{seg}.s"
@@ -226,8 +246,10 @@ def test_create_llm_codex_responses_config(monkeypatch):
         ocx,
         "resolve_codex_oauth",
         lambda *a, **k: CodexOAuthCreds(
-            access_token="cdx-TOK", account_id="acct-7",
-            base_url="https://chatgpt.com/backend-api/codex", source="instance_store",
+            access_token="cdx-TOK",
+            account_id="acct-7",
+            base_url="https://chatgpt.com/backend-api/codex",
+            source="instance_store",
         ),
     )
     cfg = LangGraphConfig(model_provider="openai-codex", model_name="gpt-5-codex", reasoning_effort="high")
@@ -245,7 +267,8 @@ def test_codex_rejects_gateway_alias(monkeypatch):
     import graph.providers.openai_codex as ocx
 
     monkeypatch.setattr(
-        ocx, "resolve_codex_oauth",
+        ocx,
+        "resolve_codex_oauth",
         lambda *a, **k: CodexOAuthCreds(access_token="t", account_id="a", base_url="b", source="s"),
     )
     cfg = LangGraphConfig(model_provider="openai-codex", model_name="protolabs/reasoning")
@@ -511,7 +534,6 @@ def test_anthropic_store_refreshes_when_expiring(monkeypatch, tmp_path):
 # ── Credential lifecycle: serialized refresh (#2441) + disconnect (#2440) ────────
 
 
-
 def _codex_store(tmp_path, tokens: dict, provenance: str | None = None) -> "types.SimpleNamespace":
     """A SimpleNamespace paths object + a codex store seeded with `tokens`.
     ``provenance`` (#2461): "device_login" = protoPen-minted (revocable),
@@ -532,7 +554,9 @@ def _patch_codex(monkeypatch, paths, cli_file):
 def test_codex_concurrent_refresh_spends_the_token_once(monkeypatch, tmp_path):
     """#2441: two simultaneous resolutions must make ONE refresh request and both return
     the rotated token — never race the single-use refresh token to a 400."""
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() - 10}), "refresh_token": "single-use", "account_id": "a"})
+    paths = _codex_store(
+        tmp_path, {"access_token": _jwt({"exp": time.time() - 10}), "refresh_token": "single-use", "account_id": "a"}
+    )
     _patch_codex(monkeypatch, paths, tmp_path / "no-cli.json")
     fresh = _jwt({"exp": time.time() + 3600})
     calls = {"n": 0}
@@ -550,7 +574,10 @@ def test_codex_concurrent_refresh_spends_the_token_once(monkeypatch, tmp_path):
 
     monkeypatch.setattr(oauth_mod.httpx, "post", fake_post)
     out: dict[int, str] = {}
-    threads = [threading.Thread(target=lambda i=i: out.__setitem__(i, resolve_codex_oauth(paths).access_token)) for i in range(2)]
+    threads = [
+        threading.Thread(target=lambda i=i: out.__setitem__(i, resolve_codex_oauth(paths).access_token))
+        for i in range(2)
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -561,7 +588,9 @@ def test_codex_concurrent_refresh_spends_the_token_once(monkeypatch, tmp_path):
 
 def test_codex_warm_read_neither_refreshes_nor_writes(monkeypatch, tmp_path):
     """A warm, unexpired store read is lock-free and touches no network/disk (#2441)."""
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"})
+    paths = _codex_store(
+        tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}
+    )
     _patch_codex(monkeypatch, paths, tmp_path / "no-cli.json")
 
     def boom(*a, **k):
@@ -590,7 +619,11 @@ def test_cancel_login_drops_the_pending_flow(monkeypatch):
 def test_disconnect_codex_revokes_removes_and_leaves_cli_untouched(monkeypatch, tmp_path):
     """#2440: revoke best-effort, delete OUR store, never touch ~/.codex/auth.json.
     The store is protoPen-minted (#2461) — the case where remote revoke is correct."""
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}, provenance="device_login")
+    paths = _codex_store(
+        tmp_path,
+        {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"},
+        provenance="device_login",
+    )
     cli = tmp_path / "codex_cli.json"
     cli_body = json.dumps({"tokens": {"access_token": "cli", "refresh_token": "clir"}})
     cli.write_text(cli_body)
@@ -604,7 +637,11 @@ def test_disconnect_codex_revokes_removes_and_leaves_cli_untouched(monkeypatch, 
 
 
 def test_disconnect_removes_local_even_when_revoke_fails(monkeypatch, tmp_path):
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}, provenance="device_login")
+    paths = _codex_store(
+        tmp_path,
+        {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"},
+        provenance="device_login",
+    )
     _patch_codex(monkeypatch, paths, tmp_path / "no-cli.json")
 
     def failing_post(url, **kw):
@@ -617,7 +654,9 @@ def test_disconnect_removes_local_even_when_revoke_fails(monkeypatch, tmp_path):
 
 
 def test_disconnect_is_idempotent(monkeypatch, tmp_path):
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"})
+    paths = _codex_store(
+        tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}
+    )
     _patch_codex(monkeypatch, paths, tmp_path / "no-cli.json")
     monkeypatch.setattr(oauth_mod.httpx, "post", lambda url, **kw: types.SimpleNamespace(status_code=200))
     first = oauth_mod.disconnect("openai-codex", paths)
@@ -631,7 +670,11 @@ def test_disconnect_suppresses_cli_reimport_until_reconnect(monkeypatch, tmp_pat
     from the Codex CLI until an in-console sign-in reconnects."""
     paths = types.SimpleNamespace(config_dir=tmp_path)
     cli = tmp_path / "codex_cli.json"
-    cli.write_text(json.dumps({"tokens": {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}}))
+    cli.write_text(
+        json.dumps(
+            {"tokens": {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}}
+        )
+    )
     _patch_codex(monkeypatch, paths, cli)
 
     assert resolve_codex_oauth(paths).source == "codex_cli_bootstrap"  # imports once
@@ -651,7 +694,9 @@ def test_disconnect_marker_is_owner_only_on_posix(monkeypatch, tmp_path):
 
     if os.name == "nt":
         pytest.skip("POSIX mode bits; Windows uses the icacls ACL contract (atomic_write funnel)")
-    paths = _codex_store(tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"})
+    paths = _codex_store(
+        tmp_path, {"access_token": _jwt({"exp": time.time() + 3600}), "refresh_token": "r", "account_id": "a"}
+    )
     _patch_codex(monkeypatch, paths, tmp_path / "no-cli.json")
     monkeypatch.setattr(oauth_mod.httpx, "post", lambda url, **kw: types.SimpleNamespace(status_code=200))
     oauth_mod.disconnect("openai-codex", paths)
@@ -663,7 +708,9 @@ def test_disconnect_marker_is_owner_only_on_posix(monkeypatch, tmp_path):
 def test_disconnect_anthropic_removes_store_and_suppresses(monkeypatch, tmp_path):
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     paths = types.SimpleNamespace(config_dir=tmp_path)
-    (tmp_path / "anthropic-oauth.json").write_text(json.dumps({"access_token": "cc-X", "refresh_token": "cc-R", "expires_at": time.time() + 3600}))
+    (tmp_path / "anthropic-oauth.json").write_text(
+        json.dumps({"access_token": "cc-X", "refresh_token": "cc-R", "expires_at": time.time() + 3600})
+    )
     monkeypatch.setattr(oauth_mod, "_anthropic_store_path", lambda p=None: tmp_path / "anthropic-oauth.json")
     monkeypatch.setattr(oauth_mod, "instance_paths", lambda: paths)
     monkeypatch.setattr(oauth_mod, "_CLAUDE_CREDS_FILE", tmp_path / "no-claude.json")
@@ -800,7 +847,11 @@ def test_device_login_stamps_owned_provenance(monkeypatch, tmp_path):
     store = tmp_path / "codex-oauth.json"
     monkeypatch.setattr(oauth_mod, "instance_paths", lambda: types.SimpleNamespace(config_dir=tmp_path))
     monkeypatch.setattr(oauth_mod, "_codex_store_path", lambda paths: store)
-    monkeypatch.setattr(login, "_exchange_codex_code", lambda code, verifier: {"access_token": "at", "refresh_token": "rt", "id_token": ""})
+    monkeypatch.setattr(
+        login,
+        "_exchange_codex_code",
+        lambda code, verifier: {"access_token": "at", "refresh_token": "rt", "id_token": ""},
+    )
 
     class _Resp:
         status_code = 200

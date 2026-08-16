@@ -70,6 +70,13 @@ def build_codex_llm(
             "may reject requests; re-run `codex` to refresh credentials."
         )
 
+    # KNOWN LIMITATION (ADR 0097 live gate): the resolved access token is snapshotted into
+    # this client, which server/agent_init.py bakes into a long-lived compiled graph. The
+    # store IS refreshed on each resolution, and the graph is rebuilt on reconfigure and after
+    # an in-console sign-in (the OAuth `complete`/`disconnect` reload), so those paths pick up
+    # a fresh token — but a graph that stays up past the token TTL keeps a stale copy until the
+    # next rebuild. A true per-request credential source needs the live subscription the ADR
+    # gates on to validate; tracked as a follow-up, not wired here.
     kwargs: dict[str, Any] = {
         "model": name,
         "base_url": creds.base_url,

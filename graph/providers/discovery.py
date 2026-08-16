@@ -134,13 +134,11 @@ def _list_codex_models(config: "LangGraphConfig") -> tuple[list[str], str]:
             timeout=_MODELS_TIMEOUT_S,
         )
         resp.raise_for_status()
-        models = [
-            str(m.get("slug"))
-            for m in resp.json().get("models", [])
-            if isinstance(m, dict) and m.get("slug")
-        ]
+        models = [str(m.get("slug")) for m in resp.json().get("models", []) if isinstance(m, dict) and m.get("slug")]
         return models, ""
-    except httpx.HTTPError as exc:
+    except (httpx.HTTPError, ValueError) as exc:
+        # ValueError covers resp.json() on a non-JSON body (a captive portal / proxy that
+        # answers 200 with HTML) — json.JSONDecodeError is a ValueError, not an HTTPError.
         return [], f"Could not list Codex models: {exc}"
 
 
@@ -156,12 +154,11 @@ def _list_anthropic_models() -> tuple[list[str], str]:
     try:
         resp = httpx.get("https://api.anthropic.com/v1/models", headers=headers, timeout=_MODELS_TIMEOUT_S)
         resp.raise_for_status()
-        models = [
-            str(m.get("id")) for m in resp.json().get("data", []) if isinstance(m, dict) and m.get("id")
-        ]
+        models = [str(m.get("id")) for m in resp.json().get("data", []) if isinstance(m, dict) and m.get("id")]
         return (models or _ANTHROPIC_FALLBACK_MODELS), ""
-    except httpx.HTTPError:
-        # The OAuth token may not carry models:list scope — fall back to the curated set.
+    except (httpx.HTTPError, ValueError):
+        # HTTPError: the OAuth token may not carry models:list scope. ValueError: a non-JSON
+        # body (json.JSONDecodeError). Either way, fall back to the curated set.
         return _ANTHROPIC_FALLBACK_MODELS, ""
 
 
@@ -179,9 +176,7 @@ def list_provider_models(provider: str, config: "LangGraphConfig") -> tuple[list
     raise ValueError(f"not a native OAuth provider: {provider!r}")
 
 
-def validate_oauth_connection(
-    provider: str, model: str, config: "LangGraphConfig"
-) -> tuple[bool, str]:
+def validate_oauth_connection(provider: str, model: str, config: "LangGraphConfig") -> tuple[bool, str]:
     """The wizard/Settings "Test connection" for a native OAuth provider.
 
     Builds the real client and streams a 1-token turn (Codex requires streaming and

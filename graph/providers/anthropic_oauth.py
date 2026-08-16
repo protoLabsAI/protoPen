@@ -48,9 +48,7 @@ def _claude_code_version() -> str:
         return _version_cache
     for cmd in ("claude", "claude-code"):
         try:
-            out = subprocess.run(
-                [cmd, "--version"], capture_output=True, text=True, timeout=5
-            )
+            out = subprocess.run([cmd, "--version"], capture_output=True, text=True, timeout=5)
         except (OSError, subprocess.SubprocessError):
             continue
         if out.returncode == 0 and out.stdout.strip():
@@ -132,6 +130,12 @@ def build_anthropic_oauth_llm(
         # passed in" (a confusing 401), so fail clearly instead.
         raise RuntimeError("anthropic-oauth resolved an empty access token — sign in again.")
 
+    # KNOWN LIMITATION (ADR 0097 live gate): this token is snapshotted into `oauth_token`,
+    # read once by `_client_params`, and baked into the long-lived compiled graph. Its store
+    # is refreshed on each resolution and the graph is rebuilt on reconfigure / in-console
+    # re-sign-in, so those paths use a fresh token — but a graph up past the token TTL keeps a
+    # stale copy until the next rebuild. A true per-request credential source needs the live
+    # subscription the ADR gates on to validate; tracked as a follow-up, not wired here.
     kwargs: dict[str, Any] = {
         "model": name,
         "oauth_token": token,
@@ -152,9 +156,23 @@ def build_anthropic_oauth_llm(
     }
     config_effort = getattr(config, "reasoning_effort", "") or ""
     effort = reasoning_effort if reasoning_effort is not None else config_effort
-    if getattr(config, "thinking", "") == "enabled" or effort:
-        # Extended thinking. Budget scales with the requested effort.
-        budget = {"low": 4096, "medium": 8192, "high": 16384, "max": 24576}.get(effort or "medium", 8192)
-        kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+    if effort:
+        # Extended thinking, scaled by effort. Anthropic 400s when budget_tokens >= max_tokens
+        # (thinking tokens count against the output cap) and requires budget >= 1024, so clamp
+        # the scaled budget strictly below max_tokens with room left for the answer — and skip
+        # thinking entirely when max_tokens is too small to satisfy both bounds (e.g. the
+        # default 4096 yields a 3072 budget). LangGraphConfig models reasoning_effort, not a
+        # separate `thinking` flag, so effort alone drives this.
+        scaled = {"low": 4096, "medium": 8192, "high": 16384, "max": 24576}.get(effort, 8192)
+        budget = min(scaled, config.max_tokens - 1024)
+        if budget >= 1024:
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
+        else:
+            log.warning(
+                "[anthropic-oauth] reasoning_effort=%r requested but max_tokens=%d leaves no "
+                "room for a thinking budget — proceeding without extended thinking.",
+                effort,
+                config.max_tokens,
+            )
 
     return _OAuthChatAnthropic(**kwargs)

@@ -22,14 +22,25 @@ def _reload_agent() -> str:
     """Rebuild the graph in place after a credential change (never raises)."""
     from operator_api import config_setup
 
-    return config_setup._reload_agent(config_setup.resolve_config_dir())
+    # resolve_config_dir() (mkdir / os.access probe) runs OUTSIDE config_setup._reload_agent's
+    # own handler, so guard the whole thing — a directory-resolution failure must not turn a
+    # persisted-credentials OAuth route into a 500 after the token was already saved.
+    try:
+        return config_setup._reload_agent(config_setup.resolve_config_dir())
+    except Exception as exc:  # noqa: BLE001 — reload is best-effort; files take effect next restart
+        log.warning("agent reload after credential change failed: %s", exc)
+        return f"reload deferred: {exc}"
 
 
 def oauth_status() -> dict[str, Any]:
     """Read-only sign-in status for every native OAuth provider (safe to poll)."""
-    from graph.providers.discovery import all_oauth_status
+    try:
+        from graph.providers.discovery import all_oauth_status
 
-    return {"providers": all_oauth_status()}
+        return {"providers": all_oauth_status()}
+    except Exception as exc:  # noqa: BLE001 — a status probe (store read, provider import) must never 500
+        log.warning("oauth_status probe failed: %s", exc)
+        return {"providers": [], "error": str(exc)}
 
 
 def oauth_start(payload: dict[str, Any]) -> dict[str, Any]:
@@ -41,6 +52,8 @@ def oauth_start(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": True, **login_start(provider)}
     except OAuthLoginError as exc:
         return {"ok": False, "error": str(exc), "provider": getattr(exc, "provider", provider)}
+    except Exception as exc:  # noqa: BLE001 — an untyped transport/store failure returns structured, not 500
+        return {"ok": False, "error": str(exc), "provider": provider}
 
 
 def oauth_poll(payload: dict[str, Any]) -> dict[str, Any]:
@@ -51,6 +64,8 @@ def oauth_poll(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         result = codex_login_poll(flow_id)
     except OAuthLoginError as exc:
+        return {"status": "error", "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 — an untyped failure returns structured, not 500
         return {"status": "error", "error": str(exc)}
     if result.get("status") == "complete":
         result["reload"] = _reload_agent()
@@ -66,6 +81,8 @@ def oauth_complete(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         result = anthropic_login_complete(flow_id, code)
     except OAuthLoginError as exc:
+        return {"status": "error", "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 — an untyped failure returns structured, not 500
         return {"status": "error", "error": str(exc)}
     if result.get("status") == "complete":
         result["reload"] = _reload_agent()
@@ -88,6 +105,8 @@ def oauth_disconnect(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         result = disconnect(provider).as_dict()
     except OAuthCredentialError as exc:
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:  # noqa: BLE001 — an untyped store/revoke failure returns structured, not 500
         return {"ok": False, "error": str(exc)}
     result["ok"] = True
     result["reload"] = _reload_agent()

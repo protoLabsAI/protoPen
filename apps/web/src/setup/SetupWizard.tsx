@@ -106,6 +106,10 @@ export function SetupWizard({
   const [device, setDevice] = useState<{ flowId: string; userCode: string; uri: string; interval: number } | null>(null);
   const [pasteFlow, setPasteFlow] = useState<string | null>(null);
   const [pasteCode, setPasteCode] = useState("");
+  // The redirect flow's authorize URL, kept so it can be rendered as a user-clickable link:
+  // window.open runs after an await (outside the user-gesture stack) and popup blockers often
+  // reject it, which would otherwise leave the operator with a paste field and no way in.
+  const [authorizeUrl, setAuthorizeUrl] = useState("");
   // The last non-OAuth provider seen, so switching the dropdown back to "gateway"
   // restores it (rather than clobbering an "openai"/"vllm" label with "gateway").
   const [gatewayProvider, setGatewayProvider] = useState("gateway");
@@ -155,7 +159,10 @@ export function SetupWizard({
   // Device-code (openai-codex) polling: once a device flow starts, poll until the
   // user approves it in the browser, then refresh status. Cleared on unmount / cancel.
   useEffect(() => {
-    if (!device) return;
+    // Stop polling when the wizard is closed — the component stays mounted, so without the
+    // `open` guard a pending device flow would keep posting to /api/config/oauth/poll for the
+    // lifetime of the page after the operator closes the wizard.
+    if (!device || !open) return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -179,7 +186,7 @@ export function SetupWizard({
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [device, refreshOauthStatus]);
+  }, [device, open, refreshOauthStatus]);
 
   const keyOk = isOAuth ? oauthSignedIn : !needsKey || Boolean(state.apiKey.trim());
 
@@ -200,6 +207,7 @@ export function SetupWizard({
     setDevice(null);
     setPasteFlow(null);
     setPasteCode("");
+    setAuthorizeUrl("");
     setError("");
     setMessage("");
     if (value === "gateway") {
@@ -238,6 +246,7 @@ export function SetupWizard({
     setDevice(null);
     setPasteFlow(null);
     setPasteCode("");
+    setAuthorizeUrl("");
     try {
       const res = await api.oauthStart(state.provider);
       if (!res.ok) {
@@ -254,6 +263,7 @@ export function SetupWizard({
         if (res.verification_uri) window.open(res.verification_uri, "_blank", "noopener");
       } else if (res.mode === "redirect" && res.flow_id) {
         setPasteFlow(res.flow_id);
+        setAuthorizeUrl(res.authorize_url || "");
         if (res.authorize_url) window.open(res.authorize_url, "_blank", "noopener");
       } else {
         setError("Sign-in returned an unexpected response.");
@@ -274,6 +284,7 @@ export function SetupWizard({
       if (res.status === "complete") {
         setPasteFlow(null);
         setPasteCode("");
+        setAuthorizeUrl("");
         setMessage("Signed in.");
         await refreshOauthStatus();
       } else {
@@ -290,7 +301,13 @@ export function SetupWizard({
     setSigninBusy(true);
     setError("");
     try {
-      await api.oauthDisconnect(state.provider);
+      // oauthDisconnect resolves with { ok: false, error } for a refused provider rather than
+      // rejecting, so check the result before reporting success.
+      const res = await api.oauthDisconnect(state.provider);
+      if (!res.ok) {
+        setError(res.error || "Disconnect failed.");
+        return;
+      }
       setMessage("Disconnected.");
       await refreshOauthStatus();
     } catch (exc) {
@@ -406,6 +423,7 @@ export function SetupWizard({
                   busy={signinBusy}
                   device={device}
                   pasteActive={Boolean(pasteFlow)}
+                  authorizeUrl={authorizeUrl}
                   pasteCode={pasteCode}
                   onPasteCodeChange={setPasteCode}
                   onStart={() => void startSignin()}
@@ -517,6 +535,7 @@ function OAuthSignIn({
   busy,
   device,
   pasteActive,
+  authorizeUrl,
   pasteCode,
   onPasteCodeChange,
   onStart,
@@ -528,6 +547,7 @@ function OAuthSignIn({
   busy: boolean;
   device: { flowId: string; userCode: string; uri: string; interval: number } | null;
   pasteActive: boolean;
+  authorizeUrl: string;
   pasteCode: string;
   onPasteCodeChange: (value: string) => void;
   onStart: () => void;
@@ -565,6 +585,14 @@ function OAuthSignIn({
 
       {pasteActive ? (
         <div className="setup-oauth-paste">
+          {authorizeUrl ? (
+            <p className="setup-hint">
+              <a href={authorizeUrl} target="_blank" rel="noreferrer">
+                Open the approval page <ExternalLink size={12} />
+              </a>{" "}
+              if a tab didn't open automatically.
+            </p>
+          ) : null}
           <p className="setup-hint">Approve in the browser tab that opened, then paste the code Anthropic shows here:</p>
           <div className="setup-grid model-row">
             <label className="field">

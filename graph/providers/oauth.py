@@ -51,6 +51,11 @@ log = logging.getLogger("protopen.providers.oauth")
 _STORE_LOCKS: dict[str, threading.Lock] = {}
 _STORE_LOCKS_GUARD = threading.Lock()
 
+# The disconnect marker is ONE shared file across providers, so the per-store locks above
+# (keyed by each provider's credential path) don't serialize it. Its own lock covers every
+# read-modify-write, so two concurrent disconnects can't clobber each other's update.
+_MARKER_LOCK = threading.Lock()
+
 # Explicit disconnect (#2440): a provider listed here must NOT auto-resolve (no Codex-CLI
 # re-bootstrap, no stored/CLI Claude token) until an in-console sign-in reconnects it. The
 # marker is a tiny owner-only file next to the credential stores.
@@ -92,13 +97,15 @@ def _write_disconnected(paths: InstancePaths, providers: set[str]) -> None:
 
 
 def _mark_disconnected(paths: InstancePaths, provider: str) -> None:
-    _write_disconnected(paths, _disconnected_providers(paths) | {provider})
+    with _MARKER_LOCK:
+        _write_disconnected(paths, _disconnected_providers(paths) | {provider})
 
 
 def clear_disconnected(provider: str, paths: InstancePaths | None = None) -> None:
     """An explicit in-console sign-in clears the disconnect intent for ``provider``."""
     paths = paths or instance_paths()
-    _write_disconnected(paths, _disconnected_providers(paths) - {provider})
+    with _MARKER_LOCK:
+        _write_disconnected(paths, _disconnected_providers(paths) - {provider})
 
 
 class OAuthCredentialError(RuntimeError):
@@ -186,23 +193,34 @@ def _now() -> float:
 
 
 def _refresh_anthropic_tokens(refresh_token: str, *, timeout_s: float = 20.0) -> dict[str, Any]:
-    resp = httpx.post(
-        _ANTHROPIC_TOKEN_URL,
-        json={"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": _ANTHROPIC_CLIENT_ID},
-        headers={"Content-Type": "application/json"},
-        timeout=httpx.Timeout(max(5.0, float(timeout_s))),
-    )
+    # Map transport failures to OAuthCredentialError like _refresh_codex_tokens does, so a
+    # connect timeout / DNS failure reaches callers as the one error type they catch (e.g.
+    # discovery.list_provider_models) instead of escaping as a raw httpx exception.
+    try:
+        resp = httpx.post(
+            _ANTHROPIC_TOKEN_URL,
+            json={"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": _ANTHROPIC_CLIENT_ID},
+            headers={"Content-Type": "application/json"},
+            timeout=httpx.Timeout(max(5.0, float(timeout_s))),
+        )
+    except httpx.HTTPError as exc:
+        raise OAuthCredentialError(
+            f"Claude token refresh could not reach Anthropic: {exc}",
+            provider="anthropic-oauth",
+            relogin=False,
+        ) from exc
     if resp.status_code != 200:
         raise OAuthCredentialError(
             f"Claude token refresh failed (HTTP {resp.status_code}). Sign in again.",
             provider="anthropic-oauth",
             relogin=resp.status_code in {400, 401, 403},
         )
-    tokens = resp.json()
+    try:
+        tokens = resp.json()
+    except ValueError as exc:
+        raise OAuthCredentialError("Claude token refresh returned invalid JSON.", provider="anthropic-oauth") from exc
     if not str(tokens.get("access_token", "") or ""):
-        raise OAuthCredentialError(
-            "Claude token refresh returned no access_token.", provider="anthropic-oauth"
-        )
+        raise OAuthCredentialError("Claude token refresh returned no access_token.", provider="anthropic-oauth")
     return tokens
 
 
@@ -233,11 +251,25 @@ def resolve_anthropic_oauth() -> AnthropicOAuthCreds:
         expires_at = store.get("expires_at")
         expiring = isinstance(expires_at, (int, float)) and expires_at <= _now() + _ANTHROPIC_REFRESH_SKEW_S
         if expiring and str(store.get("refresh_token", "") or ""):
-            refreshed = _refresh_anthropic_tokens(str(store["refresh_token"]))
-            # A refresh may not return a new refresh_token — keep the old one.
-            refreshed.setdefault("refresh_token", store["refresh_token"])
-            _write_anthropic_store(refreshed)
-            return AnthropicOAuthCreds(access_token=str(refreshed["access_token"]).strip(), source="instance_store")
+            # Single-use refresh token: serialize per store and re-read under the lock, so a
+            # waiter reuses the token the first caller minted instead of spending a dead one
+            # (same fast-path-then-lock-then-re-read structure as resolve_codex_oauth, #2441).
+            with _store_lock(_anthropic_store_path()):
+                fresh = _read_anthropic_store() or store
+                exp = fresh.get("expires_at")
+                still_expiring = not isinstance(exp, (int, float)) or exp <= _now() + _ANTHROPIC_REFRESH_SKEW_S
+                refresh_token = str(fresh.get("refresh_token", "") or "")
+                if still_expiring and refresh_token:
+                    refreshed = _refresh_anthropic_tokens(refresh_token)
+                    # A refresh may not return a new refresh_token — keep the old one.
+                    refreshed.setdefault("refresh_token", refresh_token)
+                    _write_anthropic_store(refreshed)
+                    return AnthropicOAuthCreds(
+                        access_token=str(refreshed["access_token"]).strip(), source="instance_store"
+                    )
+                # A peer already refreshed (or dropped the refresh_token) — serve the re-read token.
+                access = str(fresh["access_token"]).strip()
+                expires_at = exp
         return AnthropicOAuthCreds(
             access_token=access,
             source="instance_store",
@@ -257,9 +289,7 @@ def resolve_anthropic_oauth() -> AnthropicOAuthCreds:
                         "[anthropic-oauth] Claude Code token looks expired (run any `claude` "
                         "command to refresh); trying it anyway",
                     )
-                return AnthropicOAuthCreds(
-                    access_token=token, source="credentials_file", expires_at=expires_at
-                )
+                return AnthropicOAuthCreds(access_token=token, source="credentials_file", expires_at=expires_at)
 
     raise OAuthCredentialError(
         "No Claude OAuth credential found. Sign in from the console, the Claude Code CLI "
@@ -390,9 +420,7 @@ def _refresh_codex_tokens(tokens: dict[str, Any], *, timeout_s: float = 20.0) ->
     try:
         payload = resp.json()
     except ValueError as exc:
-        raise OAuthCredentialError(
-            "Codex token refresh returned invalid JSON.", provider="openai-codex"
-        ) from exc
+        raise OAuthCredentialError("Codex token refresh returned invalid JSON.", provider="openai-codex") from exc
 
     new_access = str(payload.get("access_token", "") or "").strip()
     if not new_access:
@@ -457,7 +485,9 @@ def resolve_codex_oauth(paths: InstancePaths | None = None) -> CodexOAuthCreds:
 
     def _creds(tokens: dict[str, Any], access: str, source: str) -> CodexOAuthCreds:
         base_url = os.environ.get("PROTOPEN_CODEX_BASE_URL", "").strip().rstrip("/") or _CODEX_DEFAULT_BASE_URL
-        return CodexOAuthCreds(access_token=access, account_id=_codex_account_id(tokens), base_url=base_url, source=source)
+        return CodexOAuthCreds(
+            access_token=access, account_id=_codex_account_id(tokens), base_url=base_url, source=source
+        )
 
     # Fast path: a warm, unexpired store read needs neither the lock nor a write.
     tokens = _read_codex_tokens(store)
@@ -588,7 +618,9 @@ def disconnect(provider: str, paths: InstancePaths | None = None) -> DisconnectR
         # Anthropic has no token-revoke endpoint for these tokens; local removal +
         # suppression is the contract. Claude Code's own credentials are untouched.
         return DisconnectResult(
-            provider, removed=existed, revoked=False,
+            provider,
+            removed=existed,
+            revoked=False,
             note="removed protoPen's Claude token; sign in again to reconnect",
         )
     raise OAuthCredentialError(f"not a native OAuth provider: {provider!r}", provider=provider)
