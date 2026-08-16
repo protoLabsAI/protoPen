@@ -219,6 +219,10 @@ def _refresh_anthropic_tokens(refresh_token: str, *, timeout_s: float = 20.0) ->
         tokens = resp.json()
     except ValueError as exc:
         raise OAuthCredentialError("Claude token refresh returned invalid JSON.", provider="anthropic-oauth") from exc
+    if not isinstance(tokens, dict):
+        # Valid JSON that isn't an object ([] / null) would AttributeError on .get() below —
+        # keep it inside the structured-error contract discovery/create_llm rely on.
+        raise OAuthCredentialError("Claude token refresh returned an invalid payload.", provider="anthropic-oauth")
     if not str(tokens.get("access_token", "") or ""):
         raise OAuthCredentialError("Claude token refresh returned no access_token.", provider="anthropic-oauth")
     return tokens
@@ -421,6 +425,8 @@ def _refresh_codex_tokens(tokens: dict[str, Any], *, timeout_s: float = 20.0) ->
         payload = resp.json()
     except ValueError as exc:
         raise OAuthCredentialError("Codex token refresh returned invalid JSON.", provider="openai-codex") from exc
+    if not isinstance(payload, dict):
+        raise OAuthCredentialError("Codex token refresh returned an invalid payload.", provider="openai-codex")
 
     new_access = str(payload.get("access_token", "") or "").strip()
     if not new_access:
