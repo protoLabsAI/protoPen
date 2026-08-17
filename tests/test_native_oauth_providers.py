@@ -377,6 +377,24 @@ def test_identity_splits_a_first_block_that_starts_with_the_line():
     assert content[2]["text"] == "Volatile context."
 
 
+def test_identity_normalizes_a_line_only_block_carrying_extra_metadata():
+    # A first block whose text is EXACTLY the line but that also carries extra keys
+    # (e.g. cache_control) is not the byte-exact standalone block Anthropic requires —
+    # normalize it to the clean prefix block, don't wave it through as idempotent.
+    from langchain_core.messages import SystemMessage
+
+    from graph.providers.anthropic_oauth import CLAUDE_CODE_SYSTEM_PREFIX
+
+    blocks = [
+        {"type": "text", "text": CLAUDE_CODE_SYSTEM_PREFIX, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "Body."},
+    ]
+    req = _mw()._transform(_FakeReq(SystemMessage(content=blocks)))
+    content = req.system_message.content
+    assert content[0] == {"type": "text", "text": CLAUDE_CODE_SYSTEM_PREFIX}  # exact — extra keys stripped
+    assert content[1]["text"] == "Body."
+
+
 # ── codex responses-input middleware ────────────────────────────────────────────
 
 

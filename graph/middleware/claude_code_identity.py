@@ -63,8 +63,12 @@ class ClaudeCodeIdentityMiddleware(AgentMiddleware):
         if isinstance(content, list) and content:
             first = content[0]
             first_text = first.get("text", "") if isinstance(first, dict) else str(first)
-            if first_text == CLAUDE_CODE_SYSTEM_PREFIX:
-                return request  # already the exact shape — idempotent no-op
+            if first == prefix_block:
+                return request  # already the exact standalone block — idempotent no-op
+            # NOTE: compare the whole block, not just its text — a block whose text equals
+            # the line but that ALSO carries extra keys (e.g. cache_control) is not the
+            # byte-exact standalone block Anthropic requires, so it must be normalized
+            # (split below drops the extra keys), never waved through as idempotent.
             rest = _split_leading_prefix(first_text) if isinstance(first, dict) else None
             if rest is not None:
                 # First block starts with the line but carries more — split it so the
