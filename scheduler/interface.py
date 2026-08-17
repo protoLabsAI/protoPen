@@ -38,6 +38,10 @@ class Job:
     # Activity thread (plain scheduled tasks). A `wait` yield (ADR 0053) stamps
     # the originating chat's session id so the resume lands in that same thread.
     context_id: str | None = None
+    # Consecutive delivery failures, persisted alongside next_fire so the retry
+    # budget survives a restart — an in-memory counter would let a job that
+    # keeps failing across restarts evade the attempt cap forever (#337).
+    fire_attempts: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
