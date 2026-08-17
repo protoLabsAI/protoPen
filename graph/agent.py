@@ -167,24 +167,42 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
     if config.tool_timeout_middleware:
         middleware.append(ToolTimeoutMiddleware(timeout_seconds=config.tool_timeout_seconds))
 
-    # Native OAuth providers (ADR 0097) need a provider-specific request shape. Added
+    # Native OAuth providers (ADR 0097) need a provider-specific request shape, added
     # INNERMOST (last → transforms the model request last, after PromptCache/knowledge
-    # injection have had their say) so it has the final word on the system prompt. Hard
-    # no-op for the gateway path (nothing appended).
+    # injection have had their say). ONE helper shared with the subagent stack so a new
+    # transform can't be added to the lead and silently missed by delegations (#2552).
+    middleware.extend(provider_shape_middleware(config))
+
+    return middleware
+
+
+def provider_shape_middleware(config) -> list:
+    """The native-OAuth wire-shape transforms, innermost-last (ADR 0097, #2552).
+
+    EVERY stack that sends a system prompt on a native-OAuth provider needs these,
+    not just the lead agent: Anthropic's OAuth infra refuses traffic whose system
+    prompt's first block isn't the Claude Code identity line, and the Codex Responses
+    backend rejects a system-role input item outright. The subagent stack builds its
+    own middleware list, so without sharing this every delegation (task/task_batch,
+    workflows, goals, playbooks) failed on both providers while the lead agent worked.
+
+    Appended AFTER every prompt-composing middleware so the transform sees the final
+    system message. A hard no-op for the gateway path (nothing appended).
+    """
     from graph.providers import is_native_oauth_provider
 
+    out: list = []
     provider = (getattr(config, "model_provider", "") or "").strip().lower()
     if is_native_oauth_provider(provider):
         if provider == "anthropic-oauth":
             from graph.middleware.claude_code_identity import ClaudeCodeIdentityMiddleware
 
-            middleware.append(ClaudeCodeIdentityMiddleware())
+            out.append(ClaudeCodeIdentityMiddleware())
         elif provider == "openai-codex":
             from graph.middleware.codex_responses_input import CodexResponsesInputMiddleware
 
-            middleware.append(CodexResponsesInputMiddleware())
-
-    return middleware
+            out.append(CodexResponsesInputMiddleware())
+    return out
 
 
 def _subagent_middleware(config: LangGraphConfig):
@@ -206,6 +224,11 @@ def _subagent_middleware(config: LangGraphConfig):
         mw.append(EnforcementMiddleware(mgr, max_phase=max_phase))
     if config.audit_middleware:
         mw.append(AuditMiddleware())
+    # Native-OAuth wire shape — LAST, so the transform sees the final system message.
+    # Without it a Claude/ChatGPT-subscription instance chats via the lead but every
+    # delegation fails: anthropic-oauth refuses a prompt with no identity line, and the
+    # Codex backend rejects the system-role item this stack would otherwise emit (#2552).
+    mw.extend(provider_shape_middleware(config))
     return mw
 
 
