@@ -410,26 +410,30 @@ class _FakeCodexReq:
 
 
 def test_codex_moves_system_to_instructions():
-    """The Codex backend forbids system-role items; the middleware moves the system
-    prompt to a bound `instructions` kwarg and clears the system message."""
+    """The Codex backend forbids system-role items; the middleware moves the system prompt
+    into `model_settings["instructions"]` — NOT a model binding, which the agent factory's
+    tool re-bind silently discards (#2519) — and clears the system message."""
     from langchain_core.messages import SystemMessage
 
     from graph.middleware.codex_responses_input import CodexResponsesInputMiddleware
 
-    class _Model:
-        def __init__(self):
-            self.bound = None
-
-        def bind(self, **kw):
-            self.bound = kw
-            return self
-
-    model = _Model()
     # block-structured system (post-PromptCache) flattens to text
     sysmsg = SystemMessage(content=[{"type": "text", "text": "You are Aria."}, {"type": "text", "text": "Be terse."}])
-    req = CodexResponsesInputMiddleware()._transform(_FakeCodexReq(sysmsg, model))
+    req = CodexResponsesInputMiddleware()._transform(_FakeCodexReq(sysmsg, object()))
     assert req.system_message is None
-    assert model.bound == {"instructions": "You are Aria.\n\nBe terse."}
+    assert req.model_settings == {"instructions": "You are Aria.\n\nBe terse."}
+
+
+def test_codex_preserves_existing_model_settings():
+    """instructions MERGE into any model_settings already on the request, never clobber."""
+    from langchain_core.messages import SystemMessage
+
+    from graph.middleware.codex_responses_input import CodexResponsesInputMiddleware
+
+    req = _FakeCodexReq(SystemMessage(content="You are Aria."), object())
+    req.model_settings = {"temperature": 0.2}
+    out = CodexResponsesInputMiddleware()._transform(req)
+    assert out.model_settings == {"temperature": 0.2, "instructions": "You are Aria."}
 
 
 def test_codex_middleware_noop_without_system():
