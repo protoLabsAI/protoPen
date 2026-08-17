@@ -18,7 +18,7 @@ Serves the Gradio chat UI (PWA-enabled). This is the primary user interface.
 
 <!-- BEGIN GENERATED API — run: python scripts/gen_api_docs.py -->
 
-_58 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
+_64 endpoints, generated from [`openapi.json`](/openapi.json) (spec 3.1.0, protoPen — protoLabs 0.1.0) — do not edit by hand._
 
 ### Chat
 
@@ -469,6 +469,52 @@ Probe an OpenAI-compatible gateway for models
 **Request body**
 
 **Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/oauth/cancel`
+
+Abandon an in-progress OAuth sign-in
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/oauth/complete`
+
+Complete a paste-code OAuth flow (claude)
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/oauth/disconnect`
+
+Disconnect a native OAuth provider
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/oauth/poll`
+
+Poll a device-code OAuth flow (codex)
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `POST /api/config/oauth/start`
+
+Begin an OAuth sign-in flow
+
+**Request body**
+
+**Responses:** `200` Successful Response, `422` Validation Error
+
+#### `GET /api/config/oauth/status`
+
+Native OAuth sign-in status (safe to poll)
+
+**Responses:** `200` Successful Response
 
 #### `GET /api/config/presets/{name}`
 

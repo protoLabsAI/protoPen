@@ -126,6 +126,12 @@ def register_operator_routes(
     config_preset: Callable[[str], dict[str, Any]] | None = None,
     config_models: Callable[[str, str], dict[str, Any]] | None = None,
     config_setup: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    config_oauth_status: Callable[[], dict[str, Any]] | None = None,
+    config_oauth_start: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    config_oauth_poll: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    config_oauth_complete: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    config_oauth_cancel: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
+    config_oauth_disconnect: Callable[[dict[str, Any]], dict[str, Any]] | None = None,
     api_key: str = "",
 ) -> None:
     """Register React operator-console routes on a FastAPI app.
@@ -597,5 +603,46 @@ def register_operator_routes(
         if config_setup is None:
             raise HTTPException(status_code=409, detail="setup is not available")
         return await asyncio.to_thread(config_setup, body or {})
+
+    # ── Native OAuth-subscription sign-in (ADR 0097) ──────────────────────────
+    # Run Claude / ChatGPT on your own coding-agent subscription instead of a
+    # gateway key. Sign-in happens in-browser (no terminal); each callback is
+    # wired by server.py and rides the same operator-key gate.
+
+    @router.get("/api/config/oauth/status", summary="Native OAuth sign-in status (safe to poll)")
+    async def _config_oauth_status():
+        if config_oauth_status is None:
+            return {"providers": []}
+        return await asyncio.to_thread(config_oauth_status)
+
+    @router.post("/api/config/oauth/start", summary="Begin an OAuth sign-in flow")
+    async def _config_oauth_start(body: dict = Body(default={})):
+        if config_oauth_start is None:
+            raise HTTPException(status_code=409, detail="oauth sign-in is not available")
+        return await asyncio.to_thread(config_oauth_start, body or {})
+
+    @router.post("/api/config/oauth/poll", summary="Poll a device-code OAuth flow (codex)")
+    async def _config_oauth_poll(body: dict = Body(default={})):
+        if config_oauth_poll is None:
+            raise HTTPException(status_code=409, detail="oauth sign-in is not available")
+        return await asyncio.to_thread(config_oauth_poll, body or {})
+
+    @router.post("/api/config/oauth/complete", summary="Complete a paste-code OAuth flow (claude)")
+    async def _config_oauth_complete(body: dict = Body(default={})):
+        if config_oauth_complete is None:
+            raise HTTPException(status_code=409, detail="oauth sign-in is not available")
+        return await asyncio.to_thread(config_oauth_complete, body or {})
+
+    @router.post("/api/config/oauth/cancel", summary="Abandon an in-progress OAuth sign-in")
+    async def _config_oauth_cancel(body: dict = Body(default={})):
+        if config_oauth_cancel is None:
+            return {"ok": True, "cancelled": False}
+        return await asyncio.to_thread(config_oauth_cancel, body or {})
+
+    @router.post("/api/config/oauth/disconnect", summary="Disconnect a native OAuth provider")
+    async def _config_oauth_disconnect(body: dict = Body(default={})):
+        if config_oauth_disconnect is None:
+            raise HTTPException(status_code=409, detail="oauth disconnect is not available")
+        return await asyncio.to_thread(config_oauth_disconnect, body or {})
 
     app.include_router(router)

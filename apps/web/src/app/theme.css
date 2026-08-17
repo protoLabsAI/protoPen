@@ -1497,6 +1497,65 @@ textarea {
   color: #a9e8c9;
 }
 
+/* Native OAuth-subscription sign-in (ADR 0097) */
+.setup-hint {
+  margin: 4px 0 0;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.setup-oauth {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--bg-sunken);
+}
+
+.setup-oauth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.setup-oauth-device {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.setup-oauth-code {
+  justify-self: start;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 3px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--accent, #a9e8c9);
+}
+
+.setup-oauth-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.setup-oauth a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .setup-actions {
   display: flex;
   justify-content: space-between;

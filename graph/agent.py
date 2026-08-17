@@ -167,6 +167,23 @@ def _build_middleware(config: LangGraphConfig, knowledge_store=None, skills_inde
     if config.tool_timeout_middleware:
         middleware.append(ToolTimeoutMiddleware(timeout_seconds=config.tool_timeout_seconds))
 
+    # Native OAuth providers (ADR 0097) need a provider-specific request shape. Added
+    # INNERMOST (last → transforms the model request last, after PromptCache/knowledge
+    # injection have had their say) so it has the final word on the system prompt. Hard
+    # no-op for the gateway path (nothing appended).
+    from graph.providers import is_native_oauth_provider
+
+    provider = (getattr(config, "model_provider", "") or "").strip().lower()
+    if is_native_oauth_provider(provider):
+        if provider == "anthropic-oauth":
+            from graph.middleware.claude_code_identity import ClaudeCodeIdentityMiddleware
+
+            middleware.append(ClaudeCodeIdentityMiddleware())
+        elif provider == "openai-codex":
+            from graph.middleware.codex_responses_input import CodexResponsesInputMiddleware
+
+            middleware.append(CodexResponsesInputMiddleware())
+
     return middleware
 
 

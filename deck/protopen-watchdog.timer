@@ -1,0 +1,16 @@
+[Unit]
+Description=protoPen reachability watchdog tick
+
+[Timer]
+# Realtime (not monotonic) on purpose: a tick that elapses while the Deck is
+# suspended is run as soon as it resumes, so this doubles as the post-resume
+# trigger without needing a root sleep hook.
+OnCalendar=*:*:0/30
+# Boot needs the same repair path — the runtime takes ~70s to serve, and the
+# script's boot grace keeps this from fighting a starting service.
+OnStartupSec=90
+AccuracySec=5s
+Unit=protopen-watchdog.service
+
+[Install]
+WantedBy=timers.target

@@ -299,6 +299,36 @@ export type SetupStatus = {
   presets: string[];
 };
 
+// Native OAuth-subscription providers (ADR 0097) — run Claude/ChatGPT on your own
+// coding-agent plan instead of a gateway key.
+export type OAuthProviderStatus = {
+  provider: string;
+  signed_in: boolean;
+  source: string;
+  detail: string;
+  hint: string;
+};
+
+export type OAuthStartResponse = {
+  ok: boolean;
+  error?: string;
+  provider?: string;
+  flow_id?: string;
+  mode?: "device" | "redirect";
+  // device flow (openai-codex)
+  user_code?: string;
+  verification_uri?: string;
+  interval?: number;
+  // redirect flow (anthropic-oauth)
+  authorize_url?: string;
+};
+
+export type OAuthPollResponse = {
+  status: "pending" | "complete" | "error";
+  error?: string;
+  reload?: string;
+};
+
 // Durable Activity thread (ADR 0003) — agent-initiated turns land here.
 export type ActivityMessage = { role: "user" | "assistant"; content: string };
 

@@ -58,11 +58,17 @@ fi
 
 # 3) launcher (run wrapper + kiosk + desktop entry)
 install -Dm755 "$SRC_DIR/protopen-runtime-run.sh" "$HOME/.local/bin/protopen-runtime-run.sh"
+install -Dm755 "$SRC_DIR/protopen-watchdog.sh"     "$HOME/.local/bin/protopen-watchdog.sh"
 install -Dm755 "$SRC_DIR/protopen-kiosk.sh"        "$HOME/protopen-kiosk.sh"
 install -Dm644 "$SRC_DIR/protopen.desktop"         "$HOME/.local/share/applications/protopen.desktop"
 
 # 4) systemd --user unit + port/image drop-in (+ reuse the Infisical token drop-in)
 install -Dm644 "$SRC_DIR/protopen-runtime.service" "$UNIT_DIR/protopen-runtime.service"
+# Reachability watchdog: repairs the tailnet + runtime after a resume, so sleep
+# can stay ENABLED. (Masking sleep to keep the Deck online strands it on a black
+# screen — Game Mode blanks the panel before suspending. See protopen-watchdog.sh.)
+install -Dm644 "$SRC_DIR/protopen-watchdog.service" "$UNIT_DIR/protopen-watchdog.service"
+install -Dm644 "$SRC_DIR/protopen-watchdog.timer"   "$UNIT_DIR/protopen-watchdog.timer"
 cat > "$UNIT_DIR/protopen-runtime.service.d/env.conf" <<EOF
 [Service]
 Environment=PROTOPEN_PORT=$PORT
@@ -97,6 +103,9 @@ systemctl --user enable protopen-runtime.service
 # restart (not just enable --now): on a re-run an already-active unit must pick up
 # the updated env.conf / infisical.conf and the freshly pulled image.
 systemctl --user restart protopen-runtime.service
+
+echo "==> enabling the reachability watchdog (post-resume repair)"
+systemctl --user enable --now protopen-watchdog.timer
 
 cat <<EOF
 

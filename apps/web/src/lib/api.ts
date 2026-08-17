@@ -14,6 +14,9 @@ import type {
   HitlPayload,
   IntelSearchResult,
   KnowledgeSearchResult,
+  OAuthPollResponse,
+  OAuthProviderStatus,
+  OAuthStartResponse,
   PlaybookRunResult,
   PlaybookSummary,
   SkillSummary,
@@ -426,6 +429,46 @@ export const api = {
     return request<{ ok: boolean; message: string }>("/api/config/setup", {
       method: "POST",
       body: { config, soul },
+    });
+  },
+
+  // Native OAuth-subscription sign-in (ADR 0097) — Claude/ChatGPT on your own plan.
+  oauthStatus() {
+    return request<{ providers: OAuthProviderStatus[] }>("/api/config/oauth/status");
+  },
+
+  oauthStart(provider: string) {
+    return request<OAuthStartResponse>("/api/config/oauth/start", {
+      method: "POST",
+      body: { provider },
+    });
+  },
+
+  oauthPoll(flowId: string) {
+    return request<OAuthPollResponse>("/api/config/oauth/poll", {
+      method: "POST",
+      body: { flow_id: flowId },
+    });
+  },
+
+  oauthComplete(flowId: string, code: string) {
+    return request<OAuthPollResponse>("/api/config/oauth/complete", {
+      method: "POST",
+      body: { flow_id: flowId, code },
+    });
+  },
+
+  oauthCancel(flowId: string) {
+    return request<{ ok: boolean; cancelled: boolean }>("/api/config/oauth/cancel", {
+      method: "POST",
+      body: { flow_id: flowId },
+    });
+  },
+
+  oauthDisconnect(provider: string) {
+    return request<{ ok: boolean; note?: string; error?: string }>("/api/config/oauth/disconnect", {
+      method: "POST",
+      body: { provider },
     });
   },
 

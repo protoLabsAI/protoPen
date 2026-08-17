@@ -97,10 +97,23 @@ and remember GHCR `:latest` may be newer than the last tag (manual dispatches pu
 
 ## Gotchas
 
-- **Deep-suspend (S3) takes the Deck fully offline** (wifi, tailscaled, container).
-  For remote ops mask sleep: `sudo systemctl mask sleep.target suspend.target
-  hibernate.target hybrid-sleep.target` (re-add symlinks to
-  `/etc/atomic-update.conf.d/` since /etc is wiped by OS updates). Power off manually after.
+- **Deep-suspend (S3) takes the Deck fully offline** (wifi, tailscaled, container) —
+  wake it before remote ops, and expect SSH to drop if it sleeps mid-session.
+  **Do NOT mask the sleep targets to prevent this.** That was tried 2026-07-22 and
+  reverted 2026-07-31: Game Mode blanks the panel *before* calling suspend, so a masked
+  `suspend.target` makes the suspend fail with the screen already off and no resume to
+  turn it back on — the Deck sits awake on a black screen with no wake path. (The
+  2026-06-21 note predicted exactly this; the 2026-07-22 masking treated it as a
+  separate display-wake concern and shipped anyway.) If sleep is ever masked again the
+  fix is `sudo systemctl unmask sleep.target suspend.target hibernate.target
+  hybrid-sleep.target` + drop those paths from `/etc/atomic-update.conf.d/protopen-keep.conf`.
+  Keeping the Deck reachable across a suspend is the **watchdog's** job, not sleep
+  prevention: `protopen-watchdog.timer` (user scope, installed by `deck/install.sh`)
+  probes the tailnet + runtime every 30s and repairs only what's broken. It's a
+  realtime timer on purpose — a tick that elapses during suspend runs on resume, so
+  it doubles as the post-resume trigger with nothing root-owned to preserve.
+  Check it with `systemctl --user list-timers protopen-watchdog.timer` and
+  `journalctl --user -u protopen-watchdog.service`.
 - **Tailscale SSH kills child processes on disconnect** — never `nohup`/`setsid` a
   server; always the systemd user service.
 - **Corrupted session** (`tool_use ids … without tool_result`):

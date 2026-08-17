@@ -202,17 +202,33 @@ def _init_langgraph_agent():
     if status_block:
         print("[sitrep] Startup probe injected into system prompt")
 
-    STATE.graph = create_researcher_graph(
-        config=STATE.graph_config,
-        knowledge_store=store,
-        include_subagents=True,
-        sitrep=status_block,
-        checkpointer=STATE.checkpointer,
-        workflow_registry=STATE.workflow_registry,
-        skills_index=STATE.skills_index,
-    )
+    try:
+        STATE.graph = create_researcher_graph(
+            config=STATE.graph_config,
+            knowledge_store=store,
+            include_subagents=True,
+            sitrep=status_block,
+            checkpointer=STATE.checkpointer,
+            workflow_registry=STATE.workflow_registry,
+            skills_index=STATE.skills_index,
+        )
+        print(f"[researcher] LangGraph agent initialized (model: {STATE.graph_config.model_name})")
+    except Exception as exc:  # noqa: BLE001
+        # A native OAuth-subscription provider (ADR 0097) that isn't signed in yet raises
+        # OAuthCredentialError while building the model. Boot graphless so the console + setup
+        # wizard still serve the sign-in flow; the OAuth `complete` route rebuilds the graph in
+        # place. For the gateway path this never raises (it constructs with a placeholder key).
+        # Narrow to that credential error specifically — a missing dependency, a bad model id,
+        # a middleware/tool/compile error is a real failure the operator must see, so re-raise it.
+        from graph.providers import is_native_oauth_provider
+        from graph.providers.oauth import OAuthCredentialError
 
-    print(f"[researcher] LangGraph agent initialized (model: {STATE.graph_config.model_name})")
+        native = is_native_oauth_provider(getattr(STATE.graph_config, "model_provider", ""))
+        if native and isinstance(exc, OAuthCredentialError):
+            STATE.graph = None
+            print(f"[researcher] OAuth provider not signed in ({exc}); serving console for sign-in.")
+        else:
+            raise
 
 
 def _detect_vllm_model(api_base: str) -> str | None:

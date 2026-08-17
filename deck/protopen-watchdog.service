@@ -1,0 +1,12 @@
+[Unit]
+# Repairs the tailnet + runtime after a resume (or a wifi drop / container
+# crash). Paired with protopen-watchdog.timer; see protopen-watchdog.sh for why
+# this is a user timer rather than a root /usr/lib/systemd/system-sleep hook.
+Description=protoPen reachability watchdog (post-resume repair)
+After=protopen-runtime.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/protopen-watchdog.sh
+# Never let a stuck probe pile up ticks — the timer fires again shortly anyway.
+TimeoutStartSec=120
