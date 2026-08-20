@@ -111,3 +111,38 @@ class TestNanobotInterface:
 
     def test_has_name(self, mgr):
         assert mgr.name == "engagement"
+
+
+class TestWorkspaceRootResilience:
+    """The engagement workspace root must never 500 start on a non-Deck host —
+    a stale/host-specific workspace_dir (e.g. the old /home/deck/engagements
+    default) that can't be created must fall back to ~/.protopen/engagements."""
+
+    def test_writable_configured_dir_is_used(self, config, tmp_path):
+        wd = tmp_path / "engagements"
+        config["engagement"]["workspace_dir"] = str(wd)
+        mgr = EngagementManager(config)
+        assert mgr._workspace_root == wd
+        mgr.start("scrim", scope="192.168.4.70", mode="passive")
+        assert (wd / "scrim").is_dir()
+
+    def test_uncreatable_configured_dir_falls_back(self, config, tmp_path, monkeypatch):
+        # Home → tmp so the fallback lands in the sandbox, not the real ~.
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        # A path whose PARENT is a regular file can never be mkdir'd (NotADirectoryError,
+        # an OSError) — a portable stand-in for the /home/deck 500 on a non-Deck host.
+        blocker = tmp_path / "blocker"
+        blocker.write_text("x")
+        config["engagement"]["workspace_dir"] = str(blocker / "engagements")
+        mgr = EngagementManager(config)  # must NOT raise
+        assert mgr._workspace_root == tmp_path / ".protopen" / "engagements"
+        mgr.start("scrim", scope="192.168.4.70", mode="passive")  # must NOT 500
+        assert (tmp_path / ".protopen" / "engagements" / "scrim").is_dir()
+
+    def test_default_when_key_absent(self, config, tmp_path, monkeypatch):
+        # Missing workspace_dir key uses the /sandbox default, then falls back
+        # when /sandbox isn't writable here.
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        config["engagement"].pop("workspace_dir", None)
+        mgr = EngagementManager(config)
+        assert mgr._workspace_root in (Path("/sandbox/engagements"), tmp_path / ".protopen" / "engagements")
