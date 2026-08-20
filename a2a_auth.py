@@ -60,10 +60,18 @@ def configure(*, bearer_token: str | None, api_key: str, allowed_origins_raw: st
     raw_bearer = bearer_token if bearer_token is not None else os.environ.get("A2A_AUTH_TOKEN", "")
     seed = (raw_bearer or "").strip()
     _BEARER[0] = seed or None
-    if _BEARER[0] is None:
-        logger.warning("[a2a] A2A auth token not configured — endpoint is open")
-
     _API_KEY[0] = api_key or ""
+
+    # Warn only when NO auth mechanism is configured. protoPen is API-key-only by
+    # design (bearer_token="" disables bearer so A2A_AUTH_TOKEN can't silently
+    # re-enable it), so a strong X-API-Key with no bearer is the intended,
+    # gated deployment — not an open endpoint (#350). The old check looked at the
+    # bearer slot alone and cried "endpoint is open" on every correct boot, which
+    # trains operators to ignore the one warning that should mean something.
+    if _BEARER[0] is None and not _API_KEY[0]:
+        logger.warning("[a2a] no A2A auth configured (no bearer, no API key) — endpoint is open")
+    elif _BEARER[0] is None:
+        logger.info("[a2a] auth: X-API-Key (bearer disabled)")
 
     raw = (allowed_origins_raw or "").strip()
     if not raw:
