@@ -55,6 +55,27 @@ def test_none_bearer_token_still_uses_env_fallback(monkeypatch):
     assert a2a_auth._BEARER[0] == "env-token"
 
 
+def test_api_key_only_does_not_warn_endpoint_open(caplog):
+    """#350: API-key-only (bearer "", strong X-API-Key) is a GATED deployment —
+    it must not log the 'endpoint is open' warning. The endpoint really is gated."""
+    with caplog.at_level("INFO", logger="a2a_auth"):
+        a2a_auth.configure(bearer_token="", api_key="s3cret-key", allowed_origins_raw="*")
+    assert not any("endpoint is open" in r.message for r in caplog.records)
+    assert any("X-API-Key" in r.message for r in caplog.records)
+    # And the guard actually enforces the key.
+    c = TestClient(_app())
+    assert c.post("/a2a").status_code == 401
+    assert c.post("/a2a", headers={"x-api-key": "s3cret-key"}).status_code == 200
+
+
+def test_no_auth_at_all_still_warns_endpoint_open(caplog):
+    """The warning must still fire when NEITHER bearer NOR API key is set —
+    that's the one case where it genuinely means something."""
+    with caplog.at_level("WARNING", logger="a2a_auth"):
+        a2a_auth.configure(bearer_token="", api_key="", allowed_origins_raw="*")
+    assert any("endpoint is open" in r.message for r in caplog.records)
+
+
 def test_origin_check_skipped_when_no_origin_header():
     """Server-to-server callers send no Origin and must not be rejected."""
     a2a_auth.configure(bearer_token="", api_key="", allowed_origins_raw="https://console.example.com")
