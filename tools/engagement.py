@@ -41,12 +41,37 @@ class EngagementManager(Tool):
         self._config = config
         self._mode = EngagementMode[config["engagement"].get("default_mode", "passive").upper()]
         self._tool_risk: dict[str, int] = config.get("tool_risk", {})
-        self._workspace_root = Path(config["engagement"]["workspace_dir"])
+        self._workspace_root = self._ensure_workspace_root(
+            config["engagement"].get("workspace_dir", "/sandbox/engagements")
+        )
         self._webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "") or config["engagement"].get("alert_webhook", "")
         self.active_engagement: Optional[dict] = None
         self.findings: list[dict] = []
         self.target_store = None
         self.current_phase: str = ""
+
+    @staticmethod
+    def _ensure_workspace_root(configured: str) -> Path:
+        """Resolve a WRITABLE engagement workspace root.
+
+        The shipped default lives on the container data volume (``/sandbox``). A
+        non-container or non-Deck host — or a stale Deck-specific
+        ``/home/deck/...`` config — may not be able to create it, which used to
+        500 engagement start. Expand ``~``, try the configured root, and fall
+        back to ``~/.protopen/engagements`` when it can't be created, so a bad
+        or host-specific path degrades instead of failing the start."""
+        fallback = Path.home() / ".protopen" / "engagements"
+        for root in (Path(configured).expanduser(), fallback):
+            try:
+                root.mkdir(parents=True, exist_ok=True)
+                return root
+            except OSError as exc:
+                logger.warning(
+                    "[engagement] workspace root %s unusable (%s); falling back", root, exc
+                )
+        # Even the fallback failed to create — return it anyway so start() surfaces
+        # a clear error at write time rather than KeyError/500-ing at construction.
+        return fallback
 
     _IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
     _MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b")

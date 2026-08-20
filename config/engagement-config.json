@@ -33,7 +33,7 @@
   },
   "engagement": {
     "default_mode": "passive",
-    "workspace_dir": "/home/deck/engagements",
+    "workspace_dir": "/sandbox/engagements",
     "alert_webhook": ""
   },
   "risk_levels": {
