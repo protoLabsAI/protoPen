@@ -21,7 +21,6 @@ env:
 jobs:
   release:
     name: Release
-    # workspace-config: allow-hosted-runner docker buildx build + registry push
     runs-on: ubuntu-latest
     permissions:
       contents: write

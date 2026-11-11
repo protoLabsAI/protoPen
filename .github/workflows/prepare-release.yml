@@ -32,7 +32,7 @@ concurrency:
 jobs:
   prepare:
     name: Prepare Release
-    runs-on: namespace-profile-protolabs-linux
+    runs-on: ubuntu-latest
     if: >-
       github.repository == 'protoLabsAI/protoPen' &&
       (

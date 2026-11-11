@@ -15,7 +15,6 @@ on:
 
 jobs:
   attach:
-    # workspace-config: allow-hosted-runner Cloudflare API + jq one-shot domain/DNS provisioning (no repo build)
     runs-on: ubuntu-latest
     env:
       # Prefer the purpose-built Pages token (Pages:Edit + Zone DNS:Edit); fall
